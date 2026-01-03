@@ -4412,7 +4412,6 @@ __metadata:
     eslint-plugin-react-refresh: "npm:^0.4.26"
     globals: "npm:^17.0.0"
     lucide-react: "npm:^0.562.0"
-    postcss: "npm:^8.5.6"
     prettier: "npm:^3.7.4"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"

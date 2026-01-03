@@ -28,8 +28,11 @@ jobs:
           node-version: 20
           cache: yarn
 
-      - name: Enable Corepack (Yarn)
-        run: corepack enable
+      - name: Enable + activate Yarn 4 (Corepack)
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
+          corepack yarn --version
 
       - name: Install deps
         run: yarn install --immutable
@@ -43,42 +46,11 @@ jobs:
       - name: Build (required)
         run: yarn build
 
-      - name: Prepare package for GitHub Packages publish (scoped name + Yarn auth)
+      - name: Patch package name for GitHub Packages (scoped)
         run: |
-          node <<'NODE'
-          const fs = require("fs");
-          const path = require("path");
-
-          const owner = (process.env.GITHUB_REPOSITORY_OWNER || "").toLowerCase();
-          if (!owner) throw new Error("Missing GITHUB_REPOSITORY_OWNER");
-
-          // Patch package.json name to a scoped name required by GitHub Packages
-          const pkgPath = path.join(process.cwd(), "package.json");
-          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-
-          // Publish name in GitHub Packages MUST be scoped: @<owner>/<package>
-          pkg.name = `@${owner}/the-datagrid`;
-
-          // Optional but recommended: pin registry for publish
-          pkg.publishConfig = { ...(pkg.publishConfig || {}), registry: "https://npm.pkg.github.com" };
-
-          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-          console.log("Prepared package.json name:", pkg.name);
-
-          // Create a project-level .yarnrc.yml that points this scope to GitHub Packages.
-          // Uses env substitution so the token isn't stored in the repo.
-          const yarnrc = [
-            "npmScopes:",
-            `  ${owner}:`,
-            '    npmRegistryServer: "https://npm.pkg.github.com"',
-            "    npmAlwaysAuth: true",
-            "    npmAuthToken: ${NODE_AUTH_TOKEN:-}",
-            "",
-          ].join("\n");
-
-          fs.writeFileSync(path.join(process.cwd(), ".yarnrc.yml"), yarnrc);
-          console.log("Wrote .yarnrc.yml for scope:", owner);
-          NODE
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          npm pkg set "name=@${OWNER}/the-datagrid"
+          npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
 
       - name: Set preview version (unique per run)
         id: version
@@ -93,4 +65,4 @@ jobs:
       - name: Publish (GitHub Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn npm publish --tag preview
+        run: corepack yarn npm publish --tag preview
