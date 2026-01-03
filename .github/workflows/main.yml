@@ -30,17 +30,21 @@ jobs:
         with:
           node-version: 20
 
-      - name: Enable corepack + pin Yarn 4.12.0
+      - name: Enable corepack + pin Yarn
         run: |
           corepack enable
-          corepack prepare "yarn@$env:YARN_VERSION" --activate
+          corepack prepare "yarn@${YARN_VERSION}" --activate
           corepack yarn --version
+          which yarn || true
+          yarn --version || true
 
       - name: Resolve Yarn cache dir
         id: yarn-cache
         run: |
-          $dir = (corepack yarn config get cacheFolder).Trim()
-          "dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          DIR="$(corepack yarn config get cacheFolder | tr -d '\n' | sed 's/"//g')"
+          echo "dir=${DIR}" >> "${GITHUB_OUTPUT}"
+          echo "Yarn cacheFolder: ${DIR}"
+          mkdir -p "${DIR}"
 
       - name: Restore Yarn cache
         uses: actions/cache@v4
@@ -50,22 +54,21 @@ jobs:
             .yarn/unplugged
             .yarn/build-state.yml
             .yarn/install-state.gz
-          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-yarn-${{ env.YARN_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-yarn-${{ env.YARN_VERSION }}-
 
       - name: Install dependencies (immutable)
-        run: |
-          yarn install --immutable
+        run: corepack yarn install --immutable
 
       - name: Test (if present)
         run: |
           node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)" \
-            && yarn test \
+            && corepack yarn test \
             || echo "No test script; skipping."
 
       - name: Build (required)
-        run: yarn build
+        run: corepack yarn build
 
       - name: Patch package name for GitHub Packages (scoped)
         run: |
