@@ -5,6 +5,9 @@ on:
     branches: ["main", "master"]
   workflow_dispatch: {}
 
+env:
+  YARN_VERSION: 4.12.0
+
 concurrency:
   group: publish-preview-github-packages
   cancel-in-progress: false
@@ -17,25 +20,43 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout
+      - name: Checkout (full history for tags)
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
 
-      - name: Enable + activate Yarn 4 (Corepack)
+      - name: Enable corepack + pin Yarn 4.12.0
         run: |
           corepack enable
-          corepack prepare yarn@4.12.0 --activate
+          corepack prepare "yarn@$env:YARN_VERSION" --activate
           corepack yarn --version
 
-      - name: Install deps
-        run: yarn install --immutable
+      - name: Resolve Yarn cache dir
+        id: yarn-cache
+        run: |
+          $dir = (corepack yarn config get cacheFolder).Trim()
+          "dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.yarn-cache.outputs.dir }}
+            .yarn/unplugged
+            .yarn/build-state.yml
+            .yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies (immutable)
+        run: |
+          yarn install --immutable
 
       - name: Test (if present)
         run: |
