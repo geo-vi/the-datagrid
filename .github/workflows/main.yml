@@ -75,7 +75,7 @@ jobs:
           # Keep token out of repo config; Yarn will resolve it from env at runtime.
           yarn config set 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' '${NODE_AUTH_TOKEN-}'
 
-      - name: Publish (dist-tag: preview)
+      - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: yarn npm publish --tag preview
