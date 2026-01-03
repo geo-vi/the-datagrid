@@ -1,0 +1,33 @@
+# Source files
+src/
+examples/
+lib/
+
+# Development files
+.vite/
+node_modules/
+*.local
+
+# Build artifacts (keep dist/)
+*.tsbuildinfo
+
+# Config files
+vite.config.ts
+tsconfig*.json
+tailwind.config.js
+postcss.config.js
+components.json
+eslint.config.js
+
+# Git
+.git/
+.gitignore
+.yarnrc.yml
+
+# Docs (keep README.md)
+BUILD_SETUP.md
+AGENTS.md
+
+# Misc
+*.log
+.DS_Store

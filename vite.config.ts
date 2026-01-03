@@ -1,0 +1,64 @@
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import { fileURLToPath } from "node:url"
+import dts from "vite-plugin-dts"
+import path from "path"
+
+// https://vite.dev/config/
+export default defineConfig(({ command }) => {
+  const isDev = command === "serve"
+  
+  // In dev mode, serve the examples app
+  if (isDev) {
+    return {
+      plugins: [react()],
+      resolve: {
+        alias: {
+          "@": path.resolve(__dirname, "./src"),
+        },
+      },
+      root: path.resolve(__dirname, "./examples"),
+    }
+  }
+
+  // In build mode, build the library
+  return {
+    plugins: [
+      react(),
+      dts({
+        include: ["src/**/*"],
+        exclude: ["src/**/*.test.*", "src/**/__tests__/**"],
+        tsconfigPath: "./tsconfig-build.json",
+      }),
+    ],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+    build: {
+      copyPublicDir: false,
+      lib: {
+        entry: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
+        formats: ["es"],
+        fileName: "index",
+      },
+      rollupOptions: {
+        external: [
+          "react",
+          "react-dom",
+          "react/jsx-runtime",
+          "@tanstack/react-table",
+          "@tanstack/react-virtual",
+          "@tabler/icons-react",
+          "@radix-ui/react-dropdown-menu",
+          "@radix-ui/react-select",
+          "@radix-ui/react-label",
+        ],
+        output: {
+          preserveModules: false,
+        },
+      },
+    },
+  }
+})
