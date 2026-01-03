@@ -11,11 +11,7 @@ import type {
 } from "./types";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
@@ -29,6 +25,7 @@ import {
   IconDotsVertical,
 } from "@tabler/icons-react";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,21 +35,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { getColumnId, getColumnSortName } from "./utils/column";
 import { t, coerceUserSelect, estimateAutoWidth } from "./utils/helpers";
@@ -66,12 +50,7 @@ import {
   applyLocalFilter,
   STRING_OPERATORS,
 } from "./filters/utils";
-import {
-  getSortDir,
-  toggleSortInfo,
-  toTanstackSorting,
-  applyLocalSort,
-} from "./sorting/utils";
+import { getSortDir, toggleSortInfo, toTanstackSorting, applyLocalSort } from "./sorting/utils";
 
 function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
   if (dir === 1) return <IconChevronUp className="ml-1 size-3" />;
@@ -83,7 +62,6 @@ function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
  */
 export const plugins: readonly unknown[] = [] as const;
-
 
 type FilterMenuState = {
   open: boolean;
@@ -124,7 +102,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const defaultColumnOrder = React.useMemo(
     () => inputColumns.map((c) => getColumnId(c)),
-    [inputColumns]
+    [inputColumns],
   );
 
   const [columnOrder, setColumnOrder] = useControllableState<string[]>({
@@ -187,28 +165,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return ordered.filter((c) => c.visible !== false);
   }, [inputColumns, columnOrder]);
 
-  const tanstackSorting = React.useMemo(
-    () => toTanstackSorting(sortInfo, orderedColumns),
-    [sortInfo, orderedColumns]
-  );
+  const tanstackSorting = React.useMemo(() => toTanstackSorting(sortInfo, orderedColumns), [
+    sortInfo,
+    orderedColumns,
+  ]);
 
   const [rows, setRows] = React.useState<any[]>([]);
   const [count, setCount] = React.useState<number>(0);
   const [internalLoading, setInternalLoading] = React.useState(false);
   const loading = props.loading ?? internalLoading;
 
-  const computedFilterForFetch = filterControlled ? filterValue : filterValue;
+  const computedFilterForFetch = filterValue;
   const computedSortForFetch = sortInfo;
-
-  // const remote = React.useMemo(() => isRemoteDataSource(dataSource), [dataSource]);
 
   const loadData = React.useCallback(async () => {
     // For local array dataSource: apply local filter/sort/pagination.
     if (Array.isArray(dataSource)) {
       let data = dataSource;
 
-      if (enableFiltering && computedFilterForFetch)
-        data = applyLocalFilter(data, computedFilterForFetch);
+      if (enableFiltering && computedFilterForFetch) data = applyLocalFilter(data, computedFilterForFetch);
       if (computedSortForFetch) data = applyLocalSort(data, computedSortForFetch);
 
       const totalCount = data.length;
@@ -340,12 +315,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         id: colId,
         accessorFn: (row) => (row as any)?.[colId],
         enableSorting: c.sortable ?? true,
-        header: () => {
-          const content =
-            c.renderHeader?.({ column: c }) ?? c.header ?? c.name ?? c.id ?? colId;
-
-          return content;
-        },
+        header: () => c.renderHeader?.({ column: c }) ?? c.header ?? c.name ?? c.id ?? colId,
         cell: (ctx) => {
           const value = ctx.getValue();
           if (c.render) {
@@ -479,8 +449,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const canPrev = skip > 0;
   const canNext = skip + safeLimit < count;
 
-  const userSelectClass =
-    coerceUserSelect(columnUserSelect) === "none" ? "select-none" : "select-text";
+  const userSelectClass = coerceUserSelect(columnUserSelect) === "none" ? "select-none" : "select-text";
 
   // Header drag/drop reorder (simple HTML DnD)
   const dragIdRef = React.useRef<string | null>(null);
@@ -518,35 +487,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   // Render
   return (
-    <div
-      className={["flex flex-col gap-2 lg:gap-6", className].filter(Boolean).join(" ")}
-      data-theme={theme}
-    >
+    <div className={cn("flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
       <div
         ref={scrollRef}
-        className={[
-          "overflow-auto rounded-lg border",
-          // if virtualized, prefer an internal scroller; default height if none provided
+        className={cn(
+          "relative overflow-auto rounded-lg border border-border",
           virtualized ? "max-h-[560px]" : "",
-        ].join(" ")}
+        )}
         style={style}
       >
-        <Table>
-          <TableHeader className="bg-background sticky top-0 z-10">
+        {/* IMPORTANT: do NOT use shadcn <Table /> wrapper here (it adds its own overflow container),
+            otherwise sticky header + virtualization can break. */}
+        <table className="w-full table-fixed caption-bottom text-sm">
+          <TableHeader>
             {/* Header row */}
             {table.getHeaderGroups().map((hg) => (
-              <TableRow
-                key={hg.id}
-                className="bg-muted"
-                style={{ height: headerHeight }}
-              >
+              <TableRow key={hg.id} className="bg-muted/50" style={{ height: headerHeight }}>
                 {hg.headers.map((h) => {
                   const colDef = h.column.columnDef as any;
                   const col: TypeColumn | undefined = colDef?.meta?.__column;
                   const colId = h.column.id;
 
-                  const canSort =
-                    (col?.sortable ?? true) && h.column.getCanSort();
+                  const canSort = (col?.sortable ?? true) && h.column.getCanSort();
                   const sortName = col ? getColumnSortName(col) : colId;
                   const dir = getSortDir(sortInfo, sortName);
 
@@ -557,12 +519,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     <TableHead
                       key={h.id}
                       colSpan={h.colSpan}
-                      className={[
-                        headerAlign === "right" || headerAlign === "end"
-                          ? "text-right"
-                          : "",
-                        col?.headerProps?.className ?? "",
-                      ].join(" ")}
+                      className={cn(
+                        "sticky top-0 z-20 bg-muted/50",
+                        headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
+                        col?.headerProps?.className,
+                      )}
                       style={{
                         width,
                         minWidth: col?.minWidth,
@@ -579,6 +540,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                         <div className="flex min-w-0 items-center">
                           {h.isPlaceholder ? null : canSort ? (
                             <Button
+                              type="button"
                               variant="ghost"
                               size="sm"
                               className="-ml-3 h-8 px-2"
@@ -588,8 +550,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                                   col: col ?? { name: colId },
                                   allowUnsort,
                                   defaultDir: defaultSortDir,
-                                  multi:
-                                    (e as any).shiftKey === true,
+                                  multi: (e as any).shiftKey === true,
                                 });
 
                                 setSkip(0);
@@ -597,19 +558,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
                               }}
                             >
                               <span className="truncate">
-                                {flexRender(
-                                  h.column.columnDef.header,
-                                  h.getContext()
-                                )}
+                                {flexRender(h.column.columnDef.header, h.getContext())}
                               </span>
                               {sortIcon(dir)}
                             </Button>
                           ) : (
                             <span className="truncate">
-                              {flexRender(
-                                h.column.columnDef.header,
-                                h.getContext()
-                              )}
+                              {flexRender(h.column.columnDef.header, h.getContext())}
                             </span>
                           )}
                         </div>
@@ -618,6 +573,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="size-7"
@@ -628,11 +584,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem
-                                onClick={() => {
-                                  const next: TypeSortInfo = {
-                                    name: sortName,
-                                    dir: 1,
-                                  };
+                                onSelect={() => {
+                                  const next: TypeSortInfo = { name: sortName, dir: 1 };
                                   setSkip(0);
                                   setSortInfo(next);
                                 }}
@@ -640,11 +593,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                                 {t(i18n, "sortAsc", "Sort A→Z")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => {
-                                  const next: TypeSortInfo = {
-                                    name: sortName,
-                                    dir: -1,
-                                  };
+                                onSelect={() => {
+                                  const next: TypeSortInfo = { name: sortName, dir: -1 };
                                   setSkip(0);
                                   setSortInfo(next);
                                 }}
@@ -652,7 +602,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                                 {t(i18n, "sortDesc", "Sort Z→A")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => {
+                                onSelect={() => {
                                   setSkip(0);
                                   setSortInfo(null);
                                 }}
@@ -674,7 +624,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               table.getHeaderGroups().map((hg) => (
                 <TableRow
                   key={`${hg.id}-filters`}
-                  className="bg-muted/40"
+                  className="bg-background/95 supports-[backdrop-filter]:bg-background/60"
                   style={{ height: filterRowHeight }}
                 >
                   {hg.headers.map((h) => {
@@ -684,10 +634,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
                     const filterable = col?.filterable ?? false;
 
-                    const entry = getFilterEntry(
-                      filterControlled ? filterValue : draftFilterValue,
-                      colId
-                    );
+                    const entry = getFilterEntry(filterControlled ? filterValue : draftFilterValue, colId);
                     const value = entry?.value ?? "";
 
                     const openMenu = (e: React.MouseEvent) => {
@@ -706,8 +653,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     return (
                       <TableHead
                         key={`${h.id}-filter`}
-                        className="py-2"
+                        className={cn(
+                          "sticky z-10 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+                        )}
                         style={{
+                          top: headerHeight,
                           width,
                           minWidth: col?.minWidth,
                           maxWidth: col?.maxWidth,
@@ -720,8 +670,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                             filterValue={{
                               name: colId,
                               operator: entry?.operator ?? "contains",
-                              type:
-                                entry?.type ?? col.filterType ?? "string",
+                              type: entry?.type ?? col.filterType ?? "string",
                               value: entry?.value ?? null,
                               filterEditorProps: col.filterEditorProps,
                             }}
@@ -736,19 +685,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
                               setSkip(0);
                               if (filterControlled)
-                                setFilterValue(
-                                  upsertFilterEntry(filterValue, nextEntry)
-                                );
-                              else
-                                setDraftFilterValue(
-                                  upsertFilterEntry(draftFilterValue, nextEntry)
-                                );
+                                setFilterValue(upsertFilterEntry(filterValue, nextEntry));
+                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
                             }}
                           />
                         ) : col?.filterType === "select" &&
                           Array.isArray((col.filterEditorProps as any)?.options) ? (
                           <Select
-                            value={String(value || "__all__")}
+                            value={String(value === "" || value == null ? "__all__" : value)}
                             onValueChange={(v: string) => {
                               const nextValue = v === "__all__" ? "" : v;
 
@@ -762,29 +706,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
                               setSkip(0);
                               if (filterControlled)
-                                setFilterValue(
-                                  upsertFilterEntry(filterValue, nextEntry)
-                                );
-                              else
-                                setDraftFilterValue(
-                                  upsertFilterEntry(draftFilterValue, nextEntry)
-                                );
+                                setFilterValue(upsertFilterEntry(filterValue, nextEntry));
+                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
                             }}
                           >
                             <SelectTrigger className="h-8 w-full">
-                              <SelectValue
-                                placeholder={t(i18n, "contains", "All")}
-                              />
+                              <SelectValue placeholder={String(t(i18n, "contains", "All"))} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__all__">
-                                {t(i18n, "clearAll", "All")}
-                              </SelectItem>
+                              <SelectItem value="__all__">{t(i18n, "clearAll", "All")}</SelectItem>
                               {((col.filterEditorProps as any)?.options || []).map((o: any) => (
-                                <SelectItem
-                                  key={String(o.value)}
-                                  value={String(o.value)}
-                                >
+                                <SelectItem key={String(o.value)} value={String(o.value)}>
                                   {String(o.label ?? o.value)}
                                 </SelectItem>
                               ))}
@@ -805,14 +737,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                               };
 
                               setSkip(0);
-                              if (filterControlled)
-                                setFilterValue(
-                                  upsertFilterEntry(filterValue, nextEntry)
-                                );
-                              else
-                                setDraftFilterValue(
-                                  upsertFilterEntry(draftFilterValue, nextEntry)
-                                );
+                              if (filterControlled) setFilterValue(upsertFilterEntry(filterValue, nextEntry));
+                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
                             }}
                             className="h-8 w-full"
                             placeholder={String(t(i18n, "contains", "Filter…"))}
@@ -828,19 +754,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
           <TableBody>
             {loading && rowModel.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={orderedColumns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rowModel.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={orderedColumns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
                   {t(i18n, "noRecords", "No records")}
                 </TableCell>
               </TableRow>
@@ -848,21 +768,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
               <>
                 {paddingTop > 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={orderedColumns.length}
-                      style={{ height: paddingTop }}
-                    />
+                    <TableCell colSpan={orderedColumns.length} style={{ height: paddingTop }} />
                   </TableRow>
                 )}
 
                 {virtualItems.map((vi) => {
                   const row = rowModel[vi.index]!;
                   return (
-                    <TableRow key={row.id} style={{ height: vi.size }}>
+                    <TableRow key={row.id} className="hover:bg-muted/40" style={{ height: vi.size }}>
                       {row.getVisibleCells().map((cell) => {
                         const colId = cell.column.id;
-                        const col = (cell.column.columnDef as any)?.meta
-                          ?.__column as TypeColumn | undefined;
+                        const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
                         const width = autoWidths[colId];
                         const align = col?.textAlign;
@@ -870,24 +786,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
                         return (
                           <TableCell
                             key={cell.id}
-                            className={[
+                            className={cn(
                               userSelectClass,
-                              align === "right" || align === "end"
-                                ? "text-right"
-                                : "",
-                              col?.className ?? "",
-                            ].join(" ")}
-                          style={{
-                            width,
-                            minWidth: col?.minWidth,
-                            maxWidth: col?.maxWidth,
-                            ...(typeof col?.style === 'object' && col?.style ? col.style : {}),
-                          }}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
+                              align === "right" || align === "end" ? "text-right" : "",
+                              col?.className,
                             )}
+                            style={{
+                              width,
+                              minWidth: col?.minWidth,
+                              maxWidth: col?.maxWidth,
+                              ...(typeof col?.style === "object" && col?.style ? col.style : {}),
+                            }}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
                         );
                       })}
@@ -897,20 +808,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
                 {paddingBottom > 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={orderedColumns.length}
-                      style={{ height: paddingBottom }}
-                    />
+                    <TableCell colSpan={orderedColumns.length} style={{ height: paddingBottom }} />
                   </TableRow>
                 )}
               </>
             ) : (
               rowModel.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className="hover:bg-muted/40">
                   {row.getVisibleCells().map((cell) => {
                     const colId = cell.column.id;
-                    const col = (cell.column.columnDef as any)?.meta
-                      ?.__column as TypeColumn | undefined;
+                    const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
                     const width = autoWidths[colId];
                     const align = col?.textAlign;
@@ -918,24 +825,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     return (
                       <TableCell
                         key={cell.id}
-                        className={[
+                        className={cn(
                           userSelectClass,
-                          align === "right" || align === "end"
-                            ? "text-right"
-                            : "",
-                          col?.className ?? "",
-                        ].join(" ")}
+                          align === "right" || align === "end" ? "text-right" : "",
+                          col?.className,
+                        )}
                         style={{
                           width,
                           minWidth: col?.minWidth,
                           maxWidth: col?.maxWidth,
-                          ...(typeof col?.style === 'object' && col?.style ? col.style : {}),
+                          ...(typeof col?.style === "object" && col?.style ? col.style : {}),
                         }}
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     );
                   })}
@@ -943,16 +845,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
               ))
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
 
       {/* Pagination footer */}
       <div className="flex items-center justify-between px-4">
-        <div className="text-muted-foreground hidden flex-1 text-sm md:block">
-          {t(i18n, "showingText", "Showing")}{" "}
-          <span className="font-mono">{count === 0 ? 0 : skip + 1}</span>–
-          <span className="font-mono">{Math.min(skip + limit, count)}</span>{" "}
-          {t(i18n, "ofText", "of")} <span className="font-mono">{count}</span>
+        <div className="hidden flex-1 text-sm text-muted-foreground md:block">
+          {t(i18n, "showingText", "Showing")} <span className="font-mono">{count === 0 ? 0 : skip + 1}</span>–
+          <span className="font-mono">{Math.min(skip + limit, count)}</span> {t(i18n, "ofText", "of")}{" "}
+          <span className="font-mono">{count}</span>
         </div>
 
         <div className="flex w-full items-center gap-4 md:w-auto">
@@ -969,7 +870,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               }}
             >
               <SelectTrigger className="h-9 w-20" id="rows-per-page">
-                <SelectValue placeholder={limit} />
+                <SelectValue placeholder={`${limit}`} />
               </SelectTrigger>
               <SelectContent side="top">
                 {pageSizes.map((size) => (
@@ -982,12 +883,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           </div>
 
           <div className="flex items-center justify-center text-sm font-medium">
-            {t(i18n, "pageText", "Page")} {pageIndex + 1}{" "}
-            {t(i18n, "ofText", "of")} {pageCount}
+            {t(i18n, "pageText", "Page")} {pageIndex + 1} {t(i18n, "ofText", "of")} {pageCount}
           </div>
 
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <Button
+              type="button"
               variant="outline"
               className="hidden h-8 w-8 p-0 md:flex"
               onClick={() => setSkip(0)}
@@ -998,6 +899,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             </Button>
 
             <Button
+              type="button"
               variant="outline"
               size="icon"
               className="size-8"
@@ -1009,6 +911,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             </Button>
 
             <Button
+              type="button"
               variant="outline"
               size="icon"
               className="size-8"
@@ -1020,6 +923,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             </Button>
 
             <Button
+              type="button"
               variant="outline"
               size="icon"
               className="hidden size-8 md:flex"
@@ -1036,16 +940,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
       {/* Filter context menu (cursor anchored) */}
       {filterMenu?.open && enableColumnFilterContextMenu && (
         <div
-          className="bg-popover text-popover-foreground fixed z-50 w-56 overflow-hidden rounded-md border shadow-md"
+          className="fixed z-50 w-56 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
           style={{ left: filterMenu.x, top: filterMenu.y }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="text-muted-foreground px-3 py-2 text-xs font-medium">
-            Filter
-          </div>
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Filter</div>
 
           <button
-            className="hover:bg-accent w-full px-3 py-2 text-left text-sm"
+            type="button"
+            className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
             onClick={() => {
               const colId = filterMenu.columnId;
               setSkip(0);
@@ -1056,14 +959,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
             {t(i18n, "clear", "Clear")}
           </button>
 
-          <div className="text-muted-foreground px-3 py-2 text-xs font-medium">
-            Operator
-          </div>
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Operator</div>
 
           {STRING_OPERATORS.map((op) => (
             <button
+              type="button"
               key={op.value}
-              className="hover:bg-accent w-full px-3 py-2 text-left text-sm"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
               onClick={() => {
                 const colId = filterMenu.columnId;
                 setSkip(0);
@@ -1080,5 +982,5 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
 }
 
-export { ReactDataGrid }
-export default ReactDataGrid
+export { ReactDataGrid };
+export default ReactDataGrid;

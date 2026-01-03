@@ -1,0 +1,81 @@
+name: Publish Preview (GitHub Packages)
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-preview-github-packages
+  cancel-in-progress: false
+
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Install deps
+        run: yarn install --immutable
+
+      - name: Test (if present)
+        run: |
+          node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)" \
+            && yarn test \
+            || echo "No test script; skipping."
+
+      - name: Build (required)
+        run: yarn build
+
+      - name: Ensure package is scoped (required by GitHub Packages)
+        run: |
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          echo "package.json name: ${PKG_NAME}"
+
+          if [[ "${PKG_NAME}" != @*/* ]]; then
+            echo "ERROR: GitHub Packages npm registry requires a scoped name, e.g. @<namespace>/the-datagrid"
+            exit 1
+          fi
+
+          SCOPE="${PKG_NAME#@}"
+          SCOPE="${SCOPE%%/*}"
+          if [[ "${SCOPE}" != "${SCOPE,,}" ]]; then
+            echo "ERROR: GitHub Packages requires lowercase scope. Current: ${SCOPE}"
+            exit 1
+          fi
+
+      - name: Set preview version (unique per run)
+        id: version
+        run: |
+          TS="$(date -u +%Y%m%dT%H%M%SZ)"
+          SHA="${GITHUB_SHA::7}"
+          VERSION="0.0.0-preview.${TS}.${SHA}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          npm version --no-git-tag-version "${VERSION}"
+          echo "Preview version: ${VERSION}"
+
+      - name: Configure Yarn to publish to GitHub Packages (without storing the token)
+        run: |
+          yarn config set npmPublishRegistry "https://npm.pkg.github.com"
+          yarn config set 'npmRegistries["//npm.pkg.github.com"].npmAlwaysAuth' true
+          # Keep token out of repo config; Yarn will resolve it from env at runtime.
+          yarn config set 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' '${NODE_AUTH_TOKEN-}'
+
+      - name: Publish (dist-tag: preview)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn npm publish --tag preview

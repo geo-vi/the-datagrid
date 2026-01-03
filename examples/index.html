@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>the-datagrid Examples</title>
+
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme"); // "dark" | "light" | null
+          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var isDark = stored ? stored === "dark" : prefersDark;
+          document.documentElement.classList.toggle("dark", isDark);
+        } catch {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

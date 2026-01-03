@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react"
 import { fileURLToPath } from "node:url"
 import dts from "vite-plugin-dts"
 import path from "path"
+import tailwindcss from "@tailwindcss/vite"
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => {
@@ -11,7 +12,7 @@ export default defineConfig(({ command }) => {
   // In dev mode, serve the examples app
   if (isDev) {
     return {
-      plugins: [react()],
+      plugins: [react(), tailwindcss()],
       resolve: {
         alias: {
           "@": path.resolve(__dirname, "./src"),
@@ -24,7 +25,8 @@ export default defineConfig(({ command }) => {
   // In build mode, build the library
   return {
     plugins: [
-      react(),
+      react(), 
+      tailwindcss(),
       dts({
         include: ["src/**/*"],
         exclude: ["src/**/*.test.*", "src/**/__tests__/**"],
