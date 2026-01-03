@@ -1,18 +1,18 @@
 # the-datagrid
 
-A modern, feature-rich React data grid component built with [shadcn/ui](https://ui.shadcn.com/) and [TanStack Table](https://tanstack.com/table).
+A modern, feature-rich React data grid built on **TanStack Table** and styled with **shadcn/ui + Tailwind CSS v4**.
 
 ## Features
 
-- ✅ **Virtualized rendering** - Efficiently handle large datasets
-- ✅ **Sorting** - Single and multi-column sorting
-- ✅ **Filtering** - Built-in filter row with multiple operators
-- ✅ **Column management** - Reorder, resize, auto-size columns
-- ✅ **Pagination** - Built-in pagination controls
-- ✅ **Row selection** - Checkbox-based row selection
-- ✅ **Modern UI** - Built with shadcn/ui components and Tailwind CSS
-- ✅ **TypeScript** - Fully typed with TypeScript
-- ✅ **Compatible API** - Inspired by Inovua ReactDataGrid for easy migration
+- Virtualized rendering for large datasets
+- Sorting (single + multi-column)
+- Filtering with a built-in filter row and operators
+- Column management (reorder, resize, auto-size)
+- Pagination (local + remote)
+- Row selection (checkbox column)
+- Modern shadcn/ui look-and-feel (Tailwind CSS v4)
+- Fully typed TypeScript API
+- Migration-friendly API inspired by Inovua ReactDataGrid
 
 ## Installation
 
@@ -24,140 +24,141 @@ yarn add the-datagrid
 pnpm add the-datagrid
 ```
 
-## Peer Dependencies
+## Peer dependencies
 
-This package requires React and React DOM as peer dependencies. You also need to set up Tailwind CSS in your project.
+This library expects **React** and **React DOM** to be provided by your app:
 
 ```bash
 npm install react react-dom
-npm install -D tailwindcss postcss autoprefixer
 ```
 
-## Setup Tailwind CSS
+## Styling requirements (Tailwind v4 + shadcn/ui theme)
 
-Since this package uses Tailwind CSS, you need to configure it in your project. Add the following to your `tailwind.config.js`:
+`the-datagrid` uses Tailwind utility classes and shadcn/ui theme tokens (CSS variables like `--background`, `--foreground`, etc.). If your project already uses shadcn/ui, you’re typically done—just ensure Tailwind is scanning this package for class usage.
 
-```js
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./node_modules/the-datagrid/**/*.{js,ts,jsx,tsx}", // Add this line
-  ],
-  theme: {
-    extend: {
-      // Add shadcn/ui theme variables
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-      colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        // ... add other shadcn colors
-      },
-    },
-  },
-  plugins: [],
-}
-```
+### Tailwind v4: make sure Tailwind scans this package
 
-Add the Tailwind directives to your CSS file:
+Add a `@source` directive to your main CSS entry so Tailwind includes classes used inside `the-datagrid`’s published output.
 
 ```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    /* ... add other CSS variables */
-  }
-}
+/* Tailwind v4: scan the library output for class usage */
+@source "../node_modules/the-datagrid/dist/**/*.{js,jsx,ts,tsx}";
 ```
 
-See [shadcn/ui documentation](https://ui.shadcn.com/docs/theming) for full theme configuration.
+### Ensure shadcn/ui theme variables exist
 
-## Basic Usage
+If you haven’t set up shadcn/ui theming yet, follow the shadcn/ui theming guidance and add the CSS variables to your global stylesheet.
+
+Dark mode is supported via the `.dark` class on a parent/root element (typical shadcn setup).
+
+---
+
+## Tailwind v4 setup example (Vite)
+
+If you’re using Vite, you can enable Tailwind v4 via the official Vite plugin:
+
+```ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
+```
+
+Then in your main CSS (e.g. `src/index.css`):
+
+```css
+@import "tailwindcss";
+@source "../node_modules/the-datagrid/dist/**/*.{js,jsx,ts,tsx}";
+```
+
+If you’re using another framework (e.g. Next.js), keep your existing Tailwind v4 setup and add the same `@source` directive to your global CSS.
+
+---
+
+## Basic usage
 
 ```tsx
-import { ReactDataGrid } from 'the-datagrid'
-import type { TypeColumns, TypeI18n } from 'the-datagrid'
+import { ReactDataGrid } from "the-datagrid";
+import type { TypeColumns } from "the-datagrid";
 
-function App() {
+export default function App() {
   const columns: TypeColumns = [
-    { name: 'id', header: 'ID', sortable: true, filterable: true },
-    { name: 'name', header: 'Name', sortable: true, filterable: true },
-    { name: 'email', header: 'Email', sortable: true, filterable: true },
-  ]
+    { name: "id", header: "ID", sortable: true, filterable: true },
+    { name: "name", header: "Name", sortable: true, filterable: true },
+    { name: "email", header: "Email", sortable: true, filterable: true },
+  ];
 
   const rows = [
-    { id: 1, name: 'John Doe', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
-    // ... more rows
-  ]
+    { id: 1, name: "John Doe", email: "john@example.com" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com" },
+  ];
 
   return (
     <ReactDataGrid
       idProperty="id"
       columns={columns}
       dataSource={rows}
-      virtualized={true}
-      enableFiltering={true}
+      virtualized
+      enableFiltering
     />
-  )
+  );
 }
 ```
 
-## Advanced Usage
+## Advanced usage
 
 ```tsx
-import { useState, useMemo } from 'react'
-import { ReactDataGrid } from 'the-datagrid'
-import type { TypeColumns, TypeI18n, TypeRowSelection, TypeOnSelectionChangeArg } from 'the-datagrid'
+import { useMemo, useState } from "react";
+import { ReactDataGrid } from "the-datagrid";
+import type {
+  TypeColumns,
+  TypeFilterValue,
+  TypeI18n,
+  TypeOnSelectionChangeArg,
+  TypeRowSelection,
+} from "the-datagrid";
 
-function App() {
-  const [selected, setSelected] = useState<TypeRowSelection>({})
-  const [columnOrder, setColumnOrder] = useState<string[]>([])
-  const [filterValue, setFilterValue] = useState(null)
+export default function App() {
+  const [selected, setSelected] = useState<TypeRowSelection>({});
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [filterValue, setFilterValue] = useState<TypeFilterValue | null>(null);
 
   const columns: TypeColumns = useMemo(
     () => [
-      { name: 'id', header: 'ID', sortable: true, filterable: true },
-      { name: 'name', header: 'Name', sortable: true, filterable: true },
-      { name: 'email', header: 'Email', sortable: true, filterable: true },
+      { name: "id", header: "ID", sortable: true, filterable: true },
+      { name: "name", header: "Name", sortable: true, filterable: true },
+      { name: "email", header: "Email", sortable: true, filterable: true },
     ],
     []
-  )
+  );
 
   const rows = useMemo(
     () => [
-      { id: 1, name: 'John Doe', email: 'john@example.com' },
-      { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
-      // ... more rows
+      { id: 1, name: "John Doe", email: "john@example.com" },
+      { id: 2, name: "Jane Smith", email: "jane@example.com" },
     ],
     []
-  )
+  );
 
   const i18n: TypeI18n = useMemo(
     () => ({
-      noRecords: 'No records',
-      clear: 'Clear',
-      contains: 'Contains',
-      sortAsc: 'Sort A→Z',
-      sortDesc: 'Sort Z→A',
-      // ... more translations
+      noRecords: "No records",
+      clear: "Clear",
+      contains: "Contains",
+      sortAsc: "Sort A→Z",
+      sortDesc: "Sort Z→A",
     }),
     []
-  )
+  );
 
   const onSelectionChange = (config: TypeOnSelectionChangeArg) => {
-    setSelected(config.selected)
-  }
+    setSelected(config.selected);
+  };
 
   return (
     <ReactDataGrid
@@ -166,117 +167,120 @@ function App() {
       columns={columns}
       columnOrder={columnOrder}
       dataSource={rows}
-      enableColumnFilterContextMenu={true}
-      enableColumnAutosize={true}
+      enableFiltering
+      defaultFilterValue={filterValue ?? undefined}
+      onFilterValueChange={(v) => setFilterValue(v)}
+      filteredRowsCount={(count) => console.log("Filtered rows:", count)}
+      enableColumnFilterContextMenu
+      enableColumnAutosize
       skipHeaderOnAutoSize={false}
-      enableFiltering={true}
-      defaultFilterValue={filterValue}
-      filteredRowsCount={(count) => console.log('Filtered rows:', count)}
       onColumnOrderChange={setColumnOrder}
-      virtualized={true}
-      columnUserSelect={true}
+      virtualized
+      columnUserSelect
       i18n={i18n}
       showColumnMenuTool={false}
-      checkboxColumn={true}
+      checkboxColumn
       onSelectionChange={onSelectionChange}
       selected={selected}
     />
-  )
+  );
 }
 ```
 
-## Props
+## Props (high-level)
 
-### Core Props
+Note: this is a curated overview. For the complete contract, refer to the exported TypeScript types.
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `idProperty` | `string` | **required** | Property name used as unique row identifier |
-| `columns` | `TypeColumns` | **required** | Array of column definitions |
-| `dataSource` | `TypeDataSource` | **required** | Data source (array, function, or promise) |
+### Core
 
-### Display Props
+| Prop         | Type             | Default      | Description                                 |
+| ------------ | ---------------- | ------------ | ------------------------------------------- |
+| `idProperty` | `string`         | **required** | Property name used as unique row identifier |
+| `columns`    | `TypeColumns`    | **required** | Column definitions                          |
+| `dataSource` | `TypeDataSource` | **required** | Data source (array, function, or promise)   |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `theme` | `string` | `"default"` | Theme name |
-| `rowHeight` | `number` | `44` | Height of each row in pixels |
-| `headerHeight` | `number` | `40` | Height of header row in pixels |
-| `filterRowHeight` | `number` | `44` | Height of filter row in pixels |
-| `virtualized` | `boolean` | `true` | Enable virtual scrolling |
-| `columnUserSelect` | `boolean \| 'text' \| 'none'` | `true` | Column text selection behavior |
+### Display
 
-### Column Props
+| Prop               | Type                          | Default     | Description                    |
+| ------------------ | ----------------------------- | ----------- | ------------------------------ |
+| `theme`            | `string`                      | `"default"` | Theme name                     |
+| `rowHeight`        | `number`                      | `44`        | Row height in pixels           |
+| `headerHeight`     | `number`                      | `40`        | Header height in pixels        |
+| `filterRowHeight`  | `number`                      | `44`        | Filter row height in pixels    |
+| `virtualized`      | `boolean`                     | `true`      | Enable virtual scrolling       |
+| `columnUserSelect` | `boolean \| "text" \| "none"` | `true`      | Column text selection behavior |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `columnOrder` | `string[]` | - | Ordered array of column IDs/names |
-| `onColumnOrderChange` | `(order: string[]) => void` | - | Callback when column order changes |
-| `enableColumnAutosize` | `boolean` | `true` | Enable automatic column width calculation |
-| `skipHeaderOnAutoSize` | `boolean` | `false` | Skip header text when auto-sizing |
-| `showColumnMenuTool` | `boolean` | `false` | Show column menu tool in header |
+### Columns
 
-### Filtering Props
+| Prop                   | Type                        | Default | Description                       |
+| ---------------------- | --------------------------- | ------- | --------------------------------- |
+| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names |
+| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes   |
+| `enableColumnAutosize` | `boolean`                   | `true`  | Auto-calc column widths           |
+| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header when auto-sizing      |
+| `showColumnMenuTool`   | `boolean`                   | `false` | Show column menu tool in header   |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `enableFiltering` | `boolean` | `true` | Enable filter row |
-| `filterValue` | `TypeFilterValue` | - | Controlled filter value |
-| `defaultFilterValue` | `TypeFilterValue` | - | Default filter value |
-| `onFilterValueChange` | `(value: TypeFilterValue) => void` | - | Filter value change callback |
-| `enableColumnFilterContextMenu` | `boolean` | `false` | Enable context menu for filters |
-| `filteredRowsCount` | `(count: number) => void` | - | Callback with filtered row count |
+### Filtering
 
-### Sorting Props
+| Prop                            | Type                               | Default | Description                       |
+| ------------------------------- | ---------------------------------- | ------- | --------------------------------- |
+| `enableFiltering`               | `boolean`                          | `true`  | Enable filter row                 |
+| `filterValue`                   | `TypeFilterValue`                  | -       | Controlled filter value           |
+| `defaultFilterValue`            | `TypeFilterValue`                  | -       | Uncontrolled initial filter value |
+| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -       | Fired on filter change            |
+| `enableColumnFilterContextMenu` | `boolean`                          | `false` | Context menu for filter operators |
+| `filteredRowsCount`             | `(count: number) => void`          | -       | Reports filtered row count        |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `sortInfo` | `TypeSortInfo` | - | Controlled sort information |
-| `defaultSortInfo` | `TypeSortInfo` | - | Default sort information |
-| `onSortInfoChange` | `(info: TypeSortInfo) => void` | - | Sort change callback |
-| `allowUnsort` | `boolean` | `true` | Allow unsorting columns |
-| `defaultSortingDirection` | `'asc' \| 'desc'` | `'asc'` | Default sort direction |
+### Sorting
 
-### Selection Props
+| Prop                      | Type                           | Default | Description                   |
+| ------------------------- | ------------------------------ | ------- | ----------------------------- |
+| `sortInfo`                | `TypeSortInfo`                 | -       | Controlled sort state         |
+| `defaultSortInfo`         | `TypeSortInfo`                 | -       | Uncontrolled initial sort     |
+| `onSortInfoChange`        | `(info: TypeSortInfo) => void` | -       | Fired on sort change          |
+| `allowUnsort`             | `boolean`                      | `true`  | Allow returning to “unsorted” |
+| `defaultSortingDirection` | `"asc" \| "desc"`              | `"asc"` | Default sort direction        |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `checkboxColumn` | `boolean \| IColumn` | `false` | Enable checkbox column for row selection |
-| `selected` | `TypeRowSelection` | - | Controlled selected rows |
-| `defaultSelected` | `TypeRowSelection` | - | Default selected rows |
-| `onSelectionChange` | `(config: TypeOnSelectionChangeArg) => void` | - | Selection change callback |
+### Selection
 
-### Pagination Props
+| Prop                | Type                                         | Default | Description                    |
+| ------------------- | -------------------------------------------- | ------- | ------------------------------ |
+| `checkboxColumn`    | `boolean \| IColumn`                         | `false` | Enable checkbox column         |
+| `selected`          | `TypeRowSelection`                           | -       | Controlled selection           |
+| `defaultSelected`   | `TypeRowSelection`                           | -       | Uncontrolled initial selection |
+| `onSelectionChange` | `(config: TypeOnSelectionChangeArg) => void` | -       | Fired on selection changes     |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `pagination` | `true \| false \| 'remote' \| 'local'` | `true` | Pagination mode |
-| `skip` | `number` | - | Controlled skip/offset |
-| `defaultSkip` | `number` | `0` | Default skip/offset |
-| `limit` | `number` | - | Controlled page size |
-| `defaultLimit` | `number` | `10` | Default page size |
-| `onSkipChange` | `(skip: number) => void` | - | Skip change callback |
-| `onLimitChange` | `(limit: number) => void` | - | Limit change callback |
-| `pageSizes` | `number[]` | `[10, 20, 30, 40, 50]` | Available page sizes |
+### Pagination
 
-### Other Props
+| Prop            | Type                                   | Default                | Description                  |
+| --------------- | -------------------------------------- | ---------------------- | ---------------------------- |
+| `pagination`    | `true \| false \| "remote" \| "local"` | `true`                 | Pagination mode              |
+| `skip`          | `number`                               | -                      | Controlled offset            |
+| `defaultSkip`   | `number`                               | `0`                    | Initial offset               |
+| `limit`         | `number`                               | -                      | Controlled page size         |
+| `defaultLimit`  | `number`                               | `10`                   | Initial page size            |
+| `onSkipChange`  | `(skip: number) => void`               | -                      | Fired when offset changes    |
+| `onLimitChange` | `(limit: number) => void`              | -                      | Fired when page size changes |
+| `pageSizes`     | `number[]`                             | `[10, 20, 30, 40, 50]` | Allowed page sizes           |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `i18n` | `TypeI18n` | - | Internationalization object |
-| `loading` | `boolean` | - | Loading state |
-| `onReady` | `(ref: RefObject) => void` | - | Callback when grid is ready |
-| `handle` | `(ref: RefObject) => void` | - | Alias for onReady |
-| `className` | `string` | - | Additional CSS classes |
-| `style` | `CSSProperties` | - | Inline styles |
+### Misc
+
+| Prop        | Type                       | Default | Description                              |
+| ----------- | -------------------------- | ------- | ---------------------------------------- |
+| `i18n`      | `TypeI18n`                 | -       | Text overrides (labels, operators, etc.) |
+| `loading`   | `boolean`                  | -       | Loading state                            |
+| `onReady`   | `(ref: RefObject) => void` | -       | Called when grid ref is ready            |
+| `handle`    | `(ref: RefObject) => void` | -       | Alias for `onReady`                      |
+| `className` | `string`                   | -       | Extra CSS classes                        |
+| `style`     | `CSSProperties`            | -       | Inline styles                            |
 
 ## TypeScript
 
-This package is written in TypeScript and provides full type definitions. Import types as needed:
+The package ships full type definitions.
 
 ```tsx
+import { ReactDataGrid } from "the-datagrid";
 import type {
-  ReactDataGrid,
   TypeColumns,
   TypeColumn,
   TypeDataGridProps,
@@ -285,9 +289,5 @@ import type {
   TypeFilterValue,
   TypeSortInfo,
   TypeI18n,
-} from 'the-datagrid'
+} from "the-datagrid";
 ```
-
-## License
-
-MIT

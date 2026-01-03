@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,22 +43,42 @@ jobs:
       - name: Build (required)
         run: yarn build
 
-      - name: Ensure package is scoped (required by GitHub Packages)
+      - name: Prepare package for GitHub Packages publish (scoped name + Yarn auth)
         run: |
-          PKG_NAME="$(node -p "require('./package.json').name")"
-          echo "package.json name: ${PKG_NAME}"
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
 
-          if [[ "${PKG_NAME}" != @*/* ]]; then
-            echo "ERROR: GitHub Packages npm registry requires a scoped name, e.g. @<namespace>/the-datagrid"
-            exit 1
-          fi
+          const owner = (process.env.GITHUB_REPOSITORY_OWNER || "").toLowerCase();
+          if (!owner) throw new Error("Missing GITHUB_REPOSITORY_OWNER");
 
-          SCOPE="${PKG_NAME#@}"
-          SCOPE="${SCOPE%%/*}"
-          if [[ "${SCOPE}" != "${SCOPE,,}" ]]; then
-            echo "ERROR: GitHub Packages requires lowercase scope. Current: ${SCOPE}"
-            exit 1
-          fi
+          // Patch package.json name to a scoped name required by GitHub Packages
+          const pkgPath = path.join(process.cwd(), "package.json");
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+
+          // Publish name in GitHub Packages MUST be scoped: @<owner>/<package>
+          pkg.name = `@${owner}/the-datagrid`;
+
+          // Optional but recommended: pin registry for publish
+          pkg.publishConfig = { ...(pkg.publishConfig || {}), registry: "https://npm.pkg.github.com" };
+
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+          console.log("Prepared package.json name:", pkg.name);
+
+          // Create a project-level .yarnrc.yml that points this scope to GitHub Packages.
+          // Uses env substitution so the token isn't stored in the repo.
+          const yarnrc = [
+            "npmScopes:",
+            `  ${owner}:`,
+            '    npmRegistryServer: "https://npm.pkg.github.com"',
+            "    npmAlwaysAuth: true",
+            "    npmAuthToken: ${NODE_AUTH_TOKEN:-}",
+            "",
+          ].join("\n");
+
+          fs.writeFileSync(path.join(process.cwd(), ".yarnrc.yml"), yarnrc);
+          console.log("Wrote .yarnrc.yml for scope:", owner);
+          NODE
 
       - name: Set preview version (unique per run)
         id: version
@@ -68,14 +90,7 @@ jobs:
           npm version --no-git-tag-version "${VERSION}"
           echo "Preview version: ${VERSION}"
 
-      - name: Configure Yarn to publish to GitHub Packages (without storing the token)
-        run: |
-          yarn config set npmPublishRegistry "https://npm.pkg.github.com"
-          yarn config set 'npmRegistries["//npm.pkg.github.com"].npmAlwaysAuth' true
-          # Keep token out of repo config; Yarn will resolve it from env at runtime.
-          yarn config set 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' '${NODE_AUTH_TOKEN-}'
-
-      - name: Publish
+      - name: Publish (GitHub Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: yarn npm publish --tag preview
