@@ -95,6 +95,15 @@ jobs:
           npm pkg set "name=@${OWNER}/the-datagrid"
           npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
 
+
+      # npmScopes:
+      #   geo-vi:
+      #     npmRegistryServer: "https://npm.pkg.github.com"
+      #     npmPublishRegistry: "https://npm.pkg.github.com"
+      #     npmAlwaysAuth: true
+      #     npmAuthToken: ${NODE_AUTH_TOKEN:-}
+
+
       - name: Publish (GitHub Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
