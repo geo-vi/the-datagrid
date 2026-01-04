@@ -84,6 +84,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm pkg set "name=@geovi/the-datagrid"
           yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAlwaysAuth' true
           yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAuthToken' "${NODE_AUTH_TOKEN}"
           yarn npm publish --tag preview
