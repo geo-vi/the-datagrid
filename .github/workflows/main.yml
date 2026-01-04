@@ -85,9 +85,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm pkg set "name=@geovi/the-datagrid"
+          npm pkg set "publishConfig.registry=https://registry.npmjs.org"
+          yarn config set -H npmPublishRegistry "https://registry.npmjs.org
+          yarn config set -H npmRegistryServer "https://registry.npmjs.org
           yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAlwaysAuth' true
           yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAuthToken' "${NODE_AUTH_TOKEN}"
-          yarn npm publish --tag preview
+          yarn npm publish --tag preview --access public
 
       - name: Patch package name for GitHub Packages (scoped)
         run: |
@@ -95,14 +98,12 @@ jobs:
           npm pkg set "name=@${OWNER}/the-datagrid"
           npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
 
-
       # npmScopes:
       #   geo-vi:
       #     npmRegistryServer: "https://npm.pkg.github.com"
       #     npmPublishRegistry: "https://npm.pkg.github.com"
       #     npmAlwaysAuth: true
       #     npmAuthToken: ${NODE_AUTH_TOKEN:-}
-
 
       - name: Publish (GitHub Packages)
         env:
