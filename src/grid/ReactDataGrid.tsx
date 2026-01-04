@@ -9,7 +9,6 @@ import type {
   TypeDataGridProps,
   TypeFilterValue,
   TypeRowSelection,
-  TypeSingleFilterValue,
   TypeSortInfo,
 } from "../types";
 
@@ -21,7 +20,7 @@ import { cn } from "../lib/utils";
 import { Checkbox } from "../components/ui/checkbox";
 
 import { getColumnId } from "../utils/column";
-import { t, coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
+import { coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
 import { useControllableState } from "../hooks/useControllableState";
 
 import { DEFAULT_FILTER_TYPES, normalizeFilterValue, applyLocalFilter } from "../filters/utils";
@@ -43,10 +42,6 @@ import { GridPagination } from "./components/GridPagination";
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
  */
 export const plugins: readonly unknown[] = [] as const;
-
-function isPlainObject(v: unknown): v is Record<string, any> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 function ReactDataGrid(props: TypeDataGridProps) {
   const {

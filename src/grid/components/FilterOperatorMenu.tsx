@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { IconCheck, IconFilter } from "@tabler/icons-react";
 
 import type { TypeI18n } from "../../types";
