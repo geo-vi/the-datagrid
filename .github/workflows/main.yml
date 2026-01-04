@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # REQUIRED for npm trusted publishing (OIDC)
 
     steps:
       - name: Checkout (full history for tags)
@@ -88,8 +89,6 @@ jobs:
           npm pkg set "publishConfig.registry=https://registry.npmjs.org"
           yarn config set -H npmPublishRegistry "https://registry.npmjs.org
           yarn config set -H npmRegistryServer "https://registry.npmjs.org
-          yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAlwaysAuth' true
-          yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAuthToken' "${NODE_AUTH_TOKEN}"
           yarn npm publish --tag preview --access public
 
       - name: Patch package name for GitHub Packages (scoped)
