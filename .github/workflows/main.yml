@@ -70,12 +70,6 @@ jobs:
       - name: Build (required)
         run: corepack yarn build
 
-      - name: Patch package name for GitHub Packages (scoped)
-        run: |
-          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          npm pkg set "name=@${OWNER}/the-datagrid"
-          npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
-
       - name: Set preview version (unique per run)
         id: version
         run: |
@@ -85,6 +79,20 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           npm version --no-git-tag-version "${VERSION}"
           echo "Preview version: ${VERSION}"
+
+      - name: Publish (NPM Packages)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAlwaysAuth' true
+          yarn config set -H 'npmRegistries["//registry.npmjs.org"].npmAuthToken' "${NODE_AUTH_TOKEN}"
+          yarn npm publish --tag preview
+
+      - name: Patch package name for GitHub Packages (scoped)
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          npm pkg set "name=@${OWNER}/the-datagrid"
+          npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
 
       - name: Publish (GitHub Packages)
         env:
