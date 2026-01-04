@@ -87,24 +87,31 @@ jobs:
         run: |
           npm pkg set "name=@geovi/the-datagrid"
           npm pkg set "publishConfig.registry=https://registry.npmjs.org"
-          yarn config set -H npmPublishRegistry "https://registry.npmjs.org
-          yarn config set -H npmRegistryServer "https://registry.npmjs.org
+          yarn config set -H npmPublishRegistry "https://registry.npmjs.org"
+          yarn config set -H npmRegistryServer "https://registry.npmjs.org"
           yarn npm publish --tag preview --access public
 
       - name: Patch package name for GitHub Packages (scoped)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
           npm pkg set "name=@${OWNER}/the-datagrid"
           npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
-
-      # npmScopes:
-      #   geo-vi:
-      #     npmRegistryServer: "https://npm.pkg.github.com"
-      #     npmPublishRegistry: "https://npm.pkg.github.com"
-      #     npmAlwaysAuth: true
-      #     npmAuthToken: ${NODE_AUTH_TOKEN:-}
+          yarn config set -H 'npmRegistries["//npm.pkg.github.com"].npmAlwaysAuth' true
+          yarn config set -H 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' "${NODE_AUTH_TOKEN}"
+          yarn config set -H npmPublishRegistry "https://registry.npmjs.org"
+          yarn config set -H npmRegistryServer "https://registry.npmjs.org"
 
       - name: Publish (GitHub Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: corepack yarn npm publish --tag preview
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          npm pkg set "name=@${OWNER}/the-datagrid"
+          npm pkg set "publishConfig.registry=https://npm.pkg.github.com"
+          yarn config set -H 'npmRegistries["//npm.pkg.github.com"].npmAlwaysAuth' true
+          yarn config set -H 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' "${NODE_AUTH_TOKEN}"
+          yarn config set -H npmPublishRegistry "https://registry.npmjs.org"
+          yarn config set -H npmRegistryServer "https://registry.npmjs.org"
+          corepack yarn npm publish --tag preview
