@@ -1,4 +1,11 @@
-export { default, ReactDataGrid, plugins } from './ReactDataGrid'
+export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
+
+export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
+export { default as CheckBox } from "./packages/CheckBox";
+
+// optionally useful for consumers
+export { DEFAULT_FILTER_TYPES } from "./filters/utils";
+
 export type {
   IColumn,
   SortDirection,
@@ -18,5 +25,7 @@ export type {
   TypeSingleFilterValue,
   TypeSingleSortInfo,
   TypeSortInfo,
-} from './types'
-
+  // plus your checkbox/selection compat types if you added them
+  TypeCheckboxColumn,
+  TypeCheckboxProps,
+} from "./types";
