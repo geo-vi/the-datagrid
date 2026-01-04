@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import type {
+  TypeCheckboxColumn,
+  TypeCheckboxProps,
   TypeColumn,
   TypeComputedProps,
   TypeDataGridProps,
   TypeFilterValue,
+  TypeRowSelection,
   TypeSingleFilterValue,
   TypeSortInfo,
 } from "./types";
@@ -16,6 +19,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
   IconArrowsSort,
+  IconCheck,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -23,10 +27,12 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconDotsVertical,
+  IconFilter,
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,13 +48,13 @@ import { getColumnId, getColumnSortName } from "./utils/column";
 import { t, coerceUserSelect, estimateAutoWidth } from "./utils/helpers";
 import { useControllableState } from "./hooks/useControllableState";
 import {
+  DEFAULT_FILTER_TYPES,
   normalizeFilterValue,
   getFilterEntry,
   upsertFilterEntry,
   setFilterOperator,
   clearFilter,
   applyLocalFilter,
-  STRING_OPERATORS,
 } from "./filters/utils";
 import { getSortDir, toggleSortInfo, toTanstackSorting, applyLocalSort } from "./sorting/utils";
 
@@ -63,12 +69,80 @@ function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
  */
 export const plugins: readonly unknown[] = [] as const;
 
-type FilterMenuState = {
-  open: boolean;
-  x: number;
-  y: number;
-  columnId: string;
-};
+function isPlainObject(v: unknown): v is Record<string, any> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function toSelectionMap(sel: TypeRowSelection): Record<string, any> {
+  if (sel == null) return {};
+  if (isPlainObject(sel)) return sel as Record<string, any>;
+  return { [String(sel)]: true };
+}
+
+function stripFromOrder(order: string[], id: string): string[] {
+  return order.filter((x) => x !== id);
+}
+
+function injectIntoOrder(order: string[] | undefined, id: string): string[] | undefined {
+  if (!order) return order;
+  if (order.includes(id)) return order;
+  return [id, ...order];
+}
+
+function isInteractiveClickTarget(target: HTMLElement | null): boolean {
+  if (!target) return false;
+  const el = target.closest(
+    [
+      "button",
+      "a",
+      "input",
+      "select",
+      "textarea",
+      "[role='button']",
+      "[data-rdg-stop-selection]",
+      "[data-no-row-select]",
+    ].join(",")
+  );
+  return Boolean(el);
+}
+
+function isColumnVisible(c: TypeColumn): boolean {
+  if (c.visible === false) return false;
+  if (c.visible === true) return true;
+
+  if ((c as any).defaultVisible === false) return false;
+  if ((c as any).defaultHidden === true) return false;
+
+  return true;
+}
+
+function normalizeEditorOutput(next: unknown): unknown {
+  if (next && typeof next === "object" && "value" in (next as any)) return (next as any).value;
+  return next;
+}
+
+function humanizeOperatorName(name: string): string {
+  // "afterOrOn" -> "After Or On", "notinlist" -> "Notinlist" (fallback)
+  const spaced = name
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+  return spaced.length ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : name;
+}
+
+function isEmptyLikeUI(v: unknown): boolean {
+  if (v == null) return true;
+  if (typeof v === "string") return v.trim().length === 0;
+  if (Array.isArray(v)) {
+    if (v.length === 0) return true;
+    if (v.length === 2) return isEmptyLikeUI(v[0]) && isEmptyLikeUI(v[1]);
+    return false;
+  }
+  if (isPlainObject(v) && ("start" in v || "end" in v)) {
+    return isEmptyLikeUI((v as any).start) && isEmptyLikeUI((v as any).end);
+  }
+  return false;
+}
 
 function ReactDataGrid(props: TypeDataGridProps) {
   const {
@@ -100,15 +174,102 @@ function ReactDataGrid(props: TypeDataGridProps) {
     style,
   } = props;
 
-  const defaultColumnOrder = React.useMemo(
-    () => inputColumns.map((c) => getColumnId(c)),
-    [inputColumns],
+  /** ---------------- selection / checkbox column ---------------- */
+
+  const checkboxColumnProp: TypeCheckboxColumn | undefined = props.checkboxColumn;
+  const checkboxEnabled = Boolean(checkboxColumnProp);
+
+  const checkboxColId = React.useMemo(() => {
+    if (!checkboxEnabled) return "__checkbox__";
+    if (typeof checkboxColumnProp === "object") {
+      return checkboxColumnProp.id ?? checkboxColumnProp.name ?? "__checkbox__";
+    }
+    return "__checkbox__";
+  }, [checkboxEnabled, checkboxColumnProp]);
+
+  const multiSelect = props.multiSelect ?? checkboxEnabled;
+  const checkboxOnlyRowSelect = props.checkboxOnlyRowSelect ?? checkboxEnabled;
+  const checkboxSelectEnableShiftKey = props.checkboxSelectEnableShiftKey ?? false;
+
+  const controlledSelected = props.selected !== undefined;
+  const [internalSelected, setInternalSelected] = React.useState<TypeRowSelection>(() => {
+    if (props.defaultSelected !== undefined) return props.defaultSelected;
+    return multiSelect ? {} : null;
+  });
+
+  const selected: TypeRowSelection = controlledSelected ? (props.selected as TypeRowSelection) : internalSelected;
+  const selectedMap = React.useMemo(() => toSelectionMap(selected), [selected]);
+
+  const lastSelectedIndexRef = React.useRef<number | null>(null);
+  const lastPointerRef = React.useRef<{ shiftKey: boolean }>({ shiftKey: false });
+
+  const emitSelectionChange = React.useCallback(
+    (nextMap: Record<string, any>, meta?: { data?: unknown; unselected?: TypeRowSelection }) => {
+      const nextSelected: TypeRowSelection = nextMap;
+
+      if (!controlledSelected) setInternalSelected(nextSelected);
+
+      props.onSelectionChange?.({
+        selected: nextSelected,
+        data: meta?.data,
+        unselected: meta?.unselected,
+        originalData: dataSource,
+      });
+    },
+    [controlledSelected, dataSource, props]
   );
 
+  /** ---------------- filter types ---------------- */
+
+  const filterTypes = React.useMemo(() => {
+    return { ...DEFAULT_FILTER_TYPES, ...(props.filterTypes ?? {}) };
+  }, [props.filterTypes]);
+
+  /** ---------------- columns / order ---------------- */
+
+  const checkboxColumn: TypeColumn | null = React.useMemo(() => {
+    if (!checkboxEnabled) return null;
+
+    const hasAlready = inputColumns.some((c) => getColumnId(c) === checkboxColId);
+    if (hasAlready) return null;
+
+    const cfg = typeof checkboxColumnProp === "object" ? checkboxColumnProp : undefined;
+    const width = (cfg?.width ?? cfg?.defaultWidth ?? 44) as number;
+
+    return {
+      ...(cfg ?? {}),
+      id: checkboxColId,
+      name: checkboxColId,
+      sortable: false,
+      filterable: false,
+      draggable: false,
+      hideable: false,
+      width,
+      defaultWidth: width,
+      minWidth: cfg?.minWidth ?? width,
+      maxWidth: cfg?.maxWidth ?? width,
+    } as TypeColumn;
+  }, [checkboxColId, checkboxColumnProp, checkboxEnabled, inputColumns]);
+
+  const allInputColumns = React.useMemo(() => {
+    return checkboxColumn ? [checkboxColumn, ...inputColumns] : inputColumns;
+  }, [checkboxColumn, inputColumns]);
+
+  const defaultColumnOrder = React.useMemo(() => {
+    const base = inputColumns.map((c) => getColumnId(c));
+    return checkboxEnabled ? [checkboxColId, ...base] : base;
+  }, [checkboxColId, checkboxEnabled, inputColumns]);
+
   const [columnOrder, setColumnOrder] = useControllableState<string[]>({
-    value: props.columnOrder,
-    defaultValue: props.columnOrder ?? defaultColumnOrder,
-    onChange: props.onColumnOrderChange,
+    value: checkboxEnabled ? injectIntoOrder(props.columnOrder, checkboxColId) : props.columnOrder,
+    defaultValue:
+      checkboxEnabled
+        ? injectIntoOrder(props.columnOrder ?? defaultColumnOrder, checkboxColId) ?? defaultColumnOrder
+        : props.columnOrder ?? defaultColumnOrder,
+    onChange: (next) => {
+      const userNext = checkboxEnabled ? stripFromOrder(next, checkboxColId) : next;
+      props.onColumnOrderChange?.(userNext);
+    },
   });
 
   const [sortInfo, setSortInfo] = useControllableState<TypeSortInfo>({
@@ -123,7 +284,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onChange: props.onFilterValueChange,
   });
 
-  // Draft filter for debounce when uncontrolled
   const [draftFilterValue, setDraftFilterValue] = React.useState<TypeFilterValue>(filterValue);
   React.useEffect(() => setDraftFilterValue(filterValue), [filterValue]);
 
@@ -147,7 +307,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const orderedColumns = React.useMemo(() => {
     const colById = new Map<string, TypeColumn>();
-    for (const c of inputColumns) colById.set(getColumnId(c), c);
+    for (const c of allInputColumns) colById.set(getColumnId(c), c);
 
     const ordered: TypeColumn[] = [];
     for (const id of columnOrder) {
@@ -155,20 +315,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (col) ordered.push(col);
     }
 
-    // append any new columns not in order yet
-    for (const c of inputColumns) {
+    for (const c of allInputColumns) {
       const id = getColumnId(c);
       if (!ordered.find((x) => getColumnId(x) === id)) ordered.push(c);
     }
 
-    // visibility
-    return ordered.filter((c) => c.visible !== false);
-  }, [inputColumns, columnOrder]);
+    return ordered.filter(isColumnVisible);
+  }, [allInputColumns, columnOrder]);
 
-  const tanstackSorting = React.useMemo(() => toTanstackSorting(sortInfo, orderedColumns), [
-    sortInfo,
-    orderedColumns,
-  ]);
+  const tanstackSorting = React.useMemo(() => toTanstackSorting(sortInfo, orderedColumns), [sortInfo, orderedColumns]);
+
+  /** ---------------- data loading ---------------- */
 
   const [rows, setRows] = React.useState<any[]>([]);
   const [count, setCount] = React.useState<number>(0);
@@ -178,18 +335,29 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const computedFilterForFetch = filterValue;
   const computedSortForFetch = sortInfo;
 
+  const columnsForDs = React.useMemo(() => {
+    return checkboxEnabled ? orderedColumns.filter((c) => getColumnId(c) !== checkboxColId) : orderedColumns;
+  }, [checkboxColId, checkboxEnabled, orderedColumns]);
+
+  const columnOrderForDs = React.useMemo(() => {
+    return checkboxEnabled ? stripFromOrder(columnOrder, checkboxColId) : columnOrder;
+  }, [checkboxColId, checkboxEnabled, columnOrder]);
+
   const loadData = React.useCallback(async () => {
-    // For local array dataSource: apply local filter/sort/pagination.
     if (Array.isArray(dataSource)) {
       let data = dataSource;
 
-      if (enableFiltering && computedFilterForFetch) data = applyLocalFilter(data, computedFilterForFetch);
-      if (computedSortForFetch) data = applyLocalSort(data, computedSortForFetch);
+      if (enableFiltering && computedFilterForFetch) {
+        data = applyLocalFilter(data, computedFilterForFetch, { filterTypes, columns: orderedColumns });
+      }
+      if (computedSortForFetch) {
+        data = applyLocalSort(data, computedSortForFetch, orderedColumns);
+      }
 
       const totalCount = data.length;
 
       const paginationMode = props.pagination ?? true;
-      const doPage = paginationMode !== false;
+      const doPage = paginationMode !== false && paginationMode !== "remote";
 
       const sliced = doPage ? data.slice(skip, skip + limit) : data;
 
@@ -209,8 +377,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
         limit,
         sortInfo: computedSortForFetch,
         filterValue: computedFilterForFetch,
-        columnOrder,
-        columns: orderedColumns,
+        columnOrder: columnOrderForDs,
+        columns: columnsForDs,
         idProperty,
         theme,
       };
@@ -253,15 +421,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
     props.pagination,
     skip,
     theme,
-    columnOrder,
+    columnOrderForDs,
+    columnsForDs,
+    filterTypes,
   ]);
 
-  // Load on state changes that should affect backend queries.
   React.useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  // Debounce filter apply when uncontrolled (to avoid request per keypress)
   React.useEffect(() => {
     if (filterControlled) return;
 
@@ -272,7 +440,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => window.clearTimeout(handle);
   }, [draftFilterValue, filterControlled, setFilterValue]);
 
-  // Column autosize heuristic
+  /** ---------------- column autosize heuristic ---------------- */
+
   const [autoWidths, setAutoWidths] = React.useState<Record<string, number>>({});
 
   React.useEffect(() => {
@@ -284,7 +453,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     for (const c of orderedColumns) {
       const id = getColumnId(c);
 
-      // respect explicit widths
       const explicit = c.width ?? c.defaultWidth;
       if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
         next[id] = explicit;
@@ -306,26 +474,206 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setAutoWidths(next);
   }, [enableColumnAutosize, orderedColumns, rows, skipHeaderOnAutoSize]);
 
-  // Convert our TypeColumn[] to TanStack ColumnDef[]
+  /** ---------------- selection helpers ---------------- */
+
+  const selectionEnabled = checkboxEnabled || Boolean(props.onSelectionChange);
+
+  const getRowKey = React.useCallback(
+    (row: any, index: number) => {
+      const v = row?.[idProperty];
+      return v == null ? String(index) : String(v);
+    },
+    [idProperty]
+  );
+
+  /** ---------------- filter operator menu state ---------------- */
+
+  const [openFilterMenuColId, setOpenFilterMenuColId] = React.useState<string | null>(null);
+
+  /** ---------------- columnDefs (TanStack) ---------------- */
+
   const columnDefs = React.useMemo<ColumnDef<any, any>[]>(() => {
     return orderedColumns.map((c) => {
       const colId = getColumnId(c);
+
+      if (checkboxEnabled && colId === checkboxColId) {
+        const cfg = typeof checkboxColumnProp === "object" ? checkboxColumnProp : undefined;
+        const renderCheckbox = cfg?.renderCheckbox;
+
+        return {
+          id: colId,
+          accessorFn: () => null,
+          enableSorting: false,
+          header: () => {
+            const pageRowIds = rows.map((r, idx) => getRowKey(r, idx));
+            const selectedOnPage = pageRowIds.reduce((acc, id) => acc + (selectedMap[id] ? 1 : 0), 0);
+            const allSelected = pageRowIds.length > 0 && selectedOnPage === pageRowIds.length;
+            const someSelected = selectedOnPage > 0 && !allSelected;
+
+            const onChange = (checked: boolean) => {
+              if (!multiSelect) {
+                const next: Record<string, any> = {};
+                if (checked && rows[0]) next[getRowKey(rows[0], 0)] = rows[0];
+                emitSelectionChange(next, { data: rows[0] });
+                return;
+              }
+
+              const next = { ...selectedMap };
+              if (checked) {
+                rows.forEach((r, idx) => {
+                  next[getRowKey(r, idx)] = r;
+                });
+              } else {
+                rows.forEach((r, idx) => {
+                  delete next[getRowKey(r, idx)];
+                });
+              }
+              emitSelectionChange(next, { data: rows });
+            };
+
+            const checkboxProps: TypeCheckboxProps = {
+              checked: allSelected,
+              indeterminate: someSelected,
+              disabled: rows.length === 0,
+              onChange,
+            };
+
+            const node = renderCheckbox
+              ? renderCheckbox(checkboxProps, { headerCell: true, data: rows })
+              : (
+                  <Checkbox
+                    checked={checkboxProps.indeterminate ? "indeterminate" : checkboxProps.checked}
+                    disabled={checkboxProps.disabled}
+                    onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                );
+
+            return (
+              <div
+                className="flex items-center justify-center"
+                onMouseDown={(e) => {
+                  lastPointerRef.current.shiftKey = (e as any).shiftKey === true;
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {node}
+              </div>
+            );
+          },
+          cell: (ctx) => {
+            const rowData = ctx.row.original;
+            const rowIndex = ctx.row.index;
+            const rowId = ctx.row.id;
+
+            const isSelected = Boolean(selectedMap[rowId]);
+
+            const onChange = (checked: boolean) => {
+              if (!selectionEnabled) return;
+
+              const shiftKey = checkboxSelectEnableShiftKey && lastPointerRef.current.shiftKey === true;
+              const next = { ...selectedMap };
+
+              const rowModel = ctx.table.getRowModel().rows;
+
+              if (shiftKey && multiSelect && lastSelectedIndexRef.current != null) {
+                const from = Math.min(lastSelectedIndexRef.current, rowIndex);
+                const to = Math.max(lastSelectedIndexRef.current, rowIndex);
+
+                for (let i = from; i <= to; i++) {
+                  const r = rowModel[i];
+                  if (!r) continue;
+                  if (checked) next[r.id] = r.original;
+                  else delete next[r.id];
+                }
+              } else {
+                if (checked) {
+                  if (!multiSelect) {
+                    Object.keys(next).forEach((k) => delete next[k]);
+                  }
+                  next[rowId] = rowData;
+                } else {
+                  delete next[rowId];
+                }
+              }
+
+              lastSelectedIndexRef.current = rowIndex;
+              emitSelectionChange(next, { data: rowData, unselected: checked ? null : { [rowId]: rowData } });
+            };
+
+            const checkboxProps: TypeCheckboxProps = {
+              checked: isSelected,
+              disabled: false,
+              onChange,
+            };
+
+            const node = renderCheckbox
+              ? renderCheckbox(checkboxProps, { headerCell: false, data: rowData, rowIndex })
+              : (
+                  <Checkbox
+                    checked={checkboxProps.checked}
+                    disabled={checkboxProps.disabled}
+                    onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                );
+
+            return (
+              <div
+                className="flex items-center justify-center"
+                onMouseDown={(e) => {
+                  lastPointerRef.current.shiftKey = (e as any).shiftKey === true;
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {node}
+              </div>
+            );
+          },
+          meta: {
+            __column: c,
+          },
+        } satisfies ColumnDef<any, any>;
+      }
 
       return {
         id: colId,
         accessorFn: (row) => (row as any)?.[colId],
         enableSorting: c.sortable ?? true,
-        header: () => c.renderHeader?.({ column: c }) ?? c.header ?? c.name ?? c.id ?? colId,
+        header: () => c.renderHeader?.({ column: c, columnId: colId }) ?? c.header ?? c.name ?? c.id ?? colId,
         cell: (ctx) => {
           const value = ctx.getValue();
+          const rowData = ctx.row.original;
+          const rowIndex = ctx.row.index;
+
           if (c.render) {
+            const cellProps = {
+              column: c,
+              columnId: colId,
+              rowIndex,
+              dateFormat: (c as any).dateFormat,
+              ...(typeof (c as any).cellProps === "object" ? (c as any).cellProps : {}),
+            };
+
+            if (c.render.length <= 1) {
+              return c.render({
+                value,
+                data: rowData,
+                rowIndex,
+                column: c,
+                columnId: colId,
+                cellProps,
+              } as any);
+            }
+
             return c.render(value, {
-              data: ctx.row.original,
-              rowIndex: ctx.row.index,
+              data: rowData,
+              rowIndex,
               column: c,
               columnId: colId,
             });
           }
+
           return value == null ? "" : String(value);
         },
         meta: {
@@ -333,14 +681,24 @@ function ReactDataGrid(props: TypeDataGridProps) {
         },
       } satisfies ColumnDef<any, any>;
     });
-  }, [orderedColumns]);
+  }, [
+    checkboxColId,
+    checkboxColumnProp,
+    checkboxEnabled,
+    emitSelectionChange,
+    getRowKey,
+    multiSelect,
+    orderedColumns,
+    rows,
+    selectedMap,
+    selectionEnabled,
+    checkboxSelectEnableShiftKey,
+  ]);
 
   const table = useReactTable({
     data: rows,
     columns: columnDefs,
-    state: {
-      sorting: tanstackSorting,
-    },
+    state: { sorting: tanstackSorting },
     manualSorting: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row, index) => {
@@ -349,7 +707,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
   });
 
-  // Virtualization
+  /** ---------------- virtualization ---------------- */
+
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const rowModel = table.getRowModel().rows;
 
@@ -367,34 +726,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
       ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end
       : 0;
 
-  // Filter context menu
-  const [filterMenu, setFilterMenu] = React.useState<FilterMenuState | null>(null);
+  /** ---------------- imperative API ---------------- */
 
-  React.useEffect(() => {
-    if (!filterMenu?.open) return;
-
-    const onAnyClick = () => setFilterMenu(null);
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFilterMenu(null);
-    };
-
-    window.addEventListener("mousedown", onAnyClick);
-    window.addEventListener("keydown", onEsc);
-
-    return () => {
-      window.removeEventListener("mousedown", onAnyClick);
-      window.removeEventListener("keydown", onEsc);
-    };
-  }, [filterMenu]);
-
-  // Imperative API
   const apiRef = React.useRef<TypeComputedProps | null>(null);
 
   React.useEffect(() => {
     apiRef.current = {
-      reload: () => {
-        void loadData();
-      },
+      reload: () => void loadData(),
+
       getData: () => rows,
       getCount: () => count,
 
@@ -418,14 +757,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
         setFilterValue(next);
       },
 
-      getColumnOrder: () => columnOrder,
-      setColumnOrder: (next) => setColumnOrder(next),
+      getColumnOrder: () => columnOrderForDs,
+      setColumnOrder: (next) => {
+        const internalNext = checkboxEnabled ? injectIntoOrder(next, checkboxColId) ?? next : next;
+        setColumnOrder(internalNext);
+      },
     };
 
     props.handle?.(apiRef);
     props.onReady?.(apiRef);
   }, [
-    columnOrder,
+    checkboxColId,
+    checkboxEnabled,
+    columnOrderForDs,
     count,
     filterValue,
     limit,
@@ -441,7 +785,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortInfo,
   ]);
 
-  // Pagination derived
+  /** ---------------- pagination derived ---------------- */
+
   const safeLimit = Math.max(1, limit);
   const pageIndex = Math.floor(skip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
@@ -451,20 +796,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const userSelectClass = coerceUserSelect(columnUserSelect) === "none" ? "select-none" : "select-text";
 
-  // Header drag/drop reorder (simple HTML DnD)
+  /** ---------------- header drag/drop reorder ---------------- */
+
   const dragIdRef = React.useRef<string | null>(null);
 
+  const allowColumnReorder = (props.reorderColumns ?? true) && Boolean(props.onColumnOrderChange);
+
   function onHeaderDragStart(e: React.DragEvent, columnId: string) {
+    if (!allowColumnReorder) return;
+    if (checkboxEnabled && columnId === checkboxColId) return;
+
     dragIdRef.current = columnId;
     try {
       e.dataTransfer.setData("text/plain", columnId);
-    } catch {
-      // ignore
-    }
+    } catch {}
     e.dataTransfer.effectAllowed = "move";
   }
 
   function onHeaderDrop(e: React.DragEvent, targetId: string) {
+    if (!allowColumnReorder) return;
+    if (checkboxEnabled && (targetId === checkboxColId || dragIdRef.current === checkboxColId)) return;
+
     e.preventDefault();
     const sourceId = dragIdRef.current ?? e.dataTransfer.getData("text/plain");
     dragIdRef.current = null;
@@ -481,23 +833,67 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }
 
   function onHeaderDragOver(e: React.DragEvent) {
+    if (!allowColumnReorder) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
   }
 
-  // Render
+  /** ---------------- filter helpers ---------------- */
+
+  function isColumnFilterable(col: TypeColumn | undefined, colId: string): boolean {
+    if (!enableFiltering) return false;
+    if (checkboxEnabled && colId === checkboxColId) return false;
+    if (col?.filterable === false) return false;
+    if (col?.filterable === true) return true;
+
+    const current = filterControlled ? filterValue : draftFilterValue;
+    const hasEntry = Boolean(getFilterEntry(current, colId));
+    if (hasEntry) return true;
+
+    if (col?.filterEditor) return true;
+
+    return false;
+  }
+
+  function resolveFilterType(col: TypeColumn | undefined, entry?: TypeSingleFilterValue): string {
+    return (
+      entry?.type ??
+      col?.filterType ??
+      (typeof (col as any)?.type === "string" ? ((col as any).type as string) : undefined) ??
+      "string"
+    );
+  }
+
+  function resolveOperator(filterType: string, entry?: TypeSingleFilterValue): string {
+    if (entry?.operator) return entry.operator;
+
+    if (filterType === "number") return "gte";
+    if (filterType === "select") return "eq";
+    if (filterType === "date" || filterType === "time") return "afterOrOn";
+
+    return "contains";
+  }
+
+  function applyFilterNow(next: TypeFilterValue) {
+    setSkip(0);
+    if (filterControlled) {
+      setFilterValue(next);
+    } else {
+      // apply immediately + keep draft in sync
+      setDraftFilterValue(next);
+      setFilterValue(next);
+    }
+  }
+
+  /** ---------------- render ---------------- */
+
   return (
     <div className={cn("flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
       <div
         ref={scrollRef}
-        className={cn(
-          "relative overflow-auto rounded-lg border border-border",
-          virtualized ? "max-h-[560px]" : "",
-        )}
+        className={cn("relative overflow-auto rounded-lg border border-border", virtualized ? "max-h-[560px]" : "")}
         style={style}
       >
-        {/* IMPORTANT: do NOT use shadcn <Table /> wrapper here (it adds its own overflow container),
-            otherwise sticky header + virtualization can break. */}
         <table className="w-full table-fixed caption-bottom text-sm">
           <TableHeader>
             {/* Header row */}
@@ -515,6 +911,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
                   const width = autoWidths[colId];
                   const headerAlign = col?.headerAlign ?? col?.textAlign;
 
+                  const canDrag =
+                    allowColumnReorder &&
+                    colId !== checkboxColId &&
+                    (col?.draggable ?? true) &&
+                    Boolean(props.onColumnOrderChange);
+
                   return (
                     <TableHead
                       key={h.id}
@@ -522,7 +924,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                       className={cn(
                         "sticky top-0 z-20 bg-muted/50",
                         headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
-                        col?.headerProps?.className,
+                        col?.headerProps?.className
                       )}
                       style={{
                         width,
@@ -531,10 +933,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
                         height: headerHeight,
                         ...col?.headerProps?.style,
                       }}
-                      draggable={Boolean(props.onColumnOrderChange)}
-                      onDragStart={(e) => onHeaderDragStart(e, colId)}
-                      onDragOver={onHeaderDragOver}
-                      onDrop={(e) => onHeaderDrop(e, colId)}
+                      draggable={Boolean(canDrag)}
+                      onDragStart={(e) => canDrag && onHeaderDragStart(e, colId)}
+                      onDragOver={(e) => canDrag && onHeaderDragOver(e)}
+                      onDrop={(e) => canDrag && onHeaderDrop(e, colId)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center">
@@ -557,15 +959,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
                                 setSortInfo(next);
                               }}
                             >
-                              <span className="truncate">
-                                {flexRender(h.column.columnDef.header, h.getContext())}
-                              </span>
+                              <span className="truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
                               {sortIcon(dir)}
                             </Button>
                           ) : (
-                            <span className="truncate">
-                              {flexRender(h.column.columnDef.header, h.getContext())}
-                            </span>
+                            <span className="truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
                           )}
                         </div>
 
@@ -619,7 +1017,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               </TableRow>
             ))}
 
-            {/* Filter row */}
+            {/* Filter row (with filter icon + operator dropdown) */}
             {enableFiltering &&
               table.getHeaderGroups().map((hg) => (
                 <TableRow
@@ -632,29 +1030,80 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     const col: TypeColumn | undefined = colDef?.meta?.__column;
                     const colId = h.column.id;
 
-                    const filterable = col?.filterable ?? false;
+                    const filterable = isColumnFilterable(col, colId);
 
-                    const entry = getFilterEntry(filterControlled ? filterValue : draftFilterValue, colId);
-                    const value = entry?.value ?? "";
+                    const currentFilter = filterControlled ? filterValue : draftFilterValue;
+                    const entry = getFilterEntry(currentFilter, colId);
 
-                    const openMenu = (e: React.MouseEvent) => {
-                      if (!enableColumnFilterContextMenu) return;
-                      e.preventDefault();
-                      setFilterMenu({
-                        open: true,
-                        x: (e as any).clientX ?? 0,
-                        y: (e as any).clientY ?? 0,
-                        columnId: colId,
-                      });
-                    };
+                    const filterTypeName = resolveFilterType(col, entry);
+                    const operator = resolveOperator(filterTypeName, entry);
+
+                    const typeDef = (filterTypes as any)[filterTypeName] ?? filterTypes.string;
+                    const operators = Array.isArray(typeDef?.operators) ? typeDef.operators : [];
+                    const opDef = operators.find((o: any) => o?.name === operator);
+
+                    const editorDisabled = Boolean(opDef?.disableFilterEditor);
+
+                    const active =
+                      Boolean(entry) &&
+                      entry?.active !== false &&
+                      (Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor) || !isEmptyLikeUI(entry?.value));
 
                     const width = autoWidths[colId];
+
+                    // Editor prop resolver (supports function form)
+                    const resolvedEditorProps =
+                      typeof col?.filterEditorProps === "function"
+                        ? (col.filterEditorProps as any)({ column: col, columnId: colId }, { index: 0 })
+                        : col?.filterEditorProps;
+
+                    const setEntryValue = (nextValueRaw: unknown) => {
+                      const nextValue = normalizeEditorOutput(nextValueRaw);
+
+                      const nextEntry: TypeSingleFilterValue = {
+                        name: colId,
+                        operator,
+                        type: filterTypeName,
+                        value: nextValue,
+                        active: undefined,
+                      };
+
+                      setSkip(0);
+                      if (filterControlled) {
+                        setFilterValue(upsertFilterEntry(filterValue, nextEntry, { filterTypes }));
+                      } else {
+                        setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry, { filterTypes }));
+                      }
+                    };
+
+                    const operatorMenuEnabled = enableColumnFilterContextMenu && filterable;
+
+                    const onClear = () => {
+                      applyFilterNow(clearFilter(filterValue, colId, { filterTypes }));
+                    };
+
+                    const onSelectOperator = (nextOp: string) => {
+                      const next = setFilterOperator(filterValue, colId, nextOp, { filterTypes, type: filterTypeName });
+                      applyFilterNow(next);
+                    };
+
+                    // Built-in select support (single + multi)
+                    const options = Array.isArray((resolvedEditorProps as any)?.options)
+                      ? ((resolvedEditorProps as any).options as any[])
+                      : [];
+
+                    const multiple =
+                      Boolean((resolvedEditorProps as any)?.multiple) ||
+                      operator === "inlist" ||
+                      operator === "notinlist";
+
+                    const value = entry?.value ?? (multiple ? [] : "");
 
                     return (
                       <TableHead
                         key={`${h.id}-filter`}
                         className={cn(
-                          "sticky z-10 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+                          "sticky z-10 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                         )}
                         style={{
                           top: headerHeight,
@@ -663,86 +1112,189 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           maxWidth: col?.maxWidth,
                           height: filterRowHeight,
                         }}
-                        onContextMenu={openMenu}
+                        onContextMenu={(e) => {
+                          if (!operatorMenuEnabled) return;
+                          e.preventDefault();
+                          setOpenFilterMenuColId(colId);
+                        }}
                       >
-                        {h.isPlaceholder || !filterable ? null : col?.filterEditor ? (
-                          <col.filterEditor
-                            filterValue={{
-                              name: colId,
-                              operator: entry?.operator ?? "contains",
-                              type: entry?.type ?? col.filterType ?? "string",
-                              value: entry?.value ?? null,
-                              filterEditorProps: col.filterEditorProps,
-                            }}
-                            onChange={(next: unknown) => {
-                              const nextEntry: TypeSingleFilterValue = {
-                                name: colId,
-                                operator: entry?.operator ?? "contains",
-                                type: entry?.type ?? col.filterType ?? "string",
-                                value: next,
-                                active: true,
-                              };
+                        {h.isPlaceholder || !filterable ? null : (
+                          <div className="flex items-center gap-1">
+                            <div className="min-w-0 flex-1">
+                              {col?.filterEditor ? (
+                                React.createElement(col.filterEditor as any, {
+                                  filterValue: {
+                                    name: colId,
+                                    operator,
+                                    type: filterTypeName,
+                                    value: entry?.value ?? null,
+                                    emptyValue: entry?.emptyValue,
+                                    active: entry?.active,
+                                  },
+                                  value: entry?.value ?? null,
+                                  onChange: (next: unknown) => setEntryValue(next),
+                                  column: col,
+                                  columnId: colId,
+                                  disabled: editorDisabled,
+                                  ...(isPlainObject(resolvedEditorProps) ? resolvedEditorProps : {}),
+                                })
+                              ) : filterTypeName === "select" && options.length > 0 ? (
+                                multiple ? (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-full justify-between px-2"
+                                        disabled={editorDisabled}
+                                      >
+                                        <span className="truncate">
+                                          {Array.isArray(value) && value.length > 0
+                                            ? `${value.length} ${t(i18n, "selected", "selected")}`
+                                            : String(t(i18n, "clearAll", "All"))}
+                                        </span>
+                                        <IconChevronDown className="ml-2 size-3 opacity-60" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-56">
+                                      <DropdownMenuItem
+                                        onSelect={(e) => {
+                                          e.preventDefault();
+                                          setEntryValue([]);
+                                        }}
+                                      >
+                                        {t(i18n, "clearAll", "All")}
+                                      </DropdownMenuItem>
+                                      {options.map((o: any) => {
+                                        const optValue = o?.value ?? o;
+                                        const optLabel = o?.label ?? o?.value ?? String(o);
 
-                              setSkip(0);
-                              if (filterControlled)
-                                setFilterValue(upsertFilterEntry(filterValue, nextEntry));
-                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
-                            }}
-                          />
-                        ) : col?.filterType === "select" &&
-                          Array.isArray((col.filterEditorProps as any)?.options) ? (
-                          <Select
-                            value={String(value === "" || value == null ? "__all__" : value)}
-                            onValueChange={(v: string) => {
-                              const nextValue = v === "__all__" ? "" : v;
+                                        const arr = Array.isArray(value) ? value : [];
+                                        const checked = arr.some((x) => String(x) === String(optValue));
 
-                              const nextEntry: TypeSingleFilterValue = {
-                                name: colId,
-                                operator: entry?.operator ?? "eq",
-                                type: entry?.type ?? "string",
-                                value: nextValue,
-                                active: true,
-                              };
+                                        return (
+                                          <DropdownMenuItem
+                                            key={String(optValue)}
+                                            onSelect={(e) => {
+                                              e.preventDefault();
+                                              const next = checked
+                                                ? arr.filter((x) => String(x) !== String(optValue))
+                                                : [...arr, optValue];
+                                              setEntryValue(next);
+                                            }}
+                                            className="flex items-center gap-2"
+                                          >
+                                            <Checkbox checked={checked} onCheckedChange={() => {}} />
+                                            <span className="truncate">{String(optLabel)}</span>
+                                          </DropdownMenuItem>
+                                        );
+                                      })}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ) : (
+                                  <Select
+                                    value={String(value === "" || value == null ? "__all__" : value)}
+                                    onValueChange={(v: string) => {
+                                      const nextValue = v === "__all__" ? "" : v;
+                                      setEntryValue(nextValue);
+                                    }}
+                                    disabled={editorDisabled}
+                                  >
+                                    <SelectTrigger className="h-8 w-full">
+                                      <SelectValue placeholder={String(t(i18n, "clearAll", "All"))} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__all__">{t(i18n, "clearAll", "All")}</SelectItem>
+                                      {options.map((o: any) => {
+                                        const optValue = o?.value ?? o;
+                                        const optLabel = o?.label ?? o?.value ?? String(o);
 
-                              setSkip(0);
-                              if (filterControlled)
-                                setFilterValue(upsertFilterEntry(filterValue, nextEntry));
-                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
-                            }}
-                          >
-                            <SelectTrigger className="h-8 w-full">
-                              <SelectValue placeholder={String(t(i18n, "contains", "All"))} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__all__">{t(i18n, "clearAll", "All")}</SelectItem>
-                              {((col.filterEditorProps as any)?.options || []).map((o: any) => (
-                                <SelectItem key={String(o.value)} value={String(o.value)}>
-                                  {String(o.label ?? o.value)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            value={String(value ?? "")}
-                            onChange={(e) => {
-                              const next = e.target.value;
+                                        return (
+                                          <SelectItem key={String(optValue)} value={String(optValue)}>
+                                            {String(optLabel)}
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                )
+                              ) : (
+                                <Input
+                                  value={String(value ?? "")}
+                                  disabled={editorDisabled}
+                                  onChange={(e) => setEntryValue(e.target.value)}
+                                  className="h-8 w-full"
+                                  placeholder={String(t(i18n, operator, humanizeOperatorName(operator)))}
+                                />
+                              )}
+                            </div>
 
-                              const nextEntry: TypeSingleFilterValue = {
-                                name: colId,
-                                operator: entry?.operator ?? "contains",
-                                type: entry?.type ?? "string",
-                                value: next,
-                                active: true,
-                              };
+                            {/* Filter icon + operator dropdown */}
+                            {operatorMenuEnabled && (
+                              <DropdownMenu
+                                open={openFilterMenuColId === colId}
+                                onOpenChange={(open) => setOpenFilterMenuColId(open ? colId : null)}
+                              >
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-7 shrink-0"
+                                    aria-label={String(t(i18n, "filter", "Filter"))}
+                                    title={String(t(i18n, operator, humanizeOperatorName(operator)))}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <IconFilter className={cn("size-4", active ? "" : "opacity-50")} />
+                                  </Button>
+                                </DropdownMenuTrigger>
 
-                              setSkip(0);
-                              if (filterControlled) setFilterValue(upsertFilterEntry(filterValue, nextEntry));
-                              else setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry));
-                            }}
-                            className="h-8 w-full"
-                            placeholder={String(t(i18n, "contains", "Filter…"))}
-                          />
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                    {String(t(i18n, "filter", "Filter"))}
+                                  </div>
+
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                      onClear();
+                                    }}
+                                  >
+                                    {String(t(i18n, "clear", "Clear"))}
+                                  </DropdownMenuItem>
+
+                                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                                    {String(t(i18n, "operator", "Operator"))}
+                                  </div>
+
+                                  {operators.map((opItem: any) => {
+                                    const opName = String(opItem?.name ?? "");
+                                    if (!opName) return null;
+
+                                    const label = String(t(i18n, opName, humanizeOperatorName(opName)));
+                                    const isCurrent = opName === operator;
+
+                                    return (
+                                      <DropdownMenuItem
+                                        key={opName}
+                                        onSelect={(e) => {
+                                          e.preventDefault();
+                                          onSelectOperator(opName);
+                                        }}
+                                      >
+                                        <div className="flex w-full items-center justify-between gap-3">
+                                          <span className="truncate">{label}</span>
+                                          {isCurrent ? <IconCheck className="size-4 opacity-80" /> : null}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    );
+                                  })}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
                         )}
                       </TableHead>
                     );
@@ -774,8 +1326,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
                 {virtualItems.map((vi) => {
                   const row = rowModel[vi.index]!;
+                  const rowIsSelected = Boolean(selectedMap[row.id]);
+
                   return (
-                    <TableRow key={row.id} className="hover:bg-muted/40" style={{ height: vi.size }}>
+                    <TableRow
+                      key={row.id}
+                      className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
+                      style={{ height: vi.size }}
+                      onClick={(e) => {
+                        if (!selectionEnabled) return;
+                        if (checkboxOnlyRowSelect) return;
+                        if (isInteractiveClickTarget(e.target as any)) return;
+
+                        const next = { ...selectedMap };
+                        if (multiSelect) {
+                          if (next[row.id]) delete next[row.id];
+                          else next[row.id] = row.original;
+                        } else {
+                          Object.keys(next).forEach((k) => delete next[k]);
+                          next[row.id] = row.original;
+                        }
+
+                        emitSelectionChange(next, { data: row.original });
+                      }}
+                    >
                       {row.getVisibleCells().map((cell) => {
                         const colId = cell.column.id;
                         const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
@@ -789,7 +1363,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                             className={cn(
                               userSelectClass,
                               align === "right" || align === "end" ? "text-right" : "",
-                              col?.className,
+                              col?.className
                             )}
                             style={{
                               width,
@@ -813,36 +1387,59 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 )}
               </>
             ) : (
-              rowModel.map((row) => (
-                <TableRow key={row.id} className="hover:bg-muted/40">
-                  {row.getVisibleCells().map((cell) => {
-                    const colId = cell.column.id;
-                    const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
+              rowModel.map((row) => {
+                const rowIsSelected = Boolean(selectedMap[row.id]);
 
-                    const width = autoWidths[colId];
-                    const align = col?.textAlign;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
+                    onClick={(e) => {
+                      if (!selectionEnabled) return;
+                      if (checkboxOnlyRowSelect) return;
+                      if (isInteractiveClickTarget(e.target as any)) return;
 
-                    return (
-                      <TableCell
-                        key={cell.id}
-                        className={cn(
-                          userSelectClass,
-                          align === "right" || align === "end" ? "text-right" : "",
-                          col?.className,
-                        )}
-                        style={{
-                          width,
-                          minWidth: col?.minWidth,
-                          maxWidth: col?.maxWidth,
-                          ...(typeof col?.style === "object" && col?.style ? col.style : {}),
-                        }}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))
+                      const next = { ...selectedMap };
+                      if (multiSelect) {
+                        if (next[row.id]) delete next[row.id];
+                        else next[row.id] = row.original;
+                      } else {
+                        Object.keys(next).forEach((k) => delete next[k]);
+                        next[row.id] = row.original;
+                      }
+
+                      emitSelectionChange(next, { data: row.original });
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const colId = cell.column.id;
+                      const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
+
+                      const width = autoWidths[colId];
+                      const align = col?.textAlign;
+
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            userSelectClass,
+                            align === "right" || align === "end" ? "text-right" : "",
+                            col?.className
+                          )}
+                          style={{
+                            width,
+                            minWidth: col?.minWidth,
+                            maxWidth: col?.maxWidth,
+                            ...(typeof col?.style === "object" && col?.style ? col.style : {}),
+                          }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </table>
@@ -936,48 +1533,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
           </div>
         </div>
       </div>
-
-      {/* Filter context menu (cursor anchored) */}
-      {filterMenu?.open && enableColumnFilterContextMenu && (
-        <div
-          className="fixed z-50 w-56 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
-          style={{ left: filterMenu.x, top: filterMenu.y }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Filter</div>
-
-          <button
-            type="button"
-            className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
-            onClick={() => {
-              const colId = filterMenu.columnId;
-              setSkip(0);
-              setFilterValue(clearFilter(filterValue, colId));
-              setFilterMenu(null);
-            }}
-          >
-            {t(i18n, "clear", "Clear")}
-          </button>
-
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground">Operator</div>
-
-          {STRING_OPERATORS.map((op) => (
-            <button
-              type="button"
-              key={op.value}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
-              onClick={() => {
-                const colId = filterMenu.columnId;
-                setSkip(0);
-                setFilterValue(setFilterOperator(filterValue, colId, op.value));
-                setFilterMenu(null);
-              }}
-            >
-              {op.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
