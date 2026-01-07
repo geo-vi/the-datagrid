@@ -641,6 +641,7 @@ export function applyLocalFilter(
         filterValue: f.value,
         emptyValue: f.emptyValue ?? typeDef.emptyValue,
         data: row,
+        _data: row,
         column: columnsMap[f.name],
       });
     });

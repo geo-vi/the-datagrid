@@ -216,7 +216,7 @@ export function FilterCell(props: FilterCellProps) {
   return (
     <TableHead
       key={`${header.id}-filter`}
-      className={cn("sticky z-10 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60")}
+      className={cn("sticky z-10 bg-background py-2 border-b border-border")}
       style={{
         top: headerHeight,
         width,

@@ -58,6 +58,7 @@ export type TypeFilterOperator = {
     filterValue: unknown;
     emptyValue?: unknown;
     data?: unknown;
+    _data?: unknown;
     column?: unknown;
   }) => boolean;
 

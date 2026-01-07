@@ -43,6 +43,51 @@ import { GridPagination } from "./components/GridPagination";
  */
 export const plugins: readonly unknown[] = [] as const;
 
+const DATAGRID_SCROLLBAR_STYLE_ID = "__the_datagrid_scrollbar__";
+
+function ensureDatagridScrollbarStyles() {
+  if (typeof document === "undefined") return;
+  const css = `
+.tdg-scrollbar {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ring) transparent;
+  scrollbar-color: hsl(var(--ring)) transparent;
+}
+.tdg-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.tdg-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tdg-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--ring);
+  background-color: hsl(var(--ring));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.tdg-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+  background-color: hsl(var(--muted-foreground));
+}
+.tdg-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+`;
+  const existing = document.getElementById(DATAGRID_SCROLLBAR_STYLE_ID) as HTMLStyleElement | null;
+  if (existing) {
+    if (existing.textContent !== css) existing.textContent = css;
+    return;
+  }
+
+  const styleEl = document.createElement("style");
+  styleEl.id = DATAGRID_SCROLLBAR_STYLE_ID;
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+}
+
 function ReactDataGrid(props: TypeDataGridProps) {
   const {
     theme = "default",
@@ -72,6 +117,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     className,
     style,
   } = props;
+
+  React.useEffect(() => {
+    ensureDatagridScrollbarStyles();
+  }, []);
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -186,6 +235,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [draftFilterValue, setDraftFilterValue] = React.useState<TypeFilterValue>(filterValue);
   React.useEffect(() => setDraftFilterValue(filterValue), [filterValue]);
 
+  const pageSizes = React.useMemo(() => {
+    const raw = props.pageSizes ?? [10, 50, 100, 1000];
+    const unique = Array.from(new Set(raw)).filter((n) => typeof n === "number" && Number.isFinite(n) && n > 0);
+    return unique.length ? unique : [10, 50, 100, 1000];
+  }, [props.pageSizes]);
+
   const [skip, setSkip] = useControllableState<number>({
     value: props.skip,
     defaultValue: props.defaultSkip ?? 0,
@@ -194,15 +249,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const [limit, setLimit] = useControllableState<number>({
     value: props.limit,
-    defaultValue: props.defaultLimit ?? 10,
+    defaultValue: props.defaultLimit ?? pageSizes[0] ?? 10,
     onChange: props.onLimitChange,
   });
-
-  const pageSizes = props.pageSizes ?? [10, 20, 30, 40, 50];
 
   const allowUnsort = props.allowUnsort ?? true;
   const defaultSortingDirection = props.defaultSortingDirection ?? "asc";
   const defaultSortDir: 1 | -1 = defaultSortingDirection === "desc" ? -1 : 1;
+
+  const paginationMode = props.pagination ?? false;
+  const paginationEnabled = paginationMode !== false;
 
   const orderedColumns = React.useMemo(() => {
     const colById = new Map<string, TypeColumn>();
@@ -255,7 +311,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       const totalCount = data.length;
 
-      const paginationMode = props.pagination ?? true;
       const doPage = paginationMode !== false && paginationMode !== "remote";
 
       const sliced = doPage ? data.slice(skip, skip + limit) : data;
@@ -271,9 +326,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     try {
       const ds = dataSource;
 
+      const dsIsFn = typeof ds === "function";
+      const sliceLocally = paginationMode !== false && (paginationMode === "local" || !dsIsFn);
+
       const dsArg = {
-        skip,
-        limit,
+        ...(paginationMode !== false && paginationMode !== "local" && dsIsFn ? { skip, limit } : {}),
         sortInfo: computedSortForFetch,
         filterValue: computedFilterForFetch,
         columnOrder: columnOrderForDs,
@@ -284,7 +341,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       let result: any = ds;
 
-      if (typeof ds === "function") {
+      if (dsIsFn) {
         result = ds(dsArg);
       }
 
@@ -293,13 +350,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
 
       if (result && typeof result === "object" && Array.isArray(result.data)) {
-        setRows(result.data);
-        setCount(Number(result.count ?? result.data.length));
-        filteredRowsCount?.(Number(result.count ?? result.data.length));
+        const totalCount = Number(result.count ?? result.data.length);
+        const nextRows = sliceLocally ? result.data.slice(skip, skip + limit) : result.data;
+
+        setRows(nextRows);
+        setCount(totalCount);
+        filteredRowsCount?.(totalCount);
       } else if (Array.isArray(result)) {
-        setRows(result);
-        setCount(result.length);
-        filteredRowsCount?.(result.length);
+        const totalCount = result.length;
+        const nextRows = sliceLocally ? result.slice(skip, skip + limit) : result;
+
+        setRows(nextRows);
+        setCount(totalCount);
+        filteredRowsCount?.(totalCount);
       } else {
         setRows([]);
         setCount(0);
@@ -317,7 +380,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     idProperty,
     limit,
     orderedColumns,
-    props.pagination,
+    paginationMode,
     skip,
     theme,
     columnOrderForDs,
@@ -631,18 +694,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const rowModel = table.getRowModel().rows;
 
+  const stickyHeaderHeight = headerHeight + (enableFiltering ? filterRowHeight : 0);
+
   const rowVirtualizer = useVirtualizer({
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowHeight,
     overscan: 10,
+    scrollMargin: stickyHeaderHeight,
+    scrollPaddingStart: stickyHeaderHeight,
+    enabled: virtualized,
   });
 
   const virtualItems = virtualized ? rowVirtualizer.getVirtualItems() : [];
-  const paddingTop = virtualized && virtualItems.length ? virtualItems[0]!.start : 0;
+  const paddingTop = virtualized && virtualItems.length ? Math.max(0, virtualItems[0]!.start - stickyHeaderHeight) : 0;
   const paddingBottom =
     virtualized && virtualItems.length
-      ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end
+      ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]!.end - stickyHeaderHeight))
       : 0;
 
   /** ---------------- imperative API ---------------- */
@@ -761,75 +829,91 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   return (
     <div className={cn("flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
-      <div
-        ref={scrollRef}
-        className={cn("relative overflow-auto rounded-lg border border-border", virtualized ? "max-h-[560px]" : "")}
-        style={style}
-      >
-        <table className="w-full table-fixed caption-bottom text-sm">
-          <GridHeader
-            headerGroups={table.getHeaderGroups()}
-            headerHeight={headerHeight}
-            filterRowHeight={filterRowHeight}
-            autoWidths={autoWidths}
-            sortInfo={sortInfo}
-            setSortInfo={setSortInfo}
-            setSkip={setSkip}
-            allowUnsort={allowUnsort}
-            defaultSortDir={defaultSortDir}
-            showColumnMenuTool={showColumnMenuTool}
-            i18n={i18n}
-            allowColumnReorder={allowColumnReorder}
-            checkboxEnabled={checkboxEnabled}
-            checkboxColId={checkboxColId}
-            onHeaderDragStart={onHeaderDragStart}
-            onHeaderDragOver={onHeaderDragOver}
-            onHeaderDrop={onHeaderDrop}
-            enableFiltering={enableFiltering}
-            enableColumnFilterContextMenu={enableColumnFilterContextMenu}
-            filterControlled={filterControlled}
-            filterValue={filterValue}
-            draftFilterValue={draftFilterValue}
-            setFilterValue={setFilterValue}
-            setDraftFilterValue={setDraftFilterValue}
-            filterTypes={filterTypes}
-            openFilterMenuColId={openFilterMenuColId}
-            setOpenFilterMenuColId={setOpenFilterMenuColId}
-          />
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div
+          ref={scrollRef}
+          className={cn("tdg-scrollbar relative overflow-auto bg-background", virtualized ? "max-h-[560px]" : "")}
+          style={style}
+        >
+          <table className="w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
+            <GridHeader
+              headerGroups={table.getHeaderGroups()}
+              headerHeight={headerHeight}
+              filterRowHeight={filterRowHeight}
+              autoWidths={autoWidths}
+              sortInfo={sortInfo}
+              setSortInfo={setSortInfo}
+              setSkip={setSkip}
+              allowUnsort={allowUnsort}
+              defaultSortDir={defaultSortDir}
+              showColumnMenuTool={showColumnMenuTool}
+              i18n={i18n}
+              allowColumnReorder={allowColumnReorder}
+              checkboxEnabled={checkboxEnabled}
+              checkboxColId={checkboxColId}
+              onHeaderDragStart={onHeaderDragStart}
+              onHeaderDragOver={onHeaderDragOver}
+              onHeaderDrop={onHeaderDrop}
+              enableFiltering={enableFiltering}
+              enableColumnFilterContextMenu={enableColumnFilterContextMenu}
+              filterControlled={filterControlled}
+              filterValue={filterValue}
+              draftFilterValue={draftFilterValue}
+              setFilterValue={setFilterValue}
+              setDraftFilterValue={setDraftFilterValue}
+              filterTypes={filterTypes}
+              openFilterMenuColId={openFilterMenuColId}
+              setOpenFilterMenuColId={setOpenFilterMenuColId}
+            />
 
-          <GridBody
-            rowModel={rowModel}
-            orderedColumns={orderedColumns}
-            autoWidths={autoWidths}
-            userSelectClass={userSelectClass}
-            virtualized={virtualized}
-            virtualItems={virtualItems}
-            paddingTop={paddingTop}
-            paddingBottom={paddingBottom}
-            loading={loading}
-            i18n={i18n}
-            selectedMap={selectedMap}
-            onRowClick={(id, data, e) => handleRowClick(id, data, e)}
-          />
-        </table>
+            <GridBody
+              rowModel={rowModel}
+              orderedColumns={orderedColumns}
+              autoWidths={autoWidths}
+              userSelectClass={userSelectClass}
+              virtualized={virtualized}
+              virtualItems={virtualItems}
+              paddingTop={paddingTop}
+              paddingBottom={paddingBottom}
+              loading={loading}
+              i18n={i18n}
+              selectedMap={selectedMap}
+              onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+            />
+          </table>
+        </div>
+
+        {paginationEnabled ? (
+          <div className="border-t border-border py-2">
+            <GridPagination
+              count={count}
+              skip={skip}
+              limit={limit}
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              canPrev={canPrev}
+              canNext={canNext}
+              pageSizes={pageSizes}
+              setSkip={setSkip}
+              setLimit={setLimit}
+              i18n={i18n}
+            />
+          </div>
+        ) : null}
       </div>
-
-      <GridPagination
-        count={count}
-        skip={skip}
-        limit={limit}
-        pageIndex={pageIndex}
-        pageCount={pageCount}
-        canPrev={canPrev}
-        canNext={canNext}
-        pageSizes={pageSizes}
-        setSkip={setSkip}
-        setLimit={setLimit}
-        i18n={i18n}
-      />
     </div>
   );
 }
+
+// -----------------------------------------------------------------------------
+// Inovua-compat: expose default filterTypes via ReactDataGrid.defaultProps.filterTypes
+// so apps can extend defaults like:
+// Object.assign({}, ReactDataGrid.defaultProps.filterTypes, { myCustomType: ... })
+// -----------------------------------------------------------------------------
+(ReactDataGrid as any).defaultProps = {
+  ...(ReactDataGrid as any).defaultProps,
+  filterTypes: DEFAULT_FILTER_TYPES,
+};
 
 export { ReactDataGrid };
 export default ReactDataGrid;

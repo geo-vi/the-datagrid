@@ -78,10 +78,10 @@ export function GridHeader(props: GridHeaderProps) {
   } = props;
 
   return (
-    <TableHeader>
+    <TableHeader className="[&_tr]:!border-b-0">
       {/* Header row */}
       {headerGroups.map((hg) => (
-        <TableRow key={hg.id} className="bg-muted/50" style={{ height: headerHeight }}>
+        <TableRow key={hg.id} className="bg-muted" style={{ height: headerHeight }}>
           {hg.headers.map((h: any) => {
             const colDef = h.column.columnDef as any;
             const col: TypeColumn | undefined = colDef?.meta?.__column;
@@ -124,7 +124,7 @@ export function GridHeader(props: GridHeaderProps) {
         headerGroups.map((hg) => (
           <TableRow
             key={`${hg.id}-filters`}
-            className="bg-background/95 supports-[backdrop-filter]:bg-background/60"
+            className="bg-background"
             style={{ height: filterRowHeight }}
           >
             {hg.headers.map((h: any) => {

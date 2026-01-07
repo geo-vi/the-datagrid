@@ -85,7 +85,7 @@ export function HeaderCell(props: HeaderCellProps) {
       key={header.id}
       colSpan={header.colSpan}
       className={cn(
-        "sticky top-0 z-20 bg-muted/50",
+        "sticky top-0 z-20 bg-muted border-b border-border",
         headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
         col?.headerProps?.className,
       )}
