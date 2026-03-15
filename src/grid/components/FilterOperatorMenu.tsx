@@ -60,7 +60,7 @@ export function FilterOperatorMenu(props: FilterOperatorMenuProps) {
         <DropdownMenuGroup>
           <DropdownMenuLabel>{String(t(i18n, "filter", "Filter"))}</DropdownMenuLabel>
           <DropdownMenuItem
-            onSelect={(e) => {
+            onSelect={(e: Event) => {
               e.preventDefault();
               onClear();
             }}

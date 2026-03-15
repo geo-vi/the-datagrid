@@ -280,7 +280,7 @@ export function FilterCell(props: FilterCellProps) {
 
                   <DropdownMenuContent align="start" className="w-56">
                     <DropdownMenuItem
-                      onSelect={(e) => {
+                      onSelect={(e: Event) => {
                         e.preventDefault();
                         setEntryValue([]);
                       }}
@@ -298,7 +298,7 @@ export function FilterCell(props: FilterCellProps) {
                       return (
                         <DropdownMenuItem
                           key={String(optValue)}
-                          onSelect={(e) => {
+                          onSelect={(e: Event) => {
                             e.preventDefault();
                             const next = checked
                               ? arr.filter((x) => String(x) !== String(optValue))

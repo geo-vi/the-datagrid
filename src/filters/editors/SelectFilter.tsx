@@ -158,7 +158,7 @@ export default function SelectFilter(props: SelectFilterProps) {
 
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuItem
-            onSelect={(e) => {
+            onSelect={(e: Event) => {
               e.preventDefault();
               onChange?.(null);
             }}
@@ -173,7 +173,7 @@ export default function SelectFilter(props: SelectFilterProps) {
               <DropdownMenuItem
                 key={o.key}
                 className="flex items-center gap-2"
-                onSelect={(e) => {
+                onSelect={(e: Event) => {
                   e.preventDefault();
                   toggle(o.key);
                 }}
