@@ -1,0 +1,108 @@
+@use "sass:color";
+@use "sass:math";
+
+@function tdg-rgba-to-rgb($value, $background) {
+  @if color.alpha($value) >= 1 {
+    @return $value;
+  }
+
+  @return color.mix(
+    rgb(
+      color.channel($value, "red", $space: rgb),
+      color.channel($value, "green", $space: rgb),
+      color.channel($value, "blue", $space: rgb)
+    ),
+    $background,
+    color.alpha($value) * 100%
+  );
+}
+
+@function tdg-contrast-color($value, $dark: #111111, $light: #ffffff) {
+  $red: color.channel($value, "red", $space: rgb);
+  $green: color.channel($value, "green", $space: rgb);
+  $blue: color.channel($value, "blue", $space: rgb);
+  $luminance: math.div(($red * 299) + ($green * 587) + ($blue * 114), 1000);
+
+  @if $luminance > 160 {
+    @return $dark;
+  }
+
+  @return $light;
+}
+
+@mixin export-datagrid-theme() {
+  .tdg-root[data-theme="#{$DATAGRID_THEME_NAME}"] {
+    --tdg-color-background: #{$INOVUA_DATAGRID_BG_COLOR};
+    --tdg-color-foreground: #{$INOVUA_DATAGRID_FONT_COLOR};
+    --tdg-color-accent: #{$INOVUA_DATAGRID_ACCENT_COLOR};
+    --tdg-color-accent-foreground: #{tdg-contrast-color($INOVUA_DATAGRID_ACCENT_COLOR, $INOVUA_DATAGRID_FONT_COLOR, $INOVUA_DATAGRID_BG_COLOR)};
+    --tdg-color-border: #{$INOVUA_DATAGRID_BORDER_COLOR};
+    --tdg-color-input: #{$INOVUA_TEXT_INPUT_BORDER_COLOR};
+    --tdg-color-ring: #{$INOVUA_TEXT_INPUT_BORDER_COLOR_FOCUSED};
+    --tdg-color-popover: #{$INOVUA_COMBO_BOX_LIST_BG};
+    --tdg-color-popover-foreground: #{$INOVUA_COMBO_BOX_COLOR};
+    --tdg-color-primary: #{$INOVUA_DATAGRID_ACCENT_COLOR};
+    --tdg-color-primary-foreground: #{tdg-contrast-color($INOVUA_DATAGRID_ACCENT_COLOR, $INOVUA_DATAGRID_FONT_COLOR, $INOVUA_DATAGRID_BG_COLOR)};
+    --tdg-color-secondary: #{$INOVUA_DATAGRID_HEADER_BG};
+    --tdg-color-secondary-foreground: #{$INOVUA_DATAGRID_FONT_COLOR};
+    --tdg-color-muted: #{$INOVUA_DATAGRID_HEADER_BG};
+    --tdg-color-muted-foreground: #{$INOVUA_DATAGRID_HEADER_COLOR};
+
+    --tdg-grid-bg: #{$INOVUA_DATAGRID_BG_COLOR};
+    --tdg-grid-border-color: #{$INOVUA_DATAGRID_BORDER_COLOR};
+
+    --tdg-header-bg: #{$INOVUA_DATAGRID_HEADER_BG};
+    --tdg-header-color: #{$INOVUA_DATAGRID_HEADER_COLOR};
+    --tdg-header-border-color: #{$INOVUA_DATAGRID_HEADER_BORDER_COLOR};
+
+    --tdg-filter-bg: #{$INOVUA_DATAGRID_BG_COLOR};
+    --tdg-filter-color: #{$INOVUA_DATAGRID_FONT_COLOR};
+    --tdg-filter-border-color: #{$INOVUA_DATAGRID_BORDER_COLOR};
+
+    --tdg-cell-border-color: #{$INOVUA_DATAGRID_CELL_BORDER_COLOR};
+
+    --tdg-row-odd-bg: #{$INOVUA_DATAGRID_ROW_ODD_BG_COLOR};
+    --tdg-row-even-bg: #{$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR};
+    --tdg-row-odd-hover-bg: #{$INOVUA_DATAGRID_ROW_ODD_HOVER_BG_COLOR};
+    --tdg-row-even-hover-bg: #{$INOVUA_DATAGRID_ROW_EVEN_HOVER_BG_COLOR};
+    --tdg-row-selected-bg: #{$INOVUA_DATAGRID_ROW_SELECTED_BG_COLOR};
+    --tdg-row-selected-hover-bg: #{$INOVUA_DATAGRID_ROW_SELECTED_HOVER_BG_COLOR};
+
+    --tdg-input-bg: #{$INOVUA_TEXT_INPUT_BG_COLOR};
+    --tdg-input-color: #{$INOVUA_TEXT_INPUT_FONT_COLOR};
+    --tdg-input-border-color: #{$INOVUA_TEXT_INPUT_BORDER_COLOR};
+    --tdg-input-border-color-hover: #{$INOVUA_TEXT_INPUT_BORDER_COLOR_HOVER};
+    --tdg-input-border-color-focus: #{$INOVUA_TEXT_INPUT_BORDER_COLOR_FOCUSED};
+
+    --tdg-select-bg: #{$INOVUA_COMBO_BOX_BG};
+    --tdg-select-color: #{$INOVUA_COMBO_BOX_COLOR};
+    --tdg-select-list-bg: #{$INOVUA_COMBO_BOX_LIST_BG};
+    --tdg-select-list-color: #{$INOVUA_COMBO_BOX_COLOR};
+    --tdg-select-border-color: #{$INOVUA_COMBO_BOX_BORDER_COLOR};
+    --tdg-select-border-color-hover: #{$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR};
+    --tdg-select-border-color-focus: #{$INOVUA_COMBO_BOX_FOCUSED_BORDER_COLOR};
+    --tdg-select-item-hover-bg: #{$INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND};
+    --tdg-select-item-hover-color: #{tdg-contrast-color($INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND, $INOVUA_COMBO_BOX_COLOR, $INOVUA_DATAGRID_BG_COLOR)};
+    --tdg-select-item-selected-bg: #{$INOVUA_COMBO_BOX_SELECTED_ITEM_BACKGROUND};
+    --tdg-select-item-selected-color: #{tdg-contrast-color($INOVUA_COMBO_BOX_SELECTED_ITEM_BACKGROUND, $INOVUA_COMBO_BOX_COLOR, $INOVUA_DATAGRID_BG_COLOR)};
+
+    --tdg-dropdown-bg: #{$INOVUA_COMBO_BOX_LIST_BG};
+    --tdg-dropdown-color: #{$INOVUA_COMBO_BOX_COLOR};
+    --tdg-dropdown-border-color: #{$INOVUA_COMBO_BOX_BORDER_COLOR};
+    --tdg-dropdown-item-hover-bg: #{$INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND};
+    --tdg-dropdown-item-hover-color: #{tdg-contrast-color($INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND, $INOVUA_COMBO_BOX_COLOR, $INOVUA_DATAGRID_BG_COLOR)};
+    --tdg-dropdown-label-color: #{$INOVUA_DATAGRID_HEADER_COLOR};
+
+    --tdg-checkbox-bg: #{$INOVUA_DATAGRID_BG_COLOR};
+    --tdg-checkbox-border-color: #{$INOVUA_CHECKBOX_SECONDARY_COLOR};
+    --tdg-checkbox-color: #{$INOVUA_CHECKBOX_COLOR};
+    --tdg-checkbox-checked-bg: #{$INOVUA_CHECKBOX_PRIMARY_COLOR};
+    --tdg-checkbox-checked-border-color: #{$INOVUA_CHECKBOX_PRIMARY_COLOR};
+    --tdg-checkbox-checked-color: #{tdg-contrast-color($INOVUA_CHECKBOX_PRIMARY_COLOR, $INOVUA_DATAGRID_BG_COLOR, $INOVUA_DATAGRID_FONT_COLOR)};
+    --tdg-checkbox-indeterminate-bg: #{$INOVUA_CHECKBOX_PRIMARY_COLOR};
+    --tdg-checkbox-indeterminate-border-color: #{$INOVUA_CHECKBOX_PRIMARY_COLOR};
+    --tdg-checkbox-indeterminate-color: #{tdg-contrast-color($INOVUA_CHECKBOX_PRIMARY_COLOR, $INOVUA_DATAGRID_BG_COLOR, $INOVUA_DATAGRID_FONT_COLOR)};
+
+    color-scheme: #{$TDG_COLOR_SCHEME};
+  }
+}

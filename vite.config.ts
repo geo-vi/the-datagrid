@@ -24,11 +24,21 @@ function injectLibraryCssEntry() {
 // https://vite.dev/config/
 export default defineConfig(({ command }) => {
   const isDev = command === "serve"
+  const exampleScssLoadPaths = [
+    path.resolve(__dirname, "./examples/src/themes/inovua-compat"),
+  ]
   
   // In dev mode, serve the examples app
   if (isDev) {
     return {
       plugins: [react(), tailwindcss()],
+      css: {
+        preprocessorOptions: {
+          scss: {
+            loadPaths: exampleScssLoadPaths,
+          },
+        },
+      },
       resolve: {
         alias: {
           "@": path.resolve(__dirname, "./src"),
@@ -50,6 +60,13 @@ export default defineConfig(({ command }) => {
       }),
       injectLibraryCssEntry(),
     ],
+    css: {
+      preprocessorOptions: {
+        scss: {
+          loadPaths: exampleScssLoadPaths,
+        },
+      },
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
