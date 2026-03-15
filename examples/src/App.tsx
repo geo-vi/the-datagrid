@@ -4,7 +4,17 @@ import { Button } from "../../src/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 
 type ThemeMode = "light" | "dark";
-type GridTheme = "default" | "dark" | "hf-dark";
+
+const gridThemes = [
+  { value: "default", label: "Default" },
+  { value: "dark", label: "Dark" },
+  { value: "hf-dark", label: "HF Dark" },
+  { value: "hf-light", label: "HF Light" },
+  { value: "ikarus-dark", label: "Ikarus Dark" },
+  { value: "ikarus-light", label: "Ikarus Light" },
+] as const;
+
+type GridTheme = (typeof gridThemes)[number]["value"];
 
 const THEME_KEY = "theme";
 
@@ -117,16 +127,18 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="m-0 text-lg font-semibold">the-datagrid demo</h1>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Button type="button" variant={gridTheme === "default" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("default")}>
-              Default
-            </Button>
-            <Button type="button" variant={gridTheme === "dark" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("dark")}>
-              Dark
-            </Button>
-            <Button type="button" variant={gridTheme === "hf-dark" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("hf-dark")}>
-              HF Dark
-            </Button>
+          <div className="flex flex-wrap items-center gap-1">
+            {gridThemes.map((gridThemeOption) => (
+              <Button
+                key={gridThemeOption.value}
+                type="button"
+                variant={gridTheme === gridThemeOption.value ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setGridTheme(gridThemeOption.value)}
+              >
+                {gridThemeOption.label}
+              </Button>
+            ))}
           </div>
 
           <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle page theme">
