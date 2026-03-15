@@ -1,6 +1,6 @@
 # the-datagrid
 
-A modern, feature-rich React data grid built on **TanStack Table** and styled with **shadcn/ui + Tailwind CSS v4**.
+A modern, feature-rich React data grid built on **TanStack Table** with a **shadcn-aligned** look-and-feel and **self-contained packaged styles**.
 
 ## Features
 
@@ -10,39 +10,48 @@ A modern, feature-rich React data grid built on **TanStack Table** and styled wi
 - Column management (reorder, resize, auto-size)
 - Pagination (local + remote)
 - Row selection (checkbox column)
-- Modern shadcn/ui look-and-feel (Tailwind CSS v4)
+- Modern shadcn-aligned look-and-feel with packaged styles
 - Fully typed TypeScript API
 - Migration-friendly API inspired by Inovua ReactDataGrid
 
 ## Installation
 
 ```bash
-npm install the-datagrid
+npm install the-datagrid react react-dom
 # or
-yarn add the-datagrid
+yarn add the-datagrid react react-dom
 # or
-pnpm add the-datagrid
+pnpm add the-datagrid react react-dom
 ```
 
-## Peer dependencies
+That is the normal installation flow for consumers.
 
-This library expects **React** and **React DOM** to be provided by your app:
+You do **not** need to install:
 
-```bash
-npm install react react-dom
-```
+- Tailwind CSS
+- shadcn/ui
+- a separate package stylesheet import in normal app setups
 
 ## Styling
 
-`the-datagrid` ships compiled CSS and loads it automatically from the package entry. Consumers do not need:
+`the-datagrid` ships compiled CSS and loads it automatically from the package entry.
 
-- a manual `import "the-datagrid/style.css"` line
-- Tailwind scanning via `@source`
-- a local shadcn/ui install
+In a typical React app with a modern bundler, this is enough:
+
+- Vite
+- Next.js
+- Webpack-based apps
+- other setups that support CSS imports from npm packages
 
 The grid keeps a shadcn-aligned look and will inherit app-level shadcn theme variables when they exist (`--background`, `--foreground`, `--border`, `--ring`, etc.). If they do not exist, the package uses scoped fallback tokens so it still renders correctly.
 
 Dark mode follows the nearest `.dark` ancestor, or `theme="dark"` on the grid root.
+
+If your environment does **not** process CSS imported from package entries, use the exported fallback once in your app:
+
+```ts
+import "the-datagrid/style.css";
+```
 
 ---
 
