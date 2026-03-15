@@ -809,7 +809,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             )}
             style={style}
           >
-            <table className="w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
+            <table className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
               <GridHeader
                 headerGroups={table.getHeaderGroups()}
                 headerHeight={headerHeight}

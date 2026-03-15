@@ -84,3 +84,67 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     insideGrid: true,
   });
 });
+
+test("keeps table alignment under hostile global table styles", async ({ page }) => {
+  await page.goto("/");
+
+  await page.addStyleTag({
+    content: `
+      table, thead, tbody, tfoot, tr, th, td {
+        display: block;
+      }
+
+      tr {
+        width: min-content;
+      }
+    `,
+  });
+
+  const layout = await page.locator(".tdg-root").first().evaluate((root) => {
+    const table = root.querySelector("table");
+    const thead = root.querySelector("thead");
+    const headerRow = root.querySelector(".tdg-header-row");
+    const headerCells = Array.from(root.querySelectorAll(".tdg-header-cell")).slice(0, 3);
+    const firstBodyRow = root.querySelector("tbody .tdg-row");
+    const bodyCells = firstBodyRow ? Array.from(firstBodyRow.querySelectorAll("td")).slice(0, 3) : [];
+
+    if (!table || !thead || !headerRow || headerCells.length < 3 || bodyCells.length < 3) {
+      return null;
+    }
+
+    const pick = (elements: Element[]) =>
+      elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+
+        return {
+          top: Math.round(rect.top),
+          left: Math.round(rect.left),
+        };
+      });
+
+    return {
+      tableDisplay: getComputedStyle(table).display,
+      theadDisplay: getComputedStyle(thead).display,
+      rowDisplay: getComputedStyle(headerRow).display,
+      headerCellDisplay: getComputedStyle(headerCells[0]!).display,
+      bodyCellDisplay: getComputedStyle(bodyCells[0]!).display,
+      headerRects: pick(headerCells),
+      bodyRects: pick(bodyCells),
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout?.tableDisplay).toBe("table");
+  expect(layout?.theadDisplay).toBe("table-header-group");
+  expect(layout?.rowDisplay).toBe("table-row");
+  expect(layout?.headerCellDisplay).toBe("table-cell");
+  expect(layout?.bodyCellDisplay).toBe("table-cell");
+
+  expect(new Set(layout?.headerRects.map((rect) => rect.top)).size).toBe(1);
+  expect(new Set(layout?.bodyRects.map((rect) => rect.top)).size).toBe(1);
+
+  expect(layout?.headerRects[1]?.left).toBeGreaterThan(layout?.headerRects[0]?.left ?? 0);
+  expect(layout?.headerRects[2]?.left).toBeGreaterThan(layout?.headerRects[1]?.left ?? 0);
+  expect(layout?.bodyRects[1]?.left).toBeGreaterThan(layout?.bodyRects[0]?.left ?? 0);
+  expect(layout?.bodyRects[2]?.left).toBeGreaterThan(layout?.bodyRects[1]?.left ?? 0);
+});
