@@ -1,7 +1,27 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import ReactDataGrid, { type TypeColumns, type TypeI18n, type TypeShowCellBorders } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
-import { Moon, Sun } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../src/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../../src/components/ui/command";
+import { Label } from "../../src/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "../../src/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "../../src/components/ui/radio-group";
+import { Check, ChevronsUpDown, Moon, Sun } from "lucide-react";
 
 type ThemeMode = "light" | "dark";
 
@@ -34,6 +54,9 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() => readInitialTheme());
   const [gridTheme, setGridTheme] = useState<GridTheme>("default");
   const [showCellBorders, setShowCellBorders] = useState<TypeShowCellBorders>(true);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [comboboxValue, setComboboxValue] = useState("");
+  const [radioValue, setRadioValue] = useState("option-one");
 
   useEffect(() => {
     applyTheme(theme);
@@ -129,6 +152,8 @@ export default function App() {
     [],
   );
 
+  const frameworks = useMemo(() => ["Next.js", "SvelteKit", "Nuxt.js", "Remix", "Astro"], []);
+
   const [columnOrder, setColumnOrder] = useState(() => columns.map((c) => c.name ?? ""));
   const [filteredCount, setFilteredCount] = useState(rows.length);
 
@@ -159,6 +184,84 @@ export default function App() {
           >
             Vertical separators {showCellBorders === true ? "on" : "off"}
           </Button>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                Open Dialog
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Profile</DialogTitle>
+                <DialogDescription>
+                  A simple dialog used to verify the shadcn shell stays intact under global legacy CSS.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+                <Button type="button">Save changes</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={comboboxOpen}
+                aria-label="Framework combobox"
+                className="w-[220px] justify-between"
+              >
+                {comboboxValue || "Select framework"}
+                <ChevronsUpDown className="opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] p-0">
+              <Command>
+                <CommandInput placeholder="Search framework..." />
+                <CommandList>
+                  <CommandEmpty>No framework found.</CommandEmpty>
+                  <CommandGroup>
+                    {frameworks.map((framework) => (
+                      <CommandItem
+                        key={framework}
+                        value={framework}
+                        onSelect={(currentValue) => {
+                          const nextValue = currentValue === comboboxValue ? "" : currentValue;
+                          setComboboxValue(nextValue);
+                          setComboboxOpen(false);
+                        }}
+                      >
+                        <Check className={comboboxValue === framework ? "opacity-100" : "opacity-0"} />
+                        {framework}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <RadioGroup
+            aria-label="Example radio group"
+            value={radioValue}
+            onValueChange={setRadioValue}
+            className="grid gap-2"
+          >
+            <div className="flex items-center gap-3">
+              <RadioGroupItem value="option-one" id="option-one" />
+              <Label htmlFor="option-one">Option One</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <RadioGroupItem value="option-two" id="option-two" />
+              <Label htmlFor="option-two">Option Two</Label>
+            </div>
+          </RadioGroup>
 
           <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle page theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

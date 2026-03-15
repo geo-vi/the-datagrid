@@ -134,7 +134,7 @@ export function GridHeader(props: GridHeaderProps) {
         headerGroups.map((hg) => (
           <TableRow
             key={`${hg.id}-filters`}
-            className="tdg-filter-row InovuaReactDataGrid__filter-row InovuaReactDataGrid__header-wrapper__fill__filters bg-[var(--tdg-filter-bg)]"
+            className="tdg-filter-row InovuaReactDataGrid__filter-row bg-[var(--tdg-filter-bg)]"
             style={{ height: filterRowHeight }}
           >
             {hg.headers.map((h: any) => {

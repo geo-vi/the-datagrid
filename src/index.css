@@ -39,6 +39,269 @@
 
 @import "tailwindcss/utilities.css" layer(utilities);
 
+.tdg-dialog-portal,
+.tdg-dialog-portal *,
+.tdg-dialog-portal ::before,
+.tdg-dialog-portal ::after {
+  box-sizing: border-box;
+}
+
+.tdg-dialog-portal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  pointer-events: none !important;
+  font-family:
+    var(--font-sans, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji") !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  color: var(--foreground, oklch(0.145 0 0)) !important;
+}
+
+.tdg-dialog-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  display: block !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgb(0 0 0 / 0.8) !important;
+  pointer-events: auto !important;
+}
+
+.tdg-dialog-content {
+  position: relative !important;
+  display: grid !important;
+  width: min(100%, 32rem) !important;
+  max-width: calc(100vw - 2rem) !important;
+  min-width: 0 !important;
+  max-height: calc(100vh - 2rem) !important;
+  margin: 0 !important;
+  padding: 1.5rem !important;
+  border: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  border-radius: var(--radius, 0.625rem) !important;
+  background: var(--background, oklch(1 0 0)) !important;
+  color: var(--foreground, oklch(0.145 0 0)) !important;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  pointer-events: auto !important;
+}
+
+.dark .tdg-dialog-content {
+  border-color: var(--border, oklch(1 0 0 / 10%)) !important;
+  background: var(--background, oklch(0.145 0 0)) !important;
+  color: var(--foreground, oklch(0.985 0 0)) !important;
+}
+
+.tdg-dialog-close {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  position: absolute !important;
+  right: 1rem !important;
+  top: 1rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.tdg-dialog-header {
+  display: flex !important;
+  flex-direction: column !important;
+  text-align: center !important;
+}
+
+@media (min-width: 640px) {
+  .tdg-dialog-header {
+    text-align: left !important;
+  }
+}
+
+.tdg-dialog-footer {
+  display: flex !important;
+  flex-direction: column-reverse !important;
+  gap: 0.5rem !important;
+}
+
+@media (min-width: 640px) {
+  .tdg-dialog-footer {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+  }
+}
+
+.tdg-dialog-title,
+.tdg-dialog-description {
+  margin: 0 !important;
+}
+
+.tdg-popover-content,
+.tdg-popover-content *,
+.tdg-popover-content ::before,
+.tdg-popover-content ::after {
+  box-sizing: border-box;
+}
+
+.tdg-popover-content {
+  display: block !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  border: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  border-radius: var(--radius, 0.625rem) !important;
+  background: var(--popover, oklch(1 0 0)) !important;
+  color: var(--popover-foreground, oklch(0.145 0 0)) !important;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+.dark .tdg-popover-content {
+  border-color: var(--border, oklch(1 0 0 / 10%)) !important;
+  background: var(--popover, oklch(0.205 0 0)) !important;
+  color: var(--popover-foreground, oklch(0.985 0 0)) !important;
+}
+
+.tdg-command,
+.tdg-command *,
+.tdg-command ::before,
+.tdg-command ::after {
+  box-sizing: border-box;
+}
+
+.tdg-command {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: inherit !important;
+  background: inherit !important;
+  color: inherit !important;
+}
+
+.tdg-command-input-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  padding: 0 0.75rem !important;
+}
+
+.dark .tdg-command-input-wrapper {
+  border-bottom-color: var(--border, oklch(1 0 0 / 10%)) !important;
+}
+
+.tdg-command-input {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0.75rem 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.tdg-command-list {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.tdg-command-empty {
+  margin: 0 !important;
+}
+
+.tdg-command-group {
+  overflow: hidden !important;
+}
+
+.tdg-command-separator {
+  margin: 0 -0.25rem !important;
+  background: var(--border, oklch(0.922 0 0)) !important;
+}
+
+.dark .tdg-command-separator {
+  background: var(--border, oklch(1 0 0 / 10%)) !important;
+}
+
+.tdg-command-item {
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.tdg-radio-group,
+.tdg-radio-group *,
+.tdg-radio-group ::before,
+.tdg-radio-group ::after {
+  box-sizing: border-box;
+}
+
+.tdg-radio-group {
+  display: grid !important;
+  gap: 0.75rem !important;
+}
+
+.tdg-radio-item {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--input, oklch(0.922 0 0)) !important;
+  border-radius: 9999px !important;
+  background: var(--background, oklch(1 0 0)) !important;
+  color: var(--primary, oklch(0.205 0 0)) !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+}
+
+.dark .tdg-radio-item {
+  border-color: var(--input, oklch(1 0 0 / 15%)) !important;
+  background: var(--background, oklch(0.145 0 0)) !important;
+  color: var(--primary, oklch(0.922 0 0)) !important;
+}
+
+.tdg-radio-indicator {
+  display: flex !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+}
+
+.tdg-radio-icon {
+  width: 0.5rem !important;
+  height: 0.5rem !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
 .tdg-root {
   --tdg-radius-base: var(--radius, 0.625rem);
   --tdg-radius-sm: calc(var(--tdg-radius-base) - 4px);
@@ -197,6 +460,122 @@
   border-color: var(--tdg-color-border);
 }
 
+.tdg-root {
+  isolation: isolate;
+  font-family:
+    var(--font-sans, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji") !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  text-align: start !important;
+  text-indent: 0 !important;
+}
+
+.tdg-root.InovuaReactDataGrid {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tdg-root .tdg-frame,
+.tdg-root .tdg-surface,
+.tdg-root .tdg-header-viewport,
+.tdg-root .tdg-scroll-area,
+.tdg-root .tdg-body-viewport,
+.tdg-root .tdg-pagination-shell {
+  display: block !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.tdg-root .tdg-frame,
+.tdg-root .tdg-surface {
+  background: var(--tdg-grid-bg) !important;
+}
+
+.tdg-root .tdg-frame {
+  border: 1px solid var(--tdg-grid-border-color) !important;
+}
+
+.tdg-root .tdg-table {
+  display: table !important;
+  width: 100% !important;
+  min-width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  table-layout: fixed;
+  text-indent: 0 !important;
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.tdg-root .tdg-table caption {
+  display: table-caption !important;
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.tdg-root .tdg-table thead {
+  display: table-header-group !important;
+}
+
+.tdg-root .tdg-table tbody {
+  display: table-row-group !important;
+}
+
+.tdg-root .tdg-table tfoot {
+  display: table-footer-group !important;
+}
+
+.tdg-root .tdg-table tr {
+  display: table-row !important;
+  vertical-align: middle !important;
+}
+
+.tdg-root .tdg-table th,
+.tdg-root .tdg-table td {
+  display: table-cell !important;
+  vertical-align: middle !important;
+  font: inherit !important;
+  line-height: inherit !important;
+}
+
+.tdg-root p {
+  margin: 0 !important;
+}
+
+.tdg-root svg {
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.tdg-root button,
+.tdg-root input,
+.tdg-root select,
+.tdg-root textarea {
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: none !important;
+}
+
+.tdg-root [data-slot="scroll-area-scrollbar"],
+.tdg-root [data-slot="scroll-area-corner"] {
+  background: transparent !important;
+}
+
+.tdg-root [data-slot="scroll-area-scrollbar"][data-state="hidden"] {
+  display: none !important;
+}
+
+.tdg-root [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
+  border-top-color: transparent !important;
+}
+
+.tdg-root [data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+  border-left-color: transparent !important;
+}
+
 .tdg-root
   .InovuaReactDataGrid__column-header--show-border-right:not(:last-child) {
   border-right: 1px solid var(--tdg-header-border-color) !important;
@@ -253,6 +632,41 @@
   color: inherit !important;
 }
 
+.tdg-root .tdg-header-row,
+.tdg-root .tdg-filter-row {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  min-height: 0 !important;
+  transform: none !important;
+}
+
+.tdg-root .tdg-header-cell,
+.tdg-root .tdg-filter-cell {
+  position: static !important;
+  inset: auto !important;
+}
+
+.tdg-root .tdg-header-cell {
+  padding: 0 0.5rem !important;
+}
+
+.tdg-root .tdg-filter-cell {
+  padding: 0 0.5rem !important;
+}
+
+.tdg-root .InovuaReactDataGrid__cell {
+  padding: 0.5rem !important;
+}
+
+.tdg-root .tdg-filter-cell__inner {
+  display: flex !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+
 .tdg-root .InovuaReactDataGrid__column-header__sort-button {
   display: flex !important;
   min-width: 0 !important;
@@ -281,7 +695,6 @@
 }
 
 .tdg-root .InovuaReactDataGrid__column-header__filter-wrapper {
-  padding: 0.5rem !important;
   background: var(--tdg-filter-bg) !important;
   color: var(--tdg-filter-color) !important;
 }
@@ -315,77 +728,77 @@
 }
 
 .tdg-root .tdg-button {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  border: 0 solid transparent;
-  border-radius: var(--tdg-radius-md);
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
-  font: inherit;
-  text-align: center;
-  text-decoration: none;
-  vertical-align: middle;
-  user-select: none;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 solid transparent !important;
+  border-radius: var(--tdg-radius-md) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  font: inherit !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  vertical-align: middle !important;
+  user-select: none !important;
 }
 
 .tdg-root .tdg-button[data-variant="default"] {
-  background-color: var(--tdg-color-primary);
-  color: var(--tdg-color-primary-foreground);
+  background-color: var(--tdg-color-primary) !important;
+  color: var(--tdg-color-primary-foreground) !important;
 }
 
 .tdg-root .tdg-button[data-variant="destructive"] {
-  background-color: var(--tdg-color-destructive);
-  color: var(--tdg-color-destructive-foreground);
+  background-color: var(--tdg-color-destructive) !important;
+  color: var(--tdg-color-destructive-foreground) !important;
 }
 
 .tdg-root .tdg-button[data-variant="outline"] {
-  border-width: 1px;
-  border-color: var(--tdg-color-input);
-  background-color: transparent;
-  color: var(--tdg-color-foreground);
+  border-width: 1px !important;
+  border-color: var(--tdg-color-input) !important;
+  background-color: transparent !important;
+  color: var(--tdg-color-foreground) !important;
 }
 
 .tdg-root .tdg-button[data-variant="secondary"] {
-  background-color: var(--tdg-color-secondary);
-  color: var(--tdg-color-secondary-foreground);
+  background-color: var(--tdg-color-secondary) !important;
+  color: var(--tdg-color-secondary-foreground) !important;
 }
 
 .tdg-root .tdg-button[data-variant="ghost"] {
-  border-color: transparent;
-  background-color: transparent;
-  color: inherit;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
 }
 
 .tdg-root .tdg-button[data-variant="link"] {
-  color: var(--tdg-color-primary);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  color: var(--tdg-color-primary) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 4px !important;
 }
 
 .tdg-root .tdg-button[data-variant="default"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-primary) 90%, transparent);
+  background-color: color-mix(in oklab, var(--tdg-color-primary) 90%, transparent) !important;
 }
 
 .tdg-root .tdg-button[data-variant="destructive"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-destructive) 90%, transparent);
+  background-color: color-mix(in oklab, var(--tdg-color-destructive) 90%, transparent) !important;
 }
 
 .tdg-root .tdg-button[data-variant="outline"]:hover:not(.inovua-react-toolkit-button--disabled),
 .tdg-root .tdg-button[data-variant="ghost"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: var(--tdg-color-accent);
-  color: var(--tdg-color-accent-foreground);
+  background-color: var(--tdg-color-accent) !important;
+  color: var(--tdg-color-accent-foreground) !important;
 }
 
 .tdg-root .tdg-button[data-variant="secondary"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-secondary) 80%, transparent);
+  background-color: color-mix(in oklab, var(--tdg-color-secondary) 80%, transparent) !important;
 }
 
 .tdg-root .tdg-button.inovua-react-toolkit-button--disabled {
@@ -394,33 +807,57 @@
 }
 
 .tdg-root .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input {
-  border-style: solid;
-  border-width: 1px;
-  border-radius: var(--tdg-radius-md);
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  border-radius: var(--tdg-radius-md) !important;
+  font: inherit !important;
   --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   box-shadow:
     var(--tw-inset-shadow),
     var(--tw-inset-ring-shadow),
     var(--tw-ring-offset-shadow),
     var(--tw-ring-shadow),
-    var(--tw-shadow);
+    var(--tw-shadow) !important;
+}
+
+.tdg-root .inovua-react-toolkit-text-input__input {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit !important;
+  color: inherit !important;
+  line-height: inherit !important;
 }
 
 .tdg-root .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box {
-  position: relative;
-  width: 100%;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  position: relative !important;
+  display: flex !important;
+  width: 100% !important;
   min-width: 0 !important;
-  height: 2.25rem;
-  align-items: center;
-  border-style: solid;
-  border-width: 1px;
+  margin: 0 !important;
+  height: 2.25rem !important;
+  align-items: center !important;
+  border-style: solid !important;
+  border-width: 1px !important;
   border-color: var(--tdg-select-shell-border-color) !important;
   border-radius: var(--tdg-radius-md) !important;
   background: var(--tdg-select-shell-bg) !important;
   color: var(--tdg-select-shell-color) !important;
-  fill: currentColor;
-  stroke: currentColor;
-  min-height: 2.25rem;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  min-height: 2.25rem !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   padding-left: 0.75rem !important;
@@ -441,13 +878,20 @@
 
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box:hover:not(.inovua-react-toolkit-combo-box--disabled) {
-  border-color: var(--tdg-select-shell-border-color-hover) !important;
+  border-color: var(--tdg-select-shell-border-color) !important;
 }
 
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--focus {
-  border-color: var(--tdg-select-shell-border-color-focus) !important;
+  border-color: var(--tdg-select-shell-border-color) !important;
   background: var(--tdg-select-shell-bg) !important;
+}
+
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus,
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus-visible {
+  border-color: var(--tdg-select-shell-border-color) !important;
 }
 
 .tdg-root
@@ -506,10 +950,19 @@
 }
 
 .tdg-root .tdg-select-content.inovua-react-toolkit-combo-box__list.inovua-react-toolkit-combo-box__list {
-  overflow: hidden;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  min-width: var(--radix-select-trigger-width) !important;
+  overflow: hidden !important;
   background: var(--tdg-select-list-bg) !important;
   color: var(--tdg-select-list-color) !important;
-  border: 1px solid var(--tdg-dropdown-border-color) !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  border-color: var(--tdg-dropdown-border-color) !important;
   border-radius: var(--tdg-radius-md);
   --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   box-shadow:
@@ -554,9 +1007,12 @@
 }
 
 .tdg-root .tdg-dropdown-content.inovua-react-toolkit-menu.inovua-react-toolkit-menu {
-  overflow: hidden;
+  display: block !important;
+  overflow: hidden !important;
   padding: 0.25rem !important;
-  border: 1px solid var(--tdg-dropdown-shell-border-color) !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  border-color: var(--tdg-dropdown-shell-border-color) !important;
   border-radius: var(--tdg-radius-md) !important;
   background: var(--tdg-dropdown-shell-bg) !important;
   color: var(--tdg-dropdown-shell-color) !important;
@@ -571,8 +1027,19 @@
     var(--tw-shadow) !important;
 }
 
+.tdg-root [data-slot="dropdown-menu-group"],
+.tdg-root [data-slot="dropdown-menu-radio-group"] {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
 .tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row,
 .tdg-root .tdg-dropdown-sub-trigger {
+  display: flex !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
   min-height: 2rem;
   border-radius: calc(var(--tdg-radius-md) - 2px) !important;
   background: transparent !important;
@@ -646,9 +1113,9 @@
   padding: 0 !important;
   margin: 0 !important;
   line-height: 1 !important;
-  border: 1px solid var(--tdg-color-input) !important;
+  border: 1px solid var(--tdg-input-border-color) !important;
   border-radius: 9999px !important;
-  background: var(--tdg-color-background) !important;
+  background: var(--tdg-input-bg) !important;
   color: var(--tdg-color-primary) !important;
   fill: currentColor !important;
   stroke: currentColor !important;
@@ -660,6 +1127,15 @@
     var(--tw-ring-shadow),
     var(--tw-shadow) !important;
   pointer-events: none;
+}
+
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row[data-highlighted] .tdg-dropdown-radio-shell,
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--over .tdg-dropdown-radio-shell,
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--focused .tdg-dropdown-radio-shell,
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row[data-state="checked"] .tdg-dropdown-radio-shell,
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--checked .tdg-dropdown-radio-shell {
+  border-color: currentColor !important;
+  color: inherit !important;
 }
 
 .tdg-root .tdg-dropdown-radio-indicator {

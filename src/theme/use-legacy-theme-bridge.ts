@@ -264,6 +264,11 @@ function isMissingColorValue(value: string | null | undefined) {
 
   return (
     normalized.length === 0 ||
+    normalized === "initial" ||
+    normalized === "inherit" ||
+    normalized === "unset" ||
+    normalized === "revert" ||
+    normalized === "revert-layer" ||
     normalized === "transparent" ||
     normalized === "rgba(0, 0, 0, 0)" ||
     normalized === "rgb(0 0 0 / 0)" ||
@@ -271,24 +276,66 @@ function isMissingColorValue(value: string | null | undefined) {
   )
 }
 
+function selectorIncludesClass(ruleSelector: string, classSelector: string) {
+  return ruleSelector
+    .split(",")
+    .some((part) => part.trim().includes(classSelector))
+}
+
+const LEGACY_BRIDGE_CSS_VARS = [
+  ...new Set(
+    LEGACY_THEME_MATCHERS.map((matcher) => matcher.cssVar).concat([
+      "--tdg-grid-border-color",
+      "--tdg-header-color",
+      "--tdg-filter-color",
+      "--tdg-input-bg",
+      "--tdg-input-color",
+      "--tdg-input-border-color",
+      "--tdg-input-border-color-hover",
+      "--tdg-input-border-color-focus",
+      "--tdg-select-bg",
+      "--tdg-select-color",
+      "--tdg-select-list-bg",
+      "--tdg-select-list-color",
+      "--tdg-select-border-color",
+      "--tdg-select-border-color-hover",
+      "--tdg-select-border-color-focus",
+      "--tdg-select-shell-bg",
+      "--tdg-select-shell-color",
+      "--tdg-select-shell-border-color",
+      "--tdg-select-shell-border-color-hover",
+      "--tdg-select-shell-border-color-focus",
+      "--tdg-dropdown-bg",
+      "--tdg-dropdown-color",
+      "--tdg-dropdown-border-color",
+      "--tdg-dropdown-shell-bg",
+      "--tdg-dropdown-shell-color",
+      "--tdg-dropdown-shell-border-color",
+      "--tdg-dropdown-label-color",
+      "--tdg-row-active-color",
+    ])
+  ),
+] as const
+
 export function useLegacyThemeBridge(
   rootElement: HTMLElement | null,
-  themeClassSuffix: string
+  themeClassSuffix: string,
+  enabled = true
 ) {
   React.useLayoutEffect(() => {
     if (!rootElement || typeof document === "undefined") return
 
-    for (const matcher of LEGACY_THEME_MATCHERS) {
-      rootElement.style.removeProperty(matcher.cssVar)
+    for (const cssVar of LEGACY_BRIDGE_CSS_VARS) {
+      rootElement.style.removeProperty(cssVar)
     }
 
-    rootElement.style.removeProperty("--tdg-header-bg")
-    rootElement.style.removeProperty("--tdg-header-border-color")
-    rootElement.style.removeProperty("--tdg-filter-border-color")
-    rootElement.style.removeProperty("--tdg-cell-border-color")
-    rootElement.style.removeProperty("--tdg-grid-border-color")
+    if (!enabled) return
 
     const themeSelector = `.InovuaReactDataGrid--theme-${themeClassSuffix}`
+    const inputThemeSelector = `.inovua-react-toolkit-text-input--theme-${themeClassSuffix}`
+    const selectThemeSelector = `.inovua-react-toolkit-combo-box--theme-${themeClassSuffix}`
+    const selectListThemeSelector = `.inovua-react-toolkit-combo-box__list--theme-${themeClassSuffix}`
+    const dropdownThemeSelector = `.inovua-react-toolkit-menu--theme-${themeClassSuffix}`
     const found = new Set<string>()
 
     for (const sheet of Array.from(document.styleSheets)) {
@@ -301,10 +348,90 @@ export function useLegacyThemeBridge(
       }
 
       visitRules(rules, (rule) => {
-        if (!rule.selectorText.includes(themeSelector)) return
+        const selectorText = rule.selectorText
+
+        if (!selectorText.includes(themeSelector)) {
+          if (selectorIncludesClass(selectorText, inputThemeSelector)) {
+            const background = getStyleValue(rule, "background").trim()
+            const color = getStyleValue(rule, "color").trim()
+            const borderColor = getStyleValue(rule, "borderColor").trim()
+
+            if (background && !isMissingColorValue(background)) {
+              rootElement.style.setProperty("--tdg-input-bg", background)
+            }
+
+            if (color && !isMissingColorValue(color)) {
+              rootElement.style.setProperty("--tdg-input-color", color)
+            }
+
+            if (borderColor && !isMissingColorValue(borderColor)) {
+              rootElement.style.setProperty("--tdg-input-border-color", borderColor)
+              rootElement.style.setProperty("--tdg-input-border-color-hover", borderColor)
+              rootElement.style.setProperty("--tdg-input-border-color-focus", borderColor)
+            }
+          }
+
+          if (selectorIncludesClass(selectorText, selectThemeSelector)) {
+            const background = getStyleValue(rule, "background").trim()
+            const color = getStyleValue(rule, "color").trim()
+            const borderColor = getStyleValue(rule, "borderColor").trim()
+
+            if (background && !isMissingColorValue(background)) {
+              rootElement.style.setProperty("--tdg-select-bg", background)
+            }
+
+            if (color && !isMissingColorValue(color)) {
+              rootElement.style.setProperty("--tdg-select-color", color)
+            }
+
+            if (borderColor && !isMissingColorValue(borderColor)) {
+              rootElement.style.setProperty("--tdg-select-border-color", borderColor)
+              rootElement.style.setProperty("--tdg-select-border-color-hover", borderColor)
+              rootElement.style.setProperty("--tdg-select-border-color-focus", borderColor)
+            }
+          }
+
+          if (selectorIncludesClass(selectorText, selectListThemeSelector)) {
+            const background = getStyleValue(rule, "background").trim()
+            const color = getStyleValue(rule, "color").trim()
+            const borderColor = getStyleValue(rule, "borderColor").trim()
+
+            if (background && !isMissingColorValue(background)) {
+              rootElement.style.setProperty("--tdg-select-list-bg", background)
+            }
+
+            if (color && !isMissingColorValue(color)) {
+              rootElement.style.setProperty("--tdg-select-list-color", color)
+            }
+
+            if (borderColor && !isMissingColorValue(borderColor)) {
+              rootElement.style.setProperty("--tdg-dropdown-border-color", borderColor)
+            }
+          }
+
+          if (selectorIncludesClass(selectorText, dropdownThemeSelector)) {
+            const background = getStyleValue(rule, "background").trim()
+            const color = getStyleValue(rule, "color").trim()
+            const borderColor = getStyleValue(rule, "borderColor").trim()
+
+            if (background && !isMissingColorValue(background)) {
+              rootElement.style.setProperty("--tdg-dropdown-bg", background)
+            }
+
+            if (color && !isMissingColorValue(color)) {
+              rootElement.style.setProperty("--tdg-dropdown-color", color)
+            }
+
+            if (borderColor && !isMissingColorValue(borderColor)) {
+              rootElement.style.setProperty("--tdg-dropdown-border-color", borderColor)
+            }
+          }
+
+          return
+        }
 
         for (const matcher of LEGACY_THEME_MATCHERS) {
-          if (found.has(matcher.cssVar) || !matcher.matches(rule.selectorText, themeSelector)) continue
+          if (found.has(matcher.cssVar) || !matcher.matches(selectorText, themeSelector)) continue
 
           const value = getStyleValue(rule, matcher.property).trim()
           if (!value || value === "transparent" || value === "rgba(0, 0, 0, 0)") continue
@@ -369,29 +496,28 @@ export function useLegacyThemeBridge(
     )
 
     const inputBorderColor = rootElement.style.getPropertyValue("--tdg-input-border-color").trim()
-    const inputBorderColorHover = rootElement.style.getPropertyValue("--tdg-input-border-color-hover").trim()
-    const inputBorderColorFocus = rootElement.style.getPropertyValue("--tdg-input-border-color-focus").trim()
     const selectBorderColor = rootElement.style.getPropertyValue("--tdg-select-border-color").trim()
-    const selectBorderColorHover = rootElement.style.getPropertyValue("--tdg-select-border-color-hover").trim()
-    const selectBorderColorFocus = rootElement.style.getPropertyValue("--tdg-select-border-color-focus").trim()
 
-    const normalizedSelectBorderColor = isMissingColorValue(selectBorderColor)
-      ? inputBorderColor || border
-      : selectBorderColor
-    const normalizedSelectBorderColorHover = isMissingColorValue(selectBorderColorHover)
-      ? inputBorderColorHover || normalizedSelectBorderColor
-      : selectBorderColorHover
-    const normalizedSelectBorderColorFocus = isMissingColorValue(selectBorderColorFocus)
-      ? inputBorderColorFocus || normalizedSelectBorderColor
-      : selectBorderColorFocus
+    // Keep select shells on the grid-owned border chrome even when legacy combo-box
+    // themes provide their own border accents. This avoids the old theme taking over
+    // hover/focus borders in custom themes like ikarus-light.
+    const normalizedSelectBorderColor =
+      border ||
+      inputBorderColor ||
+      (isMissingColorValue(selectBorderColor) ? "" : selectBorderColor)
+    const normalizedSelectBorderColorHover = normalizedSelectBorderColor
+    const normalizedSelectBorderColorFocus = normalizedSelectBorderColor
 
     if (normalizedSelectBorderColor) {
+      rootElement.style.setProperty("--tdg-select-border-color", normalizedSelectBorderColor)
       rootElement.style.setProperty("--tdg-select-shell-border-color", normalizedSelectBorderColor)
     }
     if (normalizedSelectBorderColorHover) {
+      rootElement.style.setProperty("--tdg-select-border-color-hover", normalizedSelectBorderColorHover)
       rootElement.style.setProperty("--tdg-select-shell-border-color-hover", normalizedSelectBorderColorHover)
     }
     if (normalizedSelectBorderColorFocus) {
+      rootElement.style.setProperty("--tdg-select-border-color-focus", normalizedSelectBorderColorFocus)
       rootElement.style.setProperty("--tdg-select-shell-border-color-focus", normalizedSelectBorderColorFocus)
     }
 
@@ -478,5 +604,5 @@ export function useLegacyThemeBridge(
         rootElement.style.setProperty("--tdg-row-even-bg", evenBackground)
       }
     }
-  }, [rootElement, themeClassSuffix])
+  }, [enabled, rootElement, themeClassSuffix])
 }

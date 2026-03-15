@@ -85,11 +85,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const themeName = normalizeThemeName(theme);
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
+  const shouldUseLegacyThemeBridge =
+    themeClassSuffix !== "default" &&
+    themeClassSuffix !== "light" &&
+    themeClassSuffix !== "dark";
   const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
   const showHorizontalCellBorders = showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders = showCellBorders === true || showCellBorders === "vertical";
 
-  useLegacyThemeBridge(portalContainer, themeClassSuffix);
+  useLegacyThemeBridge(portalContainer, themeClassSuffix, shouldUseLegacyThemeBridge);
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -868,11 +872,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
         themeBase={themeBase}
         portalContainer={portalContainer}
       >
-        <div className="overflow-hidden rounded-lg">
-          <div className="bg-[var(--tdg-grid-bg)] text-foreground" style={style}>
-            <div ref={headerScrollRef} className="overflow-hidden" data-slot="grid-header-viewport">
+        <div className="tdg-frame overflow-hidden rounded-lg" data-slot="grid-frame">
+          <div className="tdg-surface bg-[var(--tdg-grid-bg)] text-foreground" data-slot="grid-surface" style={style}>
+            <div
+              ref={headerScrollRef}
+              className="tdg-header-viewport overflow-hidden"
+              data-slot="grid-header-viewport"
+            >
               <table
-                className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                className="tdg-table tdg-header-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
                 style={sharedTableStyle}
               >
                 <GridHeader
@@ -910,15 +918,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
             </div>
 
             <ScrollArea
-              className="rounded-b-[inherit]"
+              className="tdg-scroll-area rounded-b-[inherit]"
               viewportRef={scrollRef}
               viewportClassName={cn(
-                "relative bg-[var(--tdg-grid-bg)] text-foreground",
+                "tdg-body-viewport relative bg-[var(--tdg-grid-bg)] text-foreground",
                 virtualized ? "max-h-[560px]" : "",
               )}
             >
               <table
-                className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                className="tdg-table tdg-body-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
                 style={sharedTableStyle}
               >
                 <GridBody
@@ -942,7 +950,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           </div>
 
           {paginationEnabled ? (
-            <div className="border-t py-2 [border-color:var(--tdg-grid-border-color)]">
+            <div className="tdg-pagination-shell border-t py-2 [border-color:var(--tdg-grid-border-color)]">
               <GridPagination
                 count={count}
                 skip={skip}

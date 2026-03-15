@@ -220,7 +220,7 @@ export function FilterCell(props: FilterCellProps) {
     <TableHead
       key={`${header.id}-filter`}
       className={cn(
-        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] py-2 [color:var(--tdg-filter-color)]",
+        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] [color:var(--tdg-filter-color)]",
         showVerticalCellBorders ? "InovuaReactDataGrid__filter-cell--show-border-right" : "",
         showHorizontalCellBorders
           ? "InovuaReactDataGrid__filter-cell--show-border-bottom border-b [border-bottom-color:var(--tdg-filter-border-color)]"
@@ -240,7 +240,7 @@ export function FilterCell(props: FilterCellProps) {
       }}
     >
       {header.isPlaceholder || !filterable ? null : (
-        <div className="flex items-center gap-1">
+        <div className="tdg-filter-cell__inner flex h-full items-center gap-1">
           <div className="InovuaReactDataGrid__column-header__filter min-w-0 flex-1">
             {col?.filterEditor ? (
               React.createElement(col.filterEditor as any, {
