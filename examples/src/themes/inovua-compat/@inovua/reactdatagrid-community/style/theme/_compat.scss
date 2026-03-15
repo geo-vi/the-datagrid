@@ -54,12 +54,16 @@
     --tdg-header-bg: #{$INOVUA_DATAGRID_HEADER_BG};
     --tdg-header-color: #{$INOVUA_DATAGRID_HEADER_COLOR};
     --tdg-header-border-color: #{$INOVUA_DATAGRID_HEADER_BORDER_COLOR};
+    --tdg-header-proxy-border-color: #{$INOVUA_DATAGRID_HEADER_PROXY_BORDER_COLOR};
+    --tdg-header-font-size: #{$INOVUA_DATAGRID_HEADER_FONT_SIZE};
+    --tdg-header-font-weight: #{$INOVUA_DATAGRID_HEADER_FONT_WEIGHT};
 
     --tdg-filter-bg: #{$INOVUA_DATAGRID_BG_COLOR};
     --tdg-filter-color: #{$INOVUA_DATAGRID_FONT_COLOR};
     --tdg-filter-border-color: #{$INOVUA_DATAGRID_BORDER_COLOR};
 
     --tdg-cell-border-color: #{$INOVUA_DATAGRID_CELL_BORDER_COLOR};
+    --tdg-row-index-bg: #{$INOVUA_DATAGRID_ROW_INDEX_BG};
 
     --tdg-row-odd-bg: #{$INOVUA_DATAGRID_ROW_ODD_BG_COLOR};
     --tdg-row-even-bg: #{$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR};
@@ -67,6 +71,16 @@
     --tdg-row-even-hover-bg: #{$INOVUA_DATAGRID_ROW_EVEN_HOVER_BG_COLOR};
     --tdg-row-selected-bg: #{$INOVUA_DATAGRID_ROW_SELECTED_BG_COLOR};
     --tdg-row-selected-hover-bg: #{$INOVUA_DATAGRID_ROW_SELECTED_HOVER_BG_COLOR};
+    --tdg-row-odd-selected-bg: #{$INOVUA_DATAGRID_ROW_ODD_SELECTED_BG_COLOR};
+    --tdg-row-odd-selected-hover-bg: #{$INOVUA_DATAGRID_ROW_ODD_SELECTED_HOVER_BG_COLOR};
+    --tdg-row-even-selected-bg: #{$INOVUA_DATAGRID_ROW_EVEN_SELECTED_BG_COLOR};
+    --tdg-row-even-selected-hover-bg: #{$INOVUA_DATAGRID_ROW_EVEN_SELECTED_HOVER_BG_COLOR};
+    --tdg-row-active-border-width: #{$INOVUA_DATAGRID_ROW_ACTIVE_BORDER_WIDTH};
+    --tdg-row-active-border-style: #{$INOVUA_DATAGRID_ROW_ACTIVE_BORDER_STYLE};
+    --tdg-row-active-border-color: #{$INOVUA_DATAGRID_ROW_ACTIVE_BORDER_COLOR};
+    --tdg-row-active-color: #{$INOVUA_DATAGRID_ROW_ACTIVE_COLOR};
+    --tdg-field-active-bg: #{$INOVUA_DATAGRID_FIELD_ACTIVE_BG};
+    --tdg-column-header-resizer-constrained-color: #{$INOVUA_DATAGRID_COLUMN_HEADER_RESIZER_CONSTRAINED_COLOR};
 
     --tdg-input-bg: #{$INOVUA_TEXT_INPUT_BG_COLOR};
     --tdg-input-color: #{$INOVUA_TEXT_INPUT_FONT_COLOR};

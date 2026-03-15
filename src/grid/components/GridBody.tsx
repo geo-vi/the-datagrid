@@ -48,12 +48,24 @@ export function GridBody(props: GridBodyProps) {
     return cn(
       "tdg-row InovuaReactDataGrid__row",
       odd
-        ? "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)]"
-        : "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)] hover:bg-[var(--tdg-row-even-hover-bg)]",
+        ? "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+        : "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)] hover:bg-[var(--tdg-row-even-hover-bg)] hover:[color:var(--tdg-row-active-color)]",
       rowIsSelected
-        ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-selected-bg)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+        ? odd
+          ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+          : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
         : "",
     );
+  }
+
+  function getRowThemeStyle(rowIsSelected: boolean): React.CSSProperties | undefined {
+    if (!rowIsSelected) return undefined;
+
+    return {
+      outline:
+        "var(--tdg-row-active-border-width) var(--tdg-row-active-border-style) var(--tdg-row-active-border-color)",
+      outlineOffset: "-1px",
+    };
   }
 
   if (loading && rowModel.length === 0) {
@@ -100,7 +112,7 @@ export function GridBody(props: GridBodyProps) {
                 className={getRowThemeClasses(vi.index, rowIsSelected)}
                 data-selected={rowIsSelected ? "true" : "false"}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
-                style={{ height: vi.size }}
+                style={{ height: vi.size, ...getRowThemeStyle(rowIsSelected) }}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
                 {row.getVisibleCells().map((cell: any) => {
@@ -149,6 +161,7 @@ export function GridBody(props: GridBodyProps) {
               className={getRowThemeClasses(row.index, rowIsSelected)}
               data-selected={rowIsSelected ? "true" : "false"}
               data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+              style={getRowThemeStyle(rowIsSelected)}
               onClick={(e) => onRowClick?.(row.id, row.original, e)}
             >
               {row.getVisibleCells().map((cell: any) => {

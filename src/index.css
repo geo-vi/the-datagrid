@@ -79,12 +79,16 @@
   --tdg-header-bg: var(--tdg-color-muted);
   --tdg-header-color: var(--tdg-color-foreground);
   --tdg-header-border-color: var(--tdg-color-border);
+  --tdg-header-proxy-border-color: var(--tdg-header-border-color);
+  --tdg-header-font-size: 0.875rem;
+  --tdg-header-font-weight: 500;
 
   --tdg-filter-bg: var(--tdg-color-background);
   --tdg-filter-color: var(--tdg-color-foreground);
   --tdg-filter-border-color: var(--tdg-color-border);
 
   --tdg-cell-border-color: var(--tdg-color-border);
+  --tdg-row-index-bg: var(--tdg-color-muted);
 
   --tdg-row-odd-bg: var(--tdg-color-background);
   --tdg-row-even-bg: var(--tdg-color-background);
@@ -92,6 +96,16 @@
   --tdg-row-even-hover-bg: color-mix(in oklab, var(--tdg-color-muted) 40%, transparent);
   --tdg-row-selected-bg: color-mix(in oklab, var(--tdg-color-muted) 30%, transparent);
   --tdg-row-selected-hover-bg: color-mix(in oklab, var(--tdg-color-muted) 45%, transparent);
+  --tdg-row-odd-selected-bg: var(--tdg-row-selected-bg);
+  --tdg-row-odd-selected-hover-bg: var(--tdg-row-selected-hover-bg);
+  --tdg-row-even-selected-bg: var(--tdg-row-selected-bg);
+  --tdg-row-even-selected-hover-bg: var(--tdg-row-selected-hover-bg);
+  --tdg-row-active-border-width: 1px;
+  --tdg-row-active-border-style: solid;
+  --tdg-row-active-border-color: var(--tdg-color-accent);
+  --tdg-row-active-color: var(--tdg-color-foreground);
+  --tdg-field-active-bg: var(--tdg-row-selected-bg);
+  --tdg-column-header-resizer-constrained-color: var(--tdg-color-accent);
 
   --tdg-input-bg: var(--tdg-color-background);
   --tdg-input-color: var(--tdg-color-foreground);
