@@ -27,6 +27,14 @@ export default defineConfig(({ command }) => {
   const exampleScssLoadPaths = [
     path.resolve(__dirname, "./examples/src/themes/inovua-compat"),
   ]
+  const inovuaCompatPath = path.resolve(
+    __dirname,
+    "./examples/src/themes/inovua-compat/@inovua/reactdatagrid-community"
+  )
+  const resolveAlias = {
+    "@": path.resolve(__dirname, "./src"),
+    "@inovua/reactdatagrid-community": inovuaCompatPath,
+  }
   
   // In dev mode, serve the examples app
   if (isDev) {
@@ -40,9 +48,7 @@ export default defineConfig(({ command }) => {
         },
       },
       resolve: {
-        alias: {
-          "@": path.resolve(__dirname, "./src"),
-        },
+        alias: resolveAlias,
       },
       root: path.resolve(__dirname, "./examples"),
     }
@@ -68,9 +74,7 @@ export default defineConfig(({ command }) => {
       },
     },
     resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-      },
+      alias: resolveAlias,
     },
     build: {
       copyPublicDir: false,
