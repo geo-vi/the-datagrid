@@ -22,6 +22,8 @@ export type GridHeaderProps = {
   defaultSortDir: 1 | -1;
 
   showColumnMenuTool: boolean;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
 
   // DnD reorder
@@ -58,6 +60,8 @@ export function GridHeader(props: GridHeaderProps) {
     allowUnsort,
     defaultSortDir,
     showColumnMenuTool,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     i18n,
     allowColumnReorder,
     checkboxEnabled,
@@ -81,7 +85,11 @@ export function GridHeader(props: GridHeaderProps) {
     <TableHeader className="[&_tr]:!border-b-0">
       {/* Header row */}
       {headerGroups.map((hg) => (
-        <TableRow key={hg.id} className="bg-muted" style={{ height: headerHeight }}>
+        <TableRow
+          key={hg.id}
+          className="tdg-header-row InovuaReactDataGrid__header-row bg-[var(--tdg-header-bg)]"
+          style={{ height: headerHeight }}
+        >
           {hg.headers.map((h: any) => {
             const colDef = h.column.columnDef as any;
             const col: TypeColumn | undefined = colDef?.meta?.__column;
@@ -108,6 +116,8 @@ export function GridHeader(props: GridHeaderProps) {
                 allowUnsort={allowUnsort}
                 defaultSortDir={defaultSortDir}
                 showColumnMenuTool={showColumnMenuTool}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
                 i18n={i18n}
                 canDrag={Boolean(canDrag)}
                 onDragStart={onHeaderDragStart}
@@ -124,7 +134,7 @@ export function GridHeader(props: GridHeaderProps) {
         headerGroups.map((hg) => (
           <TableRow
             key={`${hg.id}-filters`}
-            className="bg-background"
+            className="tdg-filter-row InovuaReactDataGrid__filter-row bg-[var(--tdg-filter-bg)]"
             style={{ height: filterRowHeight }}
           >
             {hg.headers.map((h: any) => {
@@ -155,6 +165,8 @@ export function GridHeader(props: GridHeaderProps) {
                   setSkip={setSkip}
                   filterTypes={filterTypes}
                   i18n={i18n}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                  showVerticalCellBorders={showVerticalCellBorders}
                   openFilterMenuColId={openFilterMenuColId}
                   setOpenFilterMenuColId={setOpenFilterMenuColId}
                 />

@@ -46,6 +46,8 @@ export type HeaderCellProps = {
   defaultSortDir: 1 | -1;
 
   showColumnMenuTool: boolean;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
 
   canDrag: boolean;
@@ -67,6 +69,8 @@ export function HeaderCell(props: HeaderCellProps) {
     allowUnsort,
     defaultSortDir,
     showColumnMenuTool,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     i18n,
     canDrag,
     onDragStart,
@@ -85,7 +89,9 @@ export function HeaderCell(props: HeaderCellProps) {
       key={header.id}
       colSpan={header.colSpan}
       className={cn(
-        "sticky top-0 z-20 bg-muted border-b border-border",
+        "tdg-header-cell InovuaReactDataGrid__column-header sticky top-0 z-20 bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
+        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-header-border-color)]" : "",
+        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-header-border-color)]" : "",
         headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
         col?.headerProps?.className,
       )}

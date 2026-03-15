@@ -18,6 +18,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "../lib/utils";
 import { Checkbox } from "../components/ui/checkbox";
+import { DatagridThemeProvider, normalizeThemeName, toThemeClassSuffix } from "../theme/context";
 
 import { getColumnId } from "../utils/column";
 import { coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
@@ -61,6 +62,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     virtualized = true,
     columnUserSelect = true,
+    showCellBorders = true,
 
     i18n,
     showColumnMenuTool = false,
@@ -72,6 +74,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     className,
     style,
   } = props;
+
+  const themeName = normalizeThemeName(theme);
+  const themeClassSuffix = toThemeClassSuffix(themeName);
+  const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
+  const showHorizontalCellBorders = showCellBorders === true || showCellBorders === "horizontal";
+  const showVerticalCellBorders = showCellBorders === true || showCellBorders === "vertical";
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -287,7 +295,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         columnOrder: columnOrderForDs,
         columns: columnsForDs,
         idProperty,
-        theme,
+        theme: themeName,
       };
 
       let result: any = ds;
@@ -333,7 +341,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     orderedColumns,
     paginationMode,
     skip,
-    theme,
+    themeName,
     columnOrderForDs,
     columnsForDs,
     filterTypes,
@@ -747,7 +755,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     dragIdRef.current = columnId;
     try {
       e.dataTransfer.setData("text/plain", columnId);
-    } catch {}
+    } catch {
+      // Some environments reject custom drag payloads; column reordering still works.
+    }
     e.dataTransfer.effectAllowed = "move";
   }
 
@@ -779,79 +789,97 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- render ---------------- */
 
   return (
-    <div className={cn("tdg-root flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div
-          ref={scrollRef}
-          className={cn("tdg-scrollbar relative overflow-auto bg-background", virtualized ? "max-h-[560px]" : "")}
-          style={style}
-        >
-          <table className="w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
-            <GridHeader
-              headerGroups={table.getHeaderGroups()}
-              headerHeight={headerHeight}
-              filterRowHeight={filterRowHeight}
-              autoWidths={autoWidths}
-              sortInfo={sortInfo}
-              setSortInfo={setSortInfo}
-              setSkip={setSkip}
-              allowUnsort={allowUnsort}
-              defaultSortDir={defaultSortDir}
-              showColumnMenuTool={showColumnMenuTool}
-              i18n={i18n}
-              allowColumnReorder={allowColumnReorder}
-              checkboxEnabled={checkboxEnabled}
-              checkboxColId={checkboxColId}
-              onHeaderDragStart={onHeaderDragStart}
-              onHeaderDragOver={onHeaderDragOver}
-              onHeaderDrop={onHeaderDrop}
-              enableFiltering={enableFiltering}
-              enableColumnFilterContextMenu={enableColumnFilterContextMenu}
-              filterControlled={filterControlled}
-              filterValue={filterValue}
-              draftFilterValue={draftFilterValue}
-              setFilterValue={setFilterValue}
-              setDraftFilterValue={setDraftFilterValue}
-              filterTypes={filterTypes}
-              openFilterMenuColId={openFilterMenuColId}
-              setOpenFilterMenuColId={setOpenFilterMenuColId}
-            />
+    <div
+      ref={setPortalContainer}
+      className={cn(
+        "tdg-root InovuaReactDataGrid flex flex-col gap-2 lg:gap-6",
+        `tdg-theme-${themeClassSuffix}`,
+        `InovuaReactDataGrid--theme-${themeClassSuffix}`,
+        className,
+      )}
+      data-theme={themeName}
+    >
+      <DatagridThemeProvider theme={themeName} portalContainer={portalContainer}>
+        <div className="overflow-hidden rounded-lg border [border-color:var(--tdg-grid-border-color)]">
+          <div
+            ref={scrollRef}
+            className={cn(
+              "tdg-scrollbar relative overflow-auto bg-[var(--tdg-grid-bg)] text-foreground",
+              virtualized ? "max-h-[560px]" : "",
+            )}
+            style={style}
+          >
+            <table className="w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
+              <GridHeader
+                headerGroups={table.getHeaderGroups()}
+                headerHeight={headerHeight}
+                filterRowHeight={filterRowHeight}
+                autoWidths={autoWidths}
+                sortInfo={sortInfo}
+                setSortInfo={setSortInfo}
+                setSkip={setSkip}
+                allowUnsort={allowUnsort}
+                defaultSortDir={defaultSortDir}
+                showColumnMenuTool={showColumnMenuTool}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
+                i18n={i18n}
+                allowColumnReorder={allowColumnReorder}
+                checkboxEnabled={checkboxEnabled}
+                checkboxColId={checkboxColId}
+                onHeaderDragStart={onHeaderDragStart}
+                onHeaderDragOver={onHeaderDragOver}
+                onHeaderDrop={onHeaderDrop}
+                enableFiltering={enableFiltering}
+                enableColumnFilterContextMenu={enableColumnFilterContextMenu}
+                filterControlled={filterControlled}
+                filterValue={filterValue}
+                draftFilterValue={draftFilterValue}
+                setFilterValue={setFilterValue}
+                setDraftFilterValue={setDraftFilterValue}
+                filterTypes={filterTypes}
+                openFilterMenuColId={openFilterMenuColId}
+                setOpenFilterMenuColId={setOpenFilterMenuColId}
+              />
 
-            <GridBody
-              rowModel={rowModel}
-              orderedColumns={orderedColumns}
-              autoWidths={autoWidths}
-              userSelectClass={userSelectClass}
-              virtualized={virtualized}
-              virtualItems={virtualItems}
-              paddingTop={paddingTop}
-              paddingBottom={paddingBottom}
-              loading={loading}
-              i18n={i18n}
-              selectedMap={selectedMap}
-              onRowClick={(id, data, e) => handleRowClick(id, data, e)}
-            />
-          </table>
-        </div>
-
-        {paginationEnabled ? (
-          <div className="border-t border-border py-2">
-            <GridPagination
-              count={count}
-              skip={skip}
-              limit={limit}
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              canPrev={canPrev}
-              canNext={canNext}
-              pageSizes={pageSizes}
-              setSkip={setSkip}
-              setLimit={setLimit}
-              i18n={i18n}
-            />
+              <GridBody
+                rowModel={rowModel}
+                orderedColumns={orderedColumns}
+                autoWidths={autoWidths}
+                userSelectClass={userSelectClass}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
+                virtualized={virtualized}
+                virtualItems={virtualItems}
+                paddingTop={paddingTop}
+                paddingBottom={paddingBottom}
+                loading={loading}
+                i18n={i18n}
+                selectedMap={selectedMap}
+                onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+              />
+            </table>
           </div>
-        ) : null}
-      </div>
+
+          {paginationEnabled ? (
+            <div className="border-t py-2 [border-color:var(--tdg-grid-border-color)]">
+              <GridPagination
+                count={count}
+                skip={skip}
+                limit={limit}
+                pageIndex={pageIndex}
+                pageCount={pageCount}
+                canPrev={canPrev}
+                canNext={canNext}
+                pageSizes={pageSizes}
+                setSkip={setSkip}
+                setLimit={setLimit}
+                i18n={i18n}
+              />
+            </div>
+          ) : null}
+        </div>
+      </DatagridThemeProvider>
     </div>
   );
 }

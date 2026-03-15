@@ -73,11 +73,80 @@
   --tdg-color-input: var(--input, oklch(0.922 0 0));
   --tdg-color-ring: var(--ring, oklch(0.708 0 0));
 
+  --tdg-grid-bg: var(--tdg-color-background);
+  --tdg-grid-border-color: var(--tdg-color-border);
+
+  --tdg-header-bg: var(--tdg-color-muted);
+  --tdg-header-color: var(--tdg-color-foreground);
+  --tdg-header-border-color: var(--tdg-color-border);
+  --tdg-header-proxy-border-color: var(--tdg-header-border-color);
+  --tdg-header-font-size: 0.875rem;
+  --tdg-header-font-weight: 500;
+
+  --tdg-filter-bg: var(--tdg-color-background);
+  --tdg-filter-color: var(--tdg-color-foreground);
+  --tdg-filter-border-color: var(--tdg-color-border);
+
+  --tdg-cell-border-color: var(--tdg-color-border);
+  --tdg-row-index-bg: var(--tdg-color-muted);
+
+  --tdg-row-odd-bg: var(--tdg-color-background);
+  --tdg-row-even-bg: var(--tdg-color-background);
+  --tdg-row-odd-hover-bg: color-mix(in oklab, var(--tdg-color-muted) 40%, transparent);
+  --tdg-row-even-hover-bg: color-mix(in oklab, var(--tdg-color-muted) 40%, transparent);
+  --tdg-row-selected-bg: color-mix(in oklab, var(--tdg-color-muted) 30%, transparent);
+  --tdg-row-selected-hover-bg: color-mix(in oklab, var(--tdg-color-muted) 45%, transparent);
+  --tdg-row-odd-selected-bg: var(--tdg-row-selected-bg);
+  --tdg-row-odd-selected-hover-bg: var(--tdg-row-selected-hover-bg);
+  --tdg-row-even-selected-bg: var(--tdg-row-selected-bg);
+  --tdg-row-even-selected-hover-bg: var(--tdg-row-selected-hover-bg);
+  --tdg-row-active-border-width: 1px;
+  --tdg-row-active-border-style: solid;
+  --tdg-row-active-border-color: var(--tdg-color-accent);
+  --tdg-row-active-color: var(--tdg-color-foreground);
+  --tdg-field-active-bg: var(--tdg-row-selected-bg);
+  --tdg-column-header-resizer-constrained-color: var(--tdg-color-accent);
+
+  --tdg-input-bg: var(--tdg-color-background);
+  --tdg-input-color: var(--tdg-color-foreground);
+  --tdg-input-border-color: var(--tdg-color-input);
+  --tdg-input-border-color-hover: var(--tdg-input-border-color);
+  --tdg-input-border-color-focus: var(--tdg-input-border-color);
+
+  --tdg-select-bg: var(--tdg-color-background);
+  --tdg-select-color: var(--tdg-color-foreground);
+  --tdg-select-list-bg: var(--tdg-color-popover);
+  --tdg-select-list-color: var(--tdg-color-popover-foreground);
+  --tdg-select-border-color: var(--tdg-color-input);
+  --tdg-select-border-color-hover: var(--tdg-select-border-color);
+  --tdg-select-border-color-focus: var(--tdg-select-border-color);
+  --tdg-select-item-hover-bg: var(--tdg-color-accent);
+  --tdg-select-item-hover-color: var(--tdg-color-accent-foreground);
+  --tdg-select-item-selected-bg: var(--tdg-color-accent);
+  --tdg-select-item-selected-color: var(--tdg-color-accent-foreground);
+
+  --tdg-dropdown-bg: var(--tdg-color-popover);
+  --tdg-dropdown-color: var(--tdg-color-popover-foreground);
+  --tdg-dropdown-border-color: var(--tdg-color-border);
+  --tdg-dropdown-item-hover-bg: var(--tdg-color-accent);
+  --tdg-dropdown-item-hover-color: var(--tdg-color-accent-foreground);
+  --tdg-dropdown-label-color: var(--tdg-color-muted-foreground);
+
+  --tdg-checkbox-border-color: var(--tdg-color-primary);
+  --tdg-checkbox-bg: transparent;
+  --tdg-checkbox-color: var(--tdg-color-primary-foreground);
+  --tdg-checkbox-checked-bg: var(--tdg-color-primary);
+  --tdg-checkbox-checked-border-color: var(--tdg-color-primary);
+  --tdg-checkbox-checked-color: var(--tdg-color-primary-foreground);
+  --tdg-checkbox-indeterminate-bg: var(--tdg-checkbox-checked-bg);
+  --tdg-checkbox-indeterminate-border-color: var(--tdg-checkbox-checked-border-color);
+  --tdg-checkbox-indeterminate-color: var(--tdg-checkbox-checked-color);
+
   color-scheme: light;
   color: var(--tdg-color-foreground);
 }
 
-.dark .tdg-root,
+.dark .tdg-root[data-theme="default"],
 .tdg-root[data-theme="dark"] {
   --tdg-color-background: var(--background, oklch(0.145 0 0));
   --tdg-color-foreground: var(--foreground, oklch(0.985 0 0));

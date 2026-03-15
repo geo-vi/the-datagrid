@@ -14,6 +14,8 @@ export type GridBodyProps = {
   orderedColumns: TypeColumn[];
   autoWidths: Record<string, number>;
   userSelectClass: string;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
 
   virtualized: boolean;
   virtualItems: any[];
@@ -33,6 +35,8 @@ export function GridBody(props: GridBodyProps) {
     orderedColumns,
     autoWidths,
     userSelectClass,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     virtualized,
     virtualItems,
     paddingTop,
@@ -43,11 +47,42 @@ export function GridBody(props: GridBodyProps) {
     onRowClick,
   } = props;
 
+  function getRowThemeClasses(rowIndex: number, rowIsSelected: boolean): string {
+    const odd = rowIndex % 2 === 0;
+    return cn(
+      "tdg-row InovuaReactDataGrid__row",
+      odd
+        ? "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+        : "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)] hover:bg-[var(--tdg-row-even-hover-bg)] hover:[color:var(--tdg-row-active-color)]",
+      rowIsSelected
+        ? odd
+          ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+          : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+        : "",
+    );
+  }
+
+  function getRowThemeStyle(rowIsSelected: boolean): React.CSSProperties | undefined {
+    if (!rowIsSelected) return undefined;
+
+    return {
+      outline:
+        "var(--tdg-row-active-border-width) var(--tdg-row-active-border-style) var(--tdg-row-active-border-color)",
+      outlineOffset: "-1px",
+    };
+  }
+
   if (loading && rowModel.length === 0) {
     return (
       <TableBody>
         <TableRow>
-          <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
+          <TableCell
+            colSpan={orderedColumns.length}
+            className={cn(
+              "h-24 text-center",
+              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+            )}
+          >
             Loading…
           </TableCell>
         </TableRow>
@@ -59,7 +94,13 @@ export function GridBody(props: GridBodyProps) {
     return (
       <TableBody>
         <TableRow>
-          <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
+          <TableCell
+            colSpan={orderedColumns.length}
+            className={cn(
+              "h-24 text-center",
+              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+            )}
+          >
             {t(i18n, "noRecords", "No records")}
           </TableCell>
         </TableRow>
@@ -84,8 +125,10 @@ export function GridBody(props: GridBodyProps) {
             return (
               <TableRow
                 key={row.id}
-                className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
-                style={{ height: vi.size }}
+                className={getRowThemeClasses(vi.index, rowIsSelected)}
+                data-selected={rowIsSelected ? "true" : "false"}
+                data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
+                style={{ height: vi.size, ...getRowThemeStyle(rowIsSelected) }}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
                 {row.getVisibleCells().map((cell: any) => {
@@ -100,6 +143,8 @@ export function GridBody(props: GridBodyProps) {
                       key={cell.id}
                       className={cn(
                         userSelectClass,
+                        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+                        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                         align === "right" || align === "end" ? "text-right" : "",
                         col?.className,
                       )}
@@ -131,7 +176,10 @@ export function GridBody(props: GridBodyProps) {
           return (
             <TableRow
               key={row.id}
-              className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
+              className={getRowThemeClasses(row.index, rowIsSelected)}
+              data-selected={rowIsSelected ? "true" : "false"}
+              data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+              style={getRowThemeStyle(rowIsSelected)}
               onClick={(e) => onRowClick?.(row.id, row.original, e)}
             >
               {row.getVisibleCells().map((cell: any) => {
@@ -146,6 +194,8 @@ export function GridBody(props: GridBodyProps) {
                     key={cell.id}
                     className={cn(
                       userSelectClass,
+                      showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+                      showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                       align === "right" || align === "end" ? "text-right" : "",
                       col?.className,
                     )}

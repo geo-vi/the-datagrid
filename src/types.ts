@@ -188,6 +188,7 @@ export type TypeComputedProps = {
 };
 
 export type TypePaginationMode = true | false | "remote" | "local";
+export type TypeShowCellBorders = true | false | "vertical" | "horizontal";
 
 /**
  * Checkbox column compat surface.
@@ -226,6 +227,15 @@ export type TypeCheckboxColumn =
     });
 
 export type TypeDataGridProps = {
+  /**
+   * Built-ins:
+   * - "default": follows the nearest `.dark` ancestor when present
+   * - "light": forces the light theme tokens
+   * - "dark": forces the dark theme tokens
+   *
+   * Any other string is treated as a named custom theme selector and exposed
+   * on the grid root via `data-theme="<name>"`.
+   */
   theme?: string;
   idProperty: string;
 
@@ -273,6 +283,11 @@ export type TypeDataGridProps = {
   virtualized?: boolean;
 
   columnUserSelect?: true | false | "text" | "none";
+  /**
+   * Defaults to `true`, which renders both horizontal and vertical separators.
+   * Use `"horizontal"` to keep row dividers while disabling vertical separators.
+   */
+  showCellBorders?: TypeShowCellBorders;
 
   i18n?: TypeI18n;
 

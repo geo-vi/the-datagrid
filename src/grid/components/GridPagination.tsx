@@ -36,7 +36,7 @@ export function GridPagination(props: GridPaginationProps) {
   const { count, skip, limit, pageIndex, pageCount, canPrev, canNext, pageSizes, setSkip, setLimit, i18n } = props;
 
   return (
-    <div className="flex items-center justify-between px-4">
+    <div className="tdg-pagination InovuaReactDataGrid__pagination flex items-center justify-between px-4">
       <div className="hidden flex-1 text-sm text-muted-foreground md:block">
         {t(i18n, "showingText", "Showing")} <span className="font-mono">{count === 0 ? 0 : skip + 1}</span>–
         <span className="font-mono">{Math.min(skip + limit, count)}</span> {t(i18n, "ofText", "of")}{" "}

@@ -24,15 +24,31 @@ function injectLibraryCssEntry() {
 // https://vite.dev/config/
 export default defineConfig(({ command }) => {
   const isDev = command === "serve"
+  const exampleScssLoadPaths = [
+    path.resolve(__dirname, "./examples/src/themes/inovua-compat"),
+  ]
+  const inovuaCompatPath = path.resolve(
+    __dirname,
+    "./examples/src/themes/inovua-compat/@inovua/reactdatagrid-community"
+  )
+  const resolveAlias = {
+    "@": path.resolve(__dirname, "./src"),
+    "@inovua/reactdatagrid-community": inovuaCompatPath,
+  }
   
   // In dev mode, serve the examples app
   if (isDev) {
     return {
       plugins: [react(), tailwindcss()],
-      resolve: {
-        alias: {
-          "@": path.resolve(__dirname, "./src"),
+      css: {
+        preprocessorOptions: {
+          scss: {
+            loadPaths: exampleScssLoadPaths,
+          },
         },
+      },
+      resolve: {
+        alias: resolveAlias,
       },
       root: path.resolve(__dirname, "./examples"),
     }
@@ -50,10 +66,15 @@ export default defineConfig(({ command }) => {
       }),
       injectLibraryCssEntry(),
     ],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
+    css: {
+      preprocessorOptions: {
+        scss: {
+          loadPaths: exampleScssLoadPaths,
+        },
       },
+    },
+    resolve: {
+      alias: resolveAlias,
     },
     build: {
       copyPublicDir: false,
