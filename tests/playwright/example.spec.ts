@@ -23,4 +23,12 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     odd: "rgb(33.6, 33.6, 33.6)",
     even: "rgb(33.6, 33.6, 33.6)",
   });
+
+  await page.getByRole("button", { name: "Filter" }).first().click();
+
+  const menu = page.getByRole("menu").last();
+  await expect(menu.getByText("Filter", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Operator", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Clear" })).toBeVisible();
+  await expect(menu.getByRole("menuitemradio", { name: /^Contains$/ })).toHaveAttribute("aria-checked", "true");
 });

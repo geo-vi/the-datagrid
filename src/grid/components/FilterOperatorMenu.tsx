@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconFilter } from "@tabler/icons-react";
+import { IconFilter } from "@tabler/icons-react";
 
 import type { TypeI18n } from "../../types";
 import { cn } from "../../lib/utils";
@@ -10,7 +10,12 @@ import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 
@@ -52,44 +57,39 @@ export function FilterOperatorMenu(props: FilterOperatorMenuProps) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56">
-        <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
-          {String(t(i18n, "filter", "Filter"))}
-        </div>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{String(t(i18n, "filter", "Filter"))}</DropdownMenuLabel>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              onClear();
+            }}
+          >
+            {String(t(i18n, "clear", "Clear"))}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
 
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            onClear();
-          }}
-        >
-          {String(t(i18n, "clear", "Clear"))}
-        </DropdownMenuItem>
+        {operators.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
 
-        <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
-          {String(t(i18n, "operator", "Operator"))}
-        </div>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{String(t(i18n, "operator", "Operator"))}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={operator} onValueChange={onSelectOperator}>
+                {operators.map((opItem) => {
+                  const opName = String(opItem?.name ?? "");
+                  if (!opName) return null;
 
-        {operators.map((opItem) => {
-          const opName = String(opItem?.name ?? "");
-          if (!opName) return null;
-
-          const isCurrent = opName === operator;
-
-          return (
-            <DropdownMenuItem
-              key={opName}
-              onSelect={(e) => {
-                e.preventDefault();
-                onSelectOperator(opName);
-              }}
-            >
-              <div className="flex w-full items-center justify-between gap-3">
-                <span className="truncate">{String(t(i18n, opName, opName))}</span>
-                {isCurrent ? <IconCheck className="size-4 opacity-80" /> : null}
-              </div>
-            </DropdownMenuItem>
-          );
-        })}
+                  return (
+                    <DropdownMenuRadioItem key={opName} value={opName}>
+                      <span className="truncate">{String(t(i18n, opName, opName))}</span>
+                    </DropdownMenuRadioItem>
+                  );
+                })}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
