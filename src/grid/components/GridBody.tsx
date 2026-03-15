@@ -14,6 +14,8 @@ export type GridBodyProps = {
   orderedColumns: TypeColumn[];
   autoWidths: Record<string, number>;
   userSelectClass: string;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
 
   virtualized: boolean;
   virtualItems: any[];
@@ -33,6 +35,8 @@ export function GridBody(props: GridBodyProps) {
     orderedColumns,
     autoWidths,
     userSelectClass,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     virtualized,
     virtualItems,
     paddingTop,
@@ -72,7 +76,13 @@ export function GridBody(props: GridBodyProps) {
     return (
       <TableBody>
         <TableRow>
-          <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
+          <TableCell
+            colSpan={orderedColumns.length}
+            className={cn(
+              "h-24 text-center",
+              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+            )}
+          >
             Loading…
           </TableCell>
         </TableRow>
@@ -84,7 +94,13 @@ export function GridBody(props: GridBodyProps) {
     return (
       <TableBody>
         <TableRow>
-          <TableCell colSpan={orderedColumns.length} className="h-24 text-center">
+          <TableCell
+            colSpan={orderedColumns.length}
+            className={cn(
+              "h-24 text-center",
+              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+            )}
+          >
             {t(i18n, "noRecords", "No records")}
           </TableCell>
         </TableRow>
@@ -127,6 +143,8 @@ export function GridBody(props: GridBodyProps) {
                       key={cell.id}
                       className={cn(
                         userSelectClass,
+                        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+                        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                         align === "right" || align === "end" ? "text-right" : "",
                         col?.className,
                       )}
@@ -176,6 +194,8 @@ export function GridBody(props: GridBodyProps) {
                     key={cell.id}
                     className={cn(
                       userSelectClass,
+                      showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+                      showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                       align === "right" || align === "end" ? "text-right" : "",
                       col?.className,
                     )}

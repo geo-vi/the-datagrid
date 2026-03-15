@@ -229,6 +229,7 @@ Note: this is a curated overview. For the complete contract, refer to the export
 | `filterRowHeight`  | `number`                      | `44`        | Filter row height in pixels    |
 | `virtualized`      | `boolean`                     | `true`      | Enable virtual scrolling       |
 | `columnUserSelect` | `boolean \| "text" \| "none"` | `true`      | Column text selection behavior |
+| `showCellBorders`  | `boolean \| "vertical" \| "horizontal"` | `true` | Cell separator mode; use `"horizontal"` to disable vertical lines |
 
 ### Columns
 

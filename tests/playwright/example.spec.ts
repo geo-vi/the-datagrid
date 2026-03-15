@@ -24,6 +24,37 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     even: "rgb(33.6, 33.6, 33.6)",
   });
 
+  const firstHeaderCell = page.locator(".tdg-header-cell").first();
+
+  const headerBorderOn = await firstHeaderCell.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      borderRightWidth: style.borderRightWidth,
+      borderRightColor: style.borderRightColor,
+    };
+  });
+
+  expect(headerBorderOn).toEqual({
+    borderRightWidth: "1px",
+    borderRightColor: "rgb(56, 56, 56)",
+  });
+
+  await page.getByRole("button", { name: "Vertical separators on" }).click();
+  await expect(page.getByRole("button", { name: "Vertical separators off" })).toBeVisible();
+
+  const headerBorderOff = await firstHeaderCell.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      borderRightWidth: style.borderRightWidth,
+      borderRightColor: style.borderRightColor,
+    };
+  });
+
+  expect(headerBorderOff).toEqual({
+    borderRightWidth: "0px",
+    borderRightColor: "rgb(56, 56, 56)",
+  });
+
   await page.getByRole("button", { name: "Filter" }).first().click();
 
   const menu = page.getByRole("menu").last();

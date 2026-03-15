@@ -66,6 +66,8 @@ export type FilterCellProps = {
   setSkip: (n: number) => void;
 
   filterTypes: TypeFilterTypes;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
 
   openFilterMenuColId: string | null;
@@ -130,6 +132,8 @@ export function FilterCell(props: FilterCellProps) {
     setDraftFilterValue,
     setSkip,
     filterTypes,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     i18n,
     openFilterMenuColId,
     setOpenFilterMenuColId,
@@ -217,7 +221,9 @@ export function FilterCell(props: FilterCellProps) {
     <TableHead
       key={`${header.id}-filter`}
       className={cn(
-        "tdg-filter-cell InovuaReactDataGrid__filter-cell sticky z-10 border-b bg-[var(--tdg-filter-bg)] py-2 [border-color:var(--tdg-filter-border-color)] [color:var(--tdg-filter-color)]"
+        "tdg-filter-cell InovuaReactDataGrid__filter-cell sticky z-10 bg-[var(--tdg-filter-bg)] py-2 [color:var(--tdg-filter-color)]",
+        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-filter-border-color)]" : "",
+        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-filter-border-color)]" : "",
       )}
       style={{
         top: headerHeight,

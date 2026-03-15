@@ -23,6 +23,7 @@ export type {
   TypeI18n,
   TypeOnSelectionChangeArg,
   TypePaginationMode,
+  TypeShowCellBorders,
   TypeRowSelection,
   TypeSingleFilterValue,
   TypeSingleSortInfo,

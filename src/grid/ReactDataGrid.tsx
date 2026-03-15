@@ -62,6 +62,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     virtualized = true,
     columnUserSelect = true,
+    showCellBorders = true,
 
     i18n,
     showColumnMenuTool = false,
@@ -77,6 +78,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const themeName = normalizeThemeName(theme);
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
+  const showHorizontalCellBorders = showCellBorders === true || showCellBorders === "horizontal";
+  const showVerticalCellBorders = showCellBorders === true || showCellBorders === "vertical";
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -818,6 +821,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 allowUnsort={allowUnsort}
                 defaultSortDir={defaultSortDir}
                 showColumnMenuTool={showColumnMenuTool}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
                 i18n={i18n}
                 allowColumnReorder={allowColumnReorder}
                 checkboxEnabled={checkboxEnabled}
@@ -842,6 +847,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 orderedColumns={orderedColumns}
                 autoWidths={autoWidths}
                 userSelectClass={userSelectClass}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
                 virtualized={virtualized}
                 virtualItems={virtualItems}
                 paddingTop={paddingTop}

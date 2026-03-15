@@ -188,6 +188,7 @@ export type TypeComputedProps = {
 };
 
 export type TypePaginationMode = true | false | "remote" | "local";
+export type TypeShowCellBorders = true | false | "vertical" | "horizontal";
 
 /**
  * Checkbox column compat surface.
@@ -282,6 +283,11 @@ export type TypeDataGridProps = {
   virtualized?: boolean;
 
   columnUserSelect?: true | false | "text" | "none";
+  /**
+   * Defaults to `true`, which renders both horizontal and vertical separators.
+   * Use `"horizontal"` to keep row dividers while disabling vertical separators.
+   */
+  showCellBorders?: TypeShowCellBorders;
 
   i18n?: TypeI18n;
 

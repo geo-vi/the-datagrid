@@ -22,6 +22,8 @@ export type GridHeaderProps = {
   defaultSortDir: 1 | -1;
 
   showColumnMenuTool: boolean;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
 
   // DnD reorder
@@ -58,6 +60,8 @@ export function GridHeader(props: GridHeaderProps) {
     allowUnsort,
     defaultSortDir,
     showColumnMenuTool,
+    showHorizontalCellBorders,
+    showVerticalCellBorders,
     i18n,
     allowColumnReorder,
     checkboxEnabled,
@@ -112,6 +116,8 @@ export function GridHeader(props: GridHeaderProps) {
                 allowUnsort={allowUnsort}
                 defaultSortDir={defaultSortDir}
                 showColumnMenuTool={showColumnMenuTool}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
                 i18n={i18n}
                 canDrag={Boolean(canDrag)}
                 onDragStart={onHeaderDragStart}
@@ -159,6 +165,8 @@ export function GridHeader(props: GridHeaderProps) {
                   setSkip={setSkip}
                   filterTypes={filterTypes}
                   i18n={i18n}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                  showVerticalCellBorders={showVerticalCellBorders}
                   openFilterMenuColId={openFilterMenuColId}
                   setOpenFilterMenuColId={setOpenFilterMenuColId}
                 />

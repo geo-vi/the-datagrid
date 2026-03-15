@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
-import ReactDataGrid, { type TypeColumns, type TypeI18n } from "../../src/main";
+import ReactDataGrid, { type TypeColumns, type TypeI18n, type TypeShowCellBorders } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 
@@ -33,6 +33,7 @@ function applyTheme(mode: ThemeMode) {
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() => readInitialTheme());
   const [gridTheme, setGridTheme] = useState<GridTheme>("default");
+  const [showCellBorders, setShowCellBorders] = useState<TypeShowCellBorders>(true);
 
   useEffect(() => {
     applyTheme(theme);
@@ -141,6 +142,15 @@ export default function App() {
             ))}
           </div>
 
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCellBorders((current) => (current === true ? "horizontal" : true))}
+          >
+            Vertical separators {showCellBorders === true ? "on" : "off"}
+          </Button>
+
           <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle page theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
@@ -166,6 +176,7 @@ export default function App() {
         onColumnOrderChange={setColumnOrder}
         virtualized
         columnUserSelect
+        showCellBorders={showCellBorders}
         i18n={i18n}
         showColumnMenuTool={false}
       />
