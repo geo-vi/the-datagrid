@@ -172,7 +172,6 @@ function DropdownMenuRadioItem({
   children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
-  const themeClassSuffix = useDatagridThemeClassSuffix()
   const itemRef = React.useRef<React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>>(null)
 
   useLegacyStateClasses(itemRef, [
@@ -189,22 +188,21 @@ function DropdownMenuRadioItem({
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "tdg-dropdown-item",
-        "inovua-react-toolkit-menu__row inovua-react-toolkit-radio-button",
-        `inovua-react-toolkit-radio-button--theme-${themeClassSuffix}`,
+        "inovua-react-toolkit-menu__row",
         className
       )}
       {...props}
       >
       <span
         data-slot="dropdown-menu-radio-indicator-shell"
-        className="tdg-dropdown-cell tdg-dropdown-indicator-cell tdg-radio-indicator-shell inovua-react-toolkit-menu__cell inovua-react-toolkit-menu__cell--radio inovua-react-toolkit-radio-button__icon-wrapper pointer-events-none absolute left-2 flex size-4 items-center justify-center rounded-full border border-input bg-background text-primary shadow-xs"
+        className="tdg-dropdown-cell tdg-dropdown-indicator-cell tdg-dropdown-radio-shell pointer-events-none absolute top-1/2 left-2 flex size-4 -translate-y-1/2 items-center justify-center rounded-full border border-input bg-background text-primary shadow-xs"
       >
         <DropdownMenuPrimitive.ItemIndicator>
           <span
             data-slot="dropdown-menu-radio-indicator"
-            className="relative flex items-center justify-center"
+            className="tdg-dropdown-radio-indicator relative flex items-center justify-center"
           >
-            <CircleIcon className="tdg-radio-indicator-icon absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary text-primary" />
+            <CircleIcon className="tdg-dropdown-radio-icon absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-current text-current" />
           </span>
         </DropdownMenuPrimitive.ItemIndicator>
       </span>

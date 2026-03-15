@@ -266,12 +266,16 @@
 
 .tdg-root .InovuaReactDataGrid__sort-icon-wrapper {
   display: inline-flex !important;
+  width: 0.75rem !important;
+  min-width: 0.75rem !important;
+  flex: 0 0 0.75rem !important;
   flex-direction: row !important;
   align-items: center !important;
+  justify-content: center !important;
 }
 
 .tdg-root .InovuaReactDataGrid__sort-icon {
-  margin-left: 0.25rem !important;
+  margin-left: 0 !important;
   margin-right: 0 !important;
   margin-bottom: 0 !important;
 }
@@ -588,8 +592,7 @@
   stroke: currentColor !important;
 }
 
-.tdg-root
-  .tdg-dropdown-cell.inovua-react-toolkit-menu__cell:not(.tdg-dropdown-indicator-cell) {
+.tdg-root .tdg-dropdown-cell:not(.tdg-dropdown-indicator-cell) {
   position: relative !important;
   display: flex !important;
   align-items: center !important;
@@ -609,8 +612,7 @@
   border: 0 !important;
 }
 
-.tdg-root
-  .tdg-dropdown-indicator-cell.inovua-react-toolkit-menu__cell:not(.tdg-radio-indicator-shell) {
+.tdg-root .tdg-dropdown-indicator-cell:not(.tdg-dropdown-radio-shell) {
   position: relative !important;
   display: flex !important;
   align-items: center !important;
@@ -631,8 +633,7 @@
   background: var(--tdg-dropdown-shell-border-color) !important;
 }
 
-.tdg-root .tdg-radio-item,
-.tdg-root .tdg-radio-indicator-shell {
+.tdg-root .tdg-dropdown-radio-shell {
   box-sizing: border-box !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -658,23 +659,19 @@
     var(--tw-ring-offset-shadow),
     var(--tw-ring-shadow),
     var(--tw-shadow) !important;
-}
-
-.tdg-root .tdg-radio-item:focus-visible {
-  border-color: var(--tdg-color-ring) !important;
-  --tw-ring-shadow: 0 0 0 3px color-mix(in oklab, var(--tdg-color-ring) 50%, transparent);
-}
-
-.tdg-root .tdg-radio-item[data-state="checked"],
-.tdg-root .tdg-radio-indicator-shell {
-  color: var(--tdg-color-primary) !important;
-}
-
-.tdg-root .tdg-radio-indicator-shell {
   pointer-events: none;
 }
 
-.tdg-root .tdg-radio-indicator-icon {
+.tdg-root .tdg-dropdown-radio-indicator {
+  display: flex !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none;
+}
+
+.tdg-root .tdg-dropdown-radio-shell .tdg-dropdown-radio-icon {
   width: 0.5rem !important;
   height: 0.5rem !important;
   fill: currentColor !important;

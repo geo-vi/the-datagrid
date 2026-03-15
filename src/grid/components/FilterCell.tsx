@@ -118,7 +118,6 @@ export function FilterCell(props: FilterCellProps) {
     header,
     col,
     colId,
-    headerHeight,
     filterRowHeight,
     width,
     enableFiltering,
@@ -221,7 +220,7 @@ export function FilterCell(props: FilterCellProps) {
     <TableHead
       key={`${header.id}-filter`}
       className={cn(
-        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper sticky z-10 bg-[var(--tdg-filter-bg)] py-2 [color:var(--tdg-filter-color)]",
+        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] py-2 [color:var(--tdg-filter-color)]",
         showVerticalCellBorders ? "InovuaReactDataGrid__filter-cell--show-border-right" : "",
         showHorizontalCellBorders
           ? "InovuaReactDataGrid__filter-cell--show-border-bottom border-b [border-bottom-color:var(--tdg-filter-border-color)]"
@@ -229,7 +228,6 @@ export function FilterCell(props: FilterCellProps) {
         showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-filter-border-color)]" : "",
       )}
       style={{
-        top: headerHeight,
         width,
         minWidth: col?.minWidth,
         maxWidth: col?.maxWidth,

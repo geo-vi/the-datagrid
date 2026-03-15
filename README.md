@@ -17,11 +17,11 @@ A modern, feature-rich React data grid built on **TanStack Table** with a **shad
 ## Installation
 
 ```bash
-npm install the-datagrid react react-dom
+npm install @geovi/the-datagrid react react-dom
 # or
-yarn add the-datagrid react react-dom
+yarn add @geovi/the-datagrid react react-dom
 # or
-pnpm add the-datagrid react react-dom
+pnpm add @geovi/the-datagrid react react-dom
 ```
 
 That is the normal installation flow for consumers.
@@ -36,7 +36,7 @@ This also applies when you use custom grid themes. The grid theme variables are 
 
 ## Styling
 
-`the-datagrid` ships compiled CSS and loads it automatically from the package entry.
+`@geovi/the-datagrid` ships compiled CSS and loads it automatically from the package entry.
 
 In a typical React app with a modern bundler, this is enough:
 
@@ -59,7 +59,7 @@ Built-in theme behavior:
 If your environment does **not** process CSS imported from package entries, use the exported fallback once in your app:
 
 ```ts
-import "the-datagrid/style.css";
+import "@geovi/the-datagrid/style.css";
 ```
 
 ### Custom named themes
@@ -107,8 +107,8 @@ This lets you keep using a migration-friendly theme name such as `hf-dark` while
 ## Basic usage
 
 ```tsx
-import { ReactDataGrid } from "the-datagrid";
-import type { TypeColumns } from "the-datagrid";
+import { ReactDataGrid } from "@geovi/the-datagrid";
+import type { TypeColumns } from "@geovi/the-datagrid";
 
 export default function App() {
   const columns: TypeColumns = [
@@ -138,14 +138,14 @@ export default function App() {
 
 ```tsx
 import { useMemo, useState } from "react";
-import { ReactDataGrid } from "the-datagrid";
+import { ReactDataGrid } from "@geovi/the-datagrid";
 import type {
   TypeColumns,
   TypeFilterValue,
   TypeI18n,
   TypeOnSelectionChangeArg,
   TypeRowSelection,
-} from "the-datagrid";
+} from "@geovi/the-datagrid";
 
 export default function App() {
   const [selected, setSelected] = useState<TypeRowSelection>({});
@@ -304,7 +304,7 @@ Note: this is a curated overview. For the complete contract, refer to the export
 The package ships full type definitions.
 
 ```tsx
-import { ReactDataGrid } from "the-datagrid";
+import { ReactDataGrid } from "@geovi/the-datagrid";
 import type {
   TypeColumns,
   TypeColumn,
@@ -314,5 +314,5 @@ import type {
   TypeFilterValue,
   TypeSortInfo,
   TypeI18n,
-} from "the-datagrid";
+} from "@geovi/the-datagrid";
 ```

@@ -5,7 +5,7 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "the-datagrid demo" })).toBeVisible();
 
-  const grid = page.locator(".tdg-root").first();
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   await expect(grid).toHaveAttribute("data-theme", "default");
   await expect(grid).toHaveAttribute("data-theme-base", "default");
 
@@ -66,9 +66,21 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   const scrollArea = grid.locator('[data-slot="scroll-area"]').first();
   await expect(scrollArea).toBeVisible();
+  await expect(grid.locator('[data-slot="scroll-area-scrollbar"]').first()).toBeVisible();
 
   const headerViewport = grid.locator('[data-slot="grid-header-viewport"]').first();
   await expect(headerViewport).toBeVisible();
+
+  const headerAndFilterPositioning = await Promise.all([
+    grid.locator(".tdg-header-cell").first().evaluate((element) => {
+      return getComputedStyle(element).position;
+    }),
+    grid.locator(".tdg-filter-cell").first().evaluate((element) => {
+      return getComputedStyle(element).position;
+    }),
+  ]);
+
+  expect(headerAndFilterPositioning).toEqual(["static", "static"]);
 
   const scrollLayout = await grid.evaluate((element) => {
     const scrollRoot = element.querySelector('[data-slot="scroll-area"]');
@@ -100,6 +112,11 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   const sortableHeaderCell = grid.locator(".tdg-header-cell").nth(1);
   await expect(sortableHeaderCell.locator(".tdg-button")).toHaveCount(0);
+  const initialHeaderWidths = await grid.locator(".tdg-header-cell").evaluateAll((elements) => {
+    return elements.map((element) => {
+      return Math.round(element.getBoundingClientRect().width * 100) / 100;
+    });
+  });
   const sortableHeaderBox = await sortableHeaderCell.boundingBox();
   expect(sortableHeaderBox).not.toBeNull();
 
@@ -113,6 +130,13 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   await expect(
     sortableHeaderCell.locator(".InovuaReactDataGrid__sort-icon--asc.InovuaReactDataGrid__sort-icon--active"),
   ).toBeVisible();
+  await expect.poll(async () => {
+    return grid.locator(".tdg-header-cell").evaluateAll((elements) => {
+      return elements.map((element) => {
+        return Math.round(element.getBoundingClientRect().width * 100) / 100;
+      });
+    });
+  }).toEqual(initialHeaderWidths);
 
   await page.getByRole("button", { name: "HF Dark" }).click();
   await expect(grid).toHaveAttribute("data-theme", "hf-dark");
@@ -329,7 +353,7 @@ test("keeps custom light themes on the light shadcn base even inside a dark page
     document.documentElement.classList.add("dark");
   });
 
-  const grid = page.locator(".tdg-root").first();
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   await page.getByRole("button", { name: "HF Light" }).click();
 
   await expect(grid).toHaveAttribute("data-theme", "hf-light");
@@ -592,8 +616,10 @@ test("keeps filter radio controls on the default shadcn shape across custom them
   async function getRadioShellStyles() {
     await page.getByRole("button", { name: "Filter" }).first().click();
 
-    const shell = page.locator('[data-slot="dropdown-menu-radio-indicator-shell"]').first();
-    const icon = page.locator(".tdg-radio-indicator-icon").first();
+    const menu = page.getByRole("menu").last();
+    const shell = menu.locator('[data-slot="dropdown-menu-radio-indicator-shell"]').first();
+    const indicator = shell.locator('[data-slot="dropdown-menu-radio-indicator"]').first();
+    const icon = shell.locator("svg").first();
 
     await expect(shell).toBeVisible();
 
@@ -607,6 +633,18 @@ test("keeps filter radio controls on the default shadcn shape across custom them
           borderTopWidth: style.borderTopWidth,
           backgroundColor: style.backgroundColor,
           boxShadow: style.boxShadow,
+          display: style.display,
+          alignItems: style.alignItems,
+          justifyContent: style.justifyContent,
+          hasLegacyRadioCellClass: element.classList.contains("inovua-react-toolkit-menu__cell--radio"),
+          hasLegacyMenuCellClass: element.classList.contains("inovua-react-toolkit-menu__cell"),
+        };
+      }),
+      indicator.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          width: style.width,
+          height: style.height,
           display: style.display,
           alignItems: style.alignItems,
           justifyContent: style.justifyContent,
@@ -625,7 +663,7 @@ test("keeps filter radio controls on the default shadcn shape across custom them
 
     await page.keyboard.press("Escape");
 
-    return { shell: styles[0], icon: styles[1] };
+    return { shell: styles[0], indicator: styles[1], icon: styles[2] };
   }
 
   const defaultRadio = await getRadioShellStyles();
@@ -644,8 +682,15 @@ test("keeps filter radio controls on the default shadcn shape across custom them
     expect(radio.shell.display).toBe("flex");
     expect(radio.shell.alignItems).toBe("center");
     expect(radio.shell.justifyContent).toBe("center");
+    expect(radio.shell.hasLegacyRadioCellClass).toBe(false);
+    expect(radio.shell.hasLegacyMenuCellClass).toBe(false);
     expect(radio.shell.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
     expect(radio.shell.boxShadow).toContain("rgba(0, 0, 0, 0.05) 0px 1px 2px 0px");
+    expect(radio.indicator.width).toBe("16px");
+    expect(radio.indicator.height).toBe("16px");
+    expect(radio.indicator.display).toBe("flex");
+    expect(radio.indicator.alignItems).toBe("center");
+    expect(radio.indicator.justifyContent).toBe("center");
     expect(radio.icon.width).toBe("8px");
     expect(radio.icon.height).toBe("8px");
     expect(radio.icon.fill).not.toBe("none");
@@ -668,7 +713,7 @@ test("keeps table alignment under hostile global table styles", async ({ page })
     `,
   });
 
-  const layout = await page.locator(".tdg-root").first().evaluate((root) => {
+  const layout = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
     const table = root.querySelector("table");
     const thead = root.querySelector("thead");
     const headerRow = root.querySelector(".tdg-header-row");

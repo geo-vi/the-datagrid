@@ -156,7 +156,7 @@ export function HeaderCell(props: HeaderCellProps) {
       key={header.id}
       colSpan={header.colSpan}
       className={cn(
-        "tdg-header-cell InovuaReactDataGrid__column-header sticky top-0 z-20 bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
+        "tdg-header-cell InovuaReactDataGrid__column-header bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         "InovuaReactDataGrid__column-header--direction-ltr",
         headerAlignClass,
         canSort ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50" : "",

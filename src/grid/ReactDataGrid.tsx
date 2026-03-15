@@ -374,13 +374,38 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- column autosize heuristic ---------------- */
 
   const [autoWidths, setAutoWidths] = React.useState<Record<string, number>>({});
+  const autosizeSample = React.useMemo(() => {
+    if (!enableColumnAutosize) return [];
+
+    if (Array.isArray(dataSource)) {
+      let data = dataSource;
+
+      if (enableFiltering && computedFilterForFetch) {
+        data = applyLocalFilter(data, computedFilterForFetch, {
+          filterTypes,
+          columns: orderedColumns,
+        });
+      }
+
+      return data.slice(0, 25);
+    }
+
+    return rows.slice(0, 25);
+  }, [
+    computedFilterForFetch,
+    dataSource,
+    enableColumnAutosize,
+    enableFiltering,
+    filterTypes,
+    orderedColumns,
+    rows,
+  ]);
 
   React.useEffect(() => {
     if (!enableColumnAutosize) return;
 
     const next: Record<string, number> = {};
 
-    const sample = rows.slice(0, 25);
     for (const c of orderedColumns) {
       const id = getColumnId(c);
 
@@ -395,15 +420,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
         : typeof c.header === "string"
           ? c.header
           : typeof c.name === "string"
-            ? c.name
-            : "";
+              ? c.name
+              : "";
 
-      const values = sample.map((r) => (r as any)?.[id]);
+      const values = autosizeSample.map((r) => (r as any)?.[id]);
       next[id] = estimateAutoWidth({ header: headerText, values });
     }
 
     setAutoWidths(next);
-  }, [enableColumnAutosize, orderedColumns, rows, skipHeaderOnAutoSize]);
+  }, [autosizeSample, enableColumnAutosize, orderedColumns, skipHeaderOnAutoSize]);
 
   /** ---------------- selection helpers ---------------- */
 
