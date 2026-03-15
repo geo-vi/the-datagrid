@@ -226,6 +226,15 @@ export type TypeCheckboxColumn =
     });
 
 export type TypeDataGridProps = {
+  /**
+   * Built-ins:
+   * - "default": follows the nearest `.dark` ancestor when present
+   * - "light": forces the light theme tokens
+   * - "dark": forces the dark theme tokens
+   *
+   * Any other string is treated as a named custom theme selector and exposed
+   * on the grid root via `data-theme="<name>"`.
+   */
   theme?: string;
   idProperty: string;
 

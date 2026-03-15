@@ -43,6 +43,19 @@ export function GridBody(props: GridBodyProps) {
     onRowClick,
   } = props;
 
+  function getRowThemeClasses(rowIndex: number, rowIsSelected: boolean): string {
+    const odd = rowIndex % 2 === 0;
+    return cn(
+      "tdg-row InovuaReactDataGrid__row",
+      odd
+        ? "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)]"
+        : "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)] hover:bg-[var(--tdg-row-even-hover-bg)]",
+      rowIsSelected
+        ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-selected-bg)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+        : "",
+    );
+  }
+
   if (loading && rowModel.length === 0) {
     return (
       <TableBody>
@@ -84,7 +97,9 @@ export function GridBody(props: GridBodyProps) {
             return (
               <TableRow
                 key={row.id}
-                className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
+                className={getRowThemeClasses(vi.index, rowIsSelected)}
+                data-selected={rowIsSelected ? "true" : "false"}
+                data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
                 style={{ height: vi.size }}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
@@ -131,7 +146,9 @@ export function GridBody(props: GridBodyProps) {
           return (
             <TableRow
               key={row.id}
-              className={cn("hover:bg-muted/40", rowIsSelected ? "bg-muted/30" : "")}
+              className={getRowThemeClasses(row.index, rowIsSelected)}
+              data-selected={rowIsSelected ? "true" : "false"}
+              data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
               onClick={(e) => onRowClick?.(row.id, row.original, e)}
             >
               {row.getVisibleCells().map((cell: any) => {

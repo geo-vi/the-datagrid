@@ -4,6 +4,7 @@ import { Button } from "../../src/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 
 type ThemeMode = "light" | "dark";
+type GridTheme = "default" | "dark" | "hf-dark";
 
 const THEME_KEY = "theme";
 
@@ -21,12 +22,15 @@ function applyTheme(mode: ThemeMode) {
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() => readInitialTheme());
+  const [gridTheme, setGridTheme] = useState<GridTheme>("default");
 
   useEffect(() => {
     applyTheme(theme);
     try {
       window.localStorage.setItem(THEME_KEY, theme);
-    } catch {}
+    } catch {
+      // Ignore storage failures in private browsing or restricted environments.
+    }
   }, [theme]);
 
   // Optional: if user never explicitly chose a theme, follow OS changes.
@@ -112,9 +116,23 @@ export default function App() {
     <div className="min-h-screen p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h1 className="m-0 text-lg font-semibold">the-datagrid demo</h1>
-        <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button type="button" variant={gridTheme === "default" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("default")}>
+              Default
+            </Button>
+            <Button type="button" variant={gridTheme === "dark" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("dark")}>
+              Dark
+            </Button>
+            <Button type="button" variant={gridTheme === "hf-dark" ? "secondary" : "outline"} size="sm" onClick={() => setGridTheme("hf-dark")}>
+              HF Dark
+            </Button>
+          </div>
+
+          <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle page theme">
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
       <div className="text-xs text-muted-foreground">
@@ -122,7 +140,7 @@ export default function App() {
       </div>
 
       <ReactDataGrid
-        theme="default"
+        theme={gridTheme}
         idProperty="cldomnr"
         columns={columns}
         dataSource={rows}

@@ -1,2 +1,75 @@
 @import "tailwindcss";
 @source "./**/*.{ts,tsx}";
+
+.tdg-root[data-theme="hf-dark"] {
+  --tdg-color-background: #191919;
+  --tdg-color-foreground: #e5e5e5;
+  --tdg-color-accent: #26324a;
+  --tdg-color-accent-foreground: #e5e5e5;
+  --tdg-color-border: #2c2c2c;
+  --tdg-color-input: #383838;
+  --tdg-color-ring: #688ad7;
+  --tdg-color-popover: #191919;
+  --tdg-color-popover-foreground: #e5e5e5;
+  --tdg-color-primary: #688ad7;
+  --tdg-color-primary-foreground: #e5e5e5;
+  --tdg-color-secondary: #1e1e1e;
+  --tdg-color-secondary-foreground: #e5e5e5;
+  --tdg-color-muted: #1e1e1e;
+  --tdg-color-muted-foreground: #c5c5c5;
+
+  --tdg-grid-bg: #191919;
+  --tdg-grid-border-color: #2c2c2c;
+
+  --tdg-header-bg: #1e1e1e;
+  --tdg-header-color: #e5e5e5;
+  --tdg-header-border-color: #2c2c2c;
+
+  --tdg-filter-bg: #191919;
+  --tdg-filter-color: #e5e5e5;
+  --tdg-filter-border-color: #2c2c2c;
+
+  --tdg-cell-border-color: #2c2c2c;
+
+  --tdg-row-odd-bg: #191919;
+  --tdg-row-even-bg: #191919;
+  --tdg-row-odd-hover-bg: #26324a;
+  --tdg-row-even-hover-bg: #26324a;
+  --tdg-row-selected-bg: #1a2740;
+  --tdg-row-selected-hover-bg: #1a2740;
+
+  --tdg-input-bg: #191919;
+  --tdg-input-color: #e5e5e5;
+  --tdg-input-border-color: #383838;
+  --tdg-input-border-color-hover: #383838;
+  --tdg-input-border-color-focus: #383838;
+
+  --tdg-select-bg: #191919;
+  --tdg-select-color: #e5e5e5;
+  --tdg-select-list-bg: #191919;
+  --tdg-select-list-color: #e5e5e5;
+  --tdg-select-border-color: #383838;
+  --tdg-select-border-color-hover: #383838;
+  --tdg-select-border-color-focus: #383838;
+  --tdg-select-item-hover-bg: #26324a;
+  --tdg-select-item-hover-color: #e5e5e5;
+  --tdg-select-item-selected-bg: #26324a;
+  --tdg-select-item-selected-color: #e5e5e5;
+
+  --tdg-dropdown-bg: #191919;
+  --tdg-dropdown-color: #e5e5e5;
+  --tdg-dropdown-border-color: #383838;
+  --tdg-dropdown-item-hover-bg: #26324a;
+  --tdg-dropdown-item-hover-color: #e5e5e5;
+  --tdg-dropdown-label-color: #c5c5c5;
+
+  --tdg-checkbox-border-color: #688ad7;
+  --tdg-checkbox-checked-bg: #688ad7;
+  --tdg-checkbox-checked-border-color: #688ad7;
+  --tdg-checkbox-checked-color: #e5e5e5;
+  --tdg-checkbox-indeterminate-bg: #688ad7;
+  --tdg-checkbox-indeterminate-border-color: #688ad7;
+  --tdg-checkbox-indeterminate-color: #e5e5e5;
+
+  color-scheme: dark;
+}

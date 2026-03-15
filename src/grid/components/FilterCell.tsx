@@ -216,7 +216,9 @@ export function FilterCell(props: FilterCellProps) {
   return (
     <TableHead
       key={`${header.id}-filter`}
-      className={cn("sticky z-10 bg-background py-2 border-b border-border")}
+      className={cn(
+        "tdg-filter-cell InovuaReactDataGrid__filter-cell sticky z-10 border-b bg-[var(--tdg-filter-bg)] py-2 [border-color:var(--tdg-filter-border-color)] [color:var(--tdg-filter-color)]"
+      )}
       style={{
         top: headerHeight,
         width,

@@ -45,13 +45,58 @@ In a typical React app with a modern bundler, this is enough:
 
 The grid keeps a shadcn-aligned look and will inherit app-level shadcn theme variables when they exist (`--background`, `--foreground`, `--border`, `--ring`, etc.). If they do not exist, the package uses scoped fallback tokens so it still renders correctly.
 
-Dark mode follows the nearest `.dark` ancestor, or `theme="dark"` on the grid root.
+Built-in theme behavior:
+
+- `theme="default"` follows the nearest `.dark` ancestor
+- `theme="light"` forces the light token set
+- `theme="dark"` forces the dark token set
+- `theme="<custom-name>"` activates a named custom theme on the grid root via `data-theme="<custom-name>"`
 
 If your environment does **not** process CSS imported from package entries, use the exported fallback once in your app:
 
 ```ts
 import "the-datagrid/style.css";
 ```
+
+### Custom named themes
+
+Named themes are configured with CSS variables on the grid root selector. For example, this custom `hf-dark` theme can be used with `theme="hf-dark"`:
+
+```css
+.tdg-root[data-theme="hf-dark"] {
+  --tdg-color-background: #191919;
+  --tdg-color-foreground: #e5e5e5;
+  --tdg-color-accent: #26324a;
+  --tdg-grid-bg: #191919;
+  --tdg-header-bg: #1e1e1e;
+  --tdg-grid-border-color: #2c2c2c;
+  --tdg-cell-border-color: #2c2c2c;
+  --tdg-header-border-color: #2c2c2c;
+  --tdg-row-odd-bg: #191919;
+  --tdg-row-even-bg: #191919;
+  --tdg-row-odd-hover-bg: #26324a;
+  --tdg-row-even-hover-bg: #26324a;
+  --tdg-row-selected-bg: #1a2740;
+  --tdg-row-selected-hover-bg: #1a2740;
+  --tdg-input-bg: #191919;
+  --tdg-input-border-color: #383838;
+  --tdg-input-border-color-hover: #383838;
+  --tdg-input-border-color-focus: #383838;
+  --tdg-select-bg: #191919;
+  --tdg-select-list-bg: #191919;
+  --tdg-select-border-color: #383838;
+  --tdg-select-border-color-hover: #383838;
+  --tdg-select-border-color-focus: #383838;
+  --tdg-select-item-hover-bg: #26324a;
+  --tdg-select-item-selected-bg: #26324a;
+  --tdg-checkbox-checked-bg: #688ad7;
+  --tdg-checkbox-checked-color: #e5e5e5;
+  --tdg-checkbox-indeterminate-bg: #688ad7;
+  color-scheme: dark;
+}
+```
+
+This lets you keep using a migration-friendly theme name such as `hf-dark` while mapping it to the grid’s internal theme tokens.
 
 ---
 
