@@ -31,4 +31,25 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   await expect(menu.getByText("Operator", { exact: true })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Clear" })).toBeVisible();
   await expect(menu.getByRole("menuitemradio", { name: /^Contains$/ })).toHaveAttribute("aria-checked", "true");
+
+  const menuStyles = await menu.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const root = el.closest(".tdg-root");
+
+    return {
+      backgroundColor: cs.backgroundColor,
+      color: cs.color,
+      borderColor: cs.borderColor,
+      theme: root?.getAttribute("data-theme") ?? null,
+      insideGrid: Boolean(root),
+    };
+  });
+
+  expect(menuStyles).toEqual({
+    backgroundColor: "rgb(49, 57, 67)",
+    color: "rgb(155, 167, 180)",
+    borderColor: "rgb(56, 56, 56)",
+    theme: "ikarus-dark",
+    insideGrid: true,
+  });
 });

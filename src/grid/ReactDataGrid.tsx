@@ -76,6 +76,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const themeName = normalizeThemeName(theme);
   const themeClassSuffix = toThemeClassSuffix(themeName);
+  const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -785,16 +786,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- render ---------------- */
 
   return (
-    <DatagridThemeProvider theme={themeName}>
-      <div
-        className={cn(
-          "tdg-root InovuaReactDataGrid flex flex-col gap-2 lg:gap-6",
-          `tdg-theme-${themeClassSuffix}`,
-          `InovuaReactDataGrid--theme-${themeClassSuffix}`,
-          className,
-        )}
-        data-theme={themeName}
-      >
+    <div
+      ref={setPortalContainer}
+      className={cn(
+        "tdg-root InovuaReactDataGrid flex flex-col gap-2 lg:gap-6",
+        `tdg-theme-${themeClassSuffix}`,
+        `InovuaReactDataGrid--theme-${themeClassSuffix}`,
+        className,
+      )}
+      data-theme={themeName}
+    >
+      <DatagridThemeProvider theme={themeName} portalContainer={portalContainer}>
         <div className="overflow-hidden rounded-lg border [border-color:var(--tdg-grid-border-color)]">
           <div
             ref={scrollRef}
@@ -870,8 +872,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             </div>
           ) : null}
         </div>
-      </div>
-    </DatagridThemeProvider>
+      </DatagridThemeProvider>
+    </div>
   );
 }
 
