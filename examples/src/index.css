@@ -1,5 +1,2 @@
 @import "tailwindcss";
-@import "../../src/styles/theme.css";
-
-/* Tailwind v4: scan the library source */
-@source "../../src/**/*.{js,jsx,ts,tsx}";
+@source "./**/*.{ts,tsx}";

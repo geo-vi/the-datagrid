@@ -24,6 +24,7 @@
    ```bash
    # Check that dist/ contains:
    # - index.js (main entry)
+   # - index.css (compiled styles loaded by the entry)
    # - main.d.ts (types)
    # - All necessary files
    ls -la dist/
@@ -57,7 +58,7 @@ import type { TypeColumns, TypeRowSelection } from 'the-datagrid'
 
 ## Important Notes
 
-- The package requires users to set up Tailwind CSS in their project
 - All peer dependencies (React, React DOM) must be installed by the user
-- The package uses shadcn/ui components which require Tailwind CSS configuration
+- The package ships compiled CSS and loads it from the JS entry automatically
+- The package uses internal shadcn-style components but does not require a consumer-side shadcn install
 - See README.md for full setup instructions

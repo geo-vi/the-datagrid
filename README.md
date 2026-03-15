@@ -32,51 +32,17 @@ This library expects **React** and **React DOM** to be provided by your app:
 npm install react react-dom
 ```
 
-## Styling requirements (Tailwind v4 + shadcn/ui theme)
+## Styling
 
-`the-datagrid` uses Tailwind utility classes and shadcn/ui theme tokens (CSS variables like `--background`, `--foreground`, etc.). If your project already uses shadcn/ui, you’re typically done—just ensure Tailwind is scanning this package for class usage.
+`the-datagrid` ships compiled CSS and loads it automatically from the package entry. Consumers do not need:
 
-### Tailwind v4: make sure Tailwind scans this package
+- a manual `import "the-datagrid/style.css"` line
+- Tailwind scanning via `@source`
+- a local shadcn/ui install
 
-Add a `@source` directive to your main CSS entry so Tailwind includes classes used inside `the-datagrid`’s published output.
+The grid keeps a shadcn-aligned look and will inherit app-level shadcn theme variables when they exist (`--background`, `--foreground`, `--border`, `--ring`, etc.). If they do not exist, the package uses scoped fallback tokens so it still renders correctly.
 
-```css
-@import "tailwindcss";
-
-/* Tailwind v4: scan the library output for class usage */
-@source "../node_modules/the-datagrid/dist/**/*.{js,jsx,ts,tsx}";
-```
-
-### Ensure shadcn/ui theme variables exist
-
-If you haven’t set up shadcn/ui theming yet, follow the shadcn/ui theming guidance and add the CSS variables to your global stylesheet.
-
-Dark mode is supported via the `.dark` class on a parent/root element (typical shadcn setup).
-
----
-
-## Tailwind v4 setup example (Vite)
-
-If you’re using Vite, you can enable Tailwind v4 via the official Vite plugin:
-
-```ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-});
-```
-
-Then in your main CSS (e.g. `src/index.css`):
-
-```css
-@import "tailwindcss";
-@source "../node_modules/the-datagrid/dist/**/*.{js,jsx,ts,tsx}";
-```
-
-If you’re using another framework (e.g. Next.js), keep your existing Tailwind v4 setup and add the same `@source` directive to your global CSS.
+Dark mode follows the nearest `.dark` ancestor, or `theme="dark"` on the grid root.
 
 ---
 

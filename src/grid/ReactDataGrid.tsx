@@ -43,51 +43,6 @@ import { GridPagination } from "./components/GridPagination";
  */
 export const plugins: readonly unknown[] = [] as const;
 
-const DATAGRID_SCROLLBAR_STYLE_ID = "__the_datagrid_scrollbar__";
-
-function ensureDatagridScrollbarStyles() {
-  if (typeof document === "undefined") return;
-  const css = `
-.tdg-scrollbar {
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--ring) transparent;
-  scrollbar-color: hsl(var(--ring)) transparent;
-}
-.tdg-scrollbar::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-.tdg-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.tdg-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--ring);
-  background-color: hsl(var(--ring));
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-.tdg-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--muted-foreground);
-  background-color: hsl(var(--muted-foreground));
-}
-.tdg-scrollbar::-webkit-scrollbar-corner {
-  background: transparent;
-}
-`;
-  const existing = document.getElementById(DATAGRID_SCROLLBAR_STYLE_ID) as HTMLStyleElement | null;
-  if (existing) {
-    if (existing.textContent !== css) existing.textContent = css;
-    return;
-  }
-
-  const styleEl = document.createElement("style");
-  styleEl.id = DATAGRID_SCROLLBAR_STYLE_ID;
-  styleEl.textContent = css;
-  document.head.appendChild(styleEl);
-}
-
 function ReactDataGrid(props: TypeDataGridProps) {
   const {
     theme = "default",
@@ -117,10 +72,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     className,
     style,
   } = props;
-
-  React.useEffect(() => {
-    ensureDatagridScrollbarStyles();
-  }, []);
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -828,7 +779,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- render ---------------- */
 
   return (
-    <div className={cn("flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
+    <div className={cn("tdg-root flex flex-col gap-2 lg:gap-6", className)} data-theme={theme}>
       <div className="overflow-hidden rounded-lg border border-border">
         <div
           ref={scrollRef}

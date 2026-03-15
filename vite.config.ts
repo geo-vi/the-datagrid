@@ -5,6 +5,22 @@ import dts from "vite-plugin-dts"
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
 
+function injectLibraryCssEntry() {
+  return {
+    name: "inject-library-css-entry",
+    apply: "build" as const,
+    enforce: "post" as const,
+    generateBundle(_: unknown, bundle: Record<string, any>) {
+      for (const item of Object.values(bundle)) {
+        if (item?.type !== "chunk" || item.isEntry !== true || item.fileName !== "index.js") continue
+        if (typeof item.code === "string" && !item.code.startsWith('import "./index.css";')) {
+          item.code = `import "./index.css";\n${item.code}`
+        }
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command }) => {
   const isDev = command === "serve"
@@ -32,6 +48,7 @@ export default defineConfig(({ command }) => {
         exclude: ["src/**/*.test.*", "src/**/__tests__/**"],
         tsconfigPath: "./tsconfig-build.json",
       }),
+      injectLibraryCssEntry(),
     ],
     resolve: {
       alias: {

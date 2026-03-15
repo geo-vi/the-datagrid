@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "../components/ui/checkbox";
+import { cn } from "../lib/utils";
 
 export type CheckBoxProps = {
   checked?: boolean;
