@@ -1,2 +1,147 @@
-@import "tailwindcss";
-@import "./styles/theme.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tw-animate-css";
+
+@source "./**/*.{ts,tsx}";
+
+@theme inline {
+  --radius-sm: var(--tdg-radius-sm);
+  --radius-md: var(--tdg-radius-md);
+  --radius-lg: var(--tdg-radius-lg);
+
+  --color-background: var(--tdg-color-background);
+  --color-foreground: var(--tdg-color-foreground);
+
+  --color-card: var(--tdg-color-card);
+  --color-card-foreground: var(--tdg-color-card-foreground);
+
+  --color-popover: var(--tdg-color-popover);
+  --color-popover-foreground: var(--tdg-color-popover-foreground);
+
+  --color-primary: var(--tdg-color-primary);
+  --color-primary-foreground: var(--tdg-color-primary-foreground);
+
+  --color-secondary: var(--tdg-color-secondary);
+  --color-secondary-foreground: var(--tdg-color-secondary-foreground);
+
+  --color-muted: var(--tdg-color-muted);
+  --color-muted-foreground: var(--tdg-color-muted-foreground);
+
+  --color-accent: var(--tdg-color-accent);
+  --color-accent-foreground: var(--tdg-color-accent-foreground);
+
+  --color-destructive: var(--tdg-color-destructive);
+  --color-destructive-foreground: var(--tdg-color-destructive-foreground);
+
+  --color-border: var(--tdg-color-border);
+  --color-input: var(--tdg-color-input);
+  --color-ring: var(--tdg-color-ring);
+}
+
+@import "tailwindcss/utilities.css" layer(utilities);
+
+.tdg-root {
+  --tdg-radius-base: var(--radius, 0.625rem);
+  --tdg-radius-sm: calc(var(--tdg-radius-base) - 4px);
+  --tdg-radius-md: calc(var(--tdg-radius-base) - 2px);
+  --tdg-radius-lg: var(--tdg-radius-base);
+
+  --tdg-color-background: var(--background, oklch(1 0 0));
+  --tdg-color-foreground: var(--foreground, oklch(0.145 0 0));
+
+  --tdg-color-card: var(--card, oklch(1 0 0));
+  --tdg-color-card-foreground: var(--card-foreground, oklch(0.145 0 0));
+
+  --tdg-color-popover: var(--popover, oklch(1 0 0));
+  --tdg-color-popover-foreground: var(--popover-foreground, oklch(0.145 0 0));
+
+  --tdg-color-primary: var(--primary, oklch(0.205 0 0));
+  --tdg-color-primary-foreground: var(--primary-foreground, oklch(0.985 0 0));
+
+  --tdg-color-secondary: var(--secondary, oklch(0.97 0 0));
+  --tdg-color-secondary-foreground: var(--secondary-foreground, oklch(0.205 0 0));
+
+  --tdg-color-muted: var(--muted, oklch(0.97 0 0));
+  --tdg-color-muted-foreground: var(--muted-foreground, oklch(0.556 0 0));
+
+  --tdg-color-accent: var(--accent, oklch(0.97 0 0));
+  --tdg-color-accent-foreground: var(--accent-foreground, oklch(0.205 0 0));
+
+  --tdg-color-destructive: var(--destructive, oklch(0.577 0.245 27.325));
+  --tdg-color-destructive-foreground: var(--destructive-foreground, oklch(0.985 0 0));
+
+  --tdg-color-border: var(--border, oklch(0.922 0 0));
+  --tdg-color-input: var(--input, oklch(0.922 0 0));
+  --tdg-color-ring: var(--ring, oklch(0.708 0 0));
+
+  color-scheme: light;
+  color: var(--tdg-color-foreground);
+}
+
+.dark .tdg-root,
+.tdg-root[data-theme="dark"] {
+  --tdg-color-background: var(--background, oklch(0.145 0 0));
+  --tdg-color-foreground: var(--foreground, oklch(0.985 0 0));
+
+  --tdg-color-card: var(--card, oklch(0.205 0 0));
+  --tdg-color-card-foreground: var(--card-foreground, oklch(0.985 0 0));
+
+  --tdg-color-popover: var(--popover, oklch(0.205 0 0));
+  --tdg-color-popover-foreground: var(--popover-foreground, oklch(0.985 0 0));
+
+  --tdg-color-primary: var(--primary, oklch(0.922 0 0));
+  --tdg-color-primary-foreground: var(--primary-foreground, oklch(0.205 0 0));
+
+  --tdg-color-secondary: var(--secondary, oklch(0.269 0 0));
+  --tdg-color-secondary-foreground: var(--secondary-foreground, oklch(0.985 0 0));
+
+  --tdg-color-muted: var(--muted, oklch(0.269 0 0));
+  --tdg-color-muted-foreground: var(--muted-foreground, oklch(0.708 0 0));
+
+  --tdg-color-accent: var(--accent, oklch(0.269 0 0));
+  --tdg-color-accent-foreground: var(--accent-foreground, oklch(0.985 0 0));
+
+  --tdg-color-destructive: var(--destructive, oklch(0.704 0.191 22.216));
+  --tdg-color-destructive-foreground: var(--destructive-foreground, oklch(0.985 0 0));
+
+  --tdg-color-border: var(--border, oklch(1 0 0 / 10%));
+  --tdg-color-input: var(--input, oklch(1 0 0 / 15%));
+  --tdg-color-ring: var(--ring, oklch(0.556 0 0));
+
+  color-scheme: dark;
+}
+
+.tdg-root *,
+.tdg-root ::before,
+.tdg-root ::after {
+  border-color: var(--tdg-color-border);
+}
+
+.tdg-root .tdg-scrollbar {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tdg-color-ring) transparent;
+}
+
+.tdg-root .tdg-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.tdg-root .tdg-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tdg-root .tdg-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--tdg-color-ring);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.tdg-root .tdg-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--tdg-color-muted-foreground);
+}
+
+.tdg-root .tdg-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}

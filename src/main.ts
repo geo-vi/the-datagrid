@@ -1,3 +1,5 @@
+import "./index.css";
+
 export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
 export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
