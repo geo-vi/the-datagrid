@@ -139,9 +139,17 @@ function DropdownMenuRadioItem({
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      <span
+        data-slot="dropdown-menu-radio-indicator-shell"
+        className="pointer-events-none absolute left-2 flex size-4 items-center justify-center rounded-full border border-input text-primary shadow-xs"
+      >
         <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="size-2 fill-current" />
+          <span
+            data-slot="dropdown-menu-radio-indicator"
+            className="relative flex items-center justify-center"
+          >
+            <CircleIcon className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary text-primary" />
+          </span>
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
