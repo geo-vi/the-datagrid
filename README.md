@@ -32,6 +32,8 @@ You do **not** need to install:
 - shadcn/ui
 - a separate package stylesheet import in normal app setups
 
+This also applies when you use custom grid themes. The grid theme variables are plain CSS variables in the shipped stylesheet, so consumers do not need Tailwind just to use `theme="dark"`, `theme="hf-dark"`, or their own imported grid theme CSS.
+
 ## Styling
 
 `the-datagrid` ships compiled CSS and loads it automatically from the package entry.
@@ -44,6 +46,8 @@ In a typical React app with a modern bundler, this is enough:
 - other setups that support CSS imports from npm packages
 
 The grid keeps a shadcn-aligned look and will inherit app-level shadcn theme variables when they exist (`--background`, `--foreground`, `--border`, `--ring`, etc.). If they do not exist, the package uses scoped fallback tokens so it still renders correctly.
+
+Theme variables are resolved at runtime from normal CSS, not from the consumer's Tailwind build. Tailwind is only used to build this library, not required to consume it.
 
 Built-in theme behavior:
 

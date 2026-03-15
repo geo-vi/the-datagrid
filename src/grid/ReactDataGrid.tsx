@@ -18,7 +18,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "../lib/utils";
 import { Checkbox } from "../components/ui/checkbox";
-import { DatagridThemeProvider, normalizeThemeName, toThemeClassSuffix } from "../theme/context";
+import { ScrollArea } from "../components/ui/scroll-area";
+import {
+  DatagridThemeProvider,
+  normalizeThemeName,
+  resolveThemeBase,
+  toThemeClassSuffix,
+} from "../theme/context";
+import { useLegacyThemeBridge } from "../theme/use-legacy-theme-bridge";
 
 import { getColumnId } from "../utils/column";
 import { coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
@@ -77,9 +84,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const themeName = normalizeThemeName(theme);
   const themeClassSuffix = toThemeClassSuffix(themeName);
+  const themeBase = resolveThemeBase(themeName);
   const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
   const showHorizontalCellBorders = showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders = showCellBorders === true || showCellBorders === "vertical";
+
+  useLegacyThemeBridge(portalContainer, themeClassSuffix);
 
   /** ---------------- selection / checkbox column ---------------- */
 
@@ -651,26 +661,40 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- virtualization ---------------- */
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
   const rowModel = table.getRowModel().rows;
-
-  const stickyHeaderHeight = headerHeight + (enableFiltering ? filterRowHeight : 0);
 
   const rowVirtualizer = useVirtualizer({
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowHeight,
     overscan: 10,
-    scrollMargin: stickyHeaderHeight,
-    scrollPaddingStart: stickyHeaderHeight,
     enabled: virtualized,
   });
 
   const virtualItems = virtualized ? rowVirtualizer.getVirtualItems() : [];
-  const paddingTop = virtualized && virtualItems.length ? Math.max(0, virtualItems[0]!.start - stickyHeaderHeight) : 0;
+  const paddingTop = virtualized && virtualItems.length ? virtualItems[0]!.start : 0;
   const paddingBottom =
     virtualized && virtualItems.length
-      ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]!.end - stickyHeaderHeight))
+      ? Math.max(0, rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end)
       : 0;
+
+  React.useEffect(() => {
+    const bodyViewport = scrollRef.current;
+    const headerViewport = headerScrollRef.current;
+    if (!bodyViewport || !headerViewport) return;
+
+    const syncHeaderScroll = () => {
+      headerViewport.scrollLeft = bodyViewport.scrollLeft;
+    };
+
+    syncHeaderScroll();
+    bodyViewport.addEventListener("scroll", syncHeaderScroll, { passive: true });
+
+    return () => {
+      bodyViewport.removeEventListener("scroll", syncHeaderScroll);
+    };
+  }, []);
 
   /** ---------------- imperative API ---------------- */
 
@@ -741,6 +765,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const canNext = skip + safeLimit < count;
 
   const userSelectClass = coerceUserSelect(columnUserSelect) === "none" ? "select-none" : "select-text";
+  const tableMinWidth = React.useMemo(() => {
+    if (orderedColumns.length === 0) return undefined;
+
+    return orderedColumns.reduce((sum, column) => {
+      const columnId = getColumnId(column);
+      const explicitWidth = autoWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
+      return sum + explicitWidth;
+    }, 0);
+  }, [autoWidths, orderedColumns]);
+  const sharedTableStyle = tableMinWidth ? { minWidth: `${tableMinWidth}px` } : undefined;
 
   /** ---------------- header drag/drop reorder ---------------- */
 
@@ -792,73 +826,94 @@ function ReactDataGrid(props: TypeDataGridProps) {
     <div
       ref={setPortalContainer}
       className={cn(
-        "tdg-root InovuaReactDataGrid flex flex-col gap-2 lg:gap-6",
+        "tdg-root InovuaReactDataGrid flex flex-col gap-2 rounded-lg lg:gap-6",
         `tdg-theme-${themeClassSuffix}`,
         `InovuaReactDataGrid--theme-${themeClassSuffix}`,
+        "InovuaReactDataGrid--direction-ltr InovuaReactDataGrid--show-hover-rows",
+        themeBase === "dark" ? "dark" : "",
+        showVerticalCellBorders ? "InovuaReactDataGrid--show-border-right" : "",
+        enableFiltering ? "InovuaReactDataGrid--filterable" : "",
         className,
       )}
       data-theme={themeName}
+      data-theme-base={themeBase}
     >
-      <DatagridThemeProvider theme={themeName} portalContainer={portalContainer}>
-        <div className="overflow-hidden rounded-lg border [border-color:var(--tdg-grid-border-color)]">
-          <div
-            ref={scrollRef}
-            className={cn(
-              "tdg-scrollbar relative overflow-auto bg-[var(--tdg-grid-bg)] text-foreground",
-              virtualized ? "max-h-[560px]" : "",
-            )}
-            style={style}
-          >
-            <table className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm">
-              <GridHeader
-                headerGroups={table.getHeaderGroups()}
-                headerHeight={headerHeight}
-                filterRowHeight={filterRowHeight}
-                autoWidths={autoWidths}
-                sortInfo={sortInfo}
-                setSortInfo={setSortInfo}
-                setSkip={setSkip}
-                allowUnsort={allowUnsort}
-                defaultSortDir={defaultSortDir}
-                showColumnMenuTool={showColumnMenuTool}
-                showHorizontalCellBorders={showHorizontalCellBorders}
-                showVerticalCellBorders={showVerticalCellBorders}
-                i18n={i18n}
-                allowColumnReorder={allowColumnReorder}
-                checkboxEnabled={checkboxEnabled}
-                checkboxColId={checkboxColId}
-                onHeaderDragStart={onHeaderDragStart}
-                onHeaderDragOver={onHeaderDragOver}
-                onHeaderDrop={onHeaderDrop}
-                enableFiltering={enableFiltering}
-                enableColumnFilterContextMenu={enableColumnFilterContextMenu}
-                filterControlled={filterControlled}
-                filterValue={filterValue}
-                draftFilterValue={draftFilterValue}
-                setFilterValue={setFilterValue}
-                setDraftFilterValue={setDraftFilterValue}
-                filterTypes={filterTypes}
-                openFilterMenuColId={openFilterMenuColId}
-                setOpenFilterMenuColId={setOpenFilterMenuColId}
-              />
+      <DatagridThemeProvider
+        theme={themeName}
+        themeBase={themeBase}
+        portalContainer={portalContainer}
+      >
+        <div className="overflow-hidden rounded-lg">
+          <div className="bg-[var(--tdg-grid-bg)] text-foreground" style={style}>
+            <div ref={headerScrollRef} className="overflow-hidden" data-slot="grid-header-viewport">
+              <table
+                className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                style={sharedTableStyle}
+              >
+                <GridHeader
+                  headerGroups={table.getHeaderGroups()}
+                  headerHeight={headerHeight}
+                  filterRowHeight={filterRowHeight}
+                  autoWidths={autoWidths}
+                  sortInfo={sortInfo}
+                  setSortInfo={setSortInfo}
+                  setSkip={setSkip}
+                  allowUnsort={allowUnsort}
+                  defaultSortDir={defaultSortDir}
+                  showColumnMenuTool={showColumnMenuTool}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                  showVerticalCellBorders={showVerticalCellBorders}
+                  i18n={i18n}
+                  allowColumnReorder={allowColumnReorder}
+                  checkboxEnabled={checkboxEnabled}
+                  checkboxColId={checkboxColId}
+                  onHeaderDragStart={onHeaderDragStart}
+                  onHeaderDragOver={onHeaderDragOver}
+                  onHeaderDrop={onHeaderDrop}
+                  enableFiltering={enableFiltering}
+                  enableColumnFilterContextMenu={enableColumnFilterContextMenu}
+                  filterControlled={filterControlled}
+                  filterValue={filterValue}
+                  draftFilterValue={draftFilterValue}
+                  setFilterValue={setFilterValue}
+                  setDraftFilterValue={setDraftFilterValue}
+                  filterTypes={filterTypes}
+                  openFilterMenuColId={openFilterMenuColId}
+                  setOpenFilterMenuColId={setOpenFilterMenuColId}
+                />
+              </table>
+            </div>
 
-              <GridBody
-                rowModel={rowModel}
-                orderedColumns={orderedColumns}
-                autoWidths={autoWidths}
-                userSelectClass={userSelectClass}
-                showHorizontalCellBorders={showHorizontalCellBorders}
-                showVerticalCellBorders={showVerticalCellBorders}
-                virtualized={virtualized}
-                virtualItems={virtualItems}
-                paddingTop={paddingTop}
-                paddingBottom={paddingBottom}
-                loading={loading}
-                i18n={i18n}
-                selectedMap={selectedMap}
-                onRowClick={(id, data, e) => handleRowClick(id, data, e)}
-              />
-            </table>
+            <ScrollArea
+              className="rounded-b-[inherit]"
+              viewportRef={scrollRef}
+              viewportClassName={cn(
+                "relative bg-[var(--tdg-grid-bg)] text-foreground",
+                virtualized ? "max-h-[560px]" : "",
+              )}
+            >
+              <table
+                className="!table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                style={sharedTableStyle}
+              >
+                <GridBody
+                  rowModel={rowModel}
+                  orderedColumns={orderedColumns}
+                  autoWidths={autoWidths}
+                  userSelectClass={userSelectClass}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                  showVerticalCellBorders={showVerticalCellBorders}
+                  virtualized={virtualized}
+                  virtualItems={virtualItems}
+                  paddingTop={paddingTop}
+                  paddingBottom={paddingBottom}
+                  loading={loading}
+                  i18n={i18n}
+                  selectedMap={selectedMap}
+                  onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+                />
+              </table>
+            </ScrollArea>
           </div>
 
           {paginationEnabled ? (

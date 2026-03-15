@@ -86,6 +86,8 @@
   --tdg-filter-bg: var(--tdg-color-background);
   --tdg-filter-color: var(--tdg-color-foreground);
   --tdg-filter-border-color: var(--tdg-color-border);
+  --tdg-filter-tool-color: var(--tdg-color-muted-foreground);
+  --tdg-filter-tool-hover-color: var(--tdg-color-foreground);
 
   --tdg-cell-border-color: var(--tdg-color-border);
   --tdg-row-index-bg: var(--tdg-color-muted);
@@ -115,11 +117,16 @@
 
   --tdg-select-bg: var(--tdg-color-background);
   --tdg-select-color: var(--tdg-color-foreground);
+  --tdg-select-shell-bg: var(--tdg-select-bg);
+  --tdg-select-shell-color: var(--tdg-select-color);
   --tdg-select-list-bg: var(--tdg-color-popover);
   --tdg-select-list-color: var(--tdg-color-popover-foreground);
   --tdg-select-border-color: var(--tdg-color-input);
   --tdg-select-border-color-hover: var(--tdg-select-border-color);
   --tdg-select-border-color-focus: var(--tdg-select-border-color);
+  --tdg-select-shell-border-color: var(--tdg-select-border-color);
+  --tdg-select-shell-border-color-hover: var(--tdg-select-border-color-hover);
+  --tdg-select-shell-border-color-focus: var(--tdg-select-border-color-focus);
   --tdg-select-item-hover-bg: var(--tdg-color-accent);
   --tdg-select-item-hover-color: var(--tdg-color-accent-foreground);
   --tdg-select-item-selected-bg: var(--tdg-color-accent);
@@ -128,6 +135,9 @@
   --tdg-dropdown-bg: var(--tdg-color-popover);
   --tdg-dropdown-color: var(--tdg-color-popover-foreground);
   --tdg-dropdown-border-color: var(--tdg-color-border);
+  --tdg-dropdown-shell-bg: var(--tdg-dropdown-bg);
+  --tdg-dropdown-shell-color: var(--tdg-dropdown-color);
+  --tdg-dropdown-shell-border-color: var(--tdg-dropdown-border-color);
   --tdg-dropdown-item-hover-bg: var(--tdg-color-accent);
   --tdg-dropdown-item-hover-color: var(--tdg-color-accent-foreground);
   --tdg-dropdown-label-color: var(--tdg-color-muted-foreground);
@@ -146,8 +156,12 @@
   color: var(--tdg-color-foreground);
 }
 
-.dark .tdg-root[data-theme="default"],
-.tdg-root[data-theme="dark"] {
+.tdg-root[data-theme-base="dark"] {
+  color-scheme: dark;
+}
+
+.dark .tdg-root[data-theme="default"][data-theme-base="default"],
+.tdg-root[data-theme="dark"][data-theme-base="dark"] {
   --tdg-color-background: var(--background, oklch(0.145 0 0));
   --tdg-color-foreground: var(--foreground, oklch(0.985 0 0));
 
@@ -175,8 +189,6 @@
   --tdg-color-border: var(--border, oklch(1 0 0 / 10%));
   --tdg-color-input: var(--input, oklch(1 0 0 / 15%));
   --tdg-color-ring: var(--ring, oklch(0.556 0 0));
-
-  color-scheme: dark;
 }
 
 .tdg-root *,
@@ -185,32 +197,486 @@
   border-color: var(--tdg-color-border);
 }
 
-.tdg-root .tdg-scrollbar {
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--tdg-color-ring) transparent;
+.tdg-root
+  .InovuaReactDataGrid__column-header--show-border-right:not(:last-child) {
+  border-right: 1px solid var(--tdg-header-border-color) !important;
 }
 
-.tdg-root .tdg-scrollbar::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+.tdg-root
+  .InovuaReactDataGrid__column-header:not(.InovuaReactDataGrid__column-header--show-border-right),
+.tdg-root
+  .InovuaReactDataGrid__column-header--show-border-right:last-child {
+  border-right: 0 !important;
 }
 
-.tdg-root .tdg-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.tdg-root
+  .InovuaReactDataGrid__filter-cell--show-border-right:not(:last-child) {
+  border-right: 1px solid var(--tdg-filter-border-color) !important;
 }
 
-.tdg-root .tdg-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--tdg-color-ring);
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+.tdg-root
+  .InovuaReactDataGrid__filter-cell:not(.InovuaReactDataGrid__filter-cell--show-border-right),
+.tdg-root
+  .InovuaReactDataGrid__filter-cell--show-border-right:last-child {
+  border-right: 0 !important;
 }
 
-.tdg-root .tdg-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--tdg-color-muted-foreground);
+.tdg-root .InovuaReactDataGrid__filter-cell--show-border-bottom {
+  border-bottom: 1px solid var(--tdg-filter-border-color) !important;
 }
 
-.tdg-root .tdg-scrollbar::-webkit-scrollbar-corner {
-  background: transparent;
+.tdg-root
+  .InovuaReactDataGrid__filter-cell:not(.InovuaReactDataGrid__filter-cell--show-border-bottom) {
+  border-bottom: 0 !important;
+}
+
+.tdg-root
+  .InovuaReactDataGrid__cell--show-border-right:not(.InovuaReactDataGrid__cell--last) {
+  border-right: 1px solid var(--tdg-cell-border-color) !important;
+}
+
+.tdg-root
+  .InovuaReactDataGrid__cell:not(.InovuaReactDataGrid__cell--show-border-right),
+.tdg-root
+  .InovuaReactDataGrid__cell--show-border-right.InovuaReactDataGrid__cell--last {
+  border-right: 0 !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__content {
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  padding: 0 !important;
+  font-size: var(--tdg-header-font-size) !important;
+  font-weight: var(--tdg-header-font-weight) !important;
+  color: inherit !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__sort-button {
+  display: flex !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+.tdg-root .InovuaReactDataGrid__sort-icon-wrapper {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+}
+
+.tdg-root .InovuaReactDataGrid__sort-icon {
+  margin-left: 0.25rem !important;
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__filter-wrapper {
+  padding: 0.5rem !important;
+  background: var(--tdg-filter-bg) !important;
+  color: var(--tdg-filter-color) !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__filter {
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__filter-settings {
+  margin-left: 0.25rem !important;
+  margin-right: 0 !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--tdg-filter-tool-color) !important;
+  border-radius: var(--tdg-radius-md) !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__filter-settings:hover,
+.tdg-root .InovuaReactDataGrid__column-header__filter-settings[data-state="open"] {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  color: var(--tdg-filter-tool-hover-color) !important;
+}
+
+.tdg-root .InovuaReactDataGrid__column-header__filter-settings-icon {
+  color: currentColor !important;
+  fill: currentColor !important;
+}
+
+.tdg-root .tdg-button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0 solid transparent;
+  border-radius: var(--tdg-radius-md);
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.tdg-root .tdg-button[data-variant="default"] {
+  background-color: var(--tdg-color-primary);
+  color: var(--tdg-color-primary-foreground);
+}
+
+.tdg-root .tdg-button[data-variant="destructive"] {
+  background-color: var(--tdg-color-destructive);
+  color: var(--tdg-color-destructive-foreground);
+}
+
+.tdg-root .tdg-button[data-variant="outline"] {
+  border-width: 1px;
+  border-color: var(--tdg-color-input);
+  background-color: transparent;
+  color: var(--tdg-color-foreground);
+}
+
+.tdg-root .tdg-button[data-variant="secondary"] {
+  background-color: var(--tdg-color-secondary);
+  color: var(--tdg-color-secondary-foreground);
+}
+
+.tdg-root .tdg-button[data-variant="ghost"] {
+  border-color: transparent;
+  background-color: transparent;
+  color: inherit;
+}
+
+.tdg-root .tdg-button[data-variant="link"] {
+  color: var(--tdg-color-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.tdg-root .tdg-button[data-variant="default"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-color-primary) 90%, transparent);
+}
+
+.tdg-root .tdg-button[data-variant="destructive"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-color-destructive) 90%, transparent);
+}
+
+.tdg-root .tdg-button[data-variant="outline"]:hover:not(.inovua-react-toolkit-button--disabled),
+.tdg-root .tdg-button[data-variant="ghost"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: var(--tdg-color-accent);
+  color: var(--tdg-color-accent-foreground);
+}
+
+.tdg-root .tdg-button[data-variant="secondary"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-color-secondary) 80%, transparent);
+}
+
+.tdg-root .tdg-button.inovua-react-toolkit-button--disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.tdg-root .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--tdg-radius-md);
+  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow:
+    var(--tw-inset-shadow),
+    var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow),
+    var(--tw-shadow);
+}
+
+.tdg-root .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box {
+  position: relative;
+  width: 100%;
+  min-width: 0 !important;
+  height: 2.25rem;
+  align-items: center;
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--tdg-select-shell-border-color) !important;
+  border-radius: var(--tdg-radius-md) !important;
+  background: var(--tdg-select-shell-bg) !important;
+  color: var(--tdg-select-shell-color) !important;
+  fill: currentColor;
+  stroke: currentColor;
+  min-height: 2.25rem;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow:
+    var(--tw-inset-shadow),
+    var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow),
+    var(--tw-shadow) !important;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box:hover:not(.inovua-react-toolkit-combo-box--disabled) {
+  border-color: var(--tdg-select-shell-border-color-hover) !important;
+}
+
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--focus {
+  border-color: var(--tdg-select-shell-border-color-focus) !important;
+  background: var(--tdg-select-shell-bg) !important;
+}
+
+.tdg-root
+  .tdg-select-value.inovua-react-toolkit-combo-box__value.inovua-react-toolkit-combo-box__value {
+  display: flex !important;
+  align-items: center;
+  min-height: 100%;
+  gap: 0.5rem;
+  padding: 0 !important;
+}
+
+.tdg-root
+  .tdg-select-trigger
+  .inovua-react-toolkit-combo-box__value__display-value.inovua-react-toolkit-combo-box__value__display-value {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.25rem;
+  margin-bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.tdg-root
+  .tdg-select-tools.inovua-react-toolkit-combo-box__tools.inovua-react-toolkit-combo-box__tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: stretch;
+  padding-left: 0.5rem !important;
+  margin-bottom: 0 !important;
+  min-height: 100%;
+}
+
+.tdg-root
+  .tdg-select-toggle-icon.inovua-react-toolkit-combo-box__toggle-icon.inovua-react-toolkit-combo-box__toggle-icon {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+  color: currentColor;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  pointer-events: none;
+}
+
+.tdg-root
+  .tdg-select-toggle-icon.inovua-react-toolkit-combo-box__toggle-icon.inovua-react-toolkit-combo-box__toggle-icon::before {
+  display: none !important;
+  content: none !important;
+}
+
+.tdg-root .tdg-select-content.inovua-react-toolkit-combo-box__list.inovua-react-toolkit-combo-box__list {
+  overflow: hidden;
+  background: var(--tdg-select-list-bg) !important;
+  color: var(--tdg-select-list-color) !important;
+  border: 1px solid var(--tdg-dropdown-border-color) !important;
+  border-radius: var(--tdg-radius-md);
+  --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow:
+    var(--tw-inset-shadow),
+    var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow),
+    var(--tw-shadow) !important;
+}
+
+:where(.tdg-root .tdg-select-content.inovua-react-toolkit-combo-box__list) {
+  background: var(--tdg-select-list-bg);
+  color: var(--tdg-select-list-color);
+  border: 1px solid var(--tdg-dropdown-border-color);
+}
+
+.tdg-root .tdg-select-viewport.inovua-react-toolkit-combo-box__list__virtual-list {
+  padding: 0.25rem !important;
+}
+
+:where(.tdg-root .tdg-select-viewport.inovua-react-toolkit-combo-box__list__virtual-list) {
+  background: var(--tdg-select-list-bg);
+}
+
+.tdg-root .tdg-select-item.inovua-react-toolkit-combo-box__list__item {
+  min-height: 2rem;
+  border: 0 !important;
+  border-radius: calc(var(--tdg-radius-md) - 2px) !important;
+  padding: 0.375rem 2rem 0.375rem 0.5rem !important;
+}
+
+:where(.tdg-root .tdg-select-item.inovua-react-toolkit-combo-box__list__item[data-highlighted]),
+:where(.tdg-root .tdg-select-item.inovua-react-toolkit-combo-box__list__item.inovua-react-toolkit-combo-box__list__item--active) {
+  background: var(--tdg-select-item-hover-bg);
+  color: var(--tdg-select-item-hover-color);
+}
+
+:where(.tdg-root .tdg-select-item.inovua-react-toolkit-combo-box__list__item[data-state="checked"]),
+:where(.tdg-root .tdg-select-item.inovua-react-toolkit-combo-box__list__item.inovua-react-toolkit-combo-box__list__item--selected) {
+  background: var(--tdg-select-item-selected-bg);
+  color: var(--tdg-select-item-selected-color);
+}
+
+.tdg-root .tdg-dropdown-content.inovua-react-toolkit-menu.inovua-react-toolkit-menu {
+  overflow: hidden;
+  padding: 0.25rem !important;
+  border: 1px solid var(--tdg-dropdown-shell-border-color) !important;
+  border-radius: var(--tdg-radius-md) !important;
+  background: var(--tdg-dropdown-shell-bg) !important;
+  color: var(--tdg-dropdown-shell-color) !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow:
+    var(--tw-inset-shadow),
+    var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow),
+    var(--tw-shadow) !important;
+}
+
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row,
+.tdg-root .tdg-dropdown-sub-trigger {
+  min-height: 2rem;
+  border-radius: calc(var(--tdg-radius-md) - 2px) !important;
+  background: transparent !important;
+  color: inherit !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row[data-highlighted],
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--over,
+.tdg-root .tdg-dropdown-item.inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--focused,
+.tdg-root .tdg-dropdown-sub-trigger[data-highlighted],
+.tdg-root .tdg-dropdown-sub-trigger[data-state="open"] {
+  background: var(--tdg-dropdown-item-hover-bg) !important;
+  color: var(--tdg-dropdown-item-hover-color) !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.tdg-root
+  .tdg-dropdown-cell.inovua-react-toolkit-menu__cell:not(.tdg-dropdown-indicator-cell) {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.tdg-root .tdg-dropdown-cell.inovua-react-toolkit-menu__cell::before {
+  display: none !important;
+  content: none !important;
+  border: 0 !important;
+}
+
+.tdg-root
+  .tdg-dropdown-indicator-cell.inovua-react-toolkit-menu__cell:not(.tdg-radio-indicator-shell) {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  gap: 0 !important;
+}
+
+.tdg-root .tdg-dropdown-label {
+  color: var(--tdg-dropdown-label-color) !important;
+}
+
+.tdg-root .tdg-dropdown-separator {
+  margin: 0.25rem 0 !important;
+  background: var(--tdg-dropdown-shell-border-color) !important;
+}
+
+.tdg-root .tdg-radio-item,
+.tdg-root .tdg-radio-indicator-shell {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  flex: 0 0 auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  border: 1px solid var(--tdg-color-input) !important;
+  border-radius: 9999px !important;
+  background: var(--tdg-color-background) !important;
+  color: var(--tdg-color-primary) !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow:
+    var(--tw-inset-shadow),
+    var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow),
+    var(--tw-shadow) !important;
+}
+
+.tdg-root .tdg-radio-item:focus-visible {
+  border-color: var(--tdg-color-ring) !important;
+  --tw-ring-shadow: 0 0 0 3px color-mix(in oklab, var(--tdg-color-ring) 50%, transparent);
+}
+
+.tdg-root .tdg-radio-item[data-state="checked"],
+.tdg-root .tdg-radio-indicator-shell {
+  color: var(--tdg-color-primary) !important;
+}
+
+.tdg-root .tdg-radio-indicator-shell {
+  pointer-events: none;
+}
+
+.tdg-root .tdg-radio-indicator-icon {
+  width: 0.5rem !important;
+  height: 0.5rem !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
 }

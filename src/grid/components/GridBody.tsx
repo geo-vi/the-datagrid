@@ -46,6 +46,7 @@ export function GridBody(props: GridBodyProps) {
     selectedMap,
     onRowClick,
   } = props;
+  const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
 
   function getRowThemeClasses(rowIndex: number, rowIsSelected: boolean): string {
     const odd = rowIndex % 2 === 0;
@@ -125,24 +126,36 @@ export function GridBody(props: GridBodyProps) {
             return (
               <TableRow
                 key={row.id}
-                className={getRowThemeClasses(vi.index, rowIsSelected)}
+                className={cn(
+                  getRowThemeClasses(vi.index, rowIsSelected),
+                  showHorizontalCellBorders ? "InovuaReactDataGrid__row--show-horizontal-borders" : "",
+                  vi.index === 0 ? "InovuaReactDataGrid__row--first" : "",
+                )}
                 data-selected={rowIsSelected ? "true" : "false"}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
+                data-slot="grid-row"
                 style={{ height: vi.size, ...getRowThemeStyle(rowIsSelected) }}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
-                {row.getVisibleCells().map((cell: any) => {
+                {row.getVisibleCells().map((cell: any, cellIndex: number) => {
                   const colId = cell.column.id;
                   const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
                   const width = autoWidths[colId];
                   const align = col?.textAlign;
+                  const isLastCell = cellIndex === row.getVisibleCells().length - 1;
 
                   return (
                     <TableCell
                       key={cell.id}
                       className={cn(
                         userSelectClass,
+                        "InovuaReactDataGrid__cell",
+                        "InovuaReactDataGrid__cell--direction-ltr",
+                        showHorizontalCellBorders ? "InovuaReactDataGrid__cell--show-border-bottom" : "",
+                        showVerticalCellBorders ? "InovuaReactDataGrid__cell--show-border-right" : "",
+                        isLastCell ? "InovuaReactDataGrid__cell--last" : "",
+                        hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
                         showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
                         showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                         align === "right" || align === "end" ? "text-right" : "",
@@ -153,6 +166,10 @@ export function GridBody(props: GridBodyProps) {
                         minWidth: col?.minWidth,
                         maxWidth: col?.maxWidth,
                         ...(typeof col?.style === "object" && col?.style ? col.style : {}),
+                      }}
+                      onMouseEnter={() => setHoveredCellId(cell.id)}
+                      onMouseLeave={() => {
+                        setHoveredCellId((current) => (current === cell.id ? null : current));
                       }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -176,24 +193,36 @@ export function GridBody(props: GridBodyProps) {
           return (
             <TableRow
               key={row.id}
-              className={getRowThemeClasses(row.index, rowIsSelected)}
+              className={cn(
+                getRowThemeClasses(row.index, rowIsSelected),
+                showHorizontalCellBorders ? "InovuaReactDataGrid__row--show-horizontal-borders" : "",
+                row.index === 0 ? "InovuaReactDataGrid__row--first" : "",
+              )}
               data-selected={rowIsSelected ? "true" : "false"}
               data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+              data-slot="grid-row"
               style={getRowThemeStyle(rowIsSelected)}
               onClick={(e) => onRowClick?.(row.id, row.original, e)}
             >
-              {row.getVisibleCells().map((cell: any) => {
+              {row.getVisibleCells().map((cell: any, cellIndex: number) => {
                 const colId = cell.column.id;
                 const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
                 const width = autoWidths[colId];
                 const align = col?.textAlign;
+                const isLastCell = cellIndex === row.getVisibleCells().length - 1;
 
                 return (
                   <TableCell
                     key={cell.id}
                     className={cn(
                       userSelectClass,
+                      "InovuaReactDataGrid__cell",
+                      "InovuaReactDataGrid__cell--direction-ltr",
+                      showHorizontalCellBorders ? "InovuaReactDataGrid__cell--show-border-bottom" : "",
+                      showVerticalCellBorders ? "InovuaReactDataGrid__cell--show-border-right" : "",
+                      isLastCell ? "InovuaReactDataGrid__cell--last" : "",
+                      hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
                       showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
                       showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
                       align === "right" || align === "end" ? "text-right" : "",
@@ -204,6 +233,10 @@ export function GridBody(props: GridBodyProps) {
                       minWidth: col?.minWidth,
                       maxWidth: col?.maxWidth,
                       ...(typeof col?.style === "object" && col?.style ? col.style : {}),
+                    }}
+                    onMouseEnter={() => setHoveredCellId(cell.id)}
+                    onMouseLeave={() => {
+                      setHoveredCellId((current) => (current === cell.id ? null : current));
                     }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

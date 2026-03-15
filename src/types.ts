@@ -233,8 +233,9 @@ export type TypeDataGridProps = {
    * - "light": forces the light theme tokens
    * - "dark": forces the dark theme tokens
    *
-   * Any other string is treated as a named custom theme selector and exposed
-   * on the grid root via `data-theme="<name>"`.
+   * Named custom themes are exposed on the grid root via `data-theme="<name>"`.
+   * Custom theme names ending in `-dark`/`_dark` inherit the dark token base.
+   * Custom theme names ending in `-light`/`_light` inherit the light token base.
    */
   theme?: string;
   idProperty: string;

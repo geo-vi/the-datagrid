@@ -96,7 +96,16 @@ export default function App() {
     () => [
       { name: "cldomnr", header: "ID", sortable: true, filterable: true },
       { name: "name", header: "Name", sortable: true, filterable: true },
-      { name: "city", header: "City", sortable: true, filterable: true },
+      {
+        name: "city",
+        header: "City",
+        sortable: true,
+        filterable: true,
+        filterType: "select",
+        filterEditorProps: {
+          options: ["London", "Berlin", "Paris", "Rome"],
+        },
+      },
       {
         name: "amount",
         header: "Amount",

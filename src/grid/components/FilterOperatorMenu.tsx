@@ -46,13 +46,18 @@ export function FilterOperatorMenu(props: FilterOperatorMenuProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="size-7 shrink-0"
+          className="InovuaReactDataGrid__column-header__filter-settings size-7 shrink-0"
           aria-label={String(t(i18n, "filter", "Filter"))}
           title={title ?? String(t(i18n, "filter", "Filter"))}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <IconFilter className={cn("size-4", active ? "" : "opacity-50")} />
+          <IconFilter
+            className={cn(
+              "InovuaReactDataGrid__column-header__filter-settings-icon size-4",
+              active ? "" : "opacity-50",
+            )}
+          />
         </Button>
       </DropdownMenuTrigger>
 

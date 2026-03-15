@@ -1,19 +1,41 @@
 import * as React from "react"
 
 import { cn } from "../../lib/utils"
+import { useDatagridThemeClassSuffix } from "../../theme/context"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onFocus, onBlur, disabled, style, ...props }, ref) => {
+    const themeClassSuffix = useDatagridThemeClassSuffix()
+    const [focused, setFocused] = React.useState(false)
+
     return (
-      <input
-        type={type}
+      <div
         className={cn(
-          "flex h-9 w-full rounded-md border bg-[var(--tdg-input-bg)] px-3 py-1 text-base text-[var(--tdg-input-color)] shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground [border-color:var(--tdg-input-border-color)] hover:[border-color:var(--tdg-input-border-color-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:[border-color:var(--tdg-input-border-color-focus)] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "flex h-9 w-full items-center rounded-md border bg-[var(--tdg-input-bg)] px-3 py-1 text-[var(--tdg-input-color)] shadow-sm transition-colors [border-color:var(--tdg-input-border-color)] hover:[border-color:var(--tdg-input-border-color-hover)] focus-within:ring-1 focus-within:ring-ring focus-within:[border-color:var(--tdg-input-border-color-focus)] disabled:cursor-not-allowed disabled:opacity-50",
+          "inovua-react-toolkit-text-input",
+          `inovua-react-toolkit-text-input--theme-${themeClassSuffix}`,
+          disabled ? "inovua-react-toolkit-text-input--disabled" : "",
+          focused ? "inovua-react-toolkit-text-input--focused" : "",
           className
         )}
-        ref={ref}
-        {...props}
-      />
+        style={style}
+      >
+        <input
+          type={type}
+          className="inovua-react-toolkit-text-input__input flex-1 bg-transparent text-base text-[var(--tdg-input-color)] outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm"
+          ref={ref}
+          disabled={disabled}
+          onFocus={(event) => {
+            setFocused(true)
+            onFocus?.(event)
+          }}
+          onBlur={(event) => {
+            setFocused(false)
+            onBlur?.(event)
+          }}
+          {...props}
+        />
+      </div>
     )
   }
 )

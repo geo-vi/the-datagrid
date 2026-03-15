@@ -2,6 +2,7 @@
 
 import type { TypeI18n } from "../../types";
 import { t } from "../../utils/helpers";
+import { useDatagridThemeClassSuffix } from "../../theme/context";
 
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
@@ -34,9 +35,12 @@ export type GridPaginationProps = {
 
 export function GridPagination(props: GridPaginationProps) {
   const { count, skip, limit, pageIndex, pageCount, canPrev, canNext, pageSizes, setSkip, setLimit, i18n } = props;
+  const themeClassSuffix = useDatagridThemeClassSuffix();
 
   return (
-    <div className="tdg-pagination InovuaReactDataGrid__pagination flex items-center justify-between px-4">
+    <div
+      className={`tdg-pagination InovuaReactDataGrid__pagination inovua-react-pagination-toolbar inovua-react-pagination-toolbar--theme-${themeClassSuffix} flex items-center justify-between px-4`}
+    >
       <div className="hidden flex-1 text-sm text-muted-foreground md:block">
         {t(i18n, "showingText", "Showing")} <span className="font-mono">{count === 0 ? 0 : skip + 1}</span>–
         <span className="font-mono">{Math.min(skip + limit, count)}</span> {t(i18n, "ofText", "of")}{" "}
