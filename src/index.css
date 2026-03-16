@@ -623,10 +623,11 @@
 
 .tdg-root .InovuaReactDataGrid__column-header__content {
   display: flex !important;
-  align-items: stretch !important;
+  align-items: center !important;
   justify-content: space-between !important;
   gap: 0.5rem !important;
   padding: 0 !important;
+  min-height: 100% !important;
   font-size: var(--tdg-header-font-size) !important;
   font-weight: var(--tdg-header-font-weight) !important;
   color: inherit !important;

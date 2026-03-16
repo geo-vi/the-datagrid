@@ -361,6 +361,91 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
 });
 
+test("shows and hides columns when the grid receives a filtered columns array", async ({ page }) => {
+  await page.goto("/");
+
+  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+  await expect(usersExample).toBeVisible();
+
+  const usersGrid = usersExample.locator(".InovuaReactDataGrid.tdg-root").first();
+  const failedLoginsHeader = usersGrid.locator(".tdg-header-cell", { hasText: "Failed logins" });
+
+  await expect(failedLoginsHeader).toHaveCount(0);
+
+  await usersExample.getByRole("button", { name: "Failed logins" }).click();
+  await expect(failedLoginsHeader).toHaveCount(1);
+
+  await usersExample.getByRole("button", { name: "Failed logins" }).click();
+  await expect(failedLoginsHeader).toHaveCount(0);
+});
+
+test("keeps the actions header vertically centered", async ({ page }) => {
+  await page.goto("/");
+
+  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+  const actionsHeaderContent = usersExample
+    .locator(".tdg-header-cell", { hasText: "Actions" })
+    .locator(".InovuaReactDataGrid__column-header__content")
+    .first();
+
+  await expect(actionsHeaderContent).toBeVisible();
+  await expect
+    .poll(async () => {
+      return actionsHeaderContent.evaluate((element) => getComputedStyle(element).alignItems);
+    })
+    .toBe("center");
+});
+
+test("keeps body columns aligned after vertical scrolling in a wide virtualized grid", async ({ page }) => {
+  await page.goto("/");
+
+  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+
+  for (const columnName of ["Failed logins", "Last login", "Password changed", "Language"]) {
+    await usersExample.getByRole("button", { name: columnName }).click();
+  }
+
+  const usersGrid = usersExample.locator(".InovuaReactDataGrid.tdg-root").first();
+  const viewport = usersGrid.locator('[data-slot="scroll-area-viewport"]').first();
+
+  await viewport.evaluate((element) => {
+    element.scrollTop = 700;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+
+  await page.waitForTimeout(200);
+
+  const alignment = await usersGrid.evaluate((gridElement) => {
+    const headers = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell")).map((element) => ({
+      text: element.innerText.trim(),
+      left: Math.round(element.getBoundingClientRect().left),
+      width: Math.round(element.getBoundingClientRect().width),
+    }));
+
+    const visibleRow = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-row")).find(
+      (element) => element.getBoundingClientRect().top > gridElement.getBoundingClientRect().top + 100,
+    );
+
+    const cells = visibleRow
+      ? Array.from(visibleRow.querySelectorAll<HTMLElement>(".InovuaReactDataGrid__cell")).map((element) => ({
+          left: Math.round(element.getBoundingClientRect().left),
+          width: Math.round(element.getBoundingClientRect().width),
+        }))
+      : [];
+
+    return { headers, cells };
+  });
+
+  expect(alignment.cells).toHaveLength(alignment.headers.length);
+
+  alignment.headers.forEach((header, index) => {
+    expect(alignment.cells[index]).toEqual({
+      left: header.left,
+      width: header.width,
+    });
+  });
+});
+
 test("keeps the body viewport height fixed when filtering down to one row", async ({ page }) => {
   await page.goto("/");
 

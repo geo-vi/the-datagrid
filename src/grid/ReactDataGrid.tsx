@@ -38,6 +38,7 @@ import {
   injectIntoOrder,
   isColumnVisible,
   isInteractiveClickTarget,
+  normalizeColumnOrder,
   stripFromOrder,
   toSelectionMap,
 } from "./utils/gridUtils";
@@ -192,6 +193,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
       props.onColumnOrderChange?.(userNext);
     },
   });
+  const availableColumnIds = React.useMemo(() => allInputColumns.map((column) => getColumnId(column)), [allInputColumns]);
+  const effectiveColumnOrder = React.useMemo(
+    () => normalizeColumnOrder(columnOrder, availableColumnIds),
+    [availableColumnIds, columnOrder],
+  );
 
   const [sortInfo, setSortInfo] = useControllableState<TypeSortInfo>({
     value: props.sortInfo,
@@ -238,7 +244,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     for (const c of allInputColumns) colById.set(getColumnId(c), c);
 
     const ordered: TypeColumn[] = [];
-    for (const id of columnOrder) {
+    for (const id of effectiveColumnOrder) {
       const col = colById.get(id);
       if (col) ordered.push(col);
     }
@@ -249,7 +255,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
 
     return ordered.filter(isColumnVisible);
-  }, [allInputColumns, columnOrder]);
+  }, [allInputColumns, effectiveColumnOrder]);
 
   const tanstackSorting = React.useMemo(() => toTanstackSorting(sortInfo, orderedColumns), [sortInfo, orderedColumns]);
 
@@ -268,8 +274,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [checkboxColId, checkboxEnabled, orderedColumns]);
 
   const columnOrderForDs = React.useMemo(() => {
-    return checkboxEnabled ? stripFromOrder(columnOrder, checkboxColId) : columnOrder;
-  }, [checkboxColId, checkboxEnabled, columnOrder]);
+    return checkboxEnabled ? stripFromOrder(effectiveColumnOrder, checkboxColId) : effectiveColumnOrder;
+  }, [checkboxColId, checkboxEnabled, effectiveColumnOrder]);
 
   const loadData = React.useCallback(async () => {
     if (Array.isArray(dataSource)) {
@@ -804,6 +810,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }, 0);
   }, [autoWidths, orderedColumns]);
   const sharedTableStyle = tableMinWidth ? { minWidth: `${tableMinWidth}px` } : undefined;
+  const columnLayout = React.useMemo(
+    () =>
+      orderedColumns.map((column) => {
+        const columnId = getColumnId(column);
+        const explicitWidth = autoWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
+
+        return {
+          id: columnId,
+          width: explicitWidth,
+          minWidth: column.minWidth,
+          maxWidth: column.maxWidth,
+        };
+      }),
+    [autoWidths, orderedColumns],
+  );
 
   /** ---------------- header drag/drop reorder ---------------- */
 
@@ -833,7 +854,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     dragIdRef.current = null;
     if (!sourceId || sourceId === targetId) return;
 
-    const next = [...columnOrder];
+    const next = [...effectiveColumnOrder];
     const from = next.indexOf(sourceId);
     const to = next.indexOf(targetId);
     if (from < 0 || to < 0) return;
@@ -883,6 +904,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 className="tdg-table tdg-header-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
                 style={sharedTableStyle}
               >
+                <colgroup>
+                  {columnLayout.map((column) => (
+                    <col
+                      key={column.id}
+                      style={{
+                        width: column.width,
+                        minWidth: column.minWidth,
+                        maxWidth: column.maxWidth,
+                      }}
+                    />
+                  ))}
+                </colgroup>
                 <GridHeader
                   headerGroups={table.getHeaderGroups()}
                   headerHeight={headerHeight}
@@ -929,6 +962,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 className="tdg-table tdg-body-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
                 style={sharedTableStyle}
               >
+                <colgroup>
+                  {columnLayout.map((column) => (
+                    <col
+                      key={column.id}
+                      style={{
+                        width: column.width,
+                        minWidth: column.minWidth,
+                        maxWidth: column.maxWidth,
+                      }}
+                    />
+                  ))}
+                </colgroup>
                 <GridBody
                   rowModel={rowModel}
                   orderedColumns={orderedColumns}

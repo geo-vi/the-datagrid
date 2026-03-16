@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ReactDataGrid, { type TypeColumns, type TypeI18n, type TypeShowCellBorders } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
 import { ButtonGroup } from "../../src/components/ui/button-group";
+import UsersGridExample from "./UsersGridExample";
 
 const gridThemes = [
   { value: "default", label: "Default" },
@@ -83,7 +84,7 @@ export default function App() {
   const [filteredCount, setFilteredCount] = useState(rows.length);
 
   return (
-    <div className="min-h-screen p-4 flex flex-col gap-3">
+    <div className="min-h-screen p-4 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="m-0 text-lg font-semibold">the-datagrid demo</h1>
         <div className="flex items-center gap-2">
@@ -113,29 +114,40 @@ export default function App() {
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">
-        Filtered rows: <span className="font-mono">{filteredCount}</span>
-      </div>
+      <section className="flex flex-col gap-3 rounded-2xl border bg-background/95 p-4 shadow-sm">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">Basic example</h2>
+          <p className="text-sm text-muted-foreground">
+            The compact grid demo used by the visual regression suite.
+          </p>
+        </div>
 
-      <ReactDataGrid
-        theme={gridTheme}
-        idProperty="cldomnr"
-        columns={columns}
-        dataSource={rows}
-        columnOrder={columnOrder}
-        enableColumnFilterContextMenu
-        enableColumnAutosize
-        skipHeaderOnAutoSize={false}
-        enableFiltering
-        defaultFilterValue={null}
-        filteredRowsCount={setFilteredCount}
-        onColumnOrderChange={setColumnOrder}
-        virtualized
-        columnUserSelect
-        showCellBorders={showCellBorders}
-        i18n={i18n}
-        showColumnMenuTool={false}
-      />
+        <div className="text-xs text-muted-foreground">
+          Filtered rows: <span className="font-mono">{filteredCount}</span>
+        </div>
+
+        <ReactDataGrid
+          theme={gridTheme}
+          idProperty="cldomnr"
+          columns={columns}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          enableColumnFilterContextMenu
+          enableColumnAutosize
+          skipHeaderOnAutoSize={false}
+          enableFiltering
+          defaultFilterValue={null}
+          filteredRowsCount={setFilteredCount}
+          onColumnOrderChange={setColumnOrder}
+          virtualized
+          columnUserSelect
+          showCellBorders={showCellBorders}
+          i18n={i18n}
+          showColumnMenuTool={false}
+        />
+      </section>
+
+      <UsersGridExample theme={gridTheme} i18n={i18n} />
     </div>
   );
 }

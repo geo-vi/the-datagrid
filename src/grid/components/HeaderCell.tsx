@@ -194,7 +194,7 @@ export function HeaderCell(props: HeaderCellProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="InovuaReactDataGrid__column-header__content flex h-full items-stretch justify-between gap-2">
+      <div className="InovuaReactDataGrid__column-header__content flex h-full items-center justify-between gap-2">
         {header.isPlaceholder ? null : canSort ? (
           <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between px-2">
             <span className="truncate text-inherit">

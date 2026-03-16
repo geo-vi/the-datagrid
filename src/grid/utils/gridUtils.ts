@@ -20,6 +20,18 @@ export function injectIntoOrder(order: string[] | undefined, id: string): string
   return [id, ...order];
 }
 
+export function normalizeColumnOrder(order: string[] | undefined, availableIds: string[]): string[] {
+  if (availableIds.length === 0) return [];
+
+  const normalized = Array.isArray(order) ? order.filter((id) => availableIds.includes(id)) : [];
+
+  for (const id of availableIds) {
+    if (!normalized.includes(id)) normalized.push(id);
+  }
+
+  return normalized;
+}
+
 export function isInteractiveClickTarget(target: HTMLElement | null): boolean {
   if (!target) return false;
   const el = target.closest(
@@ -40,9 +52,6 @@ export function isInteractiveClickTarget(target: HTMLElement | null): boolean {
 export function isColumnVisible(c: TypeColumn): boolean {
   if (c.visible === false) return false;
   if (c.visible === true) return true;
-
-  if ((c as any).defaultVisible === false) return false;
-  if ((c as any).defaultHidden === true) return false;
 
   return true;
 }
