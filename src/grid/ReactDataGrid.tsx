@@ -922,7 +922,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               viewportRef={scrollRef}
               viewportClassName={cn(
                 "tdg-body-viewport relative bg-[var(--tdg-grid-bg)] text-foreground",
-                virtualized ? "max-h-[560px]" : "",
+                virtualized ? "h-[560px]" : "",
               )}
             >
               <table

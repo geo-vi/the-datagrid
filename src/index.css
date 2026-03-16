@@ -727,7 +727,21 @@
   fill: currentColor !important;
 }
 
-.tdg-root .tdg-button {
+.tdg-button {
+  --tdg-button-radius: var(--tdg-radius-md, calc(var(--radius, 0.625rem) - 2px));
+  --tdg-button-foreground: var(--tdg-color-foreground, var(--foreground, oklch(0.145 0 0)));
+  --tdg-button-input: var(--tdg-color-input, var(--input, oklch(0.922 0 0)));
+  --tdg-button-primary: var(--tdg-color-primary, var(--primary, oklch(0.205 0 0)));
+  --tdg-button-primary-foreground: var(--tdg-color-primary-foreground, var(--primary-foreground, oklch(0.985 0 0)));
+  --tdg-button-secondary: var(--tdg-color-secondary, var(--secondary, oklch(0.97 0 0)));
+  --tdg-button-secondary-foreground: var(--tdg-color-secondary-foreground, var(--secondary-foreground, oklch(0.205 0 0)));
+  --tdg-button-destructive: var(--tdg-color-destructive, var(--destructive, oklch(0.577 0.245 27.325)));
+  --tdg-button-destructive-foreground: var(
+    --tdg-color-destructive-foreground,
+    var(--destructive-foreground, oklch(0.985 0 0))
+  );
+  --tdg-button-accent: var(--tdg-color-accent, var(--accent, oklch(0.97 0 0)));
+  --tdg-button-accent-foreground: var(--tdg-color-accent-foreground, var(--accent-foreground, oklch(0.205 0 0)));
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   appearance: none !important;
@@ -738,72 +752,231 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 solid transparent !important;
-  border-radius: var(--tdg-radius-md) !important;
+  border-radius: var(--tdg-button-radius) !important;
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
-  font: inherit !important;
+  font-family: var(--default-font-family, var(--font-sans, ui-sans-serif, system-ui, sans-serif)) !important;
+  font-style: normal !important;
   text-align: center !important;
   text-decoration: none !important;
   vertical-align: middle !important;
   user-select: none !important;
 }
 
-.tdg-root .tdg-button[data-variant="default"] {
-  background-color: var(--tdg-color-primary) !important;
-  color: var(--tdg-color-primary-foreground) !important;
+.tdg-button[data-size="default"] {
+  min-height: 2.25rem !important;
+  padding-inline: 1rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
 }
 
-.tdg-root .tdg-button[data-variant="destructive"] {
-  background-color: var(--tdg-color-destructive) !important;
-  color: var(--tdg-color-destructive-foreground) !important;
+.tdg-button[data-size="sm"] {
+  min-height: 2rem !important;
+  padding-inline: 0.75rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
 }
 
-.tdg-root .tdg-button[data-variant="outline"] {
+.tdg-button[data-size="lg"] {
+  min-height: 2.5rem !important;
+  padding-inline: 2rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.tdg-button[data-size="icon"] {
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.dark .tdg-button {
+  --tdg-button-foreground: var(--tdg-color-foreground, var(--foreground, oklch(0.985 0 0)));
+  --tdg-button-input: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%)));
+  --tdg-button-primary: var(--tdg-color-primary, var(--primary, oklch(0.922 0 0)));
+  --tdg-button-primary-foreground: var(--tdg-color-primary-foreground, var(--primary-foreground, oklch(0.205 0 0)));
+  --tdg-button-secondary: var(--tdg-color-secondary, var(--secondary, oklch(0.269 0 0)));
+  --tdg-button-secondary-foreground: var(--tdg-color-secondary-foreground, var(--secondary-foreground, oklch(0.985 0 0)));
+  --tdg-button-destructive: var(--tdg-color-destructive, var(--destructive, oklch(0.704 0.191 22.216)));
+  --tdg-button-destructive-foreground: var(
+    --tdg-color-destructive-foreground,
+    var(--destructive-foreground, oklch(0.985 0 0))
+  );
+  --tdg-button-accent: var(--tdg-color-accent, var(--accent, oklch(0.269 0 0)));
+  --tdg-button-accent-foreground: var(--tdg-color-accent-foreground, var(--accent-foreground, oklch(0.985 0 0)));
+}
+
+.tdg-button[data-variant="default"] {
+  background-color: var(--tdg-button-primary) !important;
+  color: var(--tdg-button-primary-foreground) !important;
+}
+
+.tdg-button[data-variant="destructive"] {
+  background-color: var(--tdg-button-destructive) !important;
+  color: var(--tdg-button-destructive-foreground) !important;
+}
+
+.tdg-button[data-variant="outline"] {
   border-width: 1px !important;
-  border-color: var(--tdg-color-input) !important;
+  border-color: var(--tdg-button-input) !important;
   background-color: transparent !important;
-  color: var(--tdg-color-foreground) !important;
+  color: var(--tdg-button-foreground) !important;
 }
 
-.tdg-root .tdg-button[data-variant="secondary"] {
-  background-color: var(--tdg-color-secondary) !important;
-  color: var(--tdg-color-secondary-foreground) !important;
+.tdg-button[data-variant="secondary"] {
+  border-width: 1px !important;
+  border-color: var(--tdg-button-input) !important;
+  background-color: var(--tdg-button-secondary) !important;
+  color: var(--tdg-button-secondary-foreground) !important;
 }
 
-.tdg-root .tdg-button[data-variant="ghost"] {
+.tdg-button[data-variant="ghost"] {
   border-color: transparent !important;
   background-color: transparent !important;
   color: inherit !important;
 }
 
-.tdg-root .tdg-button[data-variant="link"] {
-  color: var(--tdg-color-primary) !important;
+.tdg-button[data-variant="link"] {
+  color: var(--tdg-button-primary) !important;
   text-decoration: underline !important;
   text-underline-offset: 4px !important;
 }
 
-.tdg-root .tdg-button[data-variant="default"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-primary) 90%, transparent) !important;
+.tdg-button[data-variant="default"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-button-primary) 90%, transparent) !important;
 }
 
-.tdg-root .tdg-button[data-variant="destructive"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-destructive) 90%, transparent) !important;
+.tdg-button[data-variant="destructive"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-button-destructive) 90%, transparent) !important;
 }
 
-.tdg-root .tdg-button[data-variant="outline"]:hover:not(.inovua-react-toolkit-button--disabled),
-.tdg-root .tdg-button[data-variant="ghost"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: var(--tdg-color-accent) !important;
-  color: var(--tdg-color-accent-foreground) !important;
+.tdg-button[data-variant="outline"]:hover:not(.inovua-react-toolkit-button--disabled),
+.tdg-button[data-variant="ghost"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: var(--tdg-button-accent) !important;
+  color: var(--tdg-button-accent-foreground) !important;
 }
 
-.tdg-root .tdg-button[data-variant="secondary"]:hover:not(.inovua-react-toolkit-button--disabled) {
-  background-color: color-mix(in oklab, var(--tdg-color-secondary) 80%, transparent) !important;
+.tdg-button[data-variant="secondary"]:hover:not(.inovua-react-toolkit-button--disabled) {
+  background-color: color-mix(in oklab, var(--tdg-button-secondary) 80%, transparent) !important;
 }
 
-.tdg-root .tdg-button.inovua-react-toolkit-button--disabled {
+.tdg-button.inovua-react-toolkit-button--disabled {
   pointer-events: none;
   opacity: 0.5;
+}
+
+.tdg-button .inovua-react-toolkit-button__text {
+  display: inline-flex !important;
+  min-width: 0 !important;
+  flex: 0 1 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-style: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: normal !important;
+  line-height: inherit !important;
+  text-align: inherit !important;
+  text-transform: none !important;
+}
+
+.tdg-button .inovua-react-toolkit-button__icon-wrap {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
+}
+
+.tdg-button-group {
+  --tdg-button-group-radius: var(--tdg-radius-md, calc(var(--radius, 0.625rem) - 2px));
+  --tdg-button-group-border: var(--tdg-color-border, var(--border, oklch(0.922 0 0)));
+  --tdg-button-group-muted-foreground: var(--tdg-color-muted-foreground, var(--muted-foreground, oklch(0.556 0 0)));
+  display: inline-flex !important;
+  max-width: 100% !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  border-radius: var(--tdg-button-group-radius) !important;
+  vertical-align: middle !important;
+  isolation: isolate !important;
+}
+
+.dark .tdg-button-group {
+  --tdg-button-group-border: var(--tdg-color-border, var(--border, oklch(1 0 0 / 10%)));
+  --tdg-button-group-muted-foreground: var(--tdg-color-muted-foreground, var(--muted-foreground, oklch(0.708 0 0)));
+}
+
+.tdg-button-group[data-orientation="horizontal"] {
+  flex-direction: row !important;
+}
+
+.tdg-button-group[data-orientation="vertical"] {
+  flex-direction: column !important;
+}
+
+.tdg-button-group > .tdg-button,
+.tdg-button-group > [data-slot="button"] {
+  position: relative !important;
+  flex: 0 1 auto !important;
+  border-radius: 0 !important;
+}
+
+.tdg-button-group[data-orientation="horizontal"] > .tdg-button + .tdg-button,
+.tdg-button-group[data-orientation="horizontal"] > [data-slot="button"] + [data-slot="button"] {
+  margin-left: -1px !important;
+}
+
+.tdg-button-group[data-orientation="vertical"] > .tdg-button + .tdg-button,
+.tdg-button-group[data-orientation="vertical"] > [data-slot="button"] + [data-slot="button"] {
+  margin-top: -1px !important;
+}
+
+.tdg-button-group[data-orientation="horizontal"] > .tdg-button:first-child,
+.tdg-button-group[data-orientation="horizontal"] > [data-slot="button"]:first-child {
+  border-top-left-radius: var(--tdg-button-group-radius) !important;
+  border-bottom-left-radius: var(--tdg-button-group-radius) !important;
+}
+
+.tdg-button-group[data-orientation="horizontal"] > .tdg-button:last-child,
+.tdg-button-group[data-orientation="horizontal"] > [data-slot="button"]:last-child {
+  border-top-right-radius: var(--tdg-button-group-radius) !important;
+  border-bottom-right-radius: var(--tdg-button-group-radius) !important;
+}
+
+.tdg-button-group[data-orientation="vertical"] > .tdg-button:first-child,
+.tdg-button-group[data-orientation="vertical"] > [data-slot="button"]:first-child {
+  border-top-left-radius: var(--tdg-button-group-radius) !important;
+  border-top-right-radius: var(--tdg-button-group-radius) !important;
+}
+
+.tdg-button-group[data-orientation="vertical"] > .tdg-button:last-child,
+.tdg-button-group[data-orientation="vertical"] > [data-slot="button"]:last-child {
+  border-bottom-left-radius: var(--tdg-button-group-radius) !important;
+  border-bottom-right-radius: var(--tdg-button-group-radius) !important;
+}
+
+.tdg-button-group-separator {
+  flex: none !important;
+  align-self: stretch !important;
+  background: var(--tdg-button-group-border) !important;
+}
+
+.tdg-button-group-separator[data-orientation="vertical"] {
+  width: 1px !important;
+}
+
+.tdg-button-group-separator[data-orientation="horizontal"] {
+  height: 1px !important;
+}
+
+.tdg-button-group-text {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding-inline: 0.75rem !important;
+  font-size: 0.875rem !important;
+  color: var(--tdg-button-group-muted-foreground) !important;
 }
 
 .tdg-root .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input {
@@ -812,7 +985,10 @@
   margin: 0 !important;
   border-style: solid !important;
   border-width: 1px !important;
+  border-color: var(--tdg-input-border-color) !important;
   border-radius: var(--tdg-radius-md) !important;
+  background: var(--tdg-input-bg) !important;
+  color: var(--tdg-input-color) !important;
   font: inherit !important;
   --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   box-shadow:

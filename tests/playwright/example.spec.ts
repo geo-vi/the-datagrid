@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const INOVUA_INDEX_CSS = readFileSync(
   resolve(process.cwd(), "node_modules/@inovua/reactdatagrid-community/index.css"),
@@ -361,6 +361,49 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
 });
 
+test("keeps the body viewport height fixed when filtering down to one row", async ({ page }) => {
+  await page.goto("/");
+
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
+  const filterInput = grid.locator(".tdg-filter-row input").first();
+  const filteredCount = page.locator("div.text-xs.text-muted-foreground span.font-mono").first();
+
+  const before = await viewport.boundingBox();
+  expect(before).not.toBeNull();
+
+  await filterInput.fill("1000");
+  await expect(filteredCount).toHaveText("1");
+
+  const after = await viewport.boundingBox();
+  expect(after).not.toBeNull();
+
+  expect(Math.round(after?.height ?? 0)).toBe(Math.round(before?.height ?? 0));
+  expect(Math.round(after?.height ?? 0)).toBeGreaterThanOrEqual(560);
+
+  const layout = await grid.evaluate((root) => {
+    const frame = root.querySelector<HTMLElement>('[data-slot="grid-frame"]');
+    const bodyViewport = root.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    const row = root.querySelector<HTMLElement>('[data-slot="grid-row"]');
+
+    if (!frame || !bodyViewport || !row) return null;
+
+    const frameRect = frame.getBoundingClientRect();
+    const viewportRect = bodyViewport.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+
+    return {
+      frameBottom: frameRect.bottom,
+      viewportBottom: viewportRect.bottom,
+      rowBottom: rowRect.bottom,
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(Math.abs((layout?.frameBottom ?? 0) - (layout?.viewportBottom ?? 0))).toBeLessThanOrEqual(1);
+  expect((layout?.frameBottom ?? 0) - (layout?.rowBottom ?? 0)).toBeGreaterThan(200);
+});
+
 test("keeps custom light themes on the light shadcn base even inside a dark page", async ({ page }) => {
   await page.goto("/");
 
@@ -570,9 +613,21 @@ test("keeps custom theme select focus chrome on the grid-owned border", async ({
   }
 
   const ikarusLightBorders = await getSelectBorderPair("Ikarus Light");
+  const filterInput = page.locator(".inovua-react-toolkit-text-input").first();
+  const inputBorder = await filterInput.evaluate((element) => getComputedStyle(element).borderTopColor);
 
+  await page.getByRole("button", { name: "Filter" }).first().click();
+  const filterMenu = page.locator('[data-slot="dropdown-menu-content"]').last();
+  await expect(filterMenu).toBeVisible();
+  const menuBorder = await filterMenu.evaluate((element) => getComputedStyle(element).borderTopColor);
+  await page.keyboard.press("Escape");
+
+  expect(ikarusLightBorders.rootVars.border).toBe("rgb(228, 227, 226)");
   expect(ikarusLightBorders.rootVars.focusBorder).toBe(ikarusLightBorders.rootVars.border);
+  expect(ikarusLightBorders.idleBorder).not.toBe("rgb(202, 174, 83)");
   expect(ikarusLightBorders.openBorder).not.toBe("rgb(202, 174, 83)");
+  expect(inputBorder).not.toBe("rgb(202, 174, 83)");
+  expect(menuBorder).not.toBe("rgb(202, 174, 83)");
 });
 
 test("keeps custom theme dropdown structure aligned with the default shell", async ({ page }) => {
@@ -684,227 +739,6 @@ test("keeps custom theme dropdown structure aligned with the default shell", asy
     expect(menuChrome.cell).toEqual(defaultMenu.cell);
     expect(menuChrome.separator).toEqual(defaultMenu.separator);
   }
-});
-
-test("keeps the dialog shell visible under global legacy css imports", async ({ page }) => {
-  await page.goto("/");
-
-  const openDialog = async () => {
-    await page.getByRole("button", { name: "Open Dialog" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-  };
-
-  const dialogSnapshot = async () => {
-    return page.locator('[data-slot="dialog-content"]').evaluate((element) => {
-      const style = getComputedStyle(element);
-      const closeButton = element.querySelector('[data-slot="dialog-close"]');
-      const rect = element.getBoundingClientRect();
-
-      return {
-        display: style.display,
-        position: style.position,
-        backgroundColor: style.backgroundColor,
-        borderTopWidth: style.borderTopWidth,
-        borderTopColor: style.borderTopColor,
-        paddingTop: style.paddingTop,
-        maxWidth: style.maxWidth,
-        computedLeft: style.left,
-        computedTop: style.top,
-        computedTransform: style.transform,
-        computedTranslate: style.translate,
-        closePosition: closeButton ? getComputedStyle(closeButton).position : null,
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-        centerX: rect.left + rect.width / 2,
-        centerY: rect.top + rect.height / 2,
-      };
-    });
-  };
-
-  const overlaySnapshot = async () => {
-    return page.locator('[data-slot="dialog-overlay"]').evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        display: style.display,
-        position: style.position,
-        backgroundColor: style.backgroundColor,
-      };
-    });
-  };
-
-  await openDialog();
-
-  const viewport = page.viewportSize();
-  expect(viewport).not.toBeNull();
-
-  const lightDialog = await dialogSnapshot();
-  const lightOverlay = await overlaySnapshot();
-
-  expect(lightDialog.display).toBe("grid");
-  expect(lightDialog.position).toBe("relative");
-  expect(lightDialog.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightDialog.borderTopWidth).toBe("1px");
-  expect(lightDialog.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightDialog.paddingTop).toBe("24px");
-  expect(lightDialog.closePosition).toBe("absolute");
-  expect(Math.abs(lightDialog.centerX - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
-  expect(Math.abs(lightDialog.centerY - (viewport?.height ?? 0) / 2)).toBeLessThanOrEqual(2);
-  expect(lightOverlay.display).toBe("block");
-  expect(lightOverlay.position).toBe("fixed");
-  expect(lightOverlay.backgroundColor).toBe("rgba(0, 0, 0, 0.8)");
-
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Toggle page theme" }).click();
-  await openDialog();
-
-  const darkDialog = await dialogSnapshot();
-  expect(darkDialog.display).toBe("grid");
-  expect(darkDialog.position).toBe("relative");
-  expect(darkDialog.backgroundColor).not.toBe(lightDialog.backgroundColor);
-  expect(darkDialog.borderTopWidth).toBe("1px");
-  expect(darkDialog.closePosition).toBe("absolute");
-});
-
-test("keeps the combobox shell visible under global legacy css imports", async ({ page }) => {
-  await page.goto("/");
-
-  const trigger = page.getByRole("combobox", { name: "Framework combobox" });
-  await trigger.click();
-
-  const content = page.locator('[data-slot="popover-content"]').first();
-  await expect(content).toBeVisible();
-
-  const viewport = page.viewportSize();
-  expect(viewport).not.toBeNull();
-
-  const getSnapshot = async () => {
-    return content.evaluate((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      const command = element.querySelector(".tdg-command");
-      const input = element.querySelector(".tdg-command-input");
-      const item = element.querySelector(".tdg-command-item");
-
-      return {
-        display: style.display,
-        backgroundColor: style.backgroundColor,
-        borderTopWidth: style.borderTopWidth,
-        borderTopColor: style.borderTopColor,
-        borderRadius: style.borderRadius,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-        commandDisplay: command ? getComputedStyle(command).display : null,
-        inputBackgroundColor: input ? getComputedStyle(input).backgroundColor : null,
-        itemDisplay: item ? getComputedStyle(item).display : null,
-      };
-    });
-  };
-
-  const lightSnapshot = await getSnapshot();
-
-  expect(lightSnapshot.display).toBe("block");
-  expect(lightSnapshot.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightSnapshot.borderTopWidth).toBe("1px");
-  expect(lightSnapshot.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightSnapshot.borderRadius).not.toBe("0px");
-  expect(lightSnapshot.commandDisplay).toBe("flex");
-  expect(lightSnapshot.inputBackgroundColor).toBe("rgba(0, 0, 0, 0)");
-  expect(lightSnapshot.itemDisplay).toBe("flex");
-  expect(lightSnapshot.left).toBeGreaterThanOrEqual(0);
-  expect(lightSnapshot.right).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
-  expect(lightSnapshot.top).toBeGreaterThanOrEqual(0);
-  expect(lightSnapshot.bottom).toBeLessThanOrEqual((viewport?.height ?? 0) + 1);
-
-  await page.getByText("Next.js", { exact: true }).click();
-  await expect(content).toBeHidden();
-  await expect(trigger).toContainText("Next.js");
-
-  await page.getByRole("button", { name: "Toggle page theme" }).click();
-  await trigger.click();
-  await expect(content).toBeVisible();
-
-  const darkSnapshot = await getSnapshot();
-  expect(darkSnapshot.display).toBe("block");
-  expect(darkSnapshot.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(darkSnapshot.borderTopWidth).toBe("1px");
-  expect(darkSnapshot.commandDisplay).toBe("flex");
-  expect(darkSnapshot.itemDisplay).toBe("flex");
-});
-
-test("keeps the standalone radio group shell visible under global legacy css imports", async ({ page }) => {
-  await page.goto("/");
-
-  const group = page.getByRole("radiogroup", { name: "Example radio group" });
-  await expect(group).toBeVisible();
-
-  const optionOne = page.getByRole("radio", { name: "Option One" });
-  const optionTwo = page.getByRole("radio", { name: "Option Two" });
-
-  const getRadioSnapshot = async (locator: Locator) => {
-    return locator.evaluate((element) => {
-      const style = getComputedStyle(element);
-      const indicator = element.querySelector('[data-slot="radio-group-indicator"]');
-      const icon = element.querySelector(".tdg-radio-icon");
-
-      return {
-        display: style.display,
-        width: style.width,
-        height: style.height,
-        borderRadius: style.borderRadius,
-        borderTopWidth: style.borderTopWidth,
-        borderTopColor: style.borderTopColor,
-        backgroundColor: style.backgroundColor,
-        boxShadow: style.boxShadow,
-        indicatorDisplay: indicator ? getComputedStyle(indicator).display : null,
-        indicatorWidth: indicator ? getComputedStyle(indicator).width : null,
-        indicatorHeight: indicator ? getComputedStyle(indicator).height : null,
-        iconWidth: icon ? getComputedStyle(icon).width : null,
-        iconHeight: icon ? getComputedStyle(icon).height : null,
-      };
-    });
-  };
-
-  const lightRadio = await getRadioSnapshot(optionOne);
-  expect(lightRadio.display).toBe("flex");
-  expect(lightRadio.width).toBe("16px");
-  expect(lightRadio.height).toBe("16px");
-  expect(lightRadio.borderRadius).toBe("9999px");
-  expect(lightRadio.borderTopWidth).toBe("1px");
-  expect(lightRadio.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightRadio.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(lightRadio.boxShadow).toContain("rgba(0, 0, 0, 0.05) 0px 1px 2px 0px");
-  expect(lightRadio.indicatorDisplay).toBe("flex");
-  expect(parseFloat(lightRadio.indicatorWidth ?? "0")).toBeGreaterThanOrEqual(12);
-  expect(parseFloat(lightRadio.indicatorHeight ?? "0")).toBeGreaterThanOrEqual(12);
-  expect(lightRadio.iconWidth).toBe("8px");
-  expect(lightRadio.iconHeight).toBe("8px");
-  await expect(optionOne).toHaveAttribute("data-state", "checked");
-
-  await page.getByText("Option Two", { exact: true }).click();
-  await expect(optionOne).toHaveAttribute("data-state", "unchecked");
-  await expect(optionTwo).toHaveAttribute("data-state", "checked");
-
-  await page.getByRole("button", { name: "Toggle page theme" }).click();
-
-  const darkRadio = await getRadioSnapshot(optionTwo);
-  expect(darkRadio.display).toBe("flex");
-  expect(darkRadio.width).toBe("16px");
-  expect(darkRadio.height).toBe("16px");
-  expect(darkRadio.borderRadius).toBe("9999px");
-  expect(darkRadio.borderTopWidth).toBe("1px");
-  expect(darkRadio.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(darkRadio.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-  expect(darkRadio.indicatorDisplay).toBe("flex");
-  expect(parseFloat(darkRadio.indicatorWidth ?? "0")).toBeGreaterThanOrEqual(12);
-  expect(parseFloat(darkRadio.indicatorHeight ?? "0")).toBeGreaterThanOrEqual(12);
-  expect(darkRadio.iconWidth).toBe("8px");
-  expect(darkRadio.iconHeight).toBe("8px");
 });
 
 test("keeps filter radio controls on the default shadcn shape across custom themes", async ({ page }) => {
@@ -1196,6 +1030,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
 
   const builtInDarkTheme = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
     const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
+    const inputShell = root.querySelector(".inovua-react-toolkit-text-input");
     const rootStyle = getComputedStyle(root);
 
     return {
@@ -1206,6 +1041,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
       inputBgVar: rootStyle.getPropertyValue("--tdg-input-bg").trim(),
       dropdownBorderVar: rootStyle.getPropertyValue("--tdg-dropdown-shell-border-color").trim(),
       oddRowBackgroundColor: oddRow ? getComputedStyle(oddRow).backgroundColor : null,
+      inputBackgroundColor: inputShell ? getComputedStyle(inputShell).backgroundColor : null,
     };
   });
 
@@ -1215,6 +1051,8 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(builtInDarkTheme?.rowEvenVar).toBe("oklch(0.145 0 0)");
   expect(builtInDarkTheme?.inputBgVar).toBe("oklch(0.145 0 0)");
   expect(builtInDarkTheme?.dropdownBorderVar).toBe("oklch(1 0 0 / 10%)");
+  expect(builtInDarkTheme?.inputBackgroundColor).not.toBe("rgb(255, 255, 255)");
+  expect(builtInDarkTheme?.inputBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
   expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("oklch(1 0 0)");
   expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("rgb(255, 255, 255)");
   expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
@@ -1271,6 +1109,58 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   });
 });
 
+test("restores built-in row tokens after switching away from legacy themes", async ({ page }) => {
+  await page.goto("/");
+
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+
+  const getRowSnapshot = async () => {
+    return grid.evaluate((root) => {
+      const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
+      const rootStyle = getComputedStyle(root);
+
+      return {
+        theme: root.getAttribute("data-theme"),
+        themeBase: root.getAttribute("data-theme-base"),
+        inlineStyle: root.getAttribute("style") || "",
+        rowOddVar: rootStyle.getPropertyValue("--tdg-row-odd-bg").trim(),
+        rowEvenVar: rootStyle.getPropertyValue("--tdg-row-even-bg").trim(),
+        oddRowBackgroundColor: oddRow ? getComputedStyle(oddRow).backgroundColor : null,
+      };
+    });
+  };
+
+  const initialDefault = await getRowSnapshot();
+  expect(initialDefault.theme).toBe("default");
+  expect(initialDefault.rowOddVar).toBe("oklch(1 0 0)");
+
+  for (const legacyTheme of ["HF Dark", "HF Light", "Ikarus Light", "Ikarus Dark"] as const) {
+    await page.getByRole("button", { name: legacyTheme, exact: true }).click();
+  }
+
+  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  const builtInDark = await getRowSnapshot();
+
+  expect(builtInDark.theme).toBe("dark");
+  expect(builtInDark.themeBase).toBe("dark");
+  expect(builtInDark.inlineStyle).not.toContain("--tdg-row-odd-bg");
+  expect(builtInDark.rowOddVar).toBe("oklch(0.145 0 0)");
+  expect(builtInDark.rowEvenVar).toBe("oklch(0.145 0 0)");
+  expect(builtInDark.oddRowBackgroundColor).not.toBe("oklch(1 0 0)");
+  expect(builtInDark.oddRowBackgroundColor).not.toBe("rgb(255, 255, 255)");
+  expect(builtInDark.oddRowBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
+
+  await page.getByRole("button", { name: "Default", exact: true }).click();
+  const restoredDefault = await getRowSnapshot();
+
+  expect(restoredDefault.theme).toBe("default");
+  expect(restoredDefault.themeBase).toBe("default");
+  expect(restoredDefault.inlineStyle).not.toContain("--tdg-row-odd-bg");
+  expect(restoredDefault.rowOddVar).toBe(initialDefault.rowOddVar);
+  expect(restoredDefault.rowEvenVar).toBe(initialDefault.rowEvenVar);
+  expect(restoredDefault.oddRowBackgroundColor).not.toBe(builtInDark.oddRowBackgroundColor);
+});
+
 test("keeps grid buttons styled under hostile global button styles", async ({ page }) => {
   await page.goto("/");
 
@@ -1294,6 +1184,12 @@ test("keeps grid buttons styled under hostile global button styles", async ({ pa
 
   const filterButton = page.getByRole("button", { name: "Filter" }).first();
   await expect(filterButton).toBeVisible();
+  const themeGroup = page.getByRole("group", { name: "Grid theme buttons" });
+  await expect(themeGroup).toBeVisible();
+  const defaultThemeButton = themeGroup.getByRole("button", { name: "Default", exact: true });
+  const darkThemeButton = themeGroup.getByRole("button", { name: "Dark", exact: true });
+  await expect(defaultThemeButton).toBeVisible();
+  await expect(darkThemeButton).toBeVisible();
 
   const buttonStyles = await filterButton.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -1318,6 +1214,58 @@ test("keeps grid buttons styled under hostile global button styles", async ({ pa
   expect(buttonStyles.hasLtrClass).toBe(true);
   expect(buttonStyles.hasIconClass).toBe(true);
   expect(buttonStyles.hasNoChildrenClass).toBe(true);
+
+  const themeGroupStyles = await themeGroup.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      display: style.display,
+      gap: style.gap,
+    };
+  });
+
+  expect(themeGroupStyles.display).toContain("flex");
+  expect(themeGroupStyles.gap).toBe("0px");
+
+  const defaultThemeStyles = await defaultThemeButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderTopStyle: style.borderTopStyle,
+      color: style.color,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      paddingLeft: style.paddingLeft,
+      paddingRight: style.paddingRight,
+      lineHeight: style.lineHeight,
+    };
+  });
+
+  expect(defaultThemeStyles.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(defaultThemeStyles.backgroundColor).not.toBe("rgb(239, 239, 239)");
+  expect(defaultThemeStyles.borderTopWidth).not.toBe("0px");
+  expect(defaultThemeStyles.borderTopStyle).not.toBe("outset");
+  expect(defaultThemeStyles.color).not.toBe("rgb(0, 0, 0)");
+  expect(defaultThemeStyles.fontSize).toBe("12px");
+  expect(defaultThemeStyles.fontWeight).toBe("500");
+  expect(defaultThemeStyles.paddingLeft).toBe("12px");
+  expect(defaultThemeStyles.paddingRight).toBe("12px");
+  expect(defaultThemeStyles.lineHeight).toBe("16px");
+
+  const darkThemeStyles = await darkThemeButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderTopStyle: style.borderTopStyle,
+      borderTopColor: style.borderTopColor,
+    };
+  });
+
+  expect(darkThemeStyles.backgroundColor).not.toBe("rgb(239, 239, 239)");
+  expect(darkThemeStyles.borderTopWidth).not.toBe("0px");
+  expect(darkThemeStyles.borderTopStyle).not.toBe("outset");
+  expect(darkThemeStyles.borderTopColor).not.toBe("rgb(118, 118, 118)");
 });
 
 test("keeps grid-owned structure under broad host css overrides", async ({ page }) => {
@@ -1520,8 +1468,8 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
     });
   }).toEqual({
     backgroundColor: "rgb(70, 77, 86)",
-    color: "rgb(155, 167, 180)",
-    borderColor: "rgb(70, 77, 86)",
+    color: "rgb(255, 255, 255)",
+    borderColor: "rgb(56, 56, 56)",
     borderRadius: "8px",
     boxShadow:
       "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",

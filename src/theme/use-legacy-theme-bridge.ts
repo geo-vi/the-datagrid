@@ -79,7 +79,7 @@ const LEGACY_THEME_MATCHERS: LegacyVarMatcher[] = [
       selector.includes("InovuaReactDataGrid__cell--show-border-right"),
   },
   {
-    cssVar: "--tdg-row-odd-hover-bg",
+    cssVar: "--tdg-row-odd-bg",
     property: "background",
     matches: (selector) =>
       selector.includes("InovuaReactDataGrid__row--odd") &&
@@ -484,6 +484,17 @@ export function useLegacyThemeBridge(
     }
 
     const inputBackground = rootElement.style.getPropertyValue("--tdg-input-bg").trim()
+    const inputBorderColor = rootElement.style.getPropertyValue("--tdg-input-border-color").trim()
+    const normalizedInputBorderColor =
+      border ||
+      (isMissingColorValue(inputBorderColor) ? "" : inputBorderColor)
+
+    if (normalizedInputBorderColor) {
+      rootElement.style.setProperty("--tdg-input-border-color", normalizedInputBorderColor)
+      rootElement.style.setProperty("--tdg-input-border-color-hover", normalizedInputBorderColor)
+      rootElement.style.setProperty("--tdg-input-border-color-focus", normalizedInputBorderColor)
+    }
+
     const selectBackground = rootElement.style.getPropertyValue("--tdg-select-bg").trim()
     const selectColor = rootElement.style.getPropertyValue("--tdg-select-color").trim()
     rootElement.style.setProperty(
@@ -495,7 +506,6 @@ export function useLegacyThemeBridge(
       selectColor || foreground
     )
 
-    const inputBorderColor = rootElement.style.getPropertyValue("--tdg-input-border-color").trim()
     const selectBorderColor = rootElement.style.getPropertyValue("--tdg-select-border-color").trim()
 
     // Keep select shells on the grid-owned border chrome even when legacy combo-box
@@ -535,10 +545,11 @@ export function useLegacyThemeBridge(
     )
 
     const normalizedDropdownBorderColor = isMissingColorValue(dropdownBorderColor)
-      ? normalizedSelectBorderColor || border
-      : dropdownBorderColor
+      ? normalizedSelectBorderColor || normalizedInputBorderColor || border
+      : border || normalizedSelectBorderColor || normalizedInputBorderColor || dropdownBorderColor
 
     if (normalizedDropdownBorderColor) {
+      rootElement.style.setProperty("--tdg-dropdown-border-color", normalizedDropdownBorderColor)
       rootElement.style.setProperty("--tdg-dropdown-shell-border-color", normalizedDropdownBorderColor)
     }
 
