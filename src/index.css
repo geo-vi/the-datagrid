@@ -500,14 +500,17 @@
 
 .tdg-root .tdg-table {
   display: table !important;
-  width: 100% !important;
-  min-width: 100%;
   border-collapse: separate !important;
   border-spacing: 0 !important;
   table-layout: fixed;
   text-indent: 0 !important;
   font: inherit !important;
   color: inherit !important;
+}
+
+.tdg-root[data-column-width-mode="stretch"] .tdg-table {
+  width: 100% !important;
+  min-width: 100% !important;
 }
 
 .tdg-root .tdg-table caption {
@@ -642,17 +645,71 @@
   transform: none !important;
 }
 
-.tdg-root .tdg-header-cell,
-.tdg-root .tdg-filter-cell {
+.tdg-root .tdg-header-cell {
   position: static !important;
   inset: auto !important;
-}
-
-.tdg-root .tdg-header-cell {
   padding: 0 0.5rem !important;
 }
 
+.tdg-root .tdg-header-cell__inner {
+  position: relative !important;
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  align-items: stretch !important;
+}
+
+.tdg-root .tdg-column-resizer {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: calc(-0.4375rem - 0.5rem) !important;
+  z-index: 10 !important;
+  display: flex !important;
+  width: 0.875rem !important;
+  height: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  cursor: col-resize !important;
+  pointer-events: auto !important;
+  touch-action: none !important;
+  user-select: none !important;
+}
+
+.tdg-root .tdg-column-resizer::before {
+  content: "" !important;
+  display: block !important;
+  width: 2px !important;
+  height: 100% !important;
+  background: var(--tdg-column-header-resizer-constrained-color) !important;
+  opacity: 0 !important;
+  transition: opacity 120ms ease, background-color 120ms ease !important;
+}
+
+.tdg-root .tdg-column-resizer[data-resizing="true"]::before {
+  opacity: 1 !important;
+  background: var(--tdg-column-header-resizer-constrained-color) !important;
+}
+
+.tdg-root .InovuaReactDataGrid__resize-proxy {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  z-index: 20 !important;
+  width: 1px !important;
+  pointer-events: none !important;
+  background: var(--tdg-column-header-resizer-constrained-color) !important;
+}
+
 .tdg-root .tdg-filter-cell {
+  position: static !important;
+  inset: auto !important;
   padding: 0 0.5rem !important;
 }
 

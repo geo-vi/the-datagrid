@@ -12,7 +12,7 @@ import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 export type GridBodyProps = {
   rowModel: any[];
   orderedColumns: TypeColumn[];
-  autoWidths: Record<string, number>;
+  columnWidths: Record<string, number>;
   userSelectClass: string;
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
@@ -33,7 +33,7 @@ export function GridBody(props: GridBodyProps) {
   const {
     rowModel,
     orderedColumns,
-    autoWidths,
+    columnWidths,
     userSelectClass,
     showHorizontalCellBorders,
     showVerticalCellBorders,
@@ -141,7 +141,7 @@ export function GridBody(props: GridBodyProps) {
                   const colId = cell.column.id;
                   const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
-                  const width = autoWidths[colId];
+                  const width = columnWidths[colId];
                   const align = col?.textAlign;
                   const isLastCell = cellIndex === row.getVisibleCells().length - 1;
 
@@ -208,7 +208,7 @@ export function GridBody(props: GridBodyProps) {
                 const colId = cell.column.id;
                 const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
 
-                const width = autoWidths[colId];
+                const width = columnWidths[colId];
                 const align = col?.textAlign;
                 const isLastCell = cellIndex === row.getVisibleCells().length - 1;
 

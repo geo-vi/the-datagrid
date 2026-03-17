@@ -28,7 +28,7 @@ import {
 import { useLegacyThemeBridge } from "../theme/use-legacy-theme-bridge";
 
 import { getColumnId } from "../utils/column";
-import { coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
+import { clamp, coerceUserSelect, estimateAutoWidth } from "../utils/helpers";
 import { useControllableState } from "../hooks/useControllableState";
 
 import { DEFAULT_FILTER_TYPES, normalizeFilterValue, applyLocalFilter } from "../filters/utils";
@@ -52,6 +52,62 @@ import { GridPagination } from "./components/GridPagination";
  */
 export const plugins: readonly unknown[] = [] as const;
 
+function getColumnHeaderText(column: TypeColumn, skipHeaderOnAutoSize: boolean): string {
+  if (skipHeaderOnAutoSize) return "";
+  if (typeof column.header === "string") return column.header;
+  if (typeof column.name === "string") return column.name;
+  if (typeof column.id === "string") return column.id;
+  return "";
+}
+
+function getColumnWidthBounds(column: TypeColumn): { minWidth: number; maxWidth: number } {
+  const minWidth =
+    typeof column.minWidth === "number" && Number.isFinite(column.minWidth) && column.minWidth > 0
+      ? column.minWidth
+      : 60;
+  const maxWidth =
+    typeof column.maxWidth === "number" && Number.isFinite(column.maxWidth) && column.maxWidth >= minWidth
+      ? column.maxWidth
+      : 9999;
+
+  return { minWidth, maxWidth };
+}
+
+function estimateColumnContentWidth(args: {
+  column: TypeColumn;
+  rows: any[];
+  skipHeaderOnAutoSize: boolean;
+}): number {
+  const { column, rows, skipHeaderOnAutoSize } = args;
+  const columnId = getColumnId(column);
+  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+  const header = getColumnHeaderText(column, skipHeaderOnAutoSize);
+  const values = rows.map((row) => (row as any)?.[columnId]);
+
+  return clamp(estimateAutoWidth({ header, values }), minWidth, maxWidth);
+}
+
+function resolveBaseColumnWidth(args: {
+  column: TypeColumn;
+  rows: any[];
+  enableColumnAutosize: boolean;
+  skipHeaderOnAutoSize: boolean;
+}): number {
+  const { column, rows, enableColumnAutosize, skipHeaderOnAutoSize } = args;
+  const explicit = column.width ?? column.defaultWidth;
+  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+
+  if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
+    return clamp(explicit, minWidth, maxWidth);
+  }
+
+  if (enableColumnAutosize) {
+    return estimateColumnContentWidth({ column, rows, skipHeaderOnAutoSize });
+  }
+
+  return clamp(column.minWidth ?? 120, minWidth, maxWidth);
+}
+
 function ReactDataGrid(props: TypeDataGridProps) {
   const {
     theme = "default",
@@ -63,6 +119,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     enableColumnAutosize = true,
     skipHeaderOnAutoSize = false,
+    resizable = true,
 
     enableFiltering = true,
 
@@ -91,6 +148,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     themeClassSuffix !== "light" &&
     themeClassSuffix !== "dark";
   const [portalContainer, setPortalContainer] = React.useState<HTMLDivElement | null>(null);
+  const surfaceRef = React.useRef<HTMLDivElement | null>(null);
   const showHorizontalCellBorders = showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders = showCellBorders === true || showCellBorders === "vertical";
 
@@ -381,12 +439,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => window.clearTimeout(handle);
   }, [draftFilterValue, filterControlled, setFilterValue]);
 
-  /** ---------------- column autosize heuristic ---------------- */
-
-  const [autoWidths, setAutoWidths] = React.useState<Record<string, number>>({});
   const autosizeSample = React.useMemo(() => {
-    if (!enableColumnAutosize) return [];
-
     if (Array.isArray(dataSource)) {
       let data = dataSource;
 
@@ -404,41 +457,71 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [
     computedFilterForFetch,
     dataSource,
-    enableColumnAutosize,
     enableFiltering,
     filterTypes,
     orderedColumns,
     rows,
   ]);
 
-  React.useEffect(() => {
-    if (!enableColumnAutosize) return;
+  /** ---------------- column widths ---------------- */
 
+  const autosizedWidths = React.useMemo(() => {
     const next: Record<string, number> = {};
 
-    for (const c of orderedColumns) {
-      const id = getColumnId(c);
-
-      const explicit = c.width ?? c.defaultWidth;
-      if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
-        next[id] = explicit;
-        continue;
-      }
-
-      const headerText = skipHeaderOnAutoSize
-        ? ""
-        : typeof c.header === "string"
-          ? c.header
-          : typeof c.name === "string"
-              ? c.name
-              : "";
-
-      const values = autosizeSample.map((r) => (r as any)?.[id]);
-      next[id] = estimateAutoWidth({ header: headerText, values });
+    for (const column of orderedColumns) {
+      const columnId = getColumnId(column);
+      next[columnId] = resolveBaseColumnWidth({
+        column,
+        rows: autosizeSample,
+        enableColumnAutosize,
+        skipHeaderOnAutoSize,
+      });
     }
 
-    setAutoWidths(next);
+    return next;
   }, [autosizeSample, enableColumnAutosize, orderedColumns, skipHeaderOnAutoSize]);
+
+  const [manualColumnWidths, setManualColumnWidths] = React.useState<Record<string, number>>({});
+  const hasManualColumnWidths = React.useMemo(
+    () => Object.keys(manualColumnWidths).length > 0,
+    [manualColumnWidths],
+  );
+
+  React.useEffect(() => {
+    setManualColumnWidths((current) => {
+      const nextEntries = orderedColumns.flatMap((column) => {
+        const columnId = getColumnId(column);
+        const currentWidth = current[columnId];
+
+        if (typeof currentWidth !== "number" || !Number.isFinite(currentWidth)) {
+          return [];
+        }
+
+        const { minWidth, maxWidth } = getColumnWidthBounds(column);
+        return [[columnId, clamp(currentWidth, minWidth, maxWidth)] as const];
+      });
+
+      if (
+        nextEntries.length === Object.keys(current).length &&
+        nextEntries.every(([columnId, width]) => current[columnId] === width)
+      ) {
+        return current;
+      }
+
+      return Object.fromEntries(nextEntries);
+    });
+  }, [orderedColumns]);
+
+  const columnWidths = React.useMemo(() => {
+    const next: Record<string, number> = {};
+
+    for (const column of orderedColumns) {
+      const columnId = getColumnId(column);
+      next[columnId] = manualColumnWidths[columnId] ?? autosizedWidths[columnId];
+    }
+
+    return next;
+  }, [autosizedWidths, manualColumnWidths, orderedColumns]);
 
   /** ---------------- selection helpers ---------------- */
 
@@ -805,16 +888,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     return orderedColumns.reduce((sum, column) => {
       const columnId = getColumnId(column);
-      const explicitWidth = autoWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
+      const explicitWidth = columnWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
       return sum + explicitWidth;
     }, 0);
-  }, [autoWidths, orderedColumns]);
-  const sharedTableStyle = tableMinWidth ? { minWidth: `${tableMinWidth}px` } : undefined;
+  }, [columnWidths, orderedColumns]);
+  const sharedTableStyle = tableMinWidth ? { width: `${tableMinWidth}px` } : undefined;
   const columnLayout = React.useMemo(
     () =>
       orderedColumns.map((column) => {
         const columnId = getColumnId(column);
-        const explicitWidth = autoWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
+        const explicitWidth = columnWidths[columnId] ?? column.width ?? column.defaultWidth ?? column.minWidth ?? 120;
 
         return {
           id: columnId,
@@ -823,8 +906,184 @@ function ReactDataGrid(props: TypeDataGridProps) {
           maxWidth: column.maxWidth,
         };
       }),
-    [autoWidths, orderedColumns],
+    [columnWidths, orderedColumns],
   );
+
+  const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(null);
+  const [resizingColumnId, setResizingColumnId] = React.useState<string | null>(null);
+  const resizeSessionRef = React.useRef<{
+    columnId: string;
+    startX: number;
+    startWidth: number;
+    columnLeft: number;
+    minWidth: number;
+    maxWidth: number;
+  } | null>(null);
+  const resizeCleanupRef = React.useRef<(() => void) | null>(null);
+
+  const captureRenderedColumnWidths = React.useCallback(() => {
+    const headerCells = Array.from(headerScrollRef.current?.querySelectorAll<HTMLElement>(".tdg-header-cell") ?? []);
+    if (headerCells.length === 0) return null;
+
+    const next: Record<string, number> = {};
+
+    for (const [index, column] of orderedColumns.entries()) {
+      const headerCell = headerCells[index];
+      if (!headerCell) continue;
+
+      const columnId = getColumnId(column);
+      const { minWidth, maxWidth } = getColumnWidthBounds(column);
+      next[columnId] = clamp(Math.round(headerCell.getBoundingClientRect().width), minWidth, maxWidth);
+    }
+
+    return Object.keys(next).length > 0 ? next : null;
+  }, [orderedColumns]);
+
+  const seedManualColumnWidthsFromDom = React.useCallback(() => {
+    if (hasManualColumnWidths) return null;
+
+    const measuredWidths = captureRenderedColumnWidths();
+    if (!measuredWidths) return null;
+
+    setManualColumnWidths((current) => {
+      if (Object.keys(current).length > 0) {
+        return current;
+      }
+
+      return measuredWidths;
+    });
+
+    return measuredWidths;
+  }, [captureRenderedColumnWidths, hasManualColumnWidths]);
+
+  const setManualColumnWidth = React.useCallback((columnId: string, nextWidth: number) => {
+    setManualColumnWidths((current) => {
+      if (current[columnId] === nextWidth) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [columnId]: nextWidth,
+      };
+    });
+  }, []);
+
+  const autosizeColumn = React.useCallback(
+    (columnId: string) => {
+      const column = orderedColumns.find((candidate) => getColumnId(candidate) === columnId);
+      if (!column) return;
+
+      const seededWidths = seedManualColumnWidthsFromDom();
+
+      const nextWidth = estimateColumnContentWidth({
+        column,
+        rows: autosizeSample,
+        skipHeaderOnAutoSize,
+      });
+
+      setManualColumnWidths((current) => {
+        const base = Object.keys(current).length > 0 ? current : seededWidths ?? current;
+
+        if (base[columnId] === nextWidth) {
+          return base;
+        }
+
+        return {
+          ...base,
+          [columnId]: nextWidth,
+        };
+      });
+    },
+    [autosizeSample, orderedColumns, seedManualColumnWidthsFromDom, skipHeaderOnAutoSize],
+  );
+
+  const stopColumnResize = React.useCallback(() => {
+    resizeCleanupRef.current?.();
+    resizeCleanupRef.current = null;
+    resizeSessionRef.current = null;
+    setResizeProxyLeft(null);
+    setResizingColumnId(null);
+  }, []);
+
+  const startColumnResize = React.useCallback(
+    (event: React.MouseEvent<HTMLElement>, columnId: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const column = orderedColumns.find((candidate) => getColumnId(candidate) === columnId);
+      const surfaceElement = surfaceRef.current;
+      const headerCell = event.currentTarget.closest("th");
+
+      if (!column || !surfaceElement || !(headerCell instanceof HTMLTableCellElement)) {
+        return;
+      }
+
+      const surfaceRect = surfaceElement.getBoundingClientRect();
+      const headerRect = headerCell.getBoundingClientRect();
+      const seededWidths = seedManualColumnWidthsFromDom();
+      const startWidth = seededWidths?.[columnId] ?? Math.round(headerRect.width);
+      const { minWidth, maxWidth } = getColumnWidthBounds(column);
+      const columnLeft = headerRect.left - surfaceRect.left;
+      const previousDraggable = headerCell.draggable;
+
+      headerCell.draggable = false;
+
+      resizeSessionRef.current = {
+        columnId,
+        startX: event.clientX,
+        startWidth,
+        columnLeft,
+        minWidth,
+        maxWidth,
+      };
+
+      resizeCleanupRef.current?.();
+
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (!activeSession) return;
+
+        const nextWidth = clamp(
+          activeSession.startWidth + (moveEvent.clientX - activeSession.startX),
+          activeSession.minWidth,
+          activeSession.maxWidth,
+        );
+
+        setManualColumnWidth(activeSession.columnId, nextWidth);
+        setResizeProxyLeft(activeSession.columnLeft + nextWidth);
+      };
+
+      const handleMouseUp = () => {
+        stopColumnResize();
+      };
+
+      resizeCleanupRef.current = () => {
+        headerCell.draggable = previousDraggable;
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      setResizingColumnId(columnId);
+      setResizeProxyLeft(columnLeft + startWidth);
+    },
+    [orderedColumns, seedManualColumnWidthsFromDom, setManualColumnWidth, stopColumnResize],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+    };
+  }, []);
 
   /** ---------------- header drag/drop reorder ---------------- */
 
@@ -887,6 +1146,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       )}
       data-theme={themeName}
       data-theme-base={themeBase}
+      data-column-resizing={resizingColumnId ? "true" : "false"}
+      data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
     >
       <DatagridThemeProvider
         theme={themeName}
@@ -894,7 +1155,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
         portalContainer={portalContainer}
       >
         <div className="tdg-frame overflow-hidden rounded-lg" data-slot="grid-frame">
-          <div className="tdg-surface bg-[var(--tdg-grid-bg)] text-foreground" data-slot="grid-surface" style={style}>
+          <div
+            ref={surfaceRef}
+            className="tdg-surface relative bg-[var(--tdg-grid-bg)] text-foreground"
+            data-slot="grid-surface"
+            style={style}
+          >
+            {resizeProxyLeft != null ? (
+              <div
+                className="InovuaReactDataGrid__resize-proxy"
+                aria-hidden="true"
+                style={{ left: `${resizeProxyLeft}px` }}
+              />
+            ) : null}
             <div
               ref={headerScrollRef}
               className="tdg-header-viewport overflow-hidden"
@@ -920,7 +1193,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                   headerGroups={table.getHeaderGroups()}
                   headerHeight={headerHeight}
                   filterRowHeight={filterRowHeight}
-                  autoWidths={autoWidths}
+                  columnWidths={columnWidths}
                   sortInfo={sortInfo}
                   setSortInfo={setSortInfo}
                   setSkip={setSkip}
@@ -931,11 +1204,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
                   showVerticalCellBorders={showVerticalCellBorders}
                   i18n={i18n}
                   allowColumnReorder={allowColumnReorder}
+                  allowColumnResize={resizable}
                   checkboxEnabled={checkboxEnabled}
                   checkboxColId={checkboxColId}
                   onHeaderDragStart={onHeaderDragStart}
                   onHeaderDragOver={onHeaderDragOver}
                   onHeaderDrop={onHeaderDrop}
+                  resizingColumnId={resizingColumnId}
+                  onColumnResizeStart={startColumnResize}
+                  onColumnAutoResize={autosizeColumn}
                   enableFiltering={enableFiltering}
                   enableColumnFilterContextMenu={enableColumnFilterContextMenu}
                   filterControlled={filterControlled}
@@ -977,7 +1254,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 <GridBody
                   rowModel={rowModel}
                   orderedColumns={orderedColumns}
-                  autoWidths={autoWidths}
+                  columnWidths={columnWidths}
                   userSelectClass={userSelectClass}
                   showHorizontalCellBorders={showHorizontalCellBorders}
                   showVerticalCellBorders={showVerticalCellBorders}

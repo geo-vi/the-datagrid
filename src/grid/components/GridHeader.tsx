@@ -12,7 +12,7 @@ export type GridHeaderProps = {
 
   headerHeight: number;
   filterRowHeight: number;
-  autoWidths: Record<string, number>;
+  columnWidths: Record<string, number>;
 
   // sorting
   sortInfo: TypeSortInfo;
@@ -28,11 +28,15 @@ export type GridHeaderProps = {
 
   // DnD reorder
   allowColumnReorder: boolean;
+  allowColumnResize: boolean;
   checkboxEnabled: boolean;
   checkboxColId: string;
   onHeaderDragStart: (e: React.DragEvent, columnId: string) => void;
   onHeaderDragOver: (e: React.DragEvent) => void;
   onHeaderDrop: (e: React.DragEvent, targetId: string) => void;
+  resizingColumnId: string | null;
+  onColumnResizeStart: (event: React.MouseEvent<HTMLElement>, columnId: string) => void;
+  onColumnAutoResize: (columnId: string) => void;
 
   // filtering
   enableFiltering: boolean;
@@ -53,7 +57,7 @@ export function GridHeader(props: GridHeaderProps) {
     headerGroups,
     headerHeight,
     filterRowHeight,
-    autoWidths,
+    columnWidths,
     sortInfo,
     setSortInfo,
     setSkip,
@@ -64,11 +68,15 @@ export function GridHeader(props: GridHeaderProps) {
     showVerticalCellBorders,
     i18n,
     allowColumnReorder,
+    allowColumnResize,
     checkboxEnabled,
     checkboxColId,
     onHeaderDragStart,
     onHeaderDragOver,
     onHeaderDrop,
+    resizingColumnId,
+    onColumnResizeStart,
+    onColumnAutoResize,
     enableFiltering,
     enableColumnFilterContextMenu,
     filterControlled,
@@ -95,12 +103,13 @@ export function GridHeader(props: GridHeaderProps) {
             const col: TypeColumn | undefined = colDef?.meta?.__column;
             const colId = h.column.id;
 
-            const width = autoWidths[colId];
+            const width = columnWidths[colId];
 
             const canDrag =
               allowColumnReorder &&
               (!checkboxEnabled || colId !== checkboxColId) &&
               (col?.draggable ?? true);
+            const canResize = allowColumnResize && (!checkboxEnabled || colId !== checkboxColId) && (col?.resizable ?? true);
 
             return (
               <HeaderCell
@@ -123,6 +132,10 @@ export function GridHeader(props: GridHeaderProps) {
                 onDragStart={onHeaderDragStart}
                 onDragOver={onHeaderDragOver}
                 onDrop={onHeaderDrop}
+                canResize={canResize}
+                isResizing={resizingColumnId === colId}
+                onResizeStart={onColumnResizeStart}
+                onAutoResize={onColumnAutoResize}
               />
             );
           })}
@@ -142,7 +155,7 @@ export function GridHeader(props: GridHeaderProps) {
               const col: TypeColumn | undefined = colDef?.meta?.__column;
               const colId = h.column.id;
 
-              const width = autoWidths[colId];
+              const width = columnWidths[colId];
 
               return (
                 <FilterCell

@@ -137,7 +137,7 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   await sortableHeaderCell.click({
     position: {
-      x: Math.max(12, (sortableHeaderBox?.width ?? 24) - 12),
+      x: Math.max(12, (sortableHeaderBox?.width ?? 24) / 2),
       y: (sortableHeaderBox?.height ?? 24) / 2,
     },
   });
@@ -361,6 +361,167 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
 });
 
+test("resizes columns and double-click autosizes them again", async ({ page }) => {
+  await page.goto("/");
+
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  const resizers = grid.locator('[data-slot="column-resizer"]');
+  const nameHeader = grid.locator(".tdg-header-cell").nth(1);
+  const nameResizer = nameHeader.locator('[data-slot="column-resizer"]').first();
+
+  await expect(resizers).toHaveCount(4);
+  await expect(nameResizer).toBeVisible();
+
+  const distinctHandlePositions = await grid.evaluate((gridElement) => {
+    const positions = Array.from(gridElement.querySelectorAll<HTMLElement>('[data-slot="column-resizer"]'))
+      .map((element) => Math.round(element.getBoundingClientRect().left))
+      .filter((left) => Number.isFinite(left));
+
+    return Array.from(new Set(positions)).length;
+  });
+
+  expect(distinctHandlePositions).toBe(4);
+
+  const handleAlignment = await nameHeader.evaluate((element) => {
+    const handle = element.querySelector<HTMLElement>('[data-slot="column-resizer"]');
+    if (!handle) return null;
+
+    const headerRect = element.getBoundingClientRect();
+    const handleRect = handle.getBoundingClientRect();
+
+    return Math.round((handleRect.left + handleRect.width / 2) - headerRect.right);
+  });
+
+  expect(handleAlignment).not.toBeNull();
+  expect(Math.abs(handleAlignment ?? 0)).toBeLessThanOrEqual(1);
+
+  const getWidths = async () => {
+    return grid.evaluate((gridElement) => {
+      const headers = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell"));
+      const header = headers[1];
+      const firstHeader = headers[0];
+      const thirdHeader = headers[2];
+      const firstRow = gridElement.querySelector<HTMLElement>(".tdg-row");
+      const bodyCell = firstRow?.querySelectorAll<HTMLElement>(".InovuaReactDataGrid__cell")[1];
+
+      return {
+        firstHeaderWidth: firstHeader ? Math.round(firstHeader.getBoundingClientRect().width) : null,
+        headerWidth: header ? Math.round(header.getBoundingClientRect().width) : null,
+        bodyWidth: bodyCell ? Math.round(bodyCell.getBoundingClientRect().width) : null,
+        thirdHeaderWidth: thirdHeader ? Math.round(thirdHeader.getBoundingClientRect().width) : null,
+      };
+    });
+  };
+
+  const initialWidths = await getWidths();
+  expect(initialWidths.headerWidth).not.toBeNull();
+  expect(initialWidths.bodyWidth).toBe(initialWidths.headerWidth);
+  expect(initialWidths.headerWidth ?? 0).toBeGreaterThan(200);
+
+  const getResizerOpacity = async () => {
+    return nameResizer.evaluate((element) => getComputedStyle(element, "::before").opacity);
+  };
+
+  await expect.poll(getResizerOpacity).toBe("0");
+
+  const resizerBox = await nameResizer.boundingBox();
+  expect(resizerBox).not.toBeNull();
+
+  const resizePointer = {
+    startX: (resizerBox?.x ?? 0) + (resizerBox?.width ?? 0) / 2,
+    endX: (resizerBox?.x ?? 0) + (resizerBox?.width ?? 0) / 2 + 80,
+    y: (resizerBox?.y ?? 0) + (resizerBox?.height ?? 0) / 2,
+  };
+
+  await nameResizer.evaluate(
+    (element, pointer) => {
+      element.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: pointer.startX,
+          clientY: pointer.y,
+          buttons: 1,
+        }),
+      );
+    },
+    resizePointer,
+  );
+
+  await expect.poll(getResizerOpacity).toBe("1");
+
+  await nameResizer.evaluate(
+    (_, pointer) => {
+      window.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          cancelable: true,
+          clientX: pointer.endX,
+          clientY: pointer.y,
+          buttons: 1,
+        }),
+      );
+
+      window.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          cancelable: true,
+          clientX: pointer.endX,
+          clientY: pointer.y,
+        }),
+      );
+    },
+    resizePointer,
+  );
+
+  await expect.poll(getResizerOpacity).toBe("0");
+
+  await expect.poll(getWidths).toMatchObject({
+    firstHeaderWidth: expect.any(Number),
+    headerWidth: expect.any(Number),
+    bodyWidth: expect.any(Number),
+    thirdHeaderWidth: expect.any(Number),
+  });
+
+  const widenedWidths = await getWidths();
+  expect((widenedWidths.headerWidth ?? 0) - (initialWidths.headerWidth ?? 0)).toBeGreaterThan(50);
+  expect(widenedWidths.bodyWidth).toBe(widenedWidths.headerWidth);
+  expect(Math.abs((widenedWidths.firstHeaderWidth ?? 0) - (initialWidths.firstHeaderWidth ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((widenedWidths.thirdHeaderWidth ?? 0) - (initialWidths.thirdHeaderWidth ?? 0))).toBeLessThanOrEqual(1);
+
+  await nameResizer.evaluate((element) => {
+    element.dispatchEvent(
+      new MouseEvent("dblclick", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+
+  await expect.poll(async () => {
+    const widths = await getWidths();
+    return {
+      firstHeaderWidth: widths.firstHeaderWidth,
+      headerWidth: widths.headerWidth,
+      bodyWidth: widths.bodyWidth,
+      thirdHeaderWidth: widths.thirdHeaderWidth,
+      isAutosized:
+        (widths.headerWidth ?? 0) < (initialWidths.headerWidth ?? 0) &&
+        (widths.headerWidth ?? 0) < (widenedWidths.headerWidth ?? 0),
+    };
+  }).toMatchObject({
+    firstHeaderWidth: initialWidths.firstHeaderWidth,
+    bodyWidth: expect.any(Number),
+    thirdHeaderWidth: initialWidths.thirdHeaderWidth,
+    isAutosized: true,
+  });
+
+  const autosizedWidths = await getWidths();
+  expect(autosizedWidths.bodyWidth).toBe(autosizedWidths.headerWidth);
+  expect((autosizedWidths.headerWidth ?? 0)).toBeLessThan(initialWidths.headerWidth ?? 0);
+  expect((autosizedWidths.headerWidth ?? 0)).toBeLessThan(widenedWidths.headerWidth ?? 0);
+});
+
 test("shows and hides columns when the grid receives a filtered columns array", async ({ page }) => {
   await page.goto("/");
 
@@ -568,6 +729,7 @@ test("keeps custom theme combobox structure aligned with the default shell", asy
   const getSelectShellChrome = async () => {
     return page.locator(".tdg-select-trigger.inovua-react-toolkit-combo-box").first().evaluate((element) => {
       const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
       const value = element.querySelector(".tdg-select-value");
       const displayValue = element.querySelector(".inovua-react-toolkit-combo-box__value__display-value");
       const tools = element.querySelector(".tdg-select-tools");
@@ -575,6 +737,7 @@ test("keeps custom theme combobox structure aligned with the default shell", asy
       const iconBefore = icon ? getComputedStyle(icon, "::before") : null;
 
       return {
+        width: rect.width,
         height: style.height,
         paddingTop: style.paddingTop,
         paddingRight: style.paddingRight,
@@ -643,6 +806,7 @@ test("keeps custom theme combobox structure aligned with the default shell", asy
   const ikarusDarkList = await getSelectListChrome();
 
   for (const shell of [hfDarkShell, ikarusDarkShell]) {
+    expect(Math.abs(shell.width - defaultShell.width)).toBeLessThanOrEqual(4);
     expect(shell.height).toBe(defaultShell.height);
     expect(shell.paddingTop).toBe(defaultShell.paddingTop);
     expect(shell.paddingRight).toBe(defaultShell.paddingRight);
@@ -666,9 +830,13 @@ test("keeps custom theme combobox structure aligned with the default shell", asy
     expect(listChrome.content.borderTopWidth).toBe(defaultList.content.borderTopWidth);
     expect(listChrome.content.boxShadow).toBe(defaultList.content.boxShadow);
     expect(listChrome.content.position).toBe("relative");
-    expect(listChrome.content.width).toBeGreaterThan(200);
+    expect(listChrome.content.width).toBeGreaterThan(0);
     expect(listChrome.item).toEqual(defaultList.item);
   }
+
+  expect(Math.abs(defaultList.content.width - defaultShell.width)).toBeLessThanOrEqual(12);
+  expect(Math.abs(hfDarkList.content.width - hfDarkShell.width)).toBeLessThanOrEqual(12);
+  expect(Math.abs(ikarusDarkList.content.width - ikarusDarkShell.width)).toBeLessThanOrEqual(12);
 });
 
 test("keeps custom theme select focus chrome on the grid-owned border", async ({ page }) => {

@@ -99,6 +99,10 @@ export type HeaderCellProps = {
   onDragStart: (e: React.DragEvent, columnId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, targetId: string) => void;
+  canResize: boolean;
+  isResizing: boolean;
+  onResizeStart: (event: React.MouseEvent<HTMLElement>, columnId: string) => void;
+  onAutoResize: (columnId: string) => void;
 };
 
 export function HeaderCell(props: HeaderCellProps) {
@@ -121,6 +125,10 @@ export function HeaderCell(props: HeaderCellProps) {
     onDragStart,
     onDragOver,
     onDrop,
+    canResize,
+    isResizing,
+    onResizeStart,
+    onAutoResize,
   } = props;
 
   const canSort = (col?.sortable ?? true) && header.column.getCanSort();
@@ -175,7 +183,14 @@ export function HeaderCell(props: HeaderCellProps) {
         ...col?.headerProps?.style,
       }}
       draggable={Boolean(canDrag)}
-      onDragStart={(e) => canDrag && onDragStart(e, colId)}
+      onDragStart={(e) => {
+        if ((e.target as HTMLElement | null)?.closest('[data-slot="column-resizer"]')) {
+          e.preventDefault();
+          return;
+        }
+
+        canDrag && onDragStart(e, colId);
+      }}
       onDragOver={(e) => canDrag && onDragOver(e)}
       onDrop={(e) => canDrag && onDrop(e, colId)}
       tabIndex={canSort ? 0 : undefined}
@@ -194,63 +209,90 @@ export function HeaderCell(props: HeaderCellProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="InovuaReactDataGrid__column-header__content flex h-full items-center justify-between gap-2">
-        {header.isPlaceholder ? null : canSort ? (
-          <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between px-2">
-            <span className="truncate text-inherit">
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </span>
-            {sortIcon(dir)}
-          </div>
-        ) : (
-          <div className="flex min-w-0 flex-1 items-center px-2">
-            <span className="truncate">{flexRender(header.column.columnDef.header, header.getContext())}</span>
-          </div>
-        )}
+      <div className="tdg-header-cell__inner relative flex h-full items-stretch">
+        <div className="InovuaReactDataGrid__column-header__content flex h-full items-center justify-between gap-2">
+          {header.isPlaceholder ? null : canSort ? (
+            <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between px-2">
+              <span className="truncate text-inherit">
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </span>
+              {sortIcon(dir)}
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center px-2">
+              <span className="truncate">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+            </div>
+          )}
 
-        {showColumnMenuTool && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                aria-label="Column menu"
-              >
-                <IconDotsVertical className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onSelect={() => {
-                  setSkip(0);
-                  setSortInfo({ name: sortName, dir: 1 });
-                }}
-              >
-                {t(i18n, "sortAsc", "Sort A→Z")}
-              </DropdownMenuItem>
+          {showColumnMenuTool && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                  aria-label="Column menu"
+                >
+                  <IconDotsVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setSkip(0);
+                    setSortInfo({ name: sortName, dir: 1 });
+                  }}
+                >
+                  {t(i18n, "sortAsc", "Sort A→Z")}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onSelect={() => {
-                  setSkip(0);
-                  setSortInfo({ name: sortName, dir: -1 });
-                }}
-              >
-                {t(i18n, "sortDesc", "Sort Z→A")}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setSkip(0);
+                    setSortInfo({ name: sortName, dir: -1 });
+                  }}
+                >
+                  {t(i18n, "sortDesc", "Sort Z→A")}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onSelect={() => {
-                  setSkip(0);
-                  setSortInfo(null);
-                }}
-              >
-                {t(i18n, "unsort", "Unsort")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setSkip(0);
+                    setSortInfo(null);
+                  }}
+                >
+                  {t(i18n, "unsort", "Unsort")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+        {canResize ? (
+          <button
+            type="button"
+            aria-label={`Resize ${typeof header.column.columnDef.header === "string" ? header.column.columnDef.header : colId}`}
+            data-slot="column-resizer"
+            data-resizing={isResizing ? "true" : "false"}
+            className="tdg-column-resizer InovuaReactDataGrid__column-header__resize-handle"
+            draggable={false}
+            tabIndex={-1}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onDragStart={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onMouseDown={(event) => onResizeStart(event, colId)}
+            onDoubleClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onAutoResize(colId);
+            }}
+          />
+        ) : null}
       </div>
     </TableHead>
   );

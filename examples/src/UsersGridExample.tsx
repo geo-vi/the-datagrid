@@ -50,6 +50,7 @@ type ExampleUser = {
 type UsersGridExampleProps = {
   theme: string;
   i18n: TypeI18n;
+  resizable: boolean;
 };
 
 type UsersToolbarProps = {
@@ -256,7 +257,7 @@ function UsersToolbar({
   );
 }
 
-export default function UsersGridExample({ theme, i18n }: UsersGridExampleProps) {
+export default function UsersGridExample({ theme, i18n, resizable }: UsersGridExampleProps) {
   const rows = useMemo(() => createUsers(), []);
 
   const defaultFilterValue = useMemo<TypeFilterValue>(
@@ -541,6 +542,7 @@ export default function UsersGridExample({ theme, i18n }: UsersGridExampleProps)
         enableColumnFilterContextMenu
         enableColumnAutosize
         skipHeaderOnAutoSize={false}
+        resizable={resizable}
         enableFiltering={filtersActive}
         defaultFilterValue={defaultFilterValue}
         filteredRowsCount={setFilteredRows}

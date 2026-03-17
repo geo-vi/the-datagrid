@@ -123,6 +123,7 @@ export interface IColumn {
   defaultHidden?: boolean;
   hideable?: boolean;
   draggable?: boolean;
+  resizable?: boolean;
 
   sortable?: boolean;
   sortName?: string;
@@ -251,6 +252,7 @@ export type TypeDataGridProps = {
    * We support it explicitly now.
    */
   reorderColumns?: boolean;
+  resizable?: boolean;
 
   enableColumnFilterContextMenu?: boolean;
 

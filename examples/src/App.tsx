@@ -18,6 +18,7 @@ type GridTheme = (typeof gridThemes)[number]["value"];
 export default function App() {
   const [gridTheme, setGridTheme] = useState<GridTheme>("default");
   const [showCellBorders, setShowCellBorders] = useState<TypeShowCellBorders>(true);
+  const [resizable, setResizable] = useState(true);
 
   const i18n: TypeI18n = useMemo(
     () => ({
@@ -111,6 +112,15 @@ export default function App() {
           >
             Vertical separators {showCellBorders === true ? "on" : "off"}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setResizable((current) => !current)}
+          >
+            Resizable {resizable ? "on" : "off"}
+          </Button>
         </div>
       </div>
 
@@ -135,6 +145,7 @@ export default function App() {
           enableColumnFilterContextMenu
           enableColumnAutosize
           skipHeaderOnAutoSize={false}
+          resizable={resizable}
           enableFiltering
           defaultFilterValue={null}
           filteredRowsCount={setFilteredCount}
@@ -147,7 +158,7 @@ export default function App() {
         />
       </section>
 
-      <UsersGridExample theme={gridTheme} i18n={i18n} />
+      <UsersGridExample theme={gridTheme} i18n={i18n} resizable={resizable} />
     </div>
   );
 }
