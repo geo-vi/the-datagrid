@@ -1,9 +1,8 @@
 import basicExampleSource from "./BasicGridExample.tsx?raw";
-import issueFiveExampleSource from "./IssueFiveExample.tsx?raw";
 import usersExampleSource from "./UsersGridExample.tsx?raw";
 
 export type ExampleMeta = {
-  to: "/basic" | "/issue-5" | "/users";
+  to: "/basic" | "/users";
   label: string;
   title: string;
   summary: string;
@@ -24,18 +23,6 @@ export const examplePages: ExampleMeta[] = [
     sourcePath: "examples/src/BasicGridExample.tsx",
     sourceCode: basicExampleSource,
     tags: ["Smoke", "Filtering", "Virtualized"],
-  },
-  {
-    to: "/issue-5",
-    label: "Issue #5",
-    title: "Issue #5 reproduction",
-    summary:
-      "A focused regression case for the root element overflowing a fixed-width parent.",
-    details:
-      "The parent shell is intentionally narrower than the configured column widths so the overflow bug can be observed and tested in isolation.",
-    sourcePath: "examples/src/IssueFiveExample.tsx",
-    sourceCode: issueFiveExampleSource,
-    tags: ["Regression", "Layout", "Overflow"],
   },
   {
     to: "/users",

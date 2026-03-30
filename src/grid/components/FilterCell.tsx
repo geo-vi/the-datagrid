@@ -23,7 +23,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { TableHead } from "../../components/ui/table";
 
 import {
@@ -45,6 +51,7 @@ export type FilterCellProps = {
   header: any; // tanstack header
   col?: TypeColumn;
   colId: string;
+  columnIndex: number;
 
   headerHeight: number;
   filterRowHeight: number;
@@ -74,16 +81,24 @@ export type FilterCellProps = {
   setOpenFilterMenuColId: (id: string | null) => void;
 };
 
-function resolveFilterType(col: TypeColumn | undefined, entry?: TypeSingleFilterValue): string {
+function resolveFilterType(
+  col: TypeColumn | undefined,
+  entry?: TypeSingleFilterValue
+): string {
   return (
     entry?.type ??
     col?.filterType ??
-    (typeof (col as any)?.type === "string" ? ((col as any).type as string) : undefined) ??
+    (typeof (col as any)?.type === "string"
+      ? ((col as any).type as string)
+      : undefined) ??
     "string"
   );
 }
 
-function resolveOperator(filterType: string, entry?: TypeSingleFilterValue): string {
+function resolveOperator(
+  filterType: string,
+  entry?: TypeSingleFilterValue
+): string {
   if (entry?.operator) return entry.operator;
 
   if (filterType === "number") return "gte";
@@ -94,9 +109,17 @@ function resolveOperator(filterType: string, entry?: TypeSingleFilterValue): str
 }
 
 function isColumnFilterable(
-  args: Pick<FilterCellProps, "enableFiltering" | "checkboxEnabled" | "checkboxColId" | "filterControlled" | "filterValue" | "draftFilterValue">,
+  args: Pick<
+    FilterCellProps,
+    | "enableFiltering"
+    | "checkboxEnabled"
+    | "checkboxColId"
+    | "filterControlled"
+    | "filterValue"
+    | "draftFilterValue"
+  >,
   col: TypeColumn | undefined,
-  colId: string,
+  colId: string
 ): boolean {
   if (!args.enableFiltering) return false;
   if (args.checkboxEnabled && colId === args.checkboxColId) return false;
@@ -104,7 +127,9 @@ function isColumnFilterable(
   if (col?.filterable === false) return false;
   if (col?.filterable === true) return true;
 
-  const current = args.filterControlled ? args.filterValue : args.draftFilterValue;
+  const current = args.filterControlled
+    ? args.filterValue
+    : args.draftFilterValue;
   const hasEntry = Boolean(getFilterEntry(current, colId));
   if (hasEntry) return true;
 
@@ -118,6 +143,7 @@ export function FilterCell(props: FilterCellProps) {
     header,
     col,
     colId,
+    columnIndex,
     filterRowHeight,
     width,
     enableFiltering,
@@ -139,9 +165,16 @@ export function FilterCell(props: FilterCellProps) {
   } = props;
 
   const filterable = isColumnFilterable(
-    { enableFiltering, checkboxEnabled, checkboxColId, filterControlled, filterValue, draftFilterValue },
+    {
+      enableFiltering,
+      checkboxEnabled,
+      checkboxColId,
+      filterControlled,
+      filterValue,
+      draftFilterValue,
+    },
     col,
-    colId,
+    colId
   );
 
   const currentFilter = filterControlled ? filterValue : draftFilterValue;
@@ -150,7 +183,8 @@ export function FilterCell(props: FilterCellProps) {
   const filterTypeName = resolveFilterType(col, entry);
   const operator = resolveOperator(filterTypeName, entry);
 
-  const typeDef = (filterTypes as any)[filterTypeName] ?? (filterTypes as any).string;
+  const typeDef =
+    (filterTypes as any)[filterTypeName] ?? (filterTypes as any).string;
   const operators = Array.isArray(typeDef?.operators) ? typeDef.operators : [];
   const opDef = operators.find((o: any) => o?.name === operator);
 
@@ -159,7 +193,9 @@ export function FilterCell(props: FilterCellProps) {
   const active =
     Boolean(entry) &&
     entry?.active !== false &&
-    (Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor) || !isEmptyLikeUI(entry?.value));
+    (Boolean(opDef?.filterOnEmptyValue) ||
+      Boolean(opDef?.disableFilterEditor) ||
+      !isEmptyLikeUI(entry?.value));
 
   const operatorMenuEnabled = enableColumnFilterContextMenu && filterable;
 
@@ -185,7 +221,10 @@ export function FilterCell(props: FilterCellProps) {
   };
 
   const onSelectOperator = (nextOp: string) => {
-    const next = setFilterOperator(filterValue, colId, nextOp, { filterTypes, type: filterTypeName });
+    const next = setFilterOperator(filterValue, colId, nextOp, {
+      filterTypes,
+      type: filterTypeName,
+    });
     applyFilterNow(next);
   };
 
@@ -202,17 +241,25 @@ export function FilterCell(props: FilterCellProps) {
 
     setSkip(0);
     if (filterControlled) {
-      setFilterValue(upsertFilterEntry(filterValue, nextEntry, { filterTypes }));
+      setFilterValue(
+        upsertFilterEntry(filterValue, nextEntry, { filterTypes })
+      );
     } else {
-      setDraftFilterValue(upsertFilterEntry(draftFilterValue, nextEntry, { filterTypes }));
+      setDraftFilterValue(
+        upsertFilterEntry(draftFilterValue, nextEntry, { filterTypes })
+      );
     }
   };
 
   // Built-in select support (single + multi)
-  const options = Array.isArray((resolvedEditorProps as any)?.options) ? ((resolvedEditorProps as any).options as any[]) : [];
+  const options = Array.isArray((resolvedEditorProps as any)?.options)
+    ? ((resolvedEditorProps as any).options as any[])
+    : [];
 
   const multiple =
-    Boolean((resolvedEditorProps as any)?.multiple) || operator === "inlist" || operator === "notinlist";
+    Boolean((resolvedEditorProps as any)?.multiple) ||
+    operator === "inlist" ||
+    operator === "notinlist";
 
   const value = entry?.value ?? (multiple ? [] : "");
 
@@ -221,11 +268,15 @@ export function FilterCell(props: FilterCellProps) {
       key={`${header.id}-filter`}
       className={cn(
         "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] [color:var(--tdg-filter-color)]",
-        showVerticalCellBorders ? "InovuaReactDataGrid__filter-cell--show-border-right" : "",
+        showVerticalCellBorders
+          ? "InovuaReactDataGrid__filter-cell--show-border-right"
+          : "",
         showHorizontalCellBorders
           ? "InovuaReactDataGrid__filter-cell--show-border-bottom border-b [border-bottom-color:var(--tdg-filter-border-color)]"
           : "",
-        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-filter-border-color)]" : "",
+        showVerticalCellBorders
+          ? "border-r last:border-r-0 [border-right-color:var(--tdg-filter-border-color)]"
+          : ""
       )}
       style={{
         width,
@@ -240,7 +291,10 @@ export function FilterCell(props: FilterCellProps) {
       }}
     >
       {header.isPlaceholder || !filterable ? null : (
-        <div className="tdg-filter-cell__inner flex h-full items-center gap-1">
+        <div
+          className="tdg-filter-cell__inner flex h-full items-center gap-1"
+          style={{ zIndex: columnIndex + 1 }}
+        >
           <div className="InovuaReactDataGrid__column-header__filter min-w-0 flex-1">
             {col?.filterEditor ? (
               React.createElement(col.filterEditor as any, {
@@ -257,7 +311,9 @@ export function FilterCell(props: FilterCellProps) {
                 column: col,
                 columnId: colId,
                 disabled: editorDisabled,
-                ...(isPlainObject(resolvedEditorProps) ? resolvedEditorProps : {}),
+                ...(isPlainObject(resolvedEditorProps)
+                  ? resolvedEditorProps
+                  : {}),
               })
             ) : filterTypeName === "select" && options.length > 0 ? (
               multiple ? (
@@ -294,7 +350,9 @@ export function FilterCell(props: FilterCellProps) {
                       const optLabel = o?.label ?? o?.value ?? String(o);
 
                       const arr = Array.isArray(value) ? value : [];
-                      const checked = arr.some((x) => String(x) === String(optValue));
+                      const checked = arr.some(
+                        (x) => String(x) === String(optValue)
+                      );
 
                       return (
                         <DropdownMenuItem
@@ -302,13 +360,18 @@ export function FilterCell(props: FilterCellProps) {
                           onSelect={(e: Event) => {
                             e.preventDefault();
                             const next = checked
-                              ? arr.filter((x) => String(x) !== String(optValue))
+                              ? arr.filter(
+                                  (x) => String(x) !== String(optValue)
+                                )
                               : [...arr, optValue];
                             setEntryValue(next);
                           }}
                           className="flex items-center gap-2"
                         >
-                          <Checkbox checked={checked} onCheckedChange={() => {}} />
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => {}}
+                          />
                           <span className="truncate">{String(optLabel)}</span>
                         </DropdownMenuItem>
                       );
@@ -317,7 +380,9 @@ export function FilterCell(props: FilterCellProps) {
                 </DropdownMenu>
               ) : (
                 <Select
-                  value={String(value === "" || value == null ? "__all__" : value)}
+                  value={String(
+                    value === "" || value == null ? "__all__" : value
+                  )}
                   onValueChange={(v: string) => {
                     const nextValue = v === "__all__" ? "" : v;
                     setEntryValue(nextValue);
@@ -325,16 +390,23 @@ export function FilterCell(props: FilterCellProps) {
                   disabled={editorDisabled}
                 >
                   <SelectTrigger className="h-8 w-full">
-                    <SelectValue placeholder={String(t(i18n, "clearAll", "All"))} />
+                    <SelectValue
+                      placeholder={String(t(i18n, "clearAll", "All"))}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">{t(i18n, "clearAll", "All")}</SelectItem>
+                    <SelectItem value="__all__">
+                      {t(i18n, "clearAll", "All")}
+                    </SelectItem>
                     {options.map((o: any) => {
                       const optValue = o?.value ?? o;
                       const optLabel = o?.label ?? o?.value ?? String(o);
 
                       return (
-                        <SelectItem key={String(optValue)} value={String(optValue)}>
+                        <SelectItem
+                          key={String(optValue)}
+                          value={String(optValue)}
+                        >
                           {String(optLabel)}
                         </SelectItem>
                       );
@@ -348,7 +420,9 @@ export function FilterCell(props: FilterCellProps) {
                 disabled={editorDisabled}
                 onChange={(e) => setEntryValue(e.target.value)}
                 className="h-8 w-full"
-                placeholder={String(t(i18n, operator, humanizeOperatorName(operator)))}
+                placeholder={String(
+                  t(i18n, operator, humanizeOperatorName(operator))
+                )}
               />
             )}
           </div>
@@ -356,7 +430,9 @@ export function FilterCell(props: FilterCellProps) {
           {operatorMenuEnabled && (
             <FilterOperatorMenu
               open={openFilterMenuColId === colId}
-              onOpenChange={(open) => setOpenFilterMenuColId(open ? colId : null)}
+              onOpenChange={(open) =>
+                setOpenFilterMenuColId(open ? colId : null)
+              }
               active={active}
               operator={operator}
               operators={operators}

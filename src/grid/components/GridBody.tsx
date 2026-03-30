@@ -21,6 +21,7 @@ export type GridBodyProps = {
   virtualItems: any[];
   paddingTop: number;
   paddingBottom: number;
+  stickyHeaderOffset: number;
 
   loading: boolean;
   i18n?: TypeI18n;
@@ -41,6 +42,7 @@ export function GridBody(props: GridBodyProps) {
     virtualItems,
     paddingTop,
     paddingBottom,
+    stickyHeaderOffset,
     loading,
     i18n,
     selectedMap,
@@ -48,7 +50,10 @@ export function GridBody(props: GridBodyProps) {
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
 
-  function getRowThemeClasses(rowIndex: number, rowIsSelected: boolean): string {
+  function getRowThemeClasses(
+    rowIndex: number,
+    rowIsSelected: boolean
+  ): string {
     const odd = rowIndex % 2 === 0;
     return cn(
       "tdg-row InovuaReactDataGrid__row",
@@ -59,11 +64,13 @@ export function GridBody(props: GridBodyProps) {
         ? odd
           ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
           : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-        : "",
+        : ""
     );
   }
 
-  function getRowThemeStyle(rowIsSelected: boolean): React.CSSProperties | undefined {
+  function getRowThemeStyle(
+    rowIsSelected: boolean
+  ): React.CSSProperties | undefined {
     if (!rowIsSelected) return undefined;
 
     return {
@@ -76,12 +83,22 @@ export function GridBody(props: GridBodyProps) {
   if (loading && rowModel.length === 0) {
     return (
       <TableBody>
+        {stickyHeaderOffset > 0 ? (
+          <TableRow aria-hidden="true">
+            <TableCell
+              colSpan={orderedColumns.length}
+              style={{ height: stickyHeaderOffset }}
+            />
+          </TableRow>
+        ) : null}
         <TableRow>
           <TableCell
             colSpan={orderedColumns.length}
             className={cn(
               "h-24 text-center",
-              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+              showHorizontalCellBorders
+                ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                : ""
             )}
           >
             Loading…
@@ -94,12 +111,22 @@ export function GridBody(props: GridBodyProps) {
   if (rowModel.length === 0) {
     return (
       <TableBody>
+        {stickyHeaderOffset > 0 ? (
+          <TableRow aria-hidden="true">
+            <TableCell
+              colSpan={orderedColumns.length}
+              style={{ height: stickyHeaderOffset }}
+            />
+          </TableRow>
+        ) : null}
         <TableRow>
           <TableCell
             colSpan={orderedColumns.length}
             className={cn(
               "h-24 text-center",
-              showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
+              showHorizontalCellBorders
+                ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                : ""
             )}
           >
             {t(i18n, "noRecords", "No records")}
@@ -115,7 +142,10 @@ export function GridBody(props: GridBodyProps) {
         <>
           {paddingTop > 0 && (
             <TableRow>
-              <TableCell colSpan={orderedColumns.length} style={{ height: paddingTop }} />
+              <TableCell
+                colSpan={orderedColumns.length}
+                style={{ height: paddingTop }}
+              />
             </TableRow>
           )}
 
@@ -128,8 +158,10 @@ export function GridBody(props: GridBodyProps) {
                 key={row.id}
                 className={cn(
                   getRowThemeClasses(vi.index, rowIsSelected),
-                  showHorizontalCellBorders ? "InovuaReactDataGrid__row--show-horizontal-borders" : "",
-                  vi.index === 0 ? "InovuaReactDataGrid__row--first" : "",
+                  showHorizontalCellBorders
+                    ? "InovuaReactDataGrid__row--show-horizontal-borders"
+                    : "",
+                  vi.index === 0 ? "InovuaReactDataGrid__row--first" : ""
                 )}
                 data-selected={rowIsSelected ? "true" : "false"}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
@@ -139,11 +171,14 @@ export function GridBody(props: GridBodyProps) {
               >
                 {row.getVisibleCells().map((cell: any, cellIndex: number) => {
                   const colId = cell.column.id;
-                  const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
+                  const col = (cell.column.columnDef as any)?.meta?.__column as
+                    | TypeColumn
+                    | undefined;
 
                   const width = columnWidths[colId];
                   const align = col?.textAlign;
-                  const isLastCell = cellIndex === row.getVisibleCells().length - 1;
+                  const isLastCell =
+                    cellIndex === row.getVisibleCells().length - 1;
 
                   return (
                     <TableCell
@@ -152,27 +187,49 @@ export function GridBody(props: GridBodyProps) {
                         userSelectClass,
                         "InovuaReactDataGrid__cell",
                         "InovuaReactDataGrid__cell--direction-ltr",
-                        showHorizontalCellBorders ? "InovuaReactDataGrid__cell--show-border-bottom" : "",
-                        showVerticalCellBorders ? "InovuaReactDataGrid__cell--show-border-right" : "",
+                        showHorizontalCellBorders
+                          ? "InovuaReactDataGrid__cell--show-border-bottom"
+                          : "",
+                        showVerticalCellBorders
+                          ? "InovuaReactDataGrid__cell--show-border-right"
+                          : "",
                         isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-                        hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
-                        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
-                        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
-                        align === "right" || align === "end" ? "text-right" : "",
-                        col?.className,
+                        hoveredCellId === cell.id
+                          ? "InovuaReactDataGrid__cell--over"
+                          : "",
+                        showHorizontalCellBorders
+                          ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                          : "",
+                        showVerticalCellBorders
+                          ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
+                          : "",
+                        align === "right" || align === "end"
+                          ? "text-right"
+                          : "",
+                        col?.className
                       )}
                       style={{
                         width,
                         minWidth: col?.minWidth,
                         maxWidth: col?.maxWidth,
-                        ...(typeof col?.style === "object" && col?.style ? col.style : {}),
+                        zIndex: cellIndex + 1,
+                        ...(typeof col?.style === "object" && col?.style
+                          ? col.style
+                          : {}),
                       }}
                       onMouseEnter={() => setHoveredCellId(cell.id)}
                       onMouseLeave={() => {
-                        setHoveredCellId((current) => (current === cell.id ? null : current));
+                        setHoveredCellId((current) =>
+                          current === cell.id ? null : current
+                        );
                       }}
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      <div className="tdg-cell-content">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </div>
                     </TableCell>
                   );
                 })}
@@ -182,70 +239,110 @@ export function GridBody(props: GridBodyProps) {
 
           {paddingBottom > 0 && (
             <TableRow>
-              <TableCell colSpan={orderedColumns.length} style={{ height: paddingBottom }} />
+              <TableCell
+                colSpan={orderedColumns.length}
+                style={{ height: paddingBottom }}
+              />
             </TableRow>
           )}
         </>
       ) : (
-        rowModel.map((row) => {
-          const rowIsSelected = Boolean(selectedMap[row.id]);
-
-          return (
-            <TableRow
-              key={row.id}
-              className={cn(
-                getRowThemeClasses(row.index, rowIsSelected),
-                showHorizontalCellBorders ? "InovuaReactDataGrid__row--show-horizontal-borders" : "",
-                row.index === 0 ? "InovuaReactDataGrid__row--first" : "",
-              )}
-              data-selected={rowIsSelected ? "true" : "false"}
-              data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
-              data-slot="grid-row"
-              style={getRowThemeStyle(rowIsSelected)}
-              onClick={(e) => onRowClick?.(row.id, row.original, e)}
-            >
-              {row.getVisibleCells().map((cell: any, cellIndex: number) => {
-                const colId = cell.column.id;
-                const col = (cell.column.columnDef as any)?.meta?.__column as TypeColumn | undefined;
-
-                const width = columnWidths[colId];
-                const align = col?.textAlign;
-                const isLastCell = cellIndex === row.getVisibleCells().length - 1;
-
-                return (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      userSelectClass,
-                      "InovuaReactDataGrid__cell",
-                      "InovuaReactDataGrid__cell--direction-ltr",
-                      showHorizontalCellBorders ? "InovuaReactDataGrid__cell--show-border-bottom" : "",
-                      showVerticalCellBorders ? "InovuaReactDataGrid__cell--show-border-right" : "",
-                      isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-                      hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
-                      showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]" : "",
-                      showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]" : "",
-                      align === "right" || align === "end" ? "text-right" : "",
-                      col?.className,
-                    )}
-                    style={{
-                      width,
-                      minWidth: col?.minWidth,
-                      maxWidth: col?.maxWidth,
-                      ...(typeof col?.style === "object" && col?.style ? col.style : {}),
-                    }}
-                    onMouseEnter={() => setHoveredCellId(cell.id)}
-                    onMouseLeave={() => {
-                      setHoveredCellId((current) => (current === cell.id ? null : current));
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                );
-              })}
+        <>
+          {stickyHeaderOffset > 0 ? (
+            <TableRow aria-hidden="true">
+              <TableCell
+                colSpan={orderedColumns.length}
+                style={{ height: stickyHeaderOffset }}
+              />
             </TableRow>
-          );
-        })
+          ) : null}
+          {rowModel.map((row) => {
+            const rowIsSelected = Boolean(selectedMap[row.id]);
+
+            return (
+              <TableRow
+                key={row.id}
+                className={cn(
+                  getRowThemeClasses(row.index, rowIsSelected),
+                  showHorizontalCellBorders
+                    ? "InovuaReactDataGrid__row--show-horizontal-borders"
+                    : "",
+                  row.index === 0 ? "InovuaReactDataGrid__row--first" : ""
+                )}
+                data-selected={rowIsSelected ? "true" : "false"}
+                data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+                data-slot="grid-row"
+                style={getRowThemeStyle(rowIsSelected)}
+                onClick={(e) => onRowClick?.(row.id, row.original, e)}
+              >
+                {row.getVisibleCells().map((cell: any, cellIndex: number) => {
+                  const colId = cell.column.id;
+                  const col = (cell.column.columnDef as any)?.meta?.__column as
+                    | TypeColumn
+                    | undefined;
+
+                  const width = columnWidths[colId];
+                  const align = col?.textAlign;
+                  const isLastCell =
+                    cellIndex === row.getVisibleCells().length - 1;
+
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        userSelectClass,
+                        "InovuaReactDataGrid__cell",
+                        "InovuaReactDataGrid__cell--direction-ltr",
+                        showHorizontalCellBorders
+                          ? "InovuaReactDataGrid__cell--show-border-bottom"
+                          : "",
+                        showVerticalCellBorders
+                          ? "InovuaReactDataGrid__cell--show-border-right"
+                          : "",
+                        isLastCell ? "InovuaReactDataGrid__cell--last" : "",
+                        hoveredCellId === cell.id
+                          ? "InovuaReactDataGrid__cell--over"
+                          : "",
+                        showHorizontalCellBorders
+                          ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                          : "",
+                        showVerticalCellBorders
+                          ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
+                          : "",
+                        align === "right" || align === "end"
+                          ? "text-right"
+                          : "",
+                        col?.className
+                      )}
+                      style={{
+                        width,
+                        minWidth: col?.minWidth,
+                        maxWidth: col?.maxWidth,
+                        zIndex: cellIndex + 1,
+                        ...(typeof col?.style === "object" && col?.style
+                          ? col.style
+                          : {}),
+                      }}
+                      onMouseEnter={() => setHoveredCellId(cell.id)}
+                      onMouseLeave={() => {
+                        setHoveredCellId((current) =>
+                          current === cell.id ? null : current
+                        );
+                      }}
+                    >
+                      <div className="tdg-cell-content">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </div>
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            );
+          })}
+        </>
       )}
     </TableBody>
   );

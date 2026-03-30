@@ -8,7 +8,6 @@ import App from "./App";
 import BasicGridExample from "./BasicGridExample";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
-import IssueFiveExample from "./IssueFiveExample";
 import UsersGridExample from "./UsersGridExample";
 import { useExamplesUi } from "./App";
 import { getExampleMeta } from "./exampleMeta";
@@ -30,27 +29,6 @@ function BasicExamplePage() {
       tags={example.tags}
     >
       <BasicGridExample />
-    </ExampleDetailPage>
-  );
-}
-
-function IssueFiveExamplePage() {
-  const example = getExampleMeta("/issue-5");
-
-  if (!example) {
-    throw new Error("Missing example metadata for /issue-5");
-  }
-
-  return (
-    <ExampleDetailPage
-      title={example.title}
-      summary={example.summary}
-      details={example.details}
-      sourcePath={example.sourcePath}
-      sourceCode={example.sourceCode}
-      tags={example.tags}
-    >
-      <IssueFiveExample />
     </ExampleDetailPage>
   );
 }
@@ -93,12 +71,6 @@ const basicRoute = createRoute({
   component: BasicExamplePage,
 });
 
-const issueFiveRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "issue-5",
-  component: IssueFiveExamplePage,
-});
-
 const usersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "users",
@@ -108,7 +80,6 @@ const usersRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   overviewRoute,
   basicRoute,
-  issueFiveRoute,
   usersRoute,
 ]);
 

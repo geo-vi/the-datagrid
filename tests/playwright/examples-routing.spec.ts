@@ -29,17 +29,6 @@ test("navigates between the dedicated example pages", async ({ page }) => {
     page.getByText("examples/src/BasicGridExample.tsx")
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Issue #5" }).click();
-  await expect(page).toHaveURL(/\/issue-5$/);
-  await expect(
-    page
-      .getByTestId("example-preview-panel")
-      .getByRole("heading", { name: "Issue #5 reproduction" })
-  ).toBeVisible();
-  await expect(
-    page.getByText("examples/src/IssueFiveExample.tsx")
-  ).toBeVisible();
-
   await page.getByRole("link", { name: "Users" }).click();
   await expect(page).toHaveURL(/\/users$/);
   await expect(

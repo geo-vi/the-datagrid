@@ -60,9 +60,17 @@ function applySort(
     defaultSortDir: 1 | -1;
     setSkip: (n: number) => void;
     setSortInfo: (s: TypeSortInfo) => void;
-  },
+  }
 ) {
-  const { sortInfo, col, colId, allowUnsort, defaultSortDir, setSkip, setSortInfo } = options;
+  const {
+    sortInfo,
+    col,
+    colId,
+    allowUnsort,
+    defaultSortDir,
+    setSkip,
+    setSortInfo,
+  } = options;
 
   const next = toggleSortInfo({
     sortInfo,
@@ -80,6 +88,7 @@ export type HeaderCellProps = {
   header: any; // tanstack header
   col?: TypeColumn;
   colId: string;
+  columnIndex: number;
 
   headerHeight: number;
   width?: number;
@@ -101,7 +110,10 @@ export type HeaderCellProps = {
   onDrop: (e: React.DragEvent, targetId: string) => void;
   canResize: boolean;
   isResizing: boolean;
-  onResizeStart: (event: React.MouseEvent<HTMLElement>, columnId: string) => void;
+  onResizeStart: (
+    event: React.MouseEvent<HTMLElement>,
+    columnId: string
+  ) => void;
   onAutoResize: (columnId: string) => void;
 };
 
@@ -110,6 +122,7 @@ export function HeaderCell(props: HeaderCellProps) {
     header,
     col,
     colId,
+    columnIndex,
     headerHeight,
     width,
     sortInfo,
@@ -156,7 +169,7 @@ export function HeaderCell(props: HeaderCellProps) {
         setSortInfo,
       });
     },
-    [allowUnsort, col, colId, defaultSortDir, setSkip, setSortInfo, sortInfo],
+    [allowUnsort, col, colId, defaultSortDir, setSkip, setSortInfo, sortInfo]
   );
 
   return (
@@ -167,13 +180,21 @@ export function HeaderCell(props: HeaderCellProps) {
         "tdg-header-cell InovuaReactDataGrid__column-header bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         "InovuaReactDataGrid__column-header--direction-ltr",
         headerAlignClass,
-        canSort ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50" : "",
+        canSort
+          ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+          : "",
         hovered ? "InovuaReactDataGrid__column-header--over" : "",
-        showVerticalCellBorders ? "InovuaReactDataGrid__column-header--show-border-right" : "",
-        showHorizontalCellBorders ? "border-b [border-bottom-color:var(--tdg-header-border-color)]" : "",
-        showVerticalCellBorders ? "border-r last:border-r-0 [border-right-color:var(--tdg-header-border-color)]" : "",
+        showVerticalCellBorders
+          ? "InovuaReactDataGrid__column-header--show-border-right"
+          : "",
+        showHorizontalCellBorders
+          ? "border-b [border-bottom-color:var(--tdg-header-border-color)]"
+          : "",
+        showVerticalCellBorders
+          ? "border-r last:border-r-0 [border-right-color:var(--tdg-header-border-color)]"
+          : "",
         headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
-        col?.headerProps?.className,
+        col?.headerProps?.className
       )}
       style={{
         width,
@@ -184,7 +205,11 @@ export function HeaderCell(props: HeaderCellProps) {
       }}
       draggable={Boolean(canDrag)}
       onDragStart={(e) => {
-        if ((e.target as HTMLElement | null)?.closest('[data-slot="column-resizer"]')) {
+        if (
+          (e.target as HTMLElement | null)?.closest(
+            '[data-slot="column-resizer"]'
+          )
+        ) {
           e.preventDefault();
           return;
         }
@@ -197,7 +222,8 @@ export function HeaderCell(props: HeaderCellProps) {
       aria-sort={dir === 1 ? "ascending" : dir === -1 ? "descending" : "none"}
       onClick={(event) => {
         if (!canSort) return;
-        if (isInteractiveClickTarget(event.target as HTMLElement | null)) return;
+        if (isInteractiveClickTarget(event.target as HTMLElement | null))
+          return;
         handleSort(event);
       }}
       onKeyDown={(event) => {
@@ -210,17 +236,28 @@ export function HeaderCell(props: HeaderCellProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <div className="tdg-header-cell__inner relative flex h-full items-stretch">
-        <div className="InovuaReactDataGrid__column-header__content flex h-full items-center justify-between gap-2">
+        <div
+          className="InovuaReactDataGrid__column-header__content flex h-full items-center justify-between gap-2"
+          style={{ zIndex: columnIndex + 1 }}
+        >
           {header.isPlaceholder ? null : canSort ? (
             <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between px-2">
               <span className="truncate text-inherit">
-                {flexRender(header.column.columnDef.header, header.getContext())}
+                {flexRender(
+                  header.column.columnDef.header,
+                  header.getContext()
+                )}
               </span>
               {sortIcon(dir)}
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center px-2">
-              <span className="truncate">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+              <span className="truncate">
+                {flexRender(
+                  header.column.columnDef.header,
+                  header.getContext()
+                )}
+              </span>
             </div>
           )}
 

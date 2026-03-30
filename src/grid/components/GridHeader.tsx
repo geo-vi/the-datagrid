@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import type { TypeColumn, TypeFilterTypes, TypeFilterValue, TypeI18n, TypeSortInfo } from "../../types";
+import type {
+  TypeColumn,
+  TypeFilterTypes,
+  TypeFilterValue,
+  TypeI18n,
+  TypeSortInfo,
+} from "../../types";
 
 import { TableHeader, TableRow } from "../../components/ui/table";
 import { HeaderCell } from "./HeaderCell";
@@ -35,7 +41,10 @@ export type GridHeaderProps = {
   onHeaderDragOver: (e: React.DragEvent) => void;
   onHeaderDrop: (e: React.DragEvent, targetId: string) => void;
   resizingColumnId: string | null;
-  onColumnResizeStart: (event: React.MouseEvent<HTMLElement>, columnId: string) => void;
+  onColumnResizeStart: (
+    event: React.MouseEvent<HTMLElement>,
+    columnId: string
+  ) => void;
   onColumnAutoResize: (columnId: string) => void;
 
   // filtering
@@ -98,7 +107,7 @@ export function GridHeader(props: GridHeaderProps) {
           className="tdg-header-row InovuaReactDataGrid__header-row bg-[var(--tdg-header-bg)]"
           style={{ height: headerHeight }}
         >
-          {hg.headers.map((h: any) => {
+          {hg.headers.map((h: any, columnIndex: number) => {
             const colDef = h.column.columnDef as any;
             const col: TypeColumn | undefined = colDef?.meta?.__column;
             const colId = h.column.id;
@@ -109,7 +118,10 @@ export function GridHeader(props: GridHeaderProps) {
               allowColumnReorder &&
               (!checkboxEnabled || colId !== checkboxColId) &&
               (col?.draggable ?? true);
-            const canResize = allowColumnResize && (!checkboxEnabled || colId !== checkboxColId) && (col?.resizable ?? true);
+            const canResize =
+              allowColumnResize &&
+              (!checkboxEnabled || colId !== checkboxColId) &&
+              (col?.resizable ?? true);
 
             return (
               <HeaderCell
@@ -117,6 +129,7 @@ export function GridHeader(props: GridHeaderProps) {
                 header={h}
                 col={col}
                 colId={colId}
+                columnIndex={columnIndex}
                 width={width}
                 headerHeight={headerHeight}
                 sortInfo={sortInfo}
@@ -150,7 +163,7 @@ export function GridHeader(props: GridHeaderProps) {
             className="tdg-filter-row InovuaReactDataGrid__filter-row bg-[var(--tdg-filter-bg)]"
             style={{ height: filterRowHeight }}
           >
-            {hg.headers.map((h: any) => {
+            {hg.headers.map((h: any, columnIndex: number) => {
               const colDef = h.column.columnDef as any;
               const col: TypeColumn | undefined = colDef?.meta?.__column;
               const colId = h.column.id;
@@ -163,6 +176,7 @@ export function GridHeader(props: GridHeaderProps) {
                   header={h}
                   col={col}
                   colId={colId}
+                  columnIndex={columnIndex}
                   width={width}
                   headerHeight={headerHeight}
                   filterRowHeight={filterRowHeight}

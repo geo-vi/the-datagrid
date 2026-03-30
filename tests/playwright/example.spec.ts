@@ -125,7 +125,7 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     };
   });
 
-  expect(scrollLayout.headerInsideScrollArea).toBe(false);
+  expect(scrollLayout.headerInsideScrollArea).toBe(true);
 
   const scrollAreaStyles = await scrollArea.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -656,6 +656,121 @@ test("resizes columns and double-click autosizes them again", async ({
   );
 });
 
+test("clips long cell content inside a resized column", async ({ page }) => {
+  await page.goto("/basic");
+
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  const nameHeader = grid.locator(".tdg-header-cell").nth(1);
+  const nameResizer = nameHeader
+    .locator('[data-slot="column-resizer"]')
+    .first();
+
+  const initialHeaderWidth = await nameHeader.evaluate((element) =>
+    Math.round(element.getBoundingClientRect().width)
+  );
+
+  const resizerBox = await nameResizer.boundingBox();
+  expect(resizerBox).not.toBeNull();
+
+  const resizePointer = {
+    startX: (resizerBox?.x ?? 0) + (resizerBox?.width ?? 0) / 2,
+    endX: (resizerBox?.x ?? 0) + (resizerBox?.width ?? 0) / 2 - 160,
+    y: (resizerBox?.y ?? 0) + (resizerBox?.height ?? 0) / 2,
+  };
+
+  await nameResizer.evaluate((element, pointer) => {
+    element.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.startX,
+        clientY: pointer.y,
+        buttons: 1,
+      })
+    );
+  }, resizePointer);
+
+  await nameResizer.evaluate((_, pointer) => {
+    window.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.endX,
+        clientY: pointer.y,
+        buttons: 1,
+      })
+    );
+
+    window.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.endX,
+        clientY: pointer.y,
+      })
+    );
+  }, resizePointer);
+
+  const clipping = await grid.evaluate((gridElement) => {
+    const row = gridElement.querySelector<HTMLElement>(".tdg-row");
+    if (!row) return null;
+
+    const headers =
+      gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell");
+    const cells = row.querySelectorAll<HTMLElement>(
+      ".InovuaReactDataGrid__cell"
+    );
+    const nameHeader = headers[1];
+    const cityHeader = headers[2];
+    const nameHeaderContent = nameHeader?.querySelector<HTMLElement>(
+      ".InovuaReactDataGrid__column-header__content"
+    );
+    const cityHeaderContent = cityHeader?.querySelector<HTMLElement>(
+      ".InovuaReactDataGrid__column-header__content"
+    );
+    const nameCell = cells[1];
+    const cityCell = cells[2];
+    const nameContent =
+      nameCell?.querySelector<HTMLElement>(".tdg-cell-content");
+    const nameText = nameContent?.firstElementChild;
+
+    if (
+      !nameHeader ||
+      !cityHeader ||
+      !nameHeaderContent ||
+      !cityHeaderContent ||
+      !nameCell ||
+      !cityCell ||
+      !nameContent
+    ) {
+      return null;
+    }
+
+    return {
+      resizedHeaderWidth: Math.round(nameHeader.getBoundingClientRect().width),
+      contentOverflowHidden: getComputedStyle(nameContent).overflowX,
+      textOverflow: nameText ? getComputedStyle(nameText).textOverflow : null,
+      textWhiteSpace: nameText ? getComputedStyle(nameText).whiteSpace : null,
+      headerZIndex: getComputedStyle(nameHeaderContent).zIndex,
+      nextHeaderZIndex: getComputedStyle(cityHeaderContent).zIndex,
+      cellZIndex: getComputedStyle(nameCell).zIndex,
+      nextCellZIndex: getComputedStyle(cityCell).zIndex,
+    };
+  });
+
+  expect(clipping).not.toBeNull();
+  expect(clipping?.resizedHeaderWidth ?? 0).toBeLessThan(initialHeaderWidth);
+  expect(clipping?.contentOverflowHidden).toBe("hidden");
+  expect(clipping?.textOverflow).toBe("ellipsis");
+  expect(clipping?.textWhiteSpace).toBe("nowrap");
+  expect(Number(clipping?.headerZIndex ?? 0)).toBeLessThan(
+    Number(clipping?.nextHeaderZIndex ?? 0)
+  );
+  expect(Number(clipping?.cellZIndex ?? 0)).toBeLessThan(
+    Number(clipping?.nextCellZIndex ?? 0)
+  );
+});
+
 test("shows and hides columns when the grid receives a filtered columns array", async ({
   page,
 }) => {
@@ -766,6 +881,93 @@ test("keeps body columns aligned after vertical scrolling in a wide virtualized 
       width: header.width,
     });
   });
+});
+
+test("keeps header and body cells horizontally aligned while scrolling", async ({
+  page,
+}) => {
+  await page.goto("/users");
+
+  const usersExample = page.getByTestId("example-preview-panel");
+
+  for (const columnName of [
+    "Failed logins",
+    "Last login",
+    "Password changed",
+    "Language",
+  ]) {
+    await usersExample.getByRole("button", { name: columnName }).click();
+  }
+
+  const usersGrid = usersExample
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first();
+  const viewport = usersGrid
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first();
+
+  const motion = await usersGrid.evaluate(async (gridElement) => {
+    const viewport = gridElement.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    );
+
+    if (!viewport) return null;
+
+    const samples: Array<{
+      bodyScrollLeft: number;
+      cellLeftDelta: number | null;
+    }> = [];
+    const start = performance.now();
+
+    viewport.scrollTo({ left: 220, behavior: "smooth" });
+
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const headerCell = gridElement.querySelector<HTMLElement>(
+          ".tdg-header-cell:nth-child(2)"
+        );
+        const row = Array.from(
+          gridElement.querySelectorAll<HTMLElement>(".tdg-row")
+        ).find(
+          (element) =>
+            element.getBoundingClientRect().top >
+            gridElement.getBoundingClientRect().top + 120
+        );
+        const bodyCell = row?.querySelector<HTMLElement>("td:nth-child(2)");
+
+        samples.push({
+          bodyScrollLeft: viewport.scrollLeft,
+          cellLeftDelta:
+            headerCell && bodyCell
+              ? Math.round(
+                  (headerCell.getBoundingClientRect().left -
+                    bodyCell.getBoundingClientRect().left) *
+                    100
+                ) / 100
+              : null,
+        });
+
+        if (performance.now() - start >= 750) {
+          resolve();
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(tick);
+    });
+
+    return samples.filter((_, index) => index % 4 === 0);
+  });
+
+  await expect(viewport).toBeVisible();
+  expect(motion).not.toBeNull();
+  expect((motion ?? []).some((sample) => sample.bodyScrollLeft > 0)).toBe(true);
+
+  for (const sample of motion ?? []) {
+    expect(Math.abs(sample.cellLeftDelta ?? 0)).toBeLessThanOrEqual(1);
+  }
 });
 
 test("keeps the body viewport height fixed when filtering down to one row", async ({
