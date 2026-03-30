@@ -1,7 +1,10 @@
+import * as React from "react";
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 import CopyableCodeBlock from "./CopyableCodeBlock";
+
+void React;
 
 type ReferenceRow = {
   name: string;

@@ -7,6 +7,7 @@ import type { TypeI18n, TypeShowCellBorders } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
 import { ButtonGroup } from "../../src/components/ui/button-group";
 import { examplePages } from "./exampleMeta";
+import GlobalSearch from "./GlobalSearch";
 
 const gridThemes = [
   { value: "default", label: "Default" },
@@ -71,16 +72,9 @@ function AppHeader(props: {
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-3xl border bg-background/95 p-5 shadow-sm lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <h1 className="m-0 text-xl font-semibold">the-datagrid</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              API docs, live examples, and migration-friendly reference pages
-              for the Inovua-style React data grid.
-            </p>
-          </div>
-
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border bg-background/95 p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="m-0 text-xl font-semibold">the-datagrid</h1>
           <ButtonGroup
             aria-label="Site section buttons"
             className="max-w-full flex-wrap"
@@ -109,6 +103,7 @@ function AppHeader(props: {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <GlobalSearch />
           <Button asChild variant="outline" size="sm">
             <a
               href="https://github.com/geo-vi/the-datagrid"
