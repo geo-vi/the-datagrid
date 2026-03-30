@@ -2,8 +2,12 @@ import basicExampleSource from "./BasicGridExample.tsx?raw";
 import selectionExampleSource from "./SelectionGridExample.tsx?raw";
 import usersExampleSource from "./UsersGridExample.tsx?raw";
 
+export type ExampleId = "basic" | "selection" | "users";
+
 export type ExampleMeta = {
-  to: "/basic" | "/selection" | "/users";
+  id: ExampleId;
+  to: `/examples/${ExampleId}`;
+  legacyTo: `/${ExampleId}`;
   label: string;
   title: string;
   summary: string;
@@ -15,7 +19,9 @@ export type ExampleMeta = {
 
 export const examplePages: ExampleMeta[] = [
   {
-    to: "/basic",
+    id: "basic",
+    to: "/examples/basic",
+    legacyTo: "/basic",
     label: "Basic",
     title: "Basic example",
     summary: "The compact baseline grid used by the visual regression suite.",
@@ -26,7 +32,9 @@ export const examplePages: ExampleMeta[] = [
     tags: ["Smoke", "Filtering", "Virtualized"],
   },
   {
-    to: "/selection",
+    id: "selection",
+    to: "/examples/selection",
+    legacyTo: "/selection",
     label: "Selection",
     title: "Selection example",
     summary:
@@ -38,7 +46,9 @@ export const examplePages: ExampleMeta[] = [
     tags: ["Selection", "Accounts", "Filtering"],
   },
   {
-    to: "/users",
+    id: "users",
+    to: "/examples/users",
+    legacyTo: "/users",
     label: "Users",
     title: "Users-style example",
     summary:
@@ -51,8 +61,6 @@ export const examplePages: ExampleMeta[] = [
   },
 ];
 
-export function getExampleMeta(
-  route: ExampleMeta["to"]
-): ExampleMeta | undefined {
-  return examplePages.find((example) => example.to === route);
+export function getExampleMeta(id: ExampleId): ExampleMeta | undefined {
+  return examplePages.find((example) => example.id === id);
 }

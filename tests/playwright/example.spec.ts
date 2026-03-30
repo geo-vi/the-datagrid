@@ -14,7 +14,7 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   await page.goto("/basic");
 
   await expect(
-    page.getByRole("heading", { name: "the-datagrid demo" })
+    page.getByRole("heading", { name: "the-datagrid" })
   ).toBeVisible();
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();

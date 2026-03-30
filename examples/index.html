@@ -4,7 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>the-datagrid Examples</title>
+    <title>the-datagrid Docs</title>
+
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var redirectedPath = params.get("p");
+
+          if (redirectedPath) {
+            var basePath = window.location.pathname.endsWith("/")
+              ? window.location.pathname.slice(0, -1)
+              : window.location.pathname;
+            var nextUrl = basePath + redirectedPath;
+
+            window.history.replaceState(null, "", nextUrl);
+          }
+        } catch {}
+      })();
+    </script>
 
     <script>
       (function () {

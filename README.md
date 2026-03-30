@@ -2,6 +2,8 @@
 
 A modern, feature-rich React data grid built on **TanStack Table** with a **shadcn-aligned** look-and-feel and **self-contained packaged styles**.
 
+Documentation and live examples: https://geo-vi.github.io/the-datagrid/
+
 ## Features
 
 - Virtualized rendering for large datasets

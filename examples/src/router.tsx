@@ -4,20 +4,23 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 
-import App from "./App";
+import App, { useExamplesUi } from "./App";
 import BasicGridExample from "./BasicGridExample";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
-import { useExamplesUi } from "./App";
+import DocsHomePage from "./docs/DocsHomePage";
+import DocsIndexPage from "./docs/DocsIndexPage";
+import DocsLayout from "./docs/DocsLayout";
+import DocsPageScreen from "./docs/DocsPageScreen";
 import { getExampleMeta } from "./exampleMeta";
 
 function BasicExamplePage() {
-  const example = getExampleMeta("/basic");
+  const example = getExampleMeta("basic");
 
   if (!example) {
-    throw new Error("Missing example metadata for /basic");
+    throw new Error("Missing example metadata for basic");
   }
 
   return (
@@ -34,33 +37,11 @@ function BasicExamplePage() {
   );
 }
 
-function UsersExamplePage() {
-  const { gridTheme, i18n, resizable } = useExamplesUi();
-  const example = getExampleMeta("/users");
-
-  if (!example) {
-    throw new Error("Missing example metadata for /users");
-  }
-
-  return (
-    <ExampleDetailPage
-      title={example.title}
-      summary={example.summary}
-      details={example.details}
-      sourcePath={example.sourcePath}
-      sourceCode={example.sourceCode}
-      tags={example.tags}
-    >
-      <UsersGridExample theme={gridTheme} i18n={i18n} resizable={resizable} />
-    </ExampleDetailPage>
-  );
-}
-
 function SelectionExamplePage() {
-  const example = getExampleMeta("/selection");
+  const example = getExampleMeta("selection");
 
   if (!example) {
-    throw new Error("Missing example metadata for /selection");
+    throw new Error("Missing example metadata for selection");
   }
 
   return (
@@ -77,42 +58,114 @@ function SelectionExamplePage() {
   );
 }
 
+function UsersExamplePage() {
+  const { gridTheme, i18n, resizable } = useExamplesUi();
+  const example = getExampleMeta("users");
+
+  if (!example) {
+    throw new Error("Missing example metadata for users");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <UsersGridExample theme={gridTheme} i18n={i18n} resizable={resizable} />
+    </ExampleDetailPage>
+  );
+}
+
 const rootRoute = createRootRoute({
   component: App,
 });
 
-const overviewRoute = createRoute({
+const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  component: DocsHomePage,
+});
+
+const docsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "docs",
+  component: DocsLayout,
+});
+
+const docsIndexRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/",
+  component: DocsIndexPage,
+});
+
+const docsPageRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "$group/$slug",
+  component: DocsPageScreen,
+});
+
+const examplesOverviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples",
   component: ExamplesOverviewPage,
 });
 
-const basicRoute = createRoute({
+const exampleBasicRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/basic",
+  component: BasicExamplePage,
+});
+
+const exampleSelectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/selection",
+  component: SelectionExamplePage,
+});
+
+const exampleUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/users",
+  component: UsersExamplePage,
+});
+
+const legacyBasicRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "basic",
   component: BasicExamplePage,
 });
 
-const selectionRoute = createRoute({
+const legacySelectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "selection",
   component: SelectionExamplePage,
 });
 
-const usersRoute = createRoute({
+const legacyUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "users",
   component: UsersExamplePage,
 });
 
 const routeTree = rootRoute.addChildren([
-  overviewRoute,
-  basicRoute,
-  selectionRoute,
-  usersRoute,
+  homeRoute,
+  docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
+  examplesOverviewRoute,
+  exampleBasicRoute,
+  exampleSelectionRoute,
+  exampleUsersRoute,
+  legacyBasicRoute,
+  legacySelectionRoute,
+  legacyUsersRoute,
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  basepath: import.meta.env.BASE_URL,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

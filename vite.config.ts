@@ -22,20 +22,31 @@ function injectLibraryCssEntry() {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   const isDev = command === "serve"
+  const isSiteBuild = command === "build" && mode === "site"
   const resolveAlias = {
     "@": path.resolve(__dirname, "./src"),
   }
+  const examplesRoot = path.resolve(__dirname, "./examples")
+  const siteBase = process.env.SITE_BASE ?? "/the-datagrid/"
   
-  // In dev mode, serve the examples app
-  if (isDev) {
+  // In dev mode, serve the examples/docs app.
+  // In site mode, build the same app for GitHub Pages.
+  if (isDev || isSiteBuild) {
     return {
       plugins: [react(), tailwindcss()],
       resolve: {
         alias: resolveAlias,
       },
-      root: path.resolve(__dirname, "./examples"),
+      root: examplesRoot,
+      base: isSiteBuild ? siteBase : "/",
+      build: isSiteBuild
+        ? {
+            outDir: path.resolve(__dirname, "./dist-site"),
+            emptyOutDir: true,
+          }
+        : undefined,
     }
   }
 

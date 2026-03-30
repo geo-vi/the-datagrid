@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "../../src/components/ui/button";
 import { ScrollArea } from "../../src/components/ui/scroll-area";
+import CopyableCodeBlock from "./docs/CopyableCodeBlock";
 
 type ExampleDetailPageProps = {
   title: string;
@@ -17,6 +18,7 @@ type ExampleDetailPageProps = {
 export default function ExampleDetailPage(props: ExampleDetailPageProps) {
   const { children, details, sourceCode, sourcePath, summary, tags, title } =
     props;
+  const sourceLanguage = sourcePath.split(".").pop()?.toLowerCase() || "tsx";
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,7 +50,7 @@ export default function ExampleDetailPage(props: ExampleDetailPageProps) {
           </div>
 
           <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link to="/">Back to overview</Link>
+            <Link to="/examples">Back to examples</Link>
           </Button>
         </div>
       </section>
@@ -83,9 +85,12 @@ export default function ExampleDetailPage(props: ExampleDetailPageProps) {
           </div>
 
           <ScrollArea className="flex-1" viewportClassName="min-h-[720px]">
-            <pre className="min-w-full px-4 py-4 text-xs leading-6 text-foreground">
-              <code>{sourceCode}</code>
-            </pre>
+            <CopyableCodeBlock
+              code={sourceCode}
+              language={sourceLanguage}
+              label={sourceLanguage}
+              className="rounded-none border-0 shadow-none"
+            />
           </ScrollArea>
         </section>
       </div>

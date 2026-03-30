@@ -17,12 +17,9 @@ const gridThemes = [
   { value: "ikarus-light", label: "Ikarus Light" },
 ] as const;
 
-const exampleRoutes = [
-  { to: "/", label: "Overview" },
-  ...examplePages.map((example) => ({
-    to: example.to,
-    label: example.label,
-  })),
+const siteRoutes = [
+  { to: "/", label: "Docs" },
+  { to: "/examples", label: "Examples" },
 ] as const;
 
 export type GridTheme = (typeof gridThemes)[number]["value"];
@@ -67,12 +64,65 @@ function AppHeader(props: {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+  const isExampleDetail = examplePages.some(
+    (route) => route.to === pathname || route.legacyTo === pathname
+  );
+  const isExamplesSection = pathname === "/examples" || isExampleDetail;
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="m-0 text-lg font-semibold">the-datagrid demo</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4 rounded-3xl border bg-background/95 p-5 shadow-sm lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <h1 className="m-0 text-xl font-semibold">the-datagrid</h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              API docs, live examples, and migration-friendly reference pages
+              for the Inovua-style React data grid.
+            </p>
+          </div>
+
+          <ButtonGroup
+            aria-label="Site section buttons"
+            className="max-w-full flex-wrap"
+          >
+            {siteRoutes.map((route) => {
+              const active =
+                route.to === "/"
+                  ? pathname === "/" ||
+                    pathname === "/docs" ||
+                    pathname.startsWith("/docs/")
+                  : isExamplesSection;
+
+              return (
+                <Button
+                  key={route.to}
+                  asChild
+                  variant={active ? "secondary" : "outline"}
+                  size="sm"
+                  className="rounded-none"
+                >
+                  <Link to={route.to}>{route.label}</Link>
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a
+              href="https://github.com/geo-vi/the-datagrid"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      {isExamplesSection && isExampleDetail ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-background/95 p-4 shadow-sm">
           <ButtonGroup
             aria-label="Grid theme buttons"
             className="max-w-full flex-wrap"
@@ -115,38 +165,7 @@ function AppHeader(props: {
             Resizable {resizable ? "on" : "off"}
           </Button>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2 rounded-2xl border bg-background/95 p-4 shadow-sm">
-        <div className="space-y-1">
-          <div className="text-sm font-medium">Example pages</div>
-          <p className="text-sm text-muted-foreground">
-            Use the overview as a catalog, then open a dedicated example page to
-            inspect its live preview next to the source file.
-          </p>
-        </div>
-
-        <ButtonGroup
-          aria-label="Example page buttons"
-          className="max-w-full flex-wrap"
-        >
-          {exampleRoutes.map((route) => {
-            const isActive = pathname === route.to;
-
-            return (
-              <Button
-                key={route.to}
-                asChild
-                variant={isActive ? "secondary" : "outline"}
-                size="sm"
-                className="rounded-none"
-              >
-                <Link to={route.to}>{route.label}</Link>
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-      </div>
+      ) : null}
     </>
   );
 }

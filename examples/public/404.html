@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>the-datagrid Docs</title>
+    <script>
+      (function () {
+        var segments = window.location.pathname.split("/").filter(Boolean);
+        var base = segments.length > 0 ? "/" + segments[0] + "/" : "/";
+        var route = "/" + segments.slice(1).join("/");
+        var query = window.location.search || "";
+        var hash = window.location.hash || "";
+
+        window.location.replace(
+          base + "?p=" + encodeURIComponent(route + query + hash)
+        );
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
