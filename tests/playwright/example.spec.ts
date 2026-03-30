@@ -3,14 +3,19 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
 const INOVUA_INDEX_CSS = readFileSync(
-  resolve(process.cwd(), "node_modules/@inovua/reactdatagrid-community/index.css"),
+  resolve(
+    process.cwd(),
+    "node_modules/@inovua/reactdatagrid-community/index.css"
+  ),
   "utf8"
 );
 
 test("loads the example app and switches the grid theme", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/basic");
 
-  await expect(page.getByRole("heading", { name: "the-datagrid demo" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "the-datagrid demo" })
+  ).toBeVisible();
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   await expect(grid).toHaveAttribute("data-theme", "default");
@@ -24,66 +29,89 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   const getHeaderFilterChrome = async () => {
     return Promise.all([
-      grid.locator(".InovuaReactDataGrid__column-header__content").first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          paddingTop: style.paddingTop,
-          paddingRight: style.paddingRight,
-          paddingBottom: style.paddingBottom,
-          paddingLeft: style.paddingLeft,
-          fontWeight: style.fontWeight,
-          gap: style.gap,
-        };
-      }),
-      grid.locator(".InovuaReactDataGrid__column-header__filter-wrapper").first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          paddingTop: style.paddingTop,
-          paddingRight: style.paddingRight,
-          paddingBottom: style.paddingBottom,
-          paddingLeft: style.paddingLeft,
-          color: style.color,
-        };
-      }),
-      page.getByRole("button", { name: "Filter" }).first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        const icon = element.querySelector(".InovuaReactDataGrid__column-header__filter-settings-icon");
-        return {
-          backgroundColor: style.backgroundColor,
-          borderTopWidth: style.borderTopWidth,
-          borderRightWidth: style.borderRightWidth,
-          borderBottomWidth: style.borderBottomWidth,
-          borderLeftWidth: style.borderLeftWidth,
-          borderTopColor: style.borderTopColor,
-          color: style.color,
-          iconFill: icon ? getComputedStyle(icon).fill : null,
-        };
-      }),
+      grid
+        .locator(".InovuaReactDataGrid__column-header__content")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            paddingTop: style.paddingTop,
+            paddingRight: style.paddingRight,
+            paddingBottom: style.paddingBottom,
+            paddingLeft: style.paddingLeft,
+            fontWeight: style.fontWeight,
+            gap: style.gap,
+          };
+        }),
+      grid
+        .locator(".InovuaReactDataGrid__column-header__filter-wrapper")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            paddingTop: style.paddingTop,
+            paddingRight: style.paddingRight,
+            paddingBottom: style.paddingBottom,
+            paddingLeft: style.paddingLeft,
+            color: style.color,
+          };
+        }),
+      page
+        .getByRole("button", { name: "Filter" })
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          const icon = element.querySelector(
+            ".InovuaReactDataGrid__column-header__filter-settings-icon"
+          );
+          return {
+            backgroundColor: style.backgroundColor,
+            borderTopWidth: style.borderTopWidth,
+            borderRightWidth: style.borderRightWidth,
+            borderBottomWidth: style.borderBottomWidth,
+            borderLeftWidth: style.borderLeftWidth,
+            borderTopColor: style.borderTopColor,
+            color: style.color,
+            iconFill: icon ? getComputedStyle(icon).fill : null,
+          };
+        }),
     ]);
   };
 
-  const [defaultHeaderChrome, defaultFilterChrome, defaultFilterButton] = await getHeaderFilterChrome();
-  const defaultFilterBottomBorder = await grid.locator(".tdg-filter-cell").first().evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      borderBottomWidth: style.borderBottomWidth,
-      borderBottomColor: style.borderBottomColor,
-    };
-  });
+  const [defaultHeaderChrome, defaultFilterChrome, defaultFilterButton] =
+    await getHeaderFilterChrome();
+  const defaultFilterBottomBorder = await grid
+    .locator(".tdg-filter-cell")
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderBottomWidth: style.borderBottomWidth,
+        borderBottomColor: style.borderBottomColor,
+      };
+    });
 
   const scrollArea = grid.locator('[data-slot="scroll-area"]').first();
   await expect(scrollArea).toBeVisible();
 
-  const headerViewport = grid.locator('[data-slot="grid-header-viewport"]').first();
+  const headerViewport = grid
+    .locator('[data-slot="grid-header-viewport"]')
+    .first();
   await expect(headerViewport).toBeVisible();
 
   const headerAndFilterPositioning = await Promise.all([
-    grid.locator(".tdg-header-cell").first().evaluate((element) => {
-      return getComputedStyle(element).position;
-    }),
-    grid.locator(".tdg-filter-cell").first().evaluate((element) => {
-      return getComputedStyle(element).position;
-    }),
+    grid
+      .locator(".tdg-header-cell")
+      .first()
+      .evaluate((element) => {
+        return getComputedStyle(element).position;
+      }),
+    grid
+      .locator(".tdg-filter-cell")
+      .first()
+      .evaluate((element) => {
+        return getComputedStyle(element).position;
+      }),
   ]);
 
   expect(headerAndFilterPositioning).toEqual(["static", "static"]);
@@ -113,8 +141,12 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
       borderRightWidth: style.borderRightWidth,
       borderBottomWidth: style.borderBottomWidth,
       borderLeftWidth: style.borderLeftWidth,
-      horizontalScrollbarDisplay: horizontalScrollbar ? getComputedStyle(horizontalScrollbar).display : null,
-      verticalScrollbarDisplay: verticalScrollbar ? getComputedStyle(verticalScrollbar).display : null,
+      horizontalScrollbarDisplay: horizontalScrollbar
+        ? getComputedStyle(horizontalScrollbar).display
+        : null,
+      verticalScrollbarDisplay: verticalScrollbar
+        ? getComputedStyle(verticalScrollbar).display
+        : null,
     };
   });
 
@@ -127,11 +159,13 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   const sortableHeaderCell = grid.locator(".tdg-header-cell").nth(1);
   await expect(sortableHeaderCell.locator(".tdg-button")).toHaveCount(0);
-  const initialHeaderWidths = await grid.locator(".tdg-header-cell").evaluateAll((elements) => {
-    return elements.map((element) => {
-      return Math.round(element.getBoundingClientRect().width * 100) / 100;
+  const initialHeaderWidths = await grid
+    .locator(".tdg-header-cell")
+    .evaluateAll((elements) => {
+      return elements.map((element) => {
+        return Math.round(element.getBoundingClientRect().width * 100) / 100;
+      });
     });
-  });
   const sortableHeaderBox = await sortableHeaderCell.boundingBox();
   expect(sortableHeaderBox).not.toBeNull();
 
@@ -143,15 +177,19 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   });
 
   await expect(
-    sortableHeaderCell.locator(".InovuaReactDataGrid__sort-icon--asc.InovuaReactDataGrid__sort-icon--active"),
+    sortableHeaderCell.locator(
+      ".InovuaReactDataGrid__sort-icon--asc.InovuaReactDataGrid__sort-icon--active"
+    )
   ).toBeVisible();
-  await expect.poll(async () => {
-    return grid.locator(".tdg-header-cell").evaluateAll((elements) => {
-      return elements.map((element) => {
-        return Math.round(element.getBoundingClientRect().width * 100) / 100;
+  await expect
+    .poll(async () => {
+      return grid.locator(".tdg-header-cell").evaluateAll((elements) => {
+        return elements.map((element) => {
+          return Math.round(element.getBoundingClientRect().width * 100) / 100;
+        });
       });
-    });
-  }).toEqual(initialHeaderWidths);
+    })
+    .toEqual(initialHeaderWidths);
 
   await page.getByRole("button", { name: "HF Dark" }).click();
   await expect(grid).toHaveAttribute("data-theme", "hf-dark");
@@ -162,30 +200,50 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   expect(hfDarkGridRadius).toBe(defaultGridRadius);
 
-  const [hfDarkHeaderChrome, hfDarkFilterChrome, hfDarkFilterButton] = await getHeaderFilterChrome();
+  const [hfDarkHeaderChrome, hfDarkFilterChrome, hfDarkFilterButton] =
+    await getHeaderFilterChrome();
 
   expect(hfDarkHeaderChrome).toEqual(defaultHeaderChrome);
   expect(hfDarkFilterChrome.paddingTop).toBe(defaultFilterChrome.paddingTop);
-  expect(hfDarkFilterChrome.paddingRight).toBe(defaultFilterChrome.paddingRight);
-  expect(hfDarkFilterChrome.paddingBottom).toBe(defaultFilterChrome.paddingBottom);
+  expect(hfDarkFilterChrome.paddingRight).toBe(
+    defaultFilterChrome.paddingRight
+  );
+  expect(hfDarkFilterChrome.paddingBottom).toBe(
+    defaultFilterChrome.paddingBottom
+  );
   expect(hfDarkFilterChrome.paddingLeft).toBe(defaultFilterChrome.paddingLeft);
-  expect(hfDarkFilterButton.backgroundColor).toBe(defaultFilterButton.backgroundColor);
-  expect(hfDarkFilterButton.borderTopWidth).toBe(defaultFilterButton.borderTopWidth);
-  expect(hfDarkFilterButton.borderRightWidth).toBe(defaultFilterButton.borderRightWidth);
-  expect(hfDarkFilterButton.borderBottomWidth).toBe(defaultFilterButton.borderBottomWidth);
-  expect(hfDarkFilterButton.borderLeftWidth).toBe(defaultFilterButton.borderLeftWidth);
-  expect(hfDarkFilterButton.borderTopColor).toBe(defaultFilterButton.borderTopColor);
+  expect(hfDarkFilterButton.backgroundColor).toBe(
+    defaultFilterButton.backgroundColor
+  );
+  expect(hfDarkFilterButton.borderTopWidth).toBe(
+    defaultFilterButton.borderTopWidth
+  );
+  expect(hfDarkFilterButton.borderRightWidth).toBe(
+    defaultFilterButton.borderRightWidth
+  );
+  expect(hfDarkFilterButton.borderBottomWidth).toBe(
+    defaultFilterButton.borderBottomWidth
+  );
+  expect(hfDarkFilterButton.borderLeftWidth).toBe(
+    defaultFilterButton.borderLeftWidth
+  );
+  expect(hfDarkFilterButton.borderTopColor).toBe(
+    defaultFilterButton.borderTopColor
+  );
   expect(hfDarkFilterButton.iconFill).toBe(hfDarkFilterButton.color);
   expect(hfDarkFilterButton.iconFill).not.toBe("rgb(0, 0, 0)");
   await expect
     .poll(async () => {
-      return grid.locator(".tdg-filter-cell").first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          borderBottomWidth: style.borderBottomWidth,
-          borderBottomColor: style.borderBottomColor,
-        };
-      });
+      return grid
+        .locator(".tdg-filter-cell")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            borderBottomWidth: style.borderBottomWidth,
+            borderBottomColor: style.borderBottomColor,
+          };
+        });
     })
     .toEqual({
       borderBottomWidth: defaultFilterBottomBorder.borderBottomWidth,
@@ -193,27 +251,36 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     });
 
   const hfDarkSeparatorStyles = await Promise.all([
-    grid.locator(".tdg-header-cell").first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        borderRightWidth: style.borderRightWidth,
-        borderRightColor: style.borderRightColor,
-      };
-    }),
-    grid.locator(".tdg-filter-cell").first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        borderRightWidth: style.borderRightWidth,
-        borderRightColor: style.borderRightColor,
-      };
-    }),
-    grid.locator(".InovuaReactDataGrid__row .InovuaReactDataGrid__cell").first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        borderRightWidth: style.borderRightWidth,
-        borderRightColor: style.borderRightColor,
-      };
-    }),
+    grid
+      .locator(".tdg-header-cell")
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          borderRightWidth: style.borderRightWidth,
+          borderRightColor: style.borderRightColor,
+        };
+      }),
+    grid
+      .locator(".tdg-filter-cell")
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          borderRightWidth: style.borderRightWidth,
+          borderRightColor: style.borderRightColor,
+        };
+      }),
+    grid
+      .locator(".InovuaReactDataGrid__row .InovuaReactDataGrid__cell")
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          borderRightWidth: style.borderRightWidth,
+          borderRightColor: style.borderRightColor,
+        };
+      }),
   ]);
 
   for (const separatorStyle of hfDarkSeparatorStyles) {
@@ -231,41 +298,66 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   expect(ikarusDarkGridRadius).toBe(defaultGridRadius);
 
-  const [ikarusHeaderChrome, ikarusFilterChrome, ikarusFilterButton] = await getHeaderFilterChrome();
+  const [ikarusHeaderChrome, ikarusFilterChrome, ikarusFilterButton] =
+    await getHeaderFilterChrome();
 
   expect(ikarusHeaderChrome).toEqual(defaultHeaderChrome);
   expect(ikarusFilterChrome.paddingTop).toBe(defaultFilterChrome.paddingTop);
-  expect(ikarusFilterChrome.paddingRight).toBe(defaultFilterChrome.paddingRight);
-  expect(ikarusFilterChrome.paddingBottom).toBe(defaultFilterChrome.paddingBottom);
+  expect(ikarusFilterChrome.paddingRight).toBe(
+    defaultFilterChrome.paddingRight
+  );
+  expect(ikarusFilterChrome.paddingBottom).toBe(
+    defaultFilterChrome.paddingBottom
+  );
   expect(ikarusFilterChrome.paddingLeft).toBe(defaultFilterChrome.paddingLeft);
-  expect(ikarusFilterButton.backgroundColor).toBe(defaultFilterButton.backgroundColor);
-  expect(ikarusFilterButton.borderTopWidth).toBe(defaultFilterButton.borderTopWidth);
-  expect(ikarusFilterButton.borderRightWidth).toBe(defaultFilterButton.borderRightWidth);
-  expect(ikarusFilterButton.borderBottomWidth).toBe(defaultFilterButton.borderBottomWidth);
-  expect(ikarusFilterButton.borderLeftWidth).toBe(defaultFilterButton.borderLeftWidth);
-  expect(ikarusFilterButton.borderTopColor).toBe(defaultFilterButton.borderTopColor);
+  expect(ikarusFilterButton.backgroundColor).toBe(
+    defaultFilterButton.backgroundColor
+  );
+  expect(ikarusFilterButton.borderTopWidth).toBe(
+    defaultFilterButton.borderTopWidth
+  );
+  expect(ikarusFilterButton.borderRightWidth).toBe(
+    defaultFilterButton.borderRightWidth
+  );
+  expect(ikarusFilterButton.borderBottomWidth).toBe(
+    defaultFilterButton.borderBottomWidth
+  );
+  expect(ikarusFilterButton.borderLeftWidth).toBe(
+    defaultFilterButton.borderLeftWidth
+  );
+  expect(ikarusFilterButton.borderTopColor).toBe(
+    defaultFilterButton.borderTopColor
+  );
   expect(ikarusFilterButton.iconFill).toBe(ikarusFilterButton.color);
   expect(ikarusFilterButton.iconFill).not.toBe("rgb(0, 0, 0)");
   await expect
     .poll(async () => {
-      return grid.locator(".tdg-filter-cell").first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          borderBottomWidth: style.borderBottomWidth,
-          borderBottomColor: style.borderBottomColor,
-        };
-      });
+      return grid
+        .locator(".tdg-filter-cell")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            borderBottomWidth: style.borderBottomWidth,
+            borderBottomColor: style.borderBottomColor,
+          };
+        });
     })
     .toEqual({
       borderBottomWidth: defaultFilterBottomBorder.borderBottomWidth,
       borderBottomColor: "rgb(56, 56, 56)",
     });
 
-  await expect.poll(async () => {
-    return page.locator(".tdg-header-cell").first().evaluate((element) => {
-      return getComputedStyle(element).backgroundColor;
-    });
-  }).toBe("rgb(24, 24, 24)");
+  await expect
+    .poll(async () => {
+      return page
+        .locator(".tdg-header-cell")
+        .first()
+        .evaluate((element) => {
+          return getComputedStyle(element).backgroundColor;
+        });
+    })
+    .toBe("rgb(24, 24, 24)");
 
   const darkThemeBase = await grid.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -308,19 +400,24 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     borderRightColor: "rgb(56, 56, 56)",
   });
 
-  const ikarusBodySeparator = await grid.locator(".InovuaReactDataGrid__row .InovuaReactDataGrid__cell").first().evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      borderRightWidth: style.borderRightWidth,
-      borderRightColor: style.borderRightColor,
-    };
-  });
+  const ikarusBodySeparator = await grid
+    .locator(".InovuaReactDataGrid__row .InovuaReactDataGrid__cell")
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderRightWidth: style.borderRightWidth,
+        borderRightColor: style.borderRightColor,
+      };
+    });
 
   expect(ikarusBodySeparator.borderRightWidth).toBe("1px");
   expect(ikarusBodySeparator.borderRightColor).not.toBe("rgba(0, 0, 0, 0)");
 
   await page.getByRole("button", { name: "Vertical separators on" }).click();
-  await expect(page.getByRole("button", { name: "Vertical separators off" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Vertical separators off" })
+  ).toBeVisible();
 
   const headerBorderOff = await firstHeaderCell.evaluate((el) => {
     const style = getComputedStyle(el);
@@ -338,7 +435,9 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   await expect(menu.getByText("Filter", { exact: true })).toBeVisible();
   await expect(menu.getByText("Operator", { exact: true })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Clear" })).toBeVisible();
-  await expect(menu.getByRole("menuitemradio", { name: /^Contains$/ })).toHaveAttribute("aria-checked", "true");
+  await expect(
+    menu.getByRole("menuitemradio", { name: /^Contains$/ })
+  ).toHaveAttribute("aria-checked", "true");
 
   const menuStyles = await menu.evaluate((el) => {
     const cs = getComputedStyle(el);
@@ -358,22 +457,27 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
   expect(menuStyles.borderColor).not.toBe("rgba(0, 0, 0, 0)");
   expect(menuStyles.theme).toBe("ikarus-dark");
   expect(menuStyles.insideGrid).toBe(true);
-
 });
 
-test("resizes columns and double-click autosizes them again", async ({ page }) => {
-  await page.goto("/");
+test("resizes columns and double-click autosizes them again", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   const resizers = grid.locator('[data-slot="column-resizer"]');
   const nameHeader = grid.locator(".tdg-header-cell").nth(1);
-  const nameResizer = nameHeader.locator('[data-slot="column-resizer"]').first();
+  const nameResizer = nameHeader
+    .locator('[data-slot="column-resizer"]')
+    .first();
 
   await expect(resizers).toHaveCount(4);
   await expect(nameResizer).toBeVisible();
 
   const distinctHandlePositions = await grid.evaluate((gridElement) => {
-    const positions = Array.from(gridElement.querySelectorAll<HTMLElement>('[data-slot="column-resizer"]'))
+    const positions = Array.from(
+      gridElement.querySelectorAll<HTMLElement>('[data-slot="column-resizer"]')
+    )
       .map((element) => Math.round(element.getBoundingClientRect().left))
       .filter((left) => Number.isFinite(left));
 
@@ -383,13 +487,17 @@ test("resizes columns and double-click autosizes them again", async ({ page }) =
   expect(distinctHandlePositions).toBe(4);
 
   const handleAlignment = await nameHeader.evaluate((element) => {
-    const handle = element.querySelector<HTMLElement>('[data-slot="column-resizer"]');
+    const handle = element.querySelector<HTMLElement>(
+      '[data-slot="column-resizer"]'
+    );
     if (!handle) return null;
 
     const headerRect = element.getBoundingClientRect();
     const handleRect = handle.getBoundingClientRect();
 
-    return Math.round((handleRect.left + handleRect.width / 2) - headerRect.right);
+    return Math.round(
+      handleRect.left + handleRect.width / 2 - headerRect.right
+    );
   });
 
   expect(handleAlignment).not.toBeNull();
@@ -397,18 +505,30 @@ test("resizes columns and double-click autosizes them again", async ({ page }) =
 
   const getWidths = async () => {
     return grid.evaluate((gridElement) => {
-      const headers = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell"));
+      const headers = Array.from(
+        gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell")
+      );
       const header = headers[1];
       const firstHeader = headers[0];
       const thirdHeader = headers[2];
       const firstRow = gridElement.querySelector<HTMLElement>(".tdg-row");
-      const bodyCell = firstRow?.querySelectorAll<HTMLElement>(".InovuaReactDataGrid__cell")[1];
+      const bodyCell = firstRow?.querySelectorAll<HTMLElement>(
+        ".InovuaReactDataGrid__cell"
+      )[1];
 
       return {
-        firstHeaderWidth: firstHeader ? Math.round(firstHeader.getBoundingClientRect().width) : null,
-        headerWidth: header ? Math.round(header.getBoundingClientRect().width) : null,
-        bodyWidth: bodyCell ? Math.round(bodyCell.getBoundingClientRect().width) : null,
-        thirdHeaderWidth: thirdHeader ? Math.round(thirdHeader.getBoundingClientRect().width) : null,
+        firstHeaderWidth: firstHeader
+          ? Math.round(firstHeader.getBoundingClientRect().width)
+          : null,
+        headerWidth: header
+          ? Math.round(header.getBoundingClientRect().width)
+          : null,
+        bodyWidth: bodyCell
+          ? Math.round(bodyCell.getBoundingClientRect().width)
+          : null,
+        thirdHeaderWidth: thirdHeader
+          ? Math.round(thirdHeader.getBoundingClientRect().width)
+          : null,
       };
     });
   };
@@ -419,7 +539,9 @@ test("resizes columns and double-click autosizes them again", async ({ page }) =
   expect(initialWidths.headerWidth ?? 0).toBeGreaterThan(200);
 
   const getResizerOpacity = async () => {
-    return nameResizer.evaluate((element) => getComputedStyle(element, "::before").opacity);
+    return nameResizer.evaluate(
+      (element) => getComputedStyle(element, "::before").opacity
+    );
   };
 
   await expect.poll(getResizerOpacity).toBe("0");
@@ -433,46 +555,40 @@ test("resizes columns and double-click autosizes them again", async ({ page }) =
     y: (resizerBox?.y ?? 0) + (resizerBox?.height ?? 0) / 2,
   };
 
-  await nameResizer.evaluate(
-    (element, pointer) => {
-      element.dispatchEvent(
-        new MouseEvent("mousedown", {
-          bubbles: true,
-          cancelable: true,
-          clientX: pointer.startX,
-          clientY: pointer.y,
-          buttons: 1,
-        }),
-      );
-    },
-    resizePointer,
-  );
+  await nameResizer.evaluate((element, pointer) => {
+    element.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.startX,
+        clientY: pointer.y,
+        buttons: 1,
+      })
+    );
+  }, resizePointer);
 
   await expect.poll(getResizerOpacity).toBe("1");
 
-  await nameResizer.evaluate(
-    (_, pointer) => {
-      window.dispatchEvent(
-        new MouseEvent("mousemove", {
-          bubbles: true,
-          cancelable: true,
-          clientX: pointer.endX,
-          clientY: pointer.y,
-          buttons: 1,
-        }),
-      );
+  await nameResizer.evaluate((_, pointer) => {
+    window.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.endX,
+        clientY: pointer.y,
+        buttons: 1,
+      })
+    );
 
-      window.dispatchEvent(
-        new MouseEvent("mouseup", {
-          bubbles: true,
-          cancelable: true,
-          clientX: pointer.endX,
-          clientY: pointer.y,
-        }),
-      );
-    },
-    resizePointer,
-  );
+    window.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: pointer.endX,
+        clientY: pointer.y,
+      })
+    );
+  }, resizePointer);
 
   await expect.poll(getResizerOpacity).toBe("0");
 
@@ -484,52 +600,76 @@ test("resizes columns and double-click autosizes them again", async ({ page }) =
   });
 
   const widenedWidths = await getWidths();
-  expect((widenedWidths.headerWidth ?? 0) - (initialWidths.headerWidth ?? 0)).toBeGreaterThan(50);
+  expect(
+    (widenedWidths.headerWidth ?? 0) - (initialWidths.headerWidth ?? 0)
+  ).toBeGreaterThan(50);
   expect(widenedWidths.bodyWidth).toBe(widenedWidths.headerWidth);
-  expect(Math.abs((widenedWidths.firstHeaderWidth ?? 0) - (initialWidths.firstHeaderWidth ?? 0))).toBeLessThanOrEqual(1);
-  expect(Math.abs((widenedWidths.thirdHeaderWidth ?? 0) - (initialWidths.thirdHeaderWidth ?? 0))).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      (widenedWidths.firstHeaderWidth ?? 0) -
+        (initialWidths.firstHeaderWidth ?? 0)
+    )
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      (widenedWidths.thirdHeaderWidth ?? 0) -
+        (initialWidths.thirdHeaderWidth ?? 0)
+    )
+  ).toBeLessThanOrEqual(1);
 
   await nameResizer.evaluate((element) => {
     element.dispatchEvent(
       new MouseEvent("dblclick", {
         bubbles: true,
         cancelable: true,
-      }),
+      })
     );
   });
 
-  await expect.poll(async () => {
-    const widths = await getWidths();
-    return {
-      firstHeaderWidth: widths.firstHeaderWidth,
-      headerWidth: widths.headerWidth,
-      bodyWidth: widths.bodyWidth,
-      thirdHeaderWidth: widths.thirdHeaderWidth,
-      isAutosized:
-        (widths.headerWidth ?? 0) < (initialWidths.headerWidth ?? 0) &&
-        (widths.headerWidth ?? 0) < (widenedWidths.headerWidth ?? 0),
-    };
-  }).toMatchObject({
-    firstHeaderWidth: initialWidths.firstHeaderWidth,
-    bodyWidth: expect.any(Number),
-    thirdHeaderWidth: initialWidths.thirdHeaderWidth,
-    isAutosized: true,
-  });
+  await expect
+    .poll(async () => {
+      const widths = await getWidths();
+      return {
+        firstHeaderWidth: widths.firstHeaderWidth,
+        headerWidth: widths.headerWidth,
+        bodyWidth: widths.bodyWidth,
+        thirdHeaderWidth: widths.thirdHeaderWidth,
+        isAutosized:
+          (widths.headerWidth ?? 0) < (initialWidths.headerWidth ?? 0) &&
+          (widths.headerWidth ?? 0) < (widenedWidths.headerWidth ?? 0),
+      };
+    })
+    .toMatchObject({
+      firstHeaderWidth: initialWidths.firstHeaderWidth,
+      bodyWidth: expect.any(Number),
+      thirdHeaderWidth: initialWidths.thirdHeaderWidth,
+      isAutosized: true,
+    });
 
   const autosizedWidths = await getWidths();
   expect(autosizedWidths.bodyWidth).toBe(autosizedWidths.headerWidth);
-  expect((autosizedWidths.headerWidth ?? 0)).toBeLessThan(initialWidths.headerWidth ?? 0);
-  expect((autosizedWidths.headerWidth ?? 0)).toBeLessThan(widenedWidths.headerWidth ?? 0);
+  expect(autosizedWidths.headerWidth ?? 0).toBeLessThan(
+    initialWidths.headerWidth ?? 0
+  );
+  expect(autosizedWidths.headerWidth ?? 0).toBeLessThan(
+    widenedWidths.headerWidth ?? 0
+  );
 });
 
-test("shows and hides columns when the grid receives a filtered columns array", async ({ page }) => {
-  await page.goto("/");
+test("shows and hides columns when the grid receives a filtered columns array", async ({
+  page,
+}) => {
+  await page.goto("/users");
 
-  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+  const usersExample = page.getByTestId("example-preview-panel");
   await expect(usersExample).toBeVisible();
 
-  const usersGrid = usersExample.locator(".InovuaReactDataGrid.tdg-root").first();
-  const failedLoginsHeader = usersGrid.locator(".tdg-header-cell", { hasText: "Failed logins" });
+  const usersGrid = usersExample
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first();
+  const failedLoginsHeader = usersGrid.locator(".tdg-header-cell", {
+    hasText: "Failed logins",
+  });
 
   await expect(failedLoginsHeader).toHaveCount(0);
 
@@ -541,9 +681,9 @@ test("shows and hides columns when the grid receives a filtered columns array", 
 });
 
 test("keeps the actions header vertically centered", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/users");
 
-  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+  const usersExample = page.getByTestId("example-preview-panel");
   const actionsHeaderContent = usersExample
     .locator(".tdg-header-cell", { hasText: "Actions" })
     .locator(".InovuaReactDataGrid__column-header__content")
@@ -552,22 +692,35 @@ test("keeps the actions header vertically centered", async ({ page }) => {
   await expect(actionsHeaderContent).toBeVisible();
   await expect
     .poll(async () => {
-      return actionsHeaderContent.evaluate((element) => getComputedStyle(element).alignItems);
+      return actionsHeaderContent.evaluate(
+        (element) => getComputedStyle(element).alignItems
+      );
     })
     .toBe("center");
 });
 
-test("keeps body columns aligned after vertical scrolling in a wide virtualized grid", async ({ page }) => {
-  await page.goto("/");
+test("keeps body columns aligned after vertical scrolling in a wide virtualized grid", async ({
+  page,
+}) => {
+  await page.goto("/users");
 
-  const usersExample = page.locator("section", { has: page.getByRole("heading", { name: "Users-style example" }) });
+  const usersExample = page.getByTestId("example-preview-panel");
 
-  for (const columnName of ["Failed logins", "Last login", "Password changed", "Language"]) {
+  for (const columnName of [
+    "Failed logins",
+    "Last login",
+    "Password changed",
+    "Language",
+  ]) {
     await usersExample.getByRole("button", { name: columnName }).click();
   }
 
-  const usersGrid = usersExample.locator(".InovuaReactDataGrid.tdg-root").first();
-  const viewport = usersGrid.locator('[data-slot="scroll-area-viewport"]').first();
+  const usersGrid = usersExample
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first();
+  const viewport = usersGrid
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first();
 
   await viewport.evaluate((element) => {
     element.scrollTop = 700;
@@ -577,18 +730,26 @@ test("keeps body columns aligned after vertical scrolling in a wide virtualized 
   await page.waitForTimeout(200);
 
   const alignment = await usersGrid.evaluate((gridElement) => {
-    const headers = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell")).map((element) => ({
+    const headers = Array.from(
+      gridElement.querySelectorAll<HTMLElement>(".tdg-header-cell")
+    ).map((element) => ({
       text: element.innerText.trim(),
       left: Math.round(element.getBoundingClientRect().left),
       width: Math.round(element.getBoundingClientRect().width),
     }));
 
-    const visibleRow = Array.from(gridElement.querySelectorAll<HTMLElement>(".tdg-row")).find(
-      (element) => element.getBoundingClientRect().top > gridElement.getBoundingClientRect().top + 100,
+    const visibleRow = Array.from(
+      gridElement.querySelectorAll<HTMLElement>(".tdg-row")
+    ).find(
+      (element) =>
+        element.getBoundingClientRect().top >
+        gridElement.getBoundingClientRect().top + 100
     );
 
     const cells = visibleRow
-      ? Array.from(visibleRow.querySelectorAll<HTMLElement>(".InovuaReactDataGrid__cell")).map((element) => ({
+      ? Array.from(
+          visibleRow.querySelectorAll<HTMLElement>(".InovuaReactDataGrid__cell")
+        ).map((element) => ({
           left: Math.round(element.getBoundingClientRect().left),
           width: Math.round(element.getBoundingClientRect().width),
         }))
@@ -607,13 +768,17 @@ test("keeps body columns aligned after vertical scrolling in a wide virtualized 
   });
 });
 
-test("keeps the body viewport height fixed when filtering down to one row", async ({ page }) => {
-  await page.goto("/");
+test("keeps the body viewport height fixed when filtering down to one row", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
   const filterInput = grid.locator(".tdg-filter-row input").first();
-  const filteredCount = page.locator("div.text-xs.text-muted-foreground span.font-mono").first();
+  const filteredCount = page
+    .locator("div.text-xs.text-muted-foreground span.font-mono")
+    .first();
 
   const before = await viewport.boundingBox();
   expect(before).not.toBeNull();
@@ -629,7 +794,9 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
 
   const layout = await grid.evaluate((root) => {
     const frame = root.querySelector<HTMLElement>('[data-slot="grid-frame"]');
-    const bodyViewport = root.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    const bodyViewport = root.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    );
     const row = root.querySelector<HTMLElement>('[data-slot="grid-row"]');
 
     if (!frame || !bodyViewport || !row) return null;
@@ -646,12 +813,18 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
   });
 
   expect(layout).not.toBeNull();
-  expect(Math.abs((layout?.frameBottom ?? 0) - (layout?.viewportBottom ?? 0))).toBeLessThanOrEqual(1);
-  expect((layout?.frameBottom ?? 0) - (layout?.rowBottom ?? 0)).toBeGreaterThan(200);
+  expect(
+    Math.abs((layout?.frameBottom ?? 0) - (layout?.viewportBottom ?? 0))
+  ).toBeLessThanOrEqual(1);
+  expect((layout?.frameBottom ?? 0) - (layout?.rowBottom ?? 0)).toBeGreaterThan(
+    200
+  );
 });
 
-test("keeps custom light themes on the light shadcn base even inside a dark page", async ({ page }) => {
-  await page.goto("/");
+test("keeps custom light themes on the light shadcn base even inside a dark page", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.evaluate(() => {
     document.documentElement.classList.add("dark");
@@ -676,8 +849,16 @@ test("keeps custom light themes on the light shadcn base even inside a dark page
     hasDarkClass: false,
   });
 
-  const hfLightInput = page.locator(".inovua-react-toolkit-text-input.inovua-react-toolkit-text-input--theme-hf-light").first();
-  const hfLightSelect = page.locator(".inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--theme-hf-light").first();
+  const hfLightInput = page
+    .locator(
+      ".inovua-react-toolkit-text-input.inovua-react-toolkit-text-input--theme-hf-light"
+    )
+    .first();
+  const hfLightSelect = page
+    .locator(
+      ".inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--theme-hf-light"
+    )
+    .first();
 
   const hfLightShell = await Promise.all([
     hfLightInput.evaluate((element) => {
@@ -690,8 +871,12 @@ test("keeps custom light themes on the light shadcn base even inside a dark page
     }),
     hfLightSelect.evaluate((element) => {
       const style = getComputedStyle(element);
-      const value = element.querySelector(".inovua-react-toolkit-combo-box__value");
-      const tools = element.querySelector(".inovua-react-toolkit-combo-box__tools");
+      const value = element.querySelector(
+        ".inovua-react-toolkit-combo-box__value"
+      );
+      const tools = element.querySelector(
+        ".inovua-react-toolkit-combo-box__tools"
+      );
       return {
         borderRadius: style.borderRadius,
         boxShadow: style.boxShadow,
@@ -723,67 +908,87 @@ test("keeps custom light themes on the light shadcn base even inside a dark page
   });
 });
 
-test("keeps custom theme combobox structure aligned with the default shell", async ({ page }) => {
-  await page.goto("/");
+test("keeps custom theme combobox structure aligned with the default shell", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   const getSelectShellChrome = async () => {
-    return page.locator(".tdg-select-trigger.inovua-react-toolkit-combo-box").first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      const value = element.querySelector(".tdg-select-value");
-      const displayValue = element.querySelector(".inovua-react-toolkit-combo-box__value__display-value");
-      const tools = element.querySelector(".tdg-select-tools");
-      const icon = element.querySelector(".tdg-select-toggle-icon");
-      const iconBefore = icon ? getComputedStyle(icon, "::before") : null;
-
-      return {
-        width: rect.width,
-        height: style.height,
-        paddingTop: style.paddingTop,
-        paddingRight: style.paddingRight,
-        paddingBottom: style.paddingBottom,
-        paddingLeft: style.paddingLeft,
-        borderRadius: style.borderRadius,
-        boxShadow: style.boxShadow,
-        alignItems: style.alignItems,
-        valueGap: value ? getComputedStyle(value).gap : null,
-        valueMinHeight: value ? getComputedStyle(value).minHeight : null,
-        displayPaddingLeft: displayValue ? getComputedStyle(displayValue).paddingLeft : null,
-        displayPaddingRight: displayValue ? getComputedStyle(displayValue).paddingRight : null,
-        toolsPaddingLeft: tools ? getComputedStyle(tools).paddingLeft : null,
-        toolsMinHeight: tools ? getComputedStyle(tools).minHeight : null,
-        iconBeforeDisplay: iconBefore ? iconBefore.display : null,
-        iconBeforeContent: iconBefore ? iconBefore.content : null,
-      };
-    });
-  };
-
-  const getSelectListChrome = async () => {
-    await page.locator(".tdg-select-trigger.inovua-react-toolkit-combo-box").first().click();
-
-    const chrome = await Promise.all([
-      page.locator(".tdg-select-content.inovua-react-toolkit-combo-box__list").first().evaluate((element) => {
+    return page
+      .locator(".tdg-select-trigger.inovua-react-toolkit-combo-box")
+      .first()
+      .evaluate((element) => {
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
+        const value = element.querySelector(".tdg-select-value");
+        const displayValue = element.querySelector(
+          ".inovua-react-toolkit-combo-box__value__display-value"
+        );
+        const tools = element.querySelector(".tdg-select-tools");
+        const icon = element.querySelector(".tdg-select-toggle-icon");
+        const iconBefore = icon ? getComputedStyle(icon, "::before") : null;
+
         return {
-          borderRadius: style.borderRadius,
-          borderTopWidth: style.borderTopWidth,
-          boxShadow: style.boxShadow,
-          position: style.position,
           width: rect.width,
-        };
-      }),
-      page.locator(".tdg-select-item.inovua-react-toolkit-combo-box__list__item").first().evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
+          height: style.height,
           paddingTop: style.paddingTop,
           paddingRight: style.paddingRight,
           paddingBottom: style.paddingBottom,
           paddingLeft: style.paddingLeft,
           borderRadius: style.borderRadius,
-          borderTopWidth: style.borderTopWidth,
+          boxShadow: style.boxShadow,
+          alignItems: style.alignItems,
+          valueGap: value ? getComputedStyle(value).gap : null,
+          valueMinHeight: value ? getComputedStyle(value).minHeight : null,
+          displayPaddingLeft: displayValue
+            ? getComputedStyle(displayValue).paddingLeft
+            : null,
+          displayPaddingRight: displayValue
+            ? getComputedStyle(displayValue).paddingRight
+            : null,
+          toolsPaddingLeft: tools ? getComputedStyle(tools).paddingLeft : null,
+          toolsMinHeight: tools ? getComputedStyle(tools).minHeight : null,
+          iconBeforeDisplay: iconBefore ? iconBefore.display : null,
+          iconBeforeContent: iconBefore ? iconBefore.content : null,
         };
-      }),
+      });
+  };
+
+  const getSelectListChrome = async () => {
+    await page
+      .locator(".tdg-select-trigger.inovua-react-toolkit-combo-box")
+      .first()
+      .click();
+
+    const chrome = await Promise.all([
+      page
+        .locator(".tdg-select-content.inovua-react-toolkit-combo-box__list")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return {
+            borderRadius: style.borderRadius,
+            borderTopWidth: style.borderTopWidth,
+            boxShadow: style.boxShadow,
+            position: style.position,
+            width: rect.width,
+          };
+        }),
+      page
+        .locator(".tdg-select-item.inovua-react-toolkit-combo-box__list__item")
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            paddingTop: style.paddingTop,
+            paddingRight: style.paddingRight,
+            paddingBottom: style.paddingBottom,
+            paddingLeft: style.paddingLeft,
+            borderRadius: style.borderRadius,
+            borderTopWidth: style.borderTopWidth,
+          };
+        }),
     ]);
 
     await page.keyboard.press("Escape");
@@ -826,40 +1031,63 @@ test("keeps custom theme combobox structure aligned with the default shell", asy
   }
 
   for (const listChrome of [hfDarkList, ikarusDarkList]) {
-    expect(listChrome.content.borderRadius).toBe(defaultList.content.borderRadius);
-    expect(listChrome.content.borderTopWidth).toBe(defaultList.content.borderTopWidth);
+    expect(listChrome.content.borderRadius).toBe(
+      defaultList.content.borderRadius
+    );
+    expect(listChrome.content.borderTopWidth).toBe(
+      defaultList.content.borderTopWidth
+    );
     expect(listChrome.content.boxShadow).toBe(defaultList.content.boxShadow);
     expect(listChrome.content.position).toBe("relative");
     expect(listChrome.content.width).toBeGreaterThan(0);
     expect(listChrome.item).toEqual(defaultList.item);
   }
 
-  expect(Math.abs(defaultList.content.width - defaultShell.width)).toBeLessThanOrEqual(12);
-  expect(Math.abs(hfDarkList.content.width - hfDarkShell.width)).toBeLessThanOrEqual(12);
-  expect(Math.abs(ikarusDarkList.content.width - ikarusDarkShell.width)).toBeLessThanOrEqual(12);
+  expect(
+    Math.abs(defaultList.content.width - defaultShell.width)
+  ).toBeLessThanOrEqual(12);
+  expect(
+    Math.abs(hfDarkList.content.width - hfDarkShell.width)
+  ).toBeLessThanOrEqual(12);
+  expect(
+    Math.abs(ikarusDarkList.content.width - ikarusDarkShell.width)
+  ).toBeLessThanOrEqual(12);
 });
 
-test("keeps custom theme select focus chrome on the grid-owned border", async ({ page }) => {
-  await page.goto("/");
+test("keeps custom theme select focus chrome on the grid-owned border", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   async function getSelectBorderPair(themeButton: string) {
     await page.getByRole("button", { name: themeButton }).click();
 
-    const select = page.locator(".tdg-select-trigger.inovua-react-toolkit-combo-box").first();
-    const rootVars = await page.locator(".tdg-root").first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        border: style.getPropertyValue("--tdg-select-border-color").trim(),
-        focusBorder: style.getPropertyValue("--tdg-select-border-color-focus").trim(),
-      };
-    });
+    const select = page
+      .locator(".tdg-select-trigger.inovua-react-toolkit-combo-box")
+      .first();
+    const rootVars = await page
+      .locator(".tdg-root")
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          border: style.getPropertyValue("--tdg-select-border-color").trim(),
+          focusBorder: style
+            .getPropertyValue("--tdg-select-border-color-focus")
+            .trim(),
+        };
+      });
 
-    const idleBorder = await select.evaluate((element) => getComputedStyle(element).borderTopColor);
+    const idleBorder = await select.evaluate(
+      (element) => getComputedStyle(element).borderTopColor
+    );
 
     await select.click();
     await page.waitForTimeout(100);
 
-    const openBorder = await select.evaluate((element) => getComputedStyle(element).borderTopColor);
+    const openBorder = await select.evaluate(
+      (element) => getComputedStyle(element).borderTopColor
+    );
     await page.keyboard.press("Escape");
 
     return { rootVars, idleBorder, openBorder };
@@ -867,31 +1095,43 @@ test("keeps custom theme select focus chrome on the grid-owned border", async ({
 
   const ikarusLightBorders = await getSelectBorderPair("Ikarus Light");
   const filterInput = page.locator(".inovua-react-toolkit-text-input").first();
-  const inputBorder = await filterInput.evaluate((element) => getComputedStyle(element).borderTopColor);
+  const inputBorder = await filterInput.evaluate(
+    (element) => getComputedStyle(element).borderTopColor
+  );
 
   await page.getByRole("button", { name: "Filter" }).first().click();
   const filterMenu = page.locator('[data-slot="dropdown-menu-content"]').last();
   await expect(filterMenu).toBeVisible();
-  const menuBorder = await filterMenu.evaluate((element) => getComputedStyle(element).borderTopColor);
+  const menuBorder = await filterMenu.evaluate(
+    (element) => getComputedStyle(element).borderTopColor
+  );
   await page.keyboard.press("Escape");
 
   expect(ikarusLightBorders.rootVars.border).toBe("rgb(228, 227, 226)");
-  expect(ikarusLightBorders.rootVars.focusBorder).toBe(ikarusLightBorders.rootVars.border);
+  expect(ikarusLightBorders.rootVars.focusBorder).toBe(
+    ikarusLightBorders.rootVars.border
+  );
   expect(ikarusLightBorders.idleBorder).not.toBe("rgb(202, 174, 83)");
   expect(ikarusLightBorders.openBorder).not.toBe("rgb(202, 174, 83)");
   expect(inputBorder).not.toBe("rgb(202, 174, 83)");
   expect(menuBorder).not.toBe("rgb(202, 174, 83)");
 });
 
-test("keeps custom theme dropdown structure aligned with the default shell", async ({ page }) => {
-  await page.goto("/");
+test("keeps custom theme dropdown structure aligned with the default shell", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   const getMenuChrome = async () => {
     await page.getByRole("button", { name: "Filter" }).first().click();
 
-    const menu = page.locator(".tdg-dropdown-content.inovua-react-toolkit-menu").last();
+    const menu = page
+      .locator(".tdg-dropdown-content.inovua-react-toolkit-menu")
+      .last();
     const clearItem = page.getByRole("menuitem", { name: "Clear" }).last();
-    const radioItem = menu.locator('[data-slot="dropdown-menu-radio-item"]').first();
+    const radioItem = menu
+      .locator('[data-slot="dropdown-menu-radio-item"]')
+      .first();
     const clearCell = clearItem.locator(".tdg-dropdown-cell").first();
     const separator = page.locator(".tdg-dropdown-separator").last();
 
@@ -976,34 +1216,56 @@ test("keeps custom theme dropdown structure aligned with the default shell", asy
   for (const menuChrome of [hfDarkMenu, ikarusDarkMenu]) {
     expect(menuChrome.content.display).toBe("block");
     expect(menuChrome.content.paddingTop).toBe(defaultMenu.content.paddingTop);
-    expect(menuChrome.content.paddingRight).toBe(defaultMenu.content.paddingRight);
-    expect(menuChrome.content.paddingBottom).toBe(defaultMenu.content.paddingBottom);
-    expect(menuChrome.content.paddingLeft).toBe(defaultMenu.content.paddingLeft);
-    expect(menuChrome.content.borderRadius).toBe(defaultMenu.content.borderRadius);
-    expect(menuChrome.content.borderTopWidth).toBe(defaultMenu.content.borderTopWidth);
+    expect(menuChrome.content.paddingRight).toBe(
+      defaultMenu.content.paddingRight
+    );
+    expect(menuChrome.content.paddingBottom).toBe(
+      defaultMenu.content.paddingBottom
+    );
+    expect(menuChrome.content.paddingLeft).toBe(
+      defaultMenu.content.paddingLeft
+    );
+    expect(menuChrome.content.borderRadius).toBe(
+      defaultMenu.content.borderRadius
+    );
+    expect(menuChrome.content.borderTopWidth).toBe(
+      defaultMenu.content.borderTopWidth
+    );
     expect(menuChrome.content.boxShadow).toContain("rgba(0, 0, 0, 0.1)");
     expect(menuChrome.content.borderTopColor).not.toBe("rgb(255, 255, 255)");
 
     expect(menuChrome.item.minHeight).toBe(defaultMenu.item.minHeight);
     expect(menuChrome.item.borderRadius).toBe(defaultMenu.item.borderRadius);
-    expect(menuChrome.radioItem.minHeight).toBe(defaultMenu.radioItem.minHeight);
+    expect(menuChrome.radioItem.minHeight).toBe(
+      defaultMenu.radioItem.minHeight
+    );
     expect(menuChrome.radioItem.top).toBeGreaterThan(menuChrome.item.top);
-    expect(Math.abs(menuChrome.radioItem.left - menuChrome.item.left)).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(menuChrome.radioItem.left - menuChrome.item.left)
+    ).toBeLessThanOrEqual(2);
     expect(menuChrome.cell).toEqual(defaultMenu.cell);
     expect(menuChrome.separator).toEqual(defaultMenu.separator);
   }
 });
 
-test("keeps filter radio controls on the default shadcn shape across custom themes", async ({ page }) => {
-  await page.goto("/");
+test("keeps filter radio controls on the default shadcn shape across custom themes", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   async function getRadioShellStyles() {
     await page.getByRole("button", { name: "Filter" }).first().click();
 
     const menu = page.getByRole("menu").last();
-    const radioItem = menu.locator('[data-slot="dropdown-menu-radio-item"]').first();
-    const shell = radioItem.locator('[data-slot="dropdown-menu-radio-indicator-shell"]').first();
-    const indicator = shell.locator('[data-slot="dropdown-menu-radio-indicator"]').first();
+    const radioItem = menu
+      .locator('[data-slot="dropdown-menu-radio-item"]')
+      .first();
+    const shell = radioItem
+      .locator('[data-slot="dropdown-menu-radio-indicator-shell"]')
+      .first();
+    const indicator = shell
+      .locator('[data-slot="dropdown-menu-radio-indicator"]')
+      .first();
     const icon = shell.locator("svg").first();
 
     await expect(shell).toBeVisible();
@@ -1031,8 +1293,12 @@ test("keeps filter radio controls on the default shadcn shape across custom them
           display: style.display,
           alignItems: style.alignItems,
           justifyContent: style.justifyContent,
-          hasLegacyRadioCellClass: element.classList.contains("inovua-react-toolkit-menu__cell--radio"),
-          hasLegacyMenuCellClass: element.classList.contains("inovua-react-toolkit-menu__cell"),
+          hasLegacyRadioCellClass: element.classList.contains(
+            "inovua-react-toolkit-menu__cell--radio"
+          ),
+          hasLegacyMenuCellClass: element.classList.contains(
+            "inovua-react-toolkit-menu__cell"
+          ),
         };
       }),
       indicator.evaluate((element) => {
@@ -1058,7 +1324,12 @@ test("keeps filter radio controls on the default shadcn shape across custom them
 
     await page.keyboard.press("Escape");
 
-    return { row: styles[0], shell: styles[1], indicator: styles[2], icon: styles[3] };
+    return {
+      row: styles[0],
+      shell: styles[1],
+      indicator: styles[2],
+      icon: styles[3],
+    };
   }
 
   const defaultRadio = await getRadioShellStyles();
@@ -1080,7 +1351,9 @@ test("keeps filter radio controls on the default shadcn shape across custom them
     expect(radio.shell.hasLegacyRadioCellClass).toBe(false);
     expect(radio.shell.hasLegacyMenuCellClass).toBe(false);
     expect(radio.shell.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-    expect(radio.shell.boxShadow).toContain("rgba(0, 0, 0, 0.05) 0px 1px 2px 0px");
+    expect(radio.shell.boxShadow).toContain(
+      "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+    );
     expect(radio.row.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
     expect(radio.shell.borderTopColor).toBe(radio.row.color);
     expect(radio.shell.color).toBe(radio.row.color);
@@ -1096,8 +1369,10 @@ test("keeps filter radio controls on the default shadcn shape across custom them
   }
 });
 
-test("keeps table alignment under hostile global table styles", async ({ page }) => {
-  await page.goto("/");
+test("keeps table alignment under hostile global table styles", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.addStyleTag({
     content: `
@@ -1111,38 +1386,51 @@ test("keeps table alignment under hostile global table styles", async ({ page })
     `,
   });
 
-  const layout = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const table = root.querySelector("table");
-    const thead = root.querySelector("thead");
-    const headerRow = root.querySelector(".tdg-header-row");
-    const headerCells = Array.from(root.querySelectorAll(".tdg-header-cell")).slice(0, 3);
-    const firstBodyRow = root.querySelector("tbody .tdg-row");
-    const bodyCells = firstBodyRow ? Array.from(firstBodyRow.querySelectorAll("td")).slice(0, 3) : [];
+  const layout = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const table = root.querySelector("table");
+      const thead = root.querySelector("thead");
+      const headerRow = root.querySelector(".tdg-header-row");
+      const headerCells = Array.from(
+        root.querySelectorAll(".tdg-header-cell")
+      ).slice(0, 3);
+      const firstBodyRow = root.querySelector("tbody .tdg-row");
+      const bodyCells = firstBodyRow
+        ? Array.from(firstBodyRow.querySelectorAll("td")).slice(0, 3)
+        : [];
 
-    if (!table || !thead || !headerRow || headerCells.length < 3 || bodyCells.length < 3) {
-      return null;
-    }
+      if (
+        !table ||
+        !thead ||
+        !headerRow ||
+        headerCells.length < 3 ||
+        bodyCells.length < 3
+      ) {
+        return null;
+      }
 
-    const pick = (elements: Element[]) =>
-      elements.map((element) => {
-        const rect = element.getBoundingClientRect();
+      const pick = (elements: Element[]) =>
+        elements.map((element) => {
+          const rect = element.getBoundingClientRect();
 
-        return {
-          top: Math.round(rect.top),
-          left: Math.round(rect.left),
-        };
-      });
+          return {
+            top: Math.round(rect.top),
+            left: Math.round(rect.left),
+          };
+        });
 
-    return {
-      tableDisplay: getComputedStyle(table).display,
-      theadDisplay: getComputedStyle(thead).display,
-      rowDisplay: getComputedStyle(headerRow).display,
-      headerCellDisplay: getComputedStyle(headerCells[0]!).display,
-      bodyCellDisplay: getComputedStyle(bodyCells[0]!).display,
-      headerRects: pick(headerCells),
-      bodyRects: pick(bodyCells),
-    };
-  });
+      return {
+        tableDisplay: getComputedStyle(table).display,
+        theadDisplay: getComputedStyle(thead).display,
+        rowDisplay: getComputedStyle(headerRow).display,
+        headerCellDisplay: getComputedStyle(headerCells[0]!).display,
+        bodyCellDisplay: getComputedStyle(bodyCells[0]!).display,
+        headerRects: pick(headerCells),
+        bodyRects: pick(bodyCells),
+      };
+    });
 
   expect(layout).not.toBeNull();
   expect(layout?.tableDisplay).toBe("table");
@@ -1154,14 +1442,24 @@ test("keeps table alignment under hostile global table styles", async ({ page })
   expect(new Set(layout?.headerRects.map((rect) => rect.top)).size).toBe(1);
   expect(new Set(layout?.bodyRects.map((rect) => rect.top)).size).toBe(1);
 
-  expect(layout?.headerRects[1]?.left).toBeGreaterThan(layout?.headerRects[0]?.left ?? 0);
-  expect(layout?.headerRects[2]?.left).toBeGreaterThan(layout?.headerRects[1]?.left ?? 0);
-  expect(layout?.bodyRects[1]?.left).toBeGreaterThan(layout?.bodyRects[0]?.left ?? 0);
-  expect(layout?.bodyRects[2]?.left).toBeGreaterThan(layout?.bodyRects[1]?.left ?? 0);
+  expect(layout?.headerRects[1]?.left).toBeGreaterThan(
+    layout?.headerRects[0]?.left ?? 0
+  );
+  expect(layout?.headerRects[2]?.left).toBeGreaterThan(
+    layout?.headerRects[1]?.left ?? 0
+  );
+  expect(layout?.bodyRects[1]?.left).toBeGreaterThan(
+    layout?.bodyRects[0]?.left ?? 0
+  );
+  expect(layout?.bodyRects[2]?.left).toBeGreaterThan(
+    layout?.bodyRects[1]?.left ?? 0
+  );
 });
 
-test("keeps filter row in flow under legacy structural theme overrides", async ({ page }) => {
-  await page.goto("/");
+test("keeps filter row in flow under legacy structural theme overrides", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.addStyleTag({
     content: `
@@ -1182,28 +1480,33 @@ test("keeps filter row in flow under legacy structural theme overrides", async (
     `,
   });
 
-  const filterLayout = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const filterRow = root.querySelector(".tdg-filter-row");
-    const headerCell = root.querySelector(".tdg-header-cell");
-    const filterCell = root.querySelector(".tdg-filter-cell");
+  const filterLayout = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const filterRow = root.querySelector(".tdg-filter-row");
+      const headerCell = root.querySelector(".tdg-header-cell");
+      const filterCell = root.querySelector(".tdg-filter-cell");
 
-    if (!filterRow || !headerCell || !filterCell) {
-      return null;
-    }
+      if (!filterRow || !headerCell || !filterCell) {
+        return null;
+      }
 
-    const filterStyle = getComputedStyle(filterRow);
-    const headerCellStyle = getComputedStyle(headerCell);
-    const filterCellStyle = getComputedStyle(filterCell);
+      const filterStyle = getComputedStyle(filterRow);
+      const headerCellStyle = getComputedStyle(headerCell);
+      const filterCellStyle = getComputedStyle(filterCell);
 
-    return {
-      hasLegacyStructuralClass: filterRow.classList.contains("InovuaReactDataGrid__header-wrapper__fill__filters"),
-      filterRowPosition: filterStyle.position,
-      filterRowDisplay: filterStyle.display,
-      filterRowMinHeight: filterStyle.minHeight,
-      headerCellPosition: headerCellStyle.position,
-      filterCellPosition: filterCellStyle.position,
-    };
-  });
+      return {
+        hasLegacyStructuralClass: filterRow.classList.contains(
+          "InovuaReactDataGrid__header-wrapper__fill__filters"
+        ),
+        filterRowPosition: filterStyle.position,
+        filterRowDisplay: filterStyle.display,
+        filterRowMinHeight: filterStyle.minHeight,
+        headerCellPosition: headerCellStyle.position,
+        filterCellPosition: filterCellStyle.position,
+      };
+    });
 
   expect(filterLayout).not.toBeNull();
   expect(filterLayout?.hasLegacyStructuralClass).toBe(false);
@@ -1214,54 +1517,73 @@ test("keeps filter row in flow under legacy structural theme overrides", async (
   expect(filterLayout?.filterCellPosition).toBe("static");
 });
 
-test("survives a global @inovua/reactdatagrid-community/index.css import", async ({ page }) => {
-  await page.goto("/");
+test("survives a global @inovua/reactdatagrid-community/index.css import", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.addStyleTag({ content: INOVUA_INDEX_CSS });
 
-  const layout = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const header = root.querySelector(".InovuaReactDataGrid__header");
-    const filterRow = root.querySelector(".tdg-filter-row");
-    const headerCell = root.querySelector(".tdg-header-cell");
-    const filterCell = root.querySelector(".tdg-filter-cell");
-    const scrollArea = root.querySelector('[data-slot="scroll-area"]');
-    const horizontalScrollbar = root.querySelector(
-      '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
-    );
-    const verticalScrollbar = root.querySelector(
-      '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
-    );
-    const filterInput = root.querySelector(".inovua-react-toolkit-text-input");
-    const selectTrigger = root.querySelector(".tdg-select-trigger");
+  const layout = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const header = root.querySelector(".InovuaReactDataGrid__header");
+      const filterRow = root.querySelector(".tdg-filter-row");
+      const headerCell = root.querySelector(".tdg-header-cell");
+      const filterCell = root.querySelector(".tdg-filter-cell");
+      const scrollArea = root.querySelector('[data-slot="scroll-area"]');
+      const horizontalScrollbar = root.querySelector(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+      );
+      const verticalScrollbar = root.querySelector(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
+      );
+      const filterInput = root.querySelector(
+        ".inovua-react-toolkit-text-input"
+      );
+      const selectTrigger = root.querySelector(".tdg-select-trigger");
 
-    if (!header || !filterRow || !headerCell || !filterCell || !scrollArea || !filterInput || !selectTrigger) {
-      return null;
-    }
+      if (
+        !header ||
+        !filterRow ||
+        !headerCell ||
+        !filterCell ||
+        !scrollArea ||
+        !filterInput ||
+        !selectTrigger
+      ) {
+        return null;
+      }
 
-    const headerStyle = getComputedStyle(header);
-    const filterRowStyle = getComputedStyle(filterRow);
-    const headerCellStyle = getComputedStyle(headerCell);
-    const filterCellStyle = getComputedStyle(filterCell);
-    const filterInputStyle = getComputedStyle(filterInput);
-    const selectTriggerStyle = getComputedStyle(selectTrigger);
+      const headerStyle = getComputedStyle(header);
+      const filterRowStyle = getComputedStyle(filterRow);
+      const headerCellStyle = getComputedStyle(headerCell);
+      const filterCellStyle = getComputedStyle(filterCell);
+      const filterInputStyle = getComputedStyle(filterInput);
+      const selectTriggerStyle = getComputedStyle(selectTrigger);
 
-    return {
-      headerDisplay: headerStyle.display,
-      filterRowPosition: filterRowStyle.position,
-      filterRowDisplay: filterRowStyle.display,
-      headerCellPosition: headerCellStyle.position,
-      filterCellPosition: filterCellStyle.position,
-      filterCellPaddingTop: filterCellStyle.paddingTop,
-      filterCellPaddingRight: filterCellStyle.paddingRight,
-      scrollAreaDisplay: getComputedStyle(scrollArea).display,
-      horizontalScrollbarDisplay: horizontalScrollbar ? getComputedStyle(horizontalScrollbar).display : null,
-      verticalScrollbarDisplay: verticalScrollbar ? getComputedStyle(verticalScrollbar).display : null,
-      inputBorderRadius: filterInputStyle.borderRadius,
-      inputBackgroundColor: filterInputStyle.backgroundColor,
-      selectBorderRadius: selectTriggerStyle.borderRadius,
-      selectPaddingTop: selectTriggerStyle.paddingTop,
-    };
-  });
+      return {
+        headerDisplay: headerStyle.display,
+        filterRowPosition: filterRowStyle.position,
+        filterRowDisplay: filterRowStyle.display,
+        headerCellPosition: headerCellStyle.position,
+        filterCellPosition: filterCellStyle.position,
+        filterCellPaddingTop: filterCellStyle.paddingTop,
+        filterCellPaddingRight: filterCellStyle.paddingRight,
+        scrollAreaDisplay: getComputedStyle(scrollArea).display,
+        horizontalScrollbarDisplay: horizontalScrollbar
+          ? getComputedStyle(horizontalScrollbar).display
+          : null,
+        verticalScrollbarDisplay: verticalScrollbar
+          ? getComputedStyle(verticalScrollbar).display
+          : null,
+        inputBorderRadius: filterInputStyle.borderRadius,
+        inputBackgroundColor: filterInputStyle.backgroundColor,
+        selectBorderRadius: selectTriggerStyle.borderRadius,
+        selectPaddingTop: selectTriggerStyle.paddingTop,
+      };
+    });
 
   expect(layout).not.toBeNull();
   expect(layout?.headerDisplay).toBe("table-header-group");
@@ -1281,22 +1603,31 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
 
   await page.getByRole("button", { name: "Dark", exact: true }).click();
 
-  const builtInDarkTheme = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
-    const inputShell = root.querySelector(".inovua-react-toolkit-text-input");
-    const rootStyle = getComputedStyle(root);
+  const builtInDarkTheme = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
+      const inputShell = root.querySelector(".inovua-react-toolkit-text-input");
+      const rootStyle = getComputedStyle(root);
 
-    return {
-      theme: root.getAttribute("data-theme"),
-      themeBase: root.getAttribute("data-theme-base"),
-      rowOddVar: rootStyle.getPropertyValue("--tdg-row-odd-bg").trim(),
-      rowEvenVar: rootStyle.getPropertyValue("--tdg-row-even-bg").trim(),
-      inputBgVar: rootStyle.getPropertyValue("--tdg-input-bg").trim(),
-      dropdownBorderVar: rootStyle.getPropertyValue("--tdg-dropdown-shell-border-color").trim(),
-      oddRowBackgroundColor: oddRow ? getComputedStyle(oddRow).backgroundColor : null,
-      inputBackgroundColor: inputShell ? getComputedStyle(inputShell).backgroundColor : null,
-    };
-  });
+      return {
+        theme: root.getAttribute("data-theme"),
+        themeBase: root.getAttribute("data-theme-base"),
+        rowOddVar: rootStyle.getPropertyValue("--tdg-row-odd-bg").trim(),
+        rowEvenVar: rootStyle.getPropertyValue("--tdg-row-even-bg").trim(),
+        inputBgVar: rootStyle.getPropertyValue("--tdg-input-bg").trim(),
+        dropdownBorderVar: rootStyle
+          .getPropertyValue("--tdg-dropdown-shell-border-color")
+          .trim(),
+        oddRowBackgroundColor: oddRow
+          ? getComputedStyle(oddRow).backgroundColor
+          : null,
+        inputBackgroundColor: inputShell
+          ? getComputedStyle(inputShell).backgroundColor
+          : null,
+      };
+    });
 
   expect(builtInDarkTheme?.theme).toBe("dark");
   expect(builtInDarkTheme?.themeBase).toBe("dark");
@@ -1305,24 +1636,33 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(builtInDarkTheme?.inputBgVar).toBe("oklch(0.145 0 0)");
   expect(builtInDarkTheme?.dropdownBorderVar).toBe("oklch(1 0 0 / 10%)");
   expect(builtInDarkTheme?.inputBackgroundColor).not.toBe("rgb(255, 255, 255)");
-  expect(builtInDarkTheme?.inputBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
+  expect(builtInDarkTheme?.inputBackgroundColor).not.toBe(
+    "rgba(255, 255, 255, 1)"
+  );
   expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("oklch(1 0 0)");
-  expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("rgb(255, 255, 255)");
-  expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
+  expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe(
+    "rgb(255, 255, 255)"
+  );
+  expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe(
+    "rgba(255, 255, 255, 1)"
+  );
 
   await page.getByRole("button", { name: "Filter" }).first().click();
   await page.waitForTimeout(300);
 
-  const darkMenuChrome = await page.locator('[data-slot="dropdown-menu-content"]').first().evaluate((menu) => {
-    const style = getComputedStyle(menu);
+  const darkMenuChrome = await page
+    .locator('[data-slot="dropdown-menu-content"]')
+    .first()
+    .evaluate((menu) => {
+      const style = getComputedStyle(menu);
 
-    return {
-      backgroundColor: style.backgroundColor,
-      borderColor: style.borderColor,
-      color: style.color,
-      opacity: style.opacity,
-    };
-  });
+      return {
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        color: style.color,
+        opacity: style.opacity,
+      };
+    });
 
   expect(darkMenuChrome).toEqual({
     backgroundColor: "oklch(0.205 0 0)",
@@ -1334,24 +1674,27 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Ikarus Light" }).click();
 
-  const customThemeLayout = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const filterRow = root.querySelector(".tdg-filter-row");
-    const headerCell = root.querySelector(".tdg-header-cell");
-    const filterCell = root.querySelector(".tdg-filter-cell");
-    const scrollArea = root.querySelector('[data-slot="scroll-area"]');
+  const customThemeLayout = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const filterRow = root.querySelector(".tdg-filter-row");
+      const headerCell = root.querySelector(".tdg-header-cell");
+      const filterCell = root.querySelector(".tdg-filter-cell");
+      const scrollArea = root.querySelector('[data-slot="scroll-area"]');
 
-    if (!filterRow || !headerCell || !filterCell || !scrollArea) {
-      return null;
-    }
+      if (!filterRow || !headerCell || !filterCell || !scrollArea) {
+        return null;
+      }
 
-    return {
-      filterRowPosition: getComputedStyle(filterRow).position,
-      filterRowDisplay: getComputedStyle(filterRow).display,
-      headerCellPosition: getComputedStyle(headerCell).position,
-      filterCellPosition: getComputedStyle(filterCell).position,
-      scrollAreaDisplay: getComputedStyle(scrollArea).display,
-    };
-  });
+      return {
+        filterRowPosition: getComputedStyle(filterRow).position,
+        filterRowDisplay: getComputedStyle(filterRow).display,
+        headerCellPosition: getComputedStyle(headerCell).position,
+        filterCellPosition: getComputedStyle(filterCell).position,
+        scrollAreaDisplay: getComputedStyle(scrollArea).display,
+      };
+    });
 
   expect(customThemeLayout).toEqual({
     filterRowPosition: "static",
@@ -1362,8 +1705,10 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   });
 });
 
-test("restores built-in row tokens after switching away from legacy themes", async ({ page }) => {
-  await page.goto("/");
+test("restores built-in row tokens after switching away from legacy themes", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
 
@@ -1378,7 +1723,9 @@ test("restores built-in row tokens after switching away from legacy themes", asy
         inlineStyle: root.getAttribute("style") || "",
         rowOddVar: rootStyle.getPropertyValue("--tdg-row-odd-bg").trim(),
         rowEvenVar: rootStyle.getPropertyValue("--tdg-row-even-bg").trim(),
-        oddRowBackgroundColor: oddRow ? getComputedStyle(oddRow).backgroundColor : null,
+        oddRowBackgroundColor: oddRow
+          ? getComputedStyle(oddRow).backgroundColor
+          : null,
       };
     });
   };
@@ -1387,7 +1734,12 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   expect(initialDefault.theme).toBe("default");
   expect(initialDefault.rowOddVar).toBe("oklch(1 0 0)");
 
-  for (const legacyTheme of ["HF Dark", "HF Light", "Ikarus Light", "Ikarus Dark"] as const) {
+  for (const legacyTheme of [
+    "HF Dark",
+    "HF Light",
+    "Ikarus Light",
+    "Ikarus Dark",
+  ] as const) {
     await page.getByRole("button", { name: legacyTheme, exact: true }).click();
   }
 
@@ -1411,11 +1763,15 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   expect(restoredDefault.inlineStyle).not.toContain("--tdg-row-odd-bg");
   expect(restoredDefault.rowOddVar).toBe(initialDefault.rowOddVar);
   expect(restoredDefault.rowEvenVar).toBe(initialDefault.rowEvenVar);
-  expect(restoredDefault.oddRowBackgroundColor).not.toBe(builtInDark.oddRowBackgroundColor);
+  expect(restoredDefault.oddRowBackgroundColor).not.toBe(
+    builtInDark.oddRowBackgroundColor
+  );
 });
 
-test("keeps grid buttons styled under hostile global button styles", async ({ page }) => {
-  await page.goto("/");
+test("keeps grid buttons styled under hostile global button styles", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.addStyleTag({
     content: `
@@ -1439,8 +1795,14 @@ test("keeps grid buttons styled under hostile global button styles", async ({ pa
   await expect(filterButton).toBeVisible();
   const themeGroup = page.getByRole("group", { name: "Grid theme buttons" });
   await expect(themeGroup).toBeVisible();
-  const defaultThemeButton = themeGroup.getByRole("button", { name: "Default", exact: true });
-  const darkThemeButton = themeGroup.getByRole("button", { name: "Dark", exact: true });
+  const defaultThemeButton = themeGroup.getByRole("button", {
+    name: "Default",
+    exact: true,
+  });
+  const darkThemeButton = themeGroup.getByRole("button", {
+    name: "Dark",
+    exact: true,
+  });
   await expect(defaultThemeButton).toBeVisible();
   await expect(darkThemeButton).toBeVisible();
 
@@ -1451,11 +1813,21 @@ test("keeps grid buttons styled under hostile global button styles", async ({ pa
       display: style.display,
       borderRadius: style.borderRadius,
       backgroundColor: style.backgroundColor,
-      iconWrap: Boolean(element.querySelector(".inovua-react-toolkit-button__icon-wrap")),
-      textWrap: Boolean(element.querySelector(".inovua-react-toolkit-button__text")),
-      hasLtrClass: element.classList.contains("inovua-react-toolkit-button--ltr"),
-      hasIconClass: element.classList.contains("inovua-react-toolkit-button--has-icon"),
-      hasNoChildrenClass: element.classList.contains("inovua-react-toolkit-button--no-children"),
+      iconWrap: Boolean(
+        element.querySelector(".inovua-react-toolkit-button__icon-wrap")
+      ),
+      textWrap: Boolean(
+        element.querySelector(".inovua-react-toolkit-button__text")
+      ),
+      hasLtrClass: element.classList.contains(
+        "inovua-react-toolkit-button--ltr"
+      ),
+      hasIconClass: element.classList.contains(
+        "inovua-react-toolkit-button--has-icon"
+      ),
+      hasNoChildrenClass: element.classList.contains(
+        "inovua-react-toolkit-button--no-children"
+      ),
     };
   });
 
@@ -1521,8 +1893,10 @@ test("keeps grid buttons styled under hostile global button styles", async ({ pa
   expect(darkThemeStyles.borderTopColor).not.toBe("rgb(118, 118, 118)");
 });
 
-test("keeps grid-owned structure under broad host css overrides", async ({ page }) => {
-  await page.goto("/");
+test("keeps grid-owned structure under broad host css overrides", async ({
+  page,
+}) => {
+  await page.goto("/basic");
 
   await page.addStyleTag({
     content: `
@@ -1581,64 +1955,73 @@ test("keeps grid-owned structure under broad host css overrides", async ({ page 
     `,
   });
 
-  const snapshot = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const frame = root.querySelector(".tdg-frame");
-    const surface = root.querySelector(".tdg-surface");
-    const table = root.querySelector(".tdg-table");
-    const headerRow = root.querySelector(".tdg-header-row");
-    const headerCell = root.querySelector(".tdg-header-cell");
-    const filterInput = root.querySelector(".inovua-react-toolkit-text-input");
-    const filterInputInner = root.querySelector(".inovua-react-toolkit-text-input__input");
-    const selectTrigger = root.querySelector(".tdg-select-trigger");
-    const firstParagraph = root.querySelector("tbody p");
+  const snapshot = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const frame = root.querySelector(".tdg-frame");
+      const surface = root.querySelector(".tdg-surface");
+      const table = root.querySelector(".tdg-table");
+      const headerRow = root.querySelector(".tdg-header-row");
+      const headerCell = root.querySelector(".tdg-header-cell");
+      const filterInput = root.querySelector(
+        ".inovua-react-toolkit-text-input"
+      );
+      const filterInputInner = root.querySelector(
+        ".inovua-react-toolkit-text-input__input"
+      );
+      const selectTrigger = root.querySelector(".tdg-select-trigger");
+      const firstParagraph = root.querySelector("tbody p");
 
-    if (
-      !frame ||
-      !surface ||
-      !table ||
-      !headerRow ||
-      !headerCell ||
-      !filterInput ||
-      !filterInputInner ||
-      !selectTrigger
-    ) {
-      return null;
-    }
+      if (
+        !frame ||
+        !surface ||
+        !table ||
+        !headerRow ||
+        !headerCell ||
+        !filterInput ||
+        !filterInputInner ||
+        !selectTrigger
+      ) {
+        return null;
+      }
 
-    const frameStyle = getComputedStyle(frame);
-    const surfaceStyle = getComputedStyle(surface);
-    const rootStyle = getComputedStyle(root);
-    const tableStyle = getComputedStyle(table);
-    const headerRowStyle = getComputedStyle(headerRow);
-    const headerCellStyle = getComputedStyle(headerCell);
-    const filterInputStyle = getComputedStyle(filterInput);
-    const filterInputInnerStyle = getComputedStyle(filterInputInner);
-    const selectTriggerStyle = getComputedStyle(selectTrigger);
-    const paragraphStyle = firstParagraph ? getComputedStyle(firstParagraph) : null;
+      const frameStyle = getComputedStyle(frame);
+      const surfaceStyle = getComputedStyle(surface);
+      const rootStyle = getComputedStyle(root);
+      const tableStyle = getComputedStyle(table);
+      const headerRowStyle = getComputedStyle(headerRow);
+      const headerCellStyle = getComputedStyle(headerCell);
+      const filterInputStyle = getComputedStyle(filterInput);
+      const filterInputInnerStyle = getComputedStyle(filterInputInner);
+      const selectTriggerStyle = getComputedStyle(selectTrigger);
+      const paragraphStyle = firstParagraph
+        ? getComputedStyle(firstParagraph)
+        : null;
 
-    return {
-      rootFontFamily: rootStyle.fontFamily,
-      frameDisplay: frameStyle.display,
-      surfaceDisplay: surfaceStyle.display,
-      tableDisplay: tableStyle.display,
-      tableBorderCollapse: tableStyle.borderCollapse,
-      tableBorderSpacing: tableStyle.borderSpacing,
-      headerRowDisplay: headerRowStyle.display,
-      headerCellDisplay: headerCellStyle.display,
-      headerCellPaddingLeft: headerCellStyle.paddingLeft,
-      headerCellPaddingTop: headerCellStyle.paddingTop,
-      filterInputBorderRadius: filterInputStyle.borderRadius,
-      filterInputBackgroundColor: filterInputStyle.backgroundColor,
-      filterInputMarginTop: filterInputStyle.marginTop,
-      filterInputInnerBorderTopWidth: filterInputInnerStyle.borderTopWidth,
-      filterInputInnerPaddingTop: filterInputInnerStyle.paddingTop,
-      filterInputInnerBackgroundColor: filterInputInnerStyle.backgroundColor,
-      selectTriggerBorderRadius: selectTriggerStyle.borderRadius,
-      selectTriggerBackgroundColor: selectTriggerStyle.backgroundColor,
-      selectTriggerMarginTop: selectTriggerStyle.marginTop,
-      paragraphMarginTop: paragraphStyle?.marginTop ?? null,
-    };
-  });
+      return {
+        rootFontFamily: rootStyle.fontFamily,
+        frameDisplay: frameStyle.display,
+        surfaceDisplay: surfaceStyle.display,
+        tableDisplay: tableStyle.display,
+        tableBorderCollapse: tableStyle.borderCollapse,
+        tableBorderSpacing: tableStyle.borderSpacing,
+        headerRowDisplay: headerRowStyle.display,
+        headerCellDisplay: headerCellStyle.display,
+        headerCellPaddingLeft: headerCellStyle.paddingLeft,
+        headerCellPaddingTop: headerCellStyle.paddingTop,
+        filterInputBorderRadius: filterInputStyle.borderRadius,
+        filterInputBackgroundColor: filterInputStyle.backgroundColor,
+        filterInputMarginTop: filterInputStyle.marginTop,
+        filterInputInnerBorderTopWidth: filterInputInnerStyle.borderTopWidth,
+        filterInputInnerPaddingTop: filterInputInnerStyle.paddingTop,
+        filterInputInnerBackgroundColor: filterInputInnerStyle.backgroundColor,
+        selectTriggerBorderRadius: selectTriggerStyle.borderRadius,
+        selectTriggerBackgroundColor: selectTriggerStyle.backgroundColor,
+        selectTriggerMarginTop: selectTriggerStyle.marginTop,
+        paragraphMarginTop: paragraphStyle?.marginTop ?? null,
+      };
+    });
 
   expect(snapshot).not.toBeNull();
   expect(snapshot?.rootFontFamily).not.toContain("Times New Roman");
@@ -1663,36 +2046,41 @@ test("keeps grid-owned structure under broad host css overrides", async ({ page 
   expect([null, "0px"]).toContain(snapshot?.paragraphMarginTop ?? null);
 });
 
-test("supports real ikarus-dark theme imports for legacy inputs, selects, and menus", async ({ page }) => {
-  await page.goto("/");
+test("supports real ikarus-dark theme imports for legacy inputs, selects, and menus", async ({
+  page,
+}) => {
+  await page.goto("/basic");
   await page.getByRole("button", { name: "Ikarus Dark" }).click();
 
-  const shell = await page.locator(".InovuaReactDataGrid.tdg-root").first().evaluate((root) => {
-    const frame = root.querySelector(".tdg-frame");
-    const surface = root.querySelector(".tdg-surface");
-    if (!frame || !surface) {
-      return null;
-    }
+  const shell = await page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
+    .evaluate((root) => {
+      const frame = root.querySelector(".tdg-frame");
+      const surface = root.querySelector(".tdg-surface");
+      if (!frame || !surface) {
+        return null;
+      }
 
-    const rootStyle = getComputedStyle(root);
-    const frameStyle = getComputedStyle(frame);
-    const surfaceStyle = getComputedStyle(surface);
-    const rootRect = root.getBoundingClientRect();
-    const frameRect = frame.getBoundingClientRect();
+      const rootStyle = getComputedStyle(root);
+      const frameStyle = getComputedStyle(frame);
+      const surfaceStyle = getComputedStyle(surface);
+      const rootRect = root.getBoundingClientRect();
+      const frameRect = frame.getBoundingClientRect();
 
-    return {
-      rootBackgroundColor: rootStyle.backgroundColor,
-      rootBorderTopWidth: rootStyle.borderTopWidth,
-      rootBorderBottomWidth: rootStyle.borderBottomWidth,
-      rootPaddingTop: rootStyle.paddingTop,
-      rootPaddingBottom: rootStyle.paddingBottom,
-      frameBorderTopWidth: frameStyle.borderTopWidth,
-      frameBorderTopColor: frameStyle.borderTopColor,
-      frameBackgroundColor: frameStyle.backgroundColor,
-      surfaceBackgroundColor: surfaceStyle.backgroundColor,
-      heightDelta: Math.abs(rootRect.height - frameRect.height),
-    };
-  });
+      return {
+        rootBackgroundColor: rootStyle.backgroundColor,
+        rootBorderTopWidth: rootStyle.borderTopWidth,
+        rootBorderBottomWidth: rootStyle.borderBottomWidth,
+        rootPaddingTop: rootStyle.paddingTop,
+        rootPaddingBottom: rootStyle.paddingBottom,
+        frameBorderTopWidth: frameStyle.borderTopWidth,
+        frameBorderTopColor: frameStyle.borderTopColor,
+        frameBackgroundColor: frameStyle.backgroundColor,
+        surfaceBackgroundColor: surfaceStyle.backgroundColor,
+        heightDelta: Math.abs(rootRect.height - frameRect.height),
+      };
+    });
 
   expect(shell).not.toBeNull();
   expect(shell?.rootBackgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -1706,35 +2094,49 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
   expect(shell?.surfaceBackgroundColor).toBe("rgb(33, 33, 33)");
   expect(shell?.heightDelta ?? 1).toBeLessThanOrEqual(0.5);
 
-  const filterInput = page.locator(".inovua-react-toolkit-text-input.inovua-react-toolkit-text-input--theme-ikarus-dark").first();
+  const filterInput = page
+    .locator(
+      ".inovua-react-toolkit-text-input.inovua-react-toolkit-text-input--theme-ikarus-dark"
+    )
+    .first();
 
-  await expect.poll(async () => {
-    return filterInput.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        backgroundColor: style.backgroundColor,
-        color: style.color,
-        borderColor: style.borderColor,
-        borderRadius: style.borderRadius,
-        boxShadow: style.boxShadow,
-      };
+  await expect
+    .poll(async () => {
+      return filterInput.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+          borderColor: style.borderColor,
+          borderRadius: style.borderRadius,
+          boxShadow: style.boxShadow,
+        };
+      });
+    })
+    .toEqual({
+      backgroundColor: "rgb(70, 77, 86)",
+      color: "rgb(255, 255, 255)",
+      borderColor: "rgb(56, 56, 56)",
+      borderRadius: "8px",
+      boxShadow:
+        "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
     });
-  }).toEqual({
-    backgroundColor: "rgb(70, 77, 86)",
-    color: "rgb(255, 255, 255)",
-    borderColor: "rgb(56, 56, 56)",
-    borderRadius: "8px",
-    boxShadow:
-      "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
-  });
 
-  const selectTrigger = page.locator(".inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--theme-ikarus-dark").first();
+  const selectTrigger = page
+    .locator(
+      ".inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--theme-ikarus-dark"
+    )
+    .first();
   await expect(selectTrigger).toBeVisible();
 
   const selectShell = await selectTrigger.evaluate((element) => {
     const style = getComputedStyle(element);
-    const value = element.querySelector(".inovua-react-toolkit-combo-box__value");
-    const tools = element.querySelector(".inovua-react-toolkit-combo-box__tools");
+    const value = element.querySelector(
+      ".inovua-react-toolkit-combo-box__value"
+    );
+    const tools = element.querySelector(
+      ".inovua-react-toolkit-combo-box__tools"
+    );
     return {
       borderRadius: style.borderRadius,
       boxShadow: style.boxShadow,
@@ -1748,7 +2150,9 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
   });
 
   expect(selectShell.borderRadius).toBe("8px");
-  expect(selectShell.boxShadow).toContain("rgba(0, 0, 0, 0.05) 0px 1px 2px 0px");
+  expect(selectShell.boxShadow).toContain(
+    "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+  );
   expect(selectShell.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
   expect(selectShell.paddingTop).toBe("0px");
   expect(selectShell.alignItems).toBe("center");
@@ -1756,9 +2160,14 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
   expect(selectShell.toolsMarginBottom).toBe("0px");
   expect(selectShell.toolsAlignItems).toBe("center");
 
-  await page.locator(".tdg-select-trigger.inovua-react-toolkit-combo-box").first().click();
+  await page
+    .locator(".tdg-select-trigger.inovua-react-toolkit-combo-box")
+    .first()
+    .click();
 
-  const selectedOption = page.locator(".inovua-react-toolkit-combo-box__list__item--selected").first();
+  const selectedOption = page
+    .locator(".inovua-react-toolkit-combo-box__list__item--selected")
+    .first();
   await expect(selectedOption).toBeVisible();
 
   const selectedOptionStyles = await selectedOption.evaluate((element) => {
@@ -1777,6 +2186,10 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
   await page.getByRole("button", { name: "Filter" }).first().click();
 
   await expect(
-    page.locator(".inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--checked").first()
+    page
+      .locator(
+        ".inovua-react-toolkit-menu__row.inovua-react-toolkit-menu__row--checked"
+      )
+      .first()
   ).toBeVisible();
 });
