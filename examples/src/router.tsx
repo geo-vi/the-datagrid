@@ -8,6 +8,7 @@ import App from "./App";
 import BasicGridExample from "./BasicGridExample";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
+import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
 import { useExamplesUi } from "./App";
 import { getExampleMeta } from "./exampleMeta";
@@ -55,6 +56,27 @@ function UsersExamplePage() {
   );
 }
 
+function SelectionExamplePage() {
+  const example = getExampleMeta("/selection");
+
+  if (!example) {
+    throw new Error("Missing example metadata for /selection");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <SelectionGridExample />
+    </ExampleDetailPage>
+  );
+}
+
 const rootRoute = createRootRoute({
   component: App,
 });
@@ -71,6 +93,12 @@ const basicRoute = createRoute({
   component: BasicExamplePage,
 });
 
+const selectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "selection",
+  component: SelectionExamplePage,
+});
+
 const usersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "users",
@@ -80,6 +108,7 @@ const usersRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   overviewRoute,
   basicRoute,
+  selectionRoute,
   usersRoute,
 ]);
 

@@ -1,13 +1,34 @@
-import type { TypeColumn, TypeRowSelection } from "../../types";
+import type {
+  TypeColumn,
+  TypeOnSelectionChangeArg,
+  TypeRowSelection,
+} from "../../types";
 
 export function isPlainObject(v: unknown): v is Record<string, any> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+export function unwrapSelectionState(
+  sel: TypeOnSelectionChangeArg | TypeRowSelection | undefined
+): TypeRowSelection {
+  if (!isPlainObject(sel)) return sel ?? null;
+
+  if (
+    "selected" in sel &&
+    ("data" in sel || "unselected" in sel || "originalData" in sel)
+  ) {
+    return (sel as TypeOnSelectionChangeArg).selected;
+  }
+
+  return sel as TypeRowSelection;
+}
+
 export function toSelectionMap(sel: TypeRowSelection): Record<string, any> {
-  if (sel == null) return {};
-  if (isPlainObject(sel)) return sel as Record<string, any>;
-  return { [String(sel)]: true };
+  const normalized = unwrapSelectionState(sel);
+
+  if (normalized == null) return {};
+  if (isPlainObject(normalized)) return normalized as Record<string, any>;
+  return { [String(normalized)]: true };
 }
 
 export function stripFromOrder(order: string[], id: string): string[] {

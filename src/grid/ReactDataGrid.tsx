@@ -279,16 +279,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return checkboxEnabled ? [checkboxColId, ...base] : base;
   }, [checkboxColId, checkboxEnabled, inputColumns]);
 
+  const controlledColumnOrder = React.useMemo(
+    () =>
+      checkboxEnabled
+        ? injectIntoOrder(props.columnOrder, checkboxColId)
+        : props.columnOrder,
+    [checkboxColId, checkboxEnabled, props.columnOrder]
+  );
+
+  const defaultInjectedColumnOrder = React.useMemo(
+    () =>
+      checkboxEnabled
+        ? (injectIntoOrder(
+            props.columnOrder ?? defaultColumnOrder,
+            checkboxColId
+          ) ?? defaultColumnOrder)
+        : (props.columnOrder ?? defaultColumnOrder),
+    [checkboxColId, checkboxEnabled, defaultColumnOrder, props.columnOrder]
+  );
+
   const [columnOrder, setColumnOrder] = useControllableState<string[]>({
-    value: checkboxEnabled
-      ? injectIntoOrder(props.columnOrder, checkboxColId)
-      : props.columnOrder,
-    defaultValue: checkboxEnabled
-      ? (injectIntoOrder(
-          props.columnOrder ?? defaultColumnOrder,
-          checkboxColId
-        ) ?? defaultColumnOrder)
-      : (props.columnOrder ?? defaultColumnOrder),
+    value: controlledColumnOrder,
+    defaultValue: defaultInjectedColumnOrder,
     onChange: (next) => {
       const userNext = checkboxEnabled
         ? stripFromOrder(next, checkboxColId)
@@ -723,7 +735,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
             return (
               <div
-                className="flex items-center justify-center"
+                className="tdg-checkbox-cell__content flex h-full w-full items-center justify-center"
                 onMouseDown={(e) => {
                   lastPointerRef.current.shiftKey =
                     (e as any).shiftKey === true;
@@ -804,7 +816,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
             return (
               <div
-                className="flex items-center justify-center"
+                className="tdg-checkbox-cell__content flex h-full w-full items-center justify-center"
                 onMouseDown={(e) => {
                   lastPointerRef.current.shiftKey =
                     (e as any).shiftKey === true;

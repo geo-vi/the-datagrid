@@ -86,3 +86,5 @@ function MyComponent() {
   )
 }
 ```
+
+`onSelectionChange` emits the Inovua-style config object. The grid also accepts that emitted object back through `selected`, so direct React setter wiring like `onSelectionChange={setSelectedRows}` is supported.

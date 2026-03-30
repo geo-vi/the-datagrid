@@ -149,6 +149,8 @@ function MyComponent() {
 }
 ```
 
+`onSelectionChange` emits the same config object shape as Inovua. For migration compatibility, you can also pass a React state setter directly and feed that same state back into `selected`.
+
 ## Alternative: Pin to Specific Preview Version
 
 If you want to pin to a specific preview version:

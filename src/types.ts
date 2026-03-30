@@ -151,7 +151,8 @@ export type TypeI18n = { [key: string]: string | React.ReactNode };
 
 /**
  * Inovua selection in your codebase is an object map: { [id]: rowObject }.
- * We accept broad shapes, but the runtime will emit rowObject maps for compat.
+ * We accept broad shapes, and the runtime also tolerates the emitted
+ * `onSelectionChange` wrapper object being passed back through `selected`.
  */
 export type TypeRowSelection =
   | string

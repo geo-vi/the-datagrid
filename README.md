@@ -211,6 +211,8 @@ export default function App() {
 }
 ```
 
+`onSelectionChange` still emits the Inovua-style config object. For migration ergonomics, the grid also accepts the emitted object back through `selected`, so `onSelectionChange={setSelectedRows}` works with the same state variable used for `selected`.
+
 ## Props (high-level)
 
 Note: this is a curated overview. For the complete contract, refer to the exported TypeScript types.

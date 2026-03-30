@@ -1,8 +1,9 @@
 import basicExampleSource from "./BasicGridExample.tsx?raw";
+import selectionExampleSource from "./SelectionGridExample.tsx?raw";
 import usersExampleSource from "./UsersGridExample.tsx?raw";
 
 export type ExampleMeta = {
-  to: "/basic" | "/users";
+  to: "/basic" | "/selection" | "/users";
   label: string;
   title: string;
   summary: string;
@@ -23,6 +24,18 @@ export const examplePages: ExampleMeta[] = [
     sourcePath: "examples/src/BasicGridExample.tsx",
     sourceCode: basicExampleSource,
     tags: ["Smoke", "Filtering", "Virtualized"],
+  },
+  {
+    to: "/selection",
+    label: "Selection",
+    title: "Selection example",
+    summary:
+      "A customer review queue that keeps checkbox selection, filtering, and Inovua-style external state in sync.",
+    details:
+      "Shows a realistic account list with health, ARR, owners, and renewal timing, along with a compact checkbox column and direct setter wiring for onSelectionChange.",
+    sourcePath: "examples/src/SelectionGridExample.tsx",
+    sourceCode: selectionExampleSource,
+    tags: ["Selection", "Accounts", "Filtering"],
   },
   {
     to: "/users",
