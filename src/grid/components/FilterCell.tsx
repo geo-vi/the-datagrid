@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { IconChevronDown } from "@tabler/icons-react";
+import { X } from "lucide-react";
 
 import type {
   TypeColumn,
@@ -189,6 +190,7 @@ export function FilterCell(props: FilterCellProps) {
   const opDef = operators.find((o: any) => o?.name === operator);
 
   const editorDisabled = Boolean(opDef?.disableFilterEditor);
+  const clearLabel = String(t(i18n, "clear", "Clear"));
 
   const active =
     Boolean(entry) &&
@@ -426,6 +428,24 @@ export function FilterCell(props: FilterCellProps) {
               />
             )}
           </div>
+
+          {active && !editorDisabled ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="InovuaReactDataGrid__column-header__filter-clear size-7 shrink-0 rounded-none border-0 bg-transparent p-0 text-[var(--tdg-filter-tool-color)] shadow-none hover:bg-transparent hover:text-[var(--tdg-filter-tool-hover-color)] focus-visible:ring-0 focus-visible:ring-offset-0"
+              aria-label={clearLabel}
+              title={clearLabel}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClear();
+              }}
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
 
           {operatorMenuEnabled && (
             <FilterOperatorMenu
