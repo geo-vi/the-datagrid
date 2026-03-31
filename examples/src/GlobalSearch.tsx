@@ -5,19 +5,19 @@ import { useDeferredValue, useMemo, useState } from "react";
 
 import { Button } from "../../src/components/ui/button";
 import {
-  Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "../../src/components/ui/command";
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
   DialogTitle,
 } from "../../src/components/ui/dialog";
+import { Kbd, KbdGroup } from "../../src/components/ui/kbd";
 import { cn } from "../../src/lib/utils";
 import type { SearchDocument } from "./search/searchDocuments";
 
@@ -57,12 +57,14 @@ async function ensureDocfindReady() {
   return docfindReadyPromise;
 }
 
-function getShortcutLabel() {
+function getShortcutKeys() {
   if (typeof navigator === "undefined") {
-    return "Cmd/Ctrl K";
+    return ["Cmd/Ctrl", "K"];
   }
 
-  return /mac|iphone|ipad/i.test(navigator.platform) ? "Cmd K" : "Ctrl K";
+  return /mac|iphone|ipad/i.test(navigator.platform)
+    ? ["Cmd", "K"]
+    : ["Ctrl", "K"];
 }
 
 function SearchResultRow(props: {
@@ -112,7 +114,7 @@ export default function GlobalSearch() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim());
-  const shortcutLabel = useMemo(() => getShortcutLabel(), []);
+  const shortcutKeys = useMemo(() => getShortcutKeys(), []);
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -239,64 +241,71 @@ export default function GlobalSearch() {
           <span className="hidden sm:inline">Search docs and examples</span>
           <span className="sm:hidden">Search</span>
         </span>
-        <span className="rounded-lg border bg-muted/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          {shortcutLabel}
+        <span className="hidden sm:inline-flex">
+          <KbdGroup aria-hidden="true">
+            {shortcutKeys.map((key) => (
+              <Kbd key={key}>{key}</Kbd>
+            ))}
+          </KbdGroup>
         </span>
       </Button>
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl overflow-hidden rounded-3xl border bg-background p-0 shadow-2xl">
-          <div className="border-b px-5 py-4">
-            <DialogTitle className="text-base">Global search</DialogTitle>
-            <DialogDescription className="mt-1">
-              Search every docs page, prop reference, and live example from one
-              place.
-            </DialogDescription>
-          </div>
+      <CommandDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        contentClassName="max-w-3xl overflow-hidden rounded-3xl border bg-background/98 p-0 shadow-2xl"
+        commandClassName="rounded-none bg-transparent"
+        commandProps={{ shouldFilter: false }}
+      >
+        <div className="sr-only">
+          <DialogTitle>Global search</DialogTitle>
+          <DialogDescription>
+            Search every docs page, prop reference, and live example from one
+            place.
+          </DialogDescription>
+        </div>
 
-          <Command
-            shouldFilter={false}
-            className="rounded-none bg-transparent"
-          >
-            <CommandInput
-              value={query}
-              onValueChange={setQuery}
-              autoFocus
-              placeholder="Try columnOrder, TypeI18n, selection, or remote data"
-              aria-label="Global search input"
-            />
-            <CommandList className="max-h-[60vh] px-3 py-3">
-              <CommandEmpty className={cn(loading && deferredQuery ? "animate-pulse" : "")}>
-                {emptyState}
-              </CommandEmpty>
+        <CommandInput
+          value={query}
+          onValueChange={setQuery}
+          autoFocus
+          placeholder="Try columnOrder, TypeI18n, selection, or remote data"
+          aria-label="Global search input"
+        />
+        <CommandList className="max-h-[60vh] px-3 py-3">
+          <CommandEmpty className={cn(loading && deferredQuery ? "animate-pulse" : "")}>
+            {emptyState}
+          </CommandEmpty>
 
-              {docsResults.length > 0 ? (
-                <CommandGroup heading="Docs">
-                  {docsResults.map((result) => (
-                    <SearchResultRow
-                      key={`${result.href}:${result.title}`}
-                      result={result}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </CommandGroup>
-              ) : null}
+          {docsResults.length > 0 ? (
+            <CommandGroup heading="Docs">
+              {docsResults.map((result) => (
+                <SearchResultRow
+                  key={`${result.href}:${result.title}`}
+                  result={result}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </CommandGroup>
+          ) : null}
 
-              {exampleResults.length > 0 ? (
-                <CommandGroup heading="Examples">
-                  {exampleResults.map((result) => (
-                    <SearchResultRow
-                      key={`${result.href}:${result.title}`}
-                      result={result}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </CommandGroup>
-              ) : null}
-            </CommandList>
-          </Command>
-        </DialogContent>
-      </Dialog>
+          {docsResults.length > 0 && exampleResults.length > 0 ? (
+            <CommandSeparator className="mx-2 my-1" />
+          ) : null}
+
+          {exampleResults.length > 0 ? (
+            <CommandGroup heading="Examples">
+              {exampleResults.map((result) => (
+                <SearchResultRow
+                  key={`${result.href}:${result.title}`}
+                  result={result}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </CommandDialog>
     </>
   );
 }

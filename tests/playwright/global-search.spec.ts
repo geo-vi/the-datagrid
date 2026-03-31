@@ -10,7 +10,10 @@ test("searches docs keys and example content from the shared header", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Open global search" }).click();
-  await expect(page.getByRole("heading", { name: "Global search" })).toBeVisible();
+  const searchInput = page.getByRole("combobox", {
+    name: "Global search input",
+  });
+  await expect(searchInput).toBeVisible();
   await expect
     .poll(async () => {
       return page.evaluate(() => {
@@ -21,23 +24,25 @@ test("searches docs keys and example content from the shared header", async ({
           return null;
         }
 
+        const contentRect = content.getBoundingClientRect();
         const contentStyle = getComputedStyle(content);
         const overlayStyle = getComputedStyle(overlay);
 
-        return {
-          contentPosition: contentStyle.position,
-          overlayPosition: overlayStyle.position,
-        };
+        return (
+          contentStyle.position === "fixed" &&
+          overlayStyle.position === "fixed" &&
+          Math.abs(
+            Math.round(contentRect.left + contentRect.width / 2) -
+              Math.round(window.innerWidth / 2)
+          ) <= 4 &&
+          Math.abs(
+            Math.round(contentRect.top + contentRect.height / 2) -
+              Math.round(window.innerHeight / 2)
+          ) <= 4
+        );
       });
     })
-    .toEqual({
-      contentPosition: "fixed",
-      overlayPosition: "fixed",
-    });
-
-  const searchInput = page.getByRole("combobox", {
-    name: "Global search input",
-  });
+    .toBe(true);
   await searchInput.fill("onColumnOrderChange");
 
   await expect(
