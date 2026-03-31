@@ -11,6 +11,29 @@ test("searches docs keys and example content from the shared header", async ({
 
   await page.getByRole("button", { name: "Open global search" }).click();
   await expect(page.getByRole("heading", { name: "Global search" })).toBeVisible();
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const content = document.querySelector('[data-slot="dialog-content"]');
+        const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+
+        if (!content || !overlay) {
+          return null;
+        }
+
+        const contentStyle = getComputedStyle(content);
+        const overlayStyle = getComputedStyle(overlay);
+
+        return {
+          contentPosition: contentStyle.position,
+          overlayPosition: overlayStyle.position,
+        };
+      });
+    })
+    .toEqual({
+      contentPosition: "fixed",
+      overlayPosition: "fixed",
+    });
 
   const searchInput = page.getByRole("combobox", {
     name: "Global search input",

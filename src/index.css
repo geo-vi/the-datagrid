@@ -80,7 +80,10 @@
 }
 
 .tdg-dialog-content {
-  position: relative !important;
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
   display: grid !important;
   width: min(100%, 32rem) !important;
   max-width: calc(100vw - 2rem) !important;
