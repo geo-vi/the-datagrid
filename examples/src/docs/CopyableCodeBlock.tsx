@@ -9,8 +9,6 @@ type CopyableCodeBlockProps = {
   className?: string;
 };
 
-const prismTheme = themes.github;
-
 function normalizeLanguage(language: string): Language {
   const normalized = language.toLowerCase();
 
@@ -45,9 +43,11 @@ async function copyText(text: string) {
 export default function CopyableCodeBlock(props: CopyableCodeBlockProps) {
   const { className, code, label, language = "tsx" } = props;
   const [copied, setCopied] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
   const headerLabel = label ?? language;
   const prismLanguage = normalizeLanguage(language);
+  const prismTheme = isDarkMode ? themes.vsDark : themes.github;
 
   useEffect(() => {
     return () => {
@@ -55,6 +55,27 @@ export default function CopyableCodeBlock(props: CopyableCodeBlockProps) {
         window.clearTimeout(resetTimerRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const root = document.documentElement;
+    const syncTheme = () => {
+      setIsDarkMode(root.classList.contains("dark"));
+    };
+
+    syncTheme();
+
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, {
+      attributeFilter: ["class"],
+      attributes: true,
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   const handleCopy = async () => {
@@ -93,21 +114,21 @@ export default function CopyableCodeBlock(props: CopyableCodeBlockProps) {
         void handleKeyDown(event);
       }}
       className={[
-        "group cursor-copy overflow-hidden rounded-2xl border border-slate-200 bg-white text-left text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "group cursor-copy overflow-hidden rounded-2xl border bg-card text-left text-card-foreground shadow-sm transition-colors hover:border-ring/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2">
-        <span className="text-[11px] uppercase tracking-[0.24em] text-slate-500">
+      <div className="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-2">
+        <span className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
           {headerLabel}
         </span>
         <button
           type="button"
           aria-label={`Copy ${headerLabel} code button`}
           data-testid={`copy-code-button-${headerLabel.toLowerCase()}`}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={(event) => {
             event.stopPropagation();
             void handleCopy();

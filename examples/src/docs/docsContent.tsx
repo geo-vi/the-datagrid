@@ -156,8 +156,8 @@ function Callout(props: {
     <div
       className={
         tone === "warning"
-          ? "rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4"
-          : "rounded-2xl border border-sky-500/25 bg-sky-500/10 px-4 py-4"
+          ? "rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 dark:border-amber-400/20 dark:bg-amber-400/10"
+          : "rounded-2xl border border-sky-500/25 bg-sky-500/10 px-4 py-4 dark:border-sky-400/20 dark:bg-sky-400/10"
       }
     >
       <div className="text-sm font-semibold">{title}</div>

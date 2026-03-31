@@ -3,7 +3,6 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "../../src/components/ui/button";
-import { Input } from "../../src/components/ui/input";
 import { examplePages } from "./exampleMeta";
 
 export default function ExamplesOverviewPage() {
@@ -40,13 +39,13 @@ export default function ExamplesOverviewPage() {
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
-            <Input
+            <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search examples, tags, or scenarios"
               aria-label="Search examples"
-              className="pl-9"
+              className="h-11 w-full rounded-2xl border border-border/70 bg-background/95 pl-10 pr-4 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring"
             />
           </div>
 

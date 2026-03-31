@@ -74,3 +74,59 @@ test("searches docs keys and example content from the shared header", async ({
       .getByRole("heading", { name: "Selection example" })
   ).toBeVisible();
 });
+
+test("opens search from the mobile navigation menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/examples");
+
+  await expect(
+    page.getByRole("button", { name: "Open navigation menu" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open global search" })
+  ).toBeHidden();
+
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Mobile navigation" })
+  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const content = document.querySelector('[data-slot="dialog-content"]');
+
+        if (!content) {
+          return null;
+        }
+
+        const rect = content.getBoundingClientRect();
+        return {
+          left: Math.round(rect.left),
+          top: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        };
+      });
+    })
+    .toEqual({
+      left: 0,
+      top: 0,
+      width: 390,
+      height: 844,
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+
+  await page.getByRole("button", { name: "Search docs and examples" }).click();
+
+  const searchInput = page.getByRole("combobox", {
+    name: "Global search input",
+  });
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill("Users-style example");
+  await expect(
+    page.getByText("Users-style example", { exact: true })
+  ).toBeVisible();
+});

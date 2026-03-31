@@ -124,8 +124,17 @@ export default function GlobalSearch() {
       }
     };
 
+    const onOpenSearch = () => {
+      setOpen(true);
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("tdg-open-global-search", onOpenSearch);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("tdg-open-global-search", onOpenSearch);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -230,9 +239,8 @@ export default function GlobalSearch() {
     <>
       <Button
         type="button"
-        variant="outline"
-        size="sm"
-        className="h-10 min-w-[220px] justify-between rounded-2xl border bg-background/95 px-3 text-muted-foreground shadow-sm"
+        variant="ghost"
+        className="h-full min-h-14 min-w-[240px] justify-between !rounded-none border-0 border-r border-border/70 bg-transparent px-4 text-muted-foreground shadow-none hover:bg-muted/50 hover:text-foreground focus-visible:!rounded-none"
         aria-label="Open global search"
         onClick={() => setOpen(true)}
       >

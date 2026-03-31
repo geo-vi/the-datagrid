@@ -62,6 +62,20 @@
   color: var(--foreground, oklch(0.985 0 0)) !important;
 }
 
+.tdg-mobile-nav-content {
+  --tdg-mobile-nav-header-height: 6rem;
+  inset: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100vh !important;
+  max-height: none !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
 .tdg-dialog-close {
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
@@ -77,6 +91,28 @@
   border: 0 !important;
   background: transparent !important;
   color: inherit !important;
+}
+
+.tdg-mobile-nav-content .tdg-dialog-close {
+  right: 0.75rem !important;
+  top: calc(var(--tdg-mobile-nav-header-height) / 2) !important;
+  width: 3rem !important;
+  height: 3rem !important;
+  padding: 0.5rem !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transform: translateY(-50%) !important;
+  opacity: 1 !important;
+}
+
+.tdg-mobile-nav-content .tdg-dialog-close[data-state="open"] {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.tdg-mobile-nav-content .tdg-dialog-close svg {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
 }
 
 .tdg-dialog-header {

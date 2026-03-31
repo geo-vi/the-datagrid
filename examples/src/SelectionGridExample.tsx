@@ -73,13 +73,13 @@ function extractSelectedMap(
 function healthPillClasses(health: AccountHealth): string {
   switch (health) {
     case "Healthy":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700";
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200";
     case "Expansion":
-      return "border-sky-500/20 bg-sky-500/10 text-sky-700";
+      return "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200";
     case "Renewal":
-      return "border-violet-500/20 bg-violet-500/10 text-violet-700";
+      return "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-200";
     case "At risk":
-      return "border-amber-500/25 bg-amber-500/10 text-amber-700";
+      return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200";
     default:
       return "border-border bg-muted/40 text-muted-foreground";
   }
