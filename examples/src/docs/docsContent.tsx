@@ -700,7 +700,7 @@ const columnSections: ReferenceSection[] = [
       },
       {
         name: "render",
-        type: "(valueOrCellProps, args?) => ReactNode",
+        type: "((cellProps) => ReactNode) | ((value, args) => ReactNode)",
         defaultValue: "-",
         description:
           "Cell renderer. Supports both Inovua-style render({ value, data, ... }) and the legacy render(value, args) shape.",

@@ -193,8 +193,7 @@ export default function SelectionGridExample() {
         defaultWidth: 150,
         sortable: true,
         filterable: true,
-        render: (value, _args) =>
-          typeof value === "string" ? formatDate(value) : String(value ?? ""),
+        render: ({ value }: { value: string }) => formatDate(value),
       },
     ],
     []

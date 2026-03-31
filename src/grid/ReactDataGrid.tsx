@@ -850,6 +850,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
           const rowIndex = ctx.row.index;
 
           if (c.render) {
+            const renderCell = c.render as (
+              valueOrCellProps: unknown,
+              args?: {
+                data: unknown;
+                rowIndex: number;
+                column: TypeColumn;
+                columnId: string;
+              }
+            ) => React.ReactNode;
             const cellProps = {
               column: c,
               columnId: colId,
@@ -861,7 +870,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             };
 
             if (c.render.length <= 1) {
-              return c.render({
+              return renderCell({
                 value,
                 data: rowData,
                 rowIndex,
@@ -871,7 +880,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               } as any);
             }
 
-            return c.render(value, {
+            return renderCell(value, {
               data: rowData,
               rowIndex,
               column: c,

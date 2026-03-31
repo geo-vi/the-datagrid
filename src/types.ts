@@ -87,6 +87,22 @@ export type TypeFilterType = {
 
 export type TypeFilterTypes = Record<string, TypeFilterType>;
 
+export type TypeColumnRenderArgs = {
+  data: any;
+  rowIndex: number;
+  column: IColumn;
+  columnId: string;
+};
+
+export type TypeColumnRenderCellProps = TypeColumnRenderArgs & {
+  value: any;
+  cellProps: Record<string, unknown>;
+};
+
+export type TypeColumnRenderFn =
+  | ((cellProps: TypeColumnRenderCellProps) => React.ReactNode)
+  | ((value: any, args: TypeColumnRenderArgs) => React.ReactNode);
+
 export interface IColumn {
   name?: string;
   id?: string;
@@ -101,15 +117,7 @@ export interface IColumn {
    *  - render(cellPropsObject)   (Inovua-style)
    *  - render(value, argsObject) (legacy/internal)
    */
-  render?: (
-    valueOrCellProps: unknown,
-    args?: {
-      data: unknown;
-      rowIndex: number;
-      column: TypeColumn;
-      columnId: string;
-    }
-  ) => React.ReactNode;
+  render?: TypeColumnRenderFn;
 
   width?: number;
   defaultWidth?: number;

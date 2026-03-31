@@ -321,7 +321,8 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
         filterEditorProps: {
           placeholder: "Pick a date",
         },
-        render: (valueOrCellProps) => formatDateTime(extractCellValue(valueOrCellProps)),
+        render: (valueOrCellProps: unknown) =>
+          formatDateTime(extractCellValue(valueOrCellProps)),
       },
       {
         name: "date_pwdchanged",
@@ -333,7 +334,8 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
         filterEditorProps: {
           placeholder: "Pick a date",
         },
-        render: (valueOrCellProps) => formatDateTime(extractCellValue(valueOrCellProps)),
+        render: (valueOrCellProps: unknown) =>
+          formatDateTime(extractCellValue(valueOrCellProps)),
       },
       {
         name: "lang",
@@ -346,7 +348,8 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
           placeholder: "All languages",
           dataSource: languageOptions.map((language) => ({ id: language, label: language.toUpperCase() })),
         },
-        render: (valueOrCellProps) => String(extractCellValue(valueOrCellProps) ?? "").toUpperCase(),
+        render: (valueOrCellProps: unknown) =>
+          String(extractCellValue(valueOrCellProps) ?? "").toUpperCase(),
       },
       {
         name: "disabled",
@@ -361,7 +364,8 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
             { id: false, label: "No" },
           ],
         },
-        render: (valueOrCellProps) => formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
+        render: (valueOrCellProps: unknown) =>
+          formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
       },
       {
         name: "tfa_enabled",
@@ -376,7 +380,8 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
             { id: false, label: "Disabled" },
           ],
         },
-        render: (valueOrCellProps) => formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
+        render: (valueOrCellProps: unknown) =>
+          formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
       },
       {
         name: "actions",
@@ -384,7 +389,7 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
         defaultWidth: 120,
         sortable: false,
         filterable: false,
-        render: (valueOrCellProps) => {
+        render: (valueOrCellProps: unknown) => {
           const row = extractRowData(valueOrCellProps);
           if (!row) return null;
 
