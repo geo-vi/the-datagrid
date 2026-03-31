@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 
 import App, { useExamplesUi } from "./App";
+import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
@@ -33,6 +34,27 @@ function BasicExamplePage() {
       tags={example.tags}
     >
       <BasicGridExample />
+    </ExampleDetailPage>
+  );
+}
+
+function ActionsExamplePage() {
+  const example = getExampleMeta("actions");
+
+  if (!example) {
+    throw new Error("Missing example metadata for actions");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <ActionsGridExample />
     </ExampleDetailPage>
   );
 }
@@ -120,6 +142,12 @@ const exampleBasicRoute = createRoute({
   component: BasicExamplePage,
 });
 
+const exampleActionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/actions",
+  component: ActionsExamplePage,
+});
+
 const exampleSelectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "examples/selection",
@@ -138,6 +166,12 @@ const legacyBasicRoute = createRoute({
   component: BasicExamplePage,
 });
 
+const legacyActionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "actions",
+  component: ActionsExamplePage,
+});
+
 const legacySelectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "selection",
@@ -154,9 +188,11 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
   examplesOverviewRoute,
+  exampleActionsRoute,
   exampleBasicRoute,
   exampleSelectionRoute,
   exampleUsersRoute,
+  legacyActionsRoute,
   legacyBasicRoute,
   legacySelectionRoute,
   legacyUsersRoute,

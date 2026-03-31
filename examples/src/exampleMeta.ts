@@ -1,3 +1,4 @@
+import actionsExampleSource from "./ActionsGridExample.tsx?raw";
 import basicExampleSource from "./BasicGridExample.tsx?raw";
 import {
   exampleCatalog,
@@ -12,6 +13,7 @@ export type ExampleMeta = ExampleCatalogEntry & {
 };
 
 const sourceById: Record<ExampleId, string> = {
+  actions: actionsExampleSource,
   basic: basicExampleSource,
   selection: selectionExampleSource,
   users: usersExampleSource,

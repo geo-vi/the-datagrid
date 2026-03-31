@@ -1,4 +1,4 @@
-export type ExampleId = "basic" | "selection" | "users";
+export type ExampleId = "actions" | "basic" | "selection" | "users";
 
 export type ExampleCatalogEntry = {
   id: ExampleId;
@@ -13,6 +13,19 @@ export type ExampleCatalogEntry = {
 };
 
 export const exampleCatalog: ExampleCatalogEntry[] = [
+  {
+    id: "actions",
+    to: "/examples/actions",
+    legacyTo: "/actions",
+    label: "Actions",
+    title: "Actions example",
+    summary:
+      "A focused actions grid that exercises row buttons, controlled checkbox selection, and bulk mutations.",
+    details:
+      "Shows semantic cell actions that mutate the current row, plus insert and delete-selected controls wired against the same grid state the issue used.",
+    sourcePath: "examples/src/ActionsGridExample.tsx",
+    tags: ["Actions", "Selection", "Mutation"],
+  },
   {
     id: "basic",
     to: "/examples/basic",

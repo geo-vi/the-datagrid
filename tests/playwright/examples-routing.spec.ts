@@ -77,6 +77,24 @@ test("navigates between docs and dedicated example pages", async ({ page }) => {
   await expect(page).toHaveURL(/\/examples$/);
   await page
     .locator("article", {
+      has: page.getByRole("heading", { name: "Actions example" }),
+    })
+    .getByRole("link", { name: "Open example" })
+    .click();
+  await expect(page).toHaveURL(/\/examples\/actions$/);
+  await expect(
+    page
+      .getByTestId("example-preview-panel")
+      .getByRole("heading", { name: "Actions example" })
+  ).toBeVisible();
+  await expect(
+    page.getByText("examples/src/ActionsGridExample.tsx")
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to examples" }).click();
+  await expect(page).toHaveURL(/\/examples$/);
+  await page
+    .locator("article", {
       has: page.getByRole("heading", { name: "Selection example" }),
     })
     .getByRole("link", { name: "Open example" })
