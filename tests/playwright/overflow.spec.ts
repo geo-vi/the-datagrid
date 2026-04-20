@@ -66,3 +66,102 @@ test("keeps the grid contained inside a constrained parent shell", async ({
       Boolean(layout?.bodyViewportHasHorizontalOverflow)
   ).toBe(true);
 });
+
+test("keeps the horizontal scrollbar above cells and draggable", async ({
+  page,
+}) => {
+  await page.goto("/users");
+
+  const preview = page.getByTestId("example-preview-panel");
+  await expect(preview).toBeVisible();
+
+  const shell = preview.locator("section").first();
+  await shell.evaluate((node) => {
+    node.style.width = "760px";
+    node.style.maxWidth = "760px";
+    node.style.minWidth = "760px";
+  });
+
+  for (const columnName of [
+    "Failed logins",
+    "Last login",
+    "Password changed",
+    "Language",
+  ]) {
+    await preview.getByRole("button", { name: columnName }).click();
+  }
+
+  const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
+  const scrollArea = grid.locator('[data-slot="scroll-area"]').first();
+  const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
+  const horizontalScrollbar = grid
+    .locator(
+      '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+    )
+    .first();
+  const horizontalThumb = horizontalScrollbar
+    .locator('[data-slot="scroll-area-thumb"]')
+    .first();
+
+  await expect.poll(async () => {
+    return viewport.evaluate((element) => {
+      return element.scrollWidth > element.clientWidth;
+    });
+  }).toBe(true);
+
+  await scrollArea.hover({
+    position: {
+      x: 24,
+      y: Math.max(4, (await scrollArea.boundingBox())?.height ?? 12) - 4,
+    },
+  });
+
+  await expect(horizontalScrollbar).toBeVisible();
+  await expect(horizontalThumb).toBeVisible();
+
+  const hitTest = await page.evaluate(() => {
+    const scrollbar = document.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+    );
+    if (!scrollbar) return null;
+
+    const rect = scrollbar.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const target = document.elementFromPoint(x, y) as HTMLElement | null;
+
+    return {
+      slot: target?.dataset.slot ?? null,
+      insideCell: Boolean(target?.closest(".InovuaReactDataGrid__cell")),
+    };
+  });
+
+  expect(hitTest).not.toBeNull();
+  expect(hitTest?.insideCell).toBe(false);
+  expect(["scroll-area-scrollbar", "scroll-area-thumb"]).toContain(
+    hitTest?.slot ?? ""
+  );
+
+  const thumbBox = await horizontalThumb.boundingBox();
+  expect(thumbBox).not.toBeNull();
+
+  const beforeScrollLeft = await viewport.evaluate((element) => {
+    return element.scrollLeft;
+  });
+
+  await page.mouse.move(
+    (thumbBox?.x ?? 0) + (thumbBox?.width ?? 0) / 2,
+    (thumbBox?.y ?? 0) + (thumbBox?.height ?? 0) / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    (thumbBox?.x ?? 0) + (thumbBox?.width ?? 0) / 2 + 120,
+    (thumbBox?.y ?? 0) + (thumbBox?.height ?? 0) / 2,
+    { steps: 8 }
+  );
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    return viewport.evaluate((element) => element.scrollLeft);
+  }).toBeGreaterThan(beforeScrollLeft + 20);
+});

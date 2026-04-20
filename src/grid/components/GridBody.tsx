@@ -216,7 +216,6 @@ export function GridBody(props: GridBodyProps) {
                         width,
                         minWidth: col?.minWidth,
                         maxWidth: col?.maxWidth,
-                        zIndex: cellIndex + 1,
                         ...(typeof col?.style === "object" && col?.style
                           ? col.style
                           : {}),
@@ -326,7 +325,6 @@ export function GridBody(props: GridBodyProps) {
                         width,
                         minWidth: col?.minWidth,
                         maxWidth: col?.maxWidth,
-                        zIndex: cellIndex + 1,
                         ...(typeof col?.style === "object" && col?.style
                           ? col.style
                           : {}),

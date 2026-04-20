@@ -74,9 +74,10 @@ jobs:
       - name: Set preview version (unique per run)
         id: version
         run: |
+          BASE_VERSION="$(node -p "require('./package.json').version")"
           TS="$(date -u +%Y%m%dT%H%M%SZ)"
           SHA="${GITHUB_SHA::7}"
-          VERSION="0.0.0-preview.${TS}.${SHA}"
+          VERSION="${BASE_VERSION}-preview.${TS}.${SHA}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           npm version --no-git-tag-version "${VERSION}"
           echo "Preview version: ${VERSION}"
