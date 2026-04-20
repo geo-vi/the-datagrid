@@ -298,7 +298,7 @@ Note: this is a curated overview. For the complete contract, refer to the export
 | ----------- | -------------------------- | ------- | ---------------------------------------- |
 | `i18n`      | `TypeI18n`                 | -       | Text overrides (labels, operators, etc.) |
 | `loading`   | `boolean`                  | -       | Loading state                            |
-| `onReady`   | `(ref: RefObject) => void` | -       | Called when grid ref is ready            |
+| `onReady`   | `(ref: RefObject) => void` | -       | Called with an Inovua-compatible computed-props ref |
 | `handle`    | `(ref: RefObject) => void` | -       | Alias for `onReady`                      |
 | `className` | `string`                   | -       | Extra CSS classes                        |
 | `style`     | `CSSProperties`            | -       | Inline styles                            |

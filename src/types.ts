@@ -176,25 +176,244 @@ export type TypeOnSelectionChangeArg = {
   originalData?: TypeDataSource;
 };
 
+export type TypeGetColumnByParam =
+  | string
+  | number
+  | TypeColumn
+  | { id: string | number; name?: string | number }
+  | { name: string | number; id?: string | number };
+
+export type TypeComputedColumn = TypeColumn & {
+  computedWidth?: number;
+  computedVisibleIndex?: number;
+  index?: number;
+};
+
+export type TypeComputedColumnsMap = Record<string, TypeComputedColumn>;
+
+export type TypeSize = {
+  width: number;
+  height: number;
+};
+
 export type TypeComputedProps = {
+  /**
+   * Inovua exposes a very broad computed-props object.
+   * Keep this type intentionally open so legacy property access continues
+   * to type-check even when our runtime only implements a compat subset.
+   */
+  [key: string]: any;
+
   reload: () => void;
+
+  initialProps?: unknown;
+  publicAPI?: TypeComputedProps;
+
+  data?: unknown[];
+  originalData?: unknown[];
+  count?: number;
+  dataCountAfterFilter?: number;
 
   getData: () => unknown[];
   getCount: () => number;
 
+  computedSkip?: number;
+  computedLimit?: number;
   getSkip: () => number;
   getLimit: () => number;
   setSkip: (skip: number) => void;
   setLimit: (limit: number) => void;
 
+  computedSortInfo?: TypeSortInfo;
   getSortInfo: () => TypeSortInfo;
   setSortInfo: (sortInfo: TypeSortInfo) => void;
+  toggleColumnSort?: (column: TypeGetColumnByParam) => void;
+  setColumnSortInfo?: (
+    column: TypeGetColumnByParam,
+    dir: SortDirection
+  ) => void;
+  unsortColumn?: (column: TypeGetColumnByParam) => void;
 
+  computedFilterValue?: TypeFilterValue;
+  computedFilterValueMap?: Record<string, TypeSingleFilterValue> | null;
   getFilterValue: () => TypeFilterValue;
   setFilterValue: (filterValue: TypeFilterValue) => void;
+  clearAllFilters?: () => void;
+  clearColumnFilter?: (column: TypeGetColumnByParam) => void;
+  getColumnFilterValue?: (
+    column: TypeGetColumnByParam
+  ) => TypeSingleFilterValue | undefined;
+  setColumnFilterValue?: (
+    column: TypeGetColumnByParam,
+    value: unknown
+  ) => void;
+  isColumnFiltered?: (column: TypeGetColumnByParam) => boolean;
 
+  computedColumnOrder?: string[] | undefined;
   getColumnOrder: () => string[];
   setColumnOrder: (columnOrder: string[]) => void;
+  columnsMap?: TypeComputedColumnsMap;
+  visibleColumnsMap?: TypeComputedColumnsMap;
+  allColumns?: TypeComputedColumn[];
+  visibleColumns?: TypeComputedColumn[];
+  getColumnsInOrder?: () => TypeComputedColumn[];
+  getColumnBy?: (
+    column: TypeGetColumnByParam,
+    config?: { initial?: boolean }
+  ) => TypeComputedColumn | TypeColumn | undefined;
+  columnVisibilityMap?: Record<string, boolean>;
+  isColumnVisible?: (column: TypeGetColumnByParam) => boolean;
+  setColumnVisible?: (
+    column: TypeGetColumnByParam,
+    visible: boolean
+  ) => void;
+
+  gridId?: number;
+  size?: TypeSize;
+  viewportSize?: TypeSize;
+  availableWidthForColumns?: number;
+  maxAvailableWidthForColumns?: number;
+  viewportAvailableWidth?: number;
+  totalColumnCount?: number;
+  totalComputedWidth?: number;
+  columnWidthPrefixSums?: number[];
+  minColumnsSize?: number;
+  maxVisibleRows?: number;
+
+  domRef?: React.MutableRefObject<HTMLElement | null>;
+  bodyRef?: React.MutableRefObject<HTMLElement | null>;
+  getDOMNode?: () => HTMLDivElement | null;
+  getMenuPortalContainer?: () => HTMLDivElement | null;
+  getScrollingElement?: () => HTMLElement | null;
+  getDOMNodeForRowIndex?: (index: number) => HTMLElement | null;
+  getRows?: () => HTMLElement | null;
+  getHeader?: () => HTMLElement | null;
+  focus?: () => void;
+  blur?: () => void;
+
+  computedLoading?: boolean;
+  isLoading?: () => boolean;
+  setLoading?: (value: React.SetStateAction<boolean>) => void;
+
+  computedFilterable?: boolean;
+  computedIsFilterable?: boolean;
+  setEnableFiltering?: (value: React.SetStateAction<boolean>) => void;
+
+  computedShowHeader?: boolean;
+  setShowHeader?: (value: React.SetStateAction<boolean>) => void;
+
+  showHorizontalCellBorders?: boolean;
+  showVerticalCellBorders?: boolean;
+  computedShowCellBorders?: TypeShowCellBorders;
+
+  computedRemoteData?: boolean;
+  computedRemotePagination?: boolean;
+  computedRemoteFilter?: boolean;
+  computedLocalPagination?: boolean;
+  computedPagination?: boolean;
+  computedLivePagination?: boolean;
+  remoteSort?: boolean;
+
+  getItemId?: (item: object) => unknown;
+  getItemAt?: (index: number) => unknown;
+  getItemIdAt?: (index: number) => unknown;
+  getItemIndex?: (id: string | number) => number;
+  getRowIndexById?: (rowId: string | number, data?: unknown[]) => number;
+  getItemIndexById?: (rowId: string | number, data?: unknown[]) => number;
+
+  computedSelected?: TypeRowSelection;
+  computedUnselected?: Record<string, boolean>;
+  getSelectedMap?: () => Record<string, unknown>;
+  setSelected?: (selected: TypeRowSelection, ...args: unknown[]) => void;
+  selectAll?: () => void;
+  deselectAll?: () => void;
+  isRowSelected?: (data: object | number | string) => boolean;
+  getSelectedCount?: (
+    selected?: TypeRowSelection,
+    unselected?: TypeRowSelection
+  ) => number;
+  computedSelectedCount?: number;
+  computedUnselectedCount?: number;
+  setSelectedById?: (id: string, selected: boolean) => void;
+  setSelectedAt?: (index: number, selected: boolean) => void;
+  setRowSelected?: (index: number, selected: boolean, event?: unknown) => void;
+
+  setScrollLeft?: (scrollLeft: number) => void;
+  incrementScrollLeft?: (scrollLeft: number) => void;
+  getScrollLeft?: () => number;
+  getScrollLeftMax?: () => number;
+  setScrollTop?: (scrollTop: number) => void;
+  incrementScrollTop?: (scrollTop: number) => void;
+  getScrollTop?: () => number;
+  scrollToIndex?: (
+    index: number,
+    config?: {
+      top?: boolean;
+      direction?: "top" | "bottom";
+      force?: boolean;
+      duration?: number;
+      offset?: number;
+    },
+    callback?: (...args: unknown[]) => void
+  ) => void;
+  scrollToId?: (
+    id: string | number,
+    config?: {
+      top?: boolean;
+      direction?: "top" | "bottom";
+      force?: boolean;
+      duration?: number;
+      offset?: number;
+    },
+    callback?: (...args: unknown[]) => void
+  ) => void;
+  scrollToCell?: (
+    cell: { rowIndex: number; columnIndex: number },
+    config?: {
+      offset?: number;
+      left?: boolean;
+      right?: boolean;
+      top?: boolean;
+    }
+  ) => void;
+  scrollToColumn?: (
+    index: number,
+    config?: {
+      offset?: number;
+      duration?: number;
+      force?: boolean;
+      direction?: "left" | "right" | null;
+    },
+    callback?: (...args: unknown[]) => void
+  ) => void;
+  scrollToIndexIfNeeded?: (
+    index: number,
+    config?: {
+      top?: boolean;
+      direction?: "top" | "bottom";
+      force?: boolean;
+      duration?: number;
+      offset?: number;
+    },
+    callback?: (...args: unknown[]) => void
+  ) => boolean;
+  getFirstVisibleIndex?: () => number;
+  isRowFullyVisible?: (rowIndex: number) => boolean;
+  isRowRendered?: (rowIndex: number) => boolean;
+  getRenderRange?: () => { from: number; to: number };
+  scrollbars?: {
+    vertical: boolean;
+    horizontal: boolean;
+  };
+
+  i18n?: (key: string, defaultValue?: string) => string | React.ReactNode;
+  columnFilterContextMenuProps?: Record<string, unknown> | null;
+  showColumnFilterContextMenu?: (...args: unknown[]) => void;
+  hideColumnFilterContextMenu?: () => void;
+  showColumnContextMenu?: (...args: unknown[]) => void;
+  hideColumnContextMenu?: (...args: unknown[]) => void;
+  showRowContextMenu?: (...args: unknown[]) => void;
+  hideRowContextMenu?: (...args: unknown[]) => void;
 };
 
 export type TypePaginationMode = true | false | "remote" | "local";

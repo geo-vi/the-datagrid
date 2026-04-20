@@ -43,6 +43,8 @@
     "build": "tsc -p ./tsconfig-build.json && vite build",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
+    "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
+    "test:compat": "yarn test:types && playwright test tests/playwright/computed-props-compat.spec.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",

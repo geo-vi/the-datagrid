@@ -655,7 +655,8 @@ const reactDataGridPropSections: ReferenceSection[] = [
         name: "onReady",
         type: "(apiRef) => void",
         defaultValue: "-",
-        description: "Receives the imperative grid API ref after mount.",
+        description:
+          "Receives the Inovua-compatible computed-props ref after mount.",
       },
       {
         name: "handle",

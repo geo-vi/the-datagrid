@@ -7,6 +7,7 @@ import {
 import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
+import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import SelectionGridExample from "./SelectionGridExample";
@@ -184,9 +185,16 @@ const legacyUsersRoute = createRoute({
   component: UsersExamplePage,
 });
 
+const compatComputedPropsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/computed-props",
+  component: ComputedPropsCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
+  compatComputedPropsRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,

@@ -165,6 +165,8 @@ export function GridBody(props: GridBodyProps) {
                 )}
                 data-selected={rowIsSelected ? "true" : "false"}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
+                data-row-id={row.id}
+                data-row-index={vi.index}
                 data-slot="grid-row"
                 style={{ height: vi.size, ...getRowThemeStyle(rowIsSelected) }}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
@@ -183,6 +185,8 @@ export function GridBody(props: GridBodyProps) {
                   return (
                     <TableCell
                       key={cell.id}
+                      data-column-id={colId}
+                      data-column-index={cellIndex}
                       className={cn(
                         userSelectClass,
                         "InovuaReactDataGrid__cell",
@@ -271,6 +275,8 @@ export function GridBody(props: GridBodyProps) {
                 )}
                 data-selected={rowIsSelected ? "true" : "false"}
                 data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+                data-row-id={row.id}
+                data-row-index={row.index}
                 data-slot="grid-row"
                 style={getRowThemeStyle(rowIsSelected)}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
@@ -289,6 +295,8 @@ export function GridBody(props: GridBodyProps) {
                   return (
                     <TableCell
                       key={cell.id}
+                      data-column-id={colId}
+                      data-column-index={cellIndex}
                       className={cn(
                         userSelectClass,
                         "InovuaReactDataGrid__cell",

@@ -176,6 +176,9 @@ export function HeaderCell(props: HeaderCellProps) {
     <TableHead
       key={header.id}
       colSpan={header.colSpan}
+      data-slot="grid-header-cell"
+      data-column-id={colId}
+      data-column-index={columnIndex}
       className={cn(
         "tdg-header-cell InovuaReactDataGrid__column-header bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         "InovuaReactDataGrid__column-header--direction-ltr",
