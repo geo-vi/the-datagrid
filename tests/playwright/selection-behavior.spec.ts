@@ -61,3 +61,36 @@ test("selection example supports the direct Inovua-style setter flow", async ({
     chipList.getByText("No accounts selected yet.", { exact: true })
   ).toBeVisible();
 });
+
+test("shows the indeterminate selector without a stale check icon in Ikarus Dark", async ({
+  page,
+}) => {
+  await page.goto("/selection");
+
+  await page.getByRole("button", { name: "Ikarus Dark" }).click();
+
+  const preview = page.getByTestId("example-preview-panel");
+  const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
+  await expect(grid).toHaveAttribute("data-theme", "ikarus-dark");
+
+  const headerCheckbox = grid.locator("thead [role='checkbox']").first();
+  const rowCheckboxes = grid.locator(
+    'tbody [data-slot="grid-row"] [role="checkbox"]'
+  );
+
+  await headerCheckbox.click();
+  await expect(headerCheckbox).toHaveAttribute("data-state", "checked");
+  await expect(
+    headerCheckbox.locator(".tdg-checkbox__check-icon")
+  ).toBeVisible();
+
+  await rowCheckboxes.nth(0).click();
+
+  await expect(headerCheckbox).toHaveAttribute("data-state", "indeterminate");
+  await expect(
+    headerCheckbox.locator(".tdg-checkbox__indeterminate-icon")
+  ).toBeVisible();
+  await expect(headerCheckbox.locator(".tdg-checkbox__check-icon")).toHaveCount(
+    0
+  );
+});
