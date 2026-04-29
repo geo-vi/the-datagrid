@@ -758,7 +758,7 @@
 .tdg-root .tdg-filter-cell {
   position: static !important;
   inset: auto !important;
-  padding: 0 0.5rem !important;
+  padding: var(--tdg-filter-cell-padding, 0 0.25rem) !important;
 }
 
 .tdg-root .InovuaReactDataGrid__cell {
@@ -783,7 +783,7 @@
   min-height: 0 !important;
   min-width: 0 !important;
   align-items: center !important;
-  gap: 0.25rem !important;
+  gap: 0 !important;
   overflow: hidden !important;
   position: relative !important;
 }
@@ -826,7 +826,7 @@
 }
 
 .tdg-root .InovuaReactDataGrid__column-header__filter-settings {
-  margin-left: 0.25rem !important;
+  margin-left: 0 !important;
   margin-right: 0 !important;
   border-width: 0 !important;
   border-color: transparent !important;

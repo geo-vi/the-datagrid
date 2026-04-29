@@ -141,6 +141,7 @@ export interface IColumn {
   filterName?: string;
   filterEditor?: React.ComponentType<Record<string, unknown>>;
   filterEditorProps?: unknown;
+  filterCellPadding?: React.CSSProperties["padding"];
 
   textAlign?: "start" | "end" | "left" | "right" | "center";
   headerAlign?: "start" | "end" | "left" | "right" | "center";

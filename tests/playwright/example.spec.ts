@@ -1794,7 +1794,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(layout?.headerCellPosition).toBe("static");
   expect(layout?.filterCellPosition).toBe("static");
   expect(layout?.filterCellPaddingTop).toBe("0px");
-  expect(layout?.filterCellPaddingRight).toBe("8px");
+  expect(layout?.filterCellPaddingRight).toBe("4px");
   expect(layout?.scrollAreaDisplay).toBe("block");
   expect([null, "none"]).toContain(layout?.horizontalScrollbarDisplay ?? null);
   expect([null, "none"]).toContain(layout?.verticalScrollbarDisplay ?? null);

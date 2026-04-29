@@ -48,6 +48,8 @@ import {
 } from "../utils/gridUtils";
 import { FilterOperatorMenu } from "./FilterOperatorMenu";
 
+const DEFAULT_FILTER_CELL_PADDING = "0 0.25rem";
+
 export type FilterCellProps = {
   header: any; // tanstack header
   col?: TypeColumn;
@@ -139,6 +141,15 @@ function isColumnFilterable(
   return false;
 }
 
+function normalizeFilterCellPadding(
+  padding: TypeColumn["filterCellPadding"] | undefined
+): string {
+  if (typeof padding === "number") return `${padding}px`;
+  if (typeof padding === "string" && padding.trim()) return padding;
+
+  return DEFAULT_FILTER_CELL_PADDING;
+}
+
 export function FilterCell(props: FilterCellProps) {
   const {
     header,
@@ -200,6 +211,7 @@ export function FilterCell(props: FilterCellProps) {
       !isEmptyLikeUI(entry?.value));
 
   const operatorMenuEnabled = enableColumnFilterContextMenu && filterable;
+  const filterCellPadding = normalizeFilterCellPadding(col?.filterCellPadding);
 
   // Resolve filterEditorProps (supports function form)
   const filterEditorPropsAny = (col as any)?.filterEditorProps;
@@ -285,7 +297,8 @@ export function FilterCell(props: FilterCellProps) {
         minWidth: col?.minWidth,
         maxWidth: col?.maxWidth,
         height: filterRowHeight,
-      }}
+        "--tdg-filter-cell-padding": filterCellPadding,
+      } as React.CSSProperties}
       onContextMenu={(e) => {
         if (!operatorMenuEnabled) return;
         e.preventDefault();
@@ -294,7 +307,7 @@ export function FilterCell(props: FilterCellProps) {
     >
       {header.isPlaceholder || !filterable ? null : (
         <div
-          className="tdg-filter-cell__inner flex h-full items-center gap-1"
+          className="tdg-filter-cell__inner flex h-full items-center gap-0"
           style={{ zIndex: columnIndex + 1 }}
         >
           <div className="InovuaReactDataGrid__column-header__filter min-w-0 flex-1">
@@ -434,7 +447,7 @@ export function FilterCell(props: FilterCellProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="InovuaReactDataGrid__column-header__filter-clear size-7 shrink-0 rounded-none border-0 bg-transparent p-0 text-[var(--tdg-filter-tool-color)] shadow-none hover:bg-transparent hover:text-[var(--tdg-filter-tool-hover-color)] focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="InovuaReactDataGrid__column-header__filter-clear size-6 shrink-0 rounded-none border-0 bg-transparent p-0 text-[var(--tdg-filter-tool-color)] shadow-none hover:bg-transparent hover:text-[var(--tdg-filter-tool-hover-color)] focus-visible:ring-0 focus-visible:ring-offset-0"
               aria-label={clearLabel}
               title={clearLabel}
               onMouseDown={(event) => event.stopPropagation()}

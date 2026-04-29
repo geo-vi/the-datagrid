@@ -842,6 +842,13 @@ const columnSections: ReferenceSection[] = [
         defaultValue: "-",
         description: "Props forwarded to the active filter editor.",
       },
+      {
+        name: "filterCellPadding",
+        type: "React.CSSProperties['padding']",
+        defaultValue: '"0 0.25rem"',
+        description:
+          "Column-level padding for the filter cell, useful for compact filter controls.",
+      },
     ],
   },
   {
