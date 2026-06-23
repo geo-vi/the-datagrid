@@ -1,6 +1,6 @@
 {
   "name": "@geovi/the-datagrid",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A modern, feature-rich React data grid component built with shadcn/ui and TanStack Table",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,16 +35,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/geo-vi/the-datagrid.git"
+    "url": "git+https://github.com/geo-vi/the-datagrid.git"
   },
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "tsc -p ./tsconfig-build.json && vite build",
+    "build": "tsc -p ./tsconfig-build.json && vite build && node scripts/assert-css-scope.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
     "test:compat": "yarn test:types && playwright test tests/playwright/computed-props-compat.spec.ts",
+    "test:css-scope": "node scripts/assert-css-scope.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
@@ -91,6 +92,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^17.0.0",
+    "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "prism-react-renderer": "^2.4.1",
     "prop-types": "^15.8.1",
