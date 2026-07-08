@@ -245,11 +245,13 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
     operators: [
       op({
         name: "eq",
-        fn: ({ value, filterValue }) => (filterValue != null ? filterValue === value : true),
+        fn: ({ value, filterValue }) =>
+          filterValue != null ? filterValue === value : true,
       }),
       op({
         name: "neq",
-        fn: ({ value, filterValue }) => (filterValue != null ? filterValue !== value : true),
+        fn: ({ value, filterValue }) =>
+          filterValue != null ? filterValue !== value : true,
       }),
     ],
   },
@@ -260,11 +262,13 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
     operators: [
       op({
         name: "eq",
-        fn: ({ value, filterValue }) => (filterValue != null ? filterValue === value : true),
+        fn: ({ value, filterValue }) =>
+          filterValue != null ? filterValue === value : true,
       }),
       op({
         name: "neq",
-        fn: ({ value, filterValue }) => (filterValue != null ? filterValue !== value : true),
+        fn: ({ value, filterValue }) =>
+          filterValue != null ? filterValue !== value : true,
       }),
     ],
   },
@@ -378,7 +382,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v > fv : false;
         },
       }),
@@ -388,7 +395,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v >= fv : false;
         },
       }),
@@ -398,7 +408,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v < fv : false;
         },
       }),
@@ -408,7 +421,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v <= fv : false;
         },
       }),
@@ -418,7 +434,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v === fv : false;
         },
       }),
@@ -428,7 +447,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const fmt = (column as any)?.dateFormat as string | undefined;
           const fv = toDateMs(filterValue, { dateFormat: fmt });
           if (!Number.isFinite(fv)) return true;
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           return Number.isFinite(v) ? v !== fv : false;
         },
       }),
@@ -440,7 +462,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const s = toDateMs(start, { dateFormat: fmt });
           const e = toDateMs(end, { dateFormat: fmt });
 
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           if (!Number.isFinite(v)) return false;
 
           const hasS = Number.isFinite(s);
@@ -460,7 +485,10 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
           const s = toDateMs(start, { dateFormat: fmt });
           const e = toDateMs(end, { dateFormat: fmt });
 
-          const v = toDateMs(value, { dateFormat: fmt, normalizeToFormat: Boolean(fmt) });
+          const v = toDateMs(value, {
+            dateFormat: fmt,
+            normalizeToFormat: Boolean(fmt),
+          });
           if (!Number.isFinite(v)) return false;
 
           const hasS = Number.isFinite(s);
@@ -486,25 +514,38 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
 // time operators = date operators (avoid duplicating objects)
 DEFAULT_FILTER_TYPES.time.operators = DEFAULT_FILTER_TYPES.date.operators;
 
+export const filterTypes: TypeFilterTypes = DEFAULT_FILTER_TYPES;
+
 /** ---------- API ---------- */
 
-export function normalizeFilterValue(v: TypeFilterValue | undefined): TypeFilterValue {
+export function normalizeFilterValue(
+  v: TypeFilterValue | undefined
+): TypeFilterValue {
   if (!v || !Array.isArray(v) || v.length === 0) return null;
   return v;
 }
 
-export function getFilterEntry(filterValue: TypeFilterValue, name: string): TypeSingleFilterValue | undefined {
+export function getFilterEntry(
+  filterValue: TypeFilterValue,
+  name: string
+): TypeSingleFilterValue | undefined {
   if (!filterValue) return undefined;
   return filterValue.find((f) => f.name === name);
 }
 
-function getTypeDef(filterTypes: TypeFilterTypes | undefined, typeName: string | undefined): TypeFilterType {
+function getTypeDef(
+  filterTypes: TypeFilterTypes | undefined,
+  typeName: string | undefined
+): TypeFilterType {
   const all = { ...DEFAULT_FILTER_TYPES, ...(filterTypes ?? {}) };
   if (typeName && all[typeName]) return all[typeName]!;
   return all.string!;
 }
 
-function getOperatorDef(typeDef: TypeFilterType, operatorName: string): TypeFilterOperator | undefined {
+function getOperatorDef(
+  typeDef: TypeFilterType,
+  operatorName: string
+): TypeFilterOperator | undefined {
   return typeDef.operators.find((o) => o.name === operatorName);
 }
 
@@ -529,13 +570,15 @@ export function upsertFilterEntry(
   };
 
   const typeDef = getTypeDef(opts?.filterTypes, merged.type);
-  const emptyValue = merged.emptyValue !== undefined ? merged.emptyValue : typeDef.emptyValue;
+  const emptyValue =
+    merged.emptyValue !== undefined ? merged.emptyValue : typeDef.emptyValue;
   merged.emptyValue = emptyValue;
 
   const opDef = getOperatorDef(typeDef, merged.operator);
 
   if (merged.active === undefined) {
-    const canRunWithoutValue = Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
+    const canRunWithoutValue =
+      Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
     merged.active = canRunWithoutValue ? true : !isEmptyLike(merged.value);
   }
 
@@ -593,7 +636,10 @@ export function clearFilter(
     filterValue,
     {
       ...existing,
-      value: existing.emptyValue !== undefined ? existing.emptyValue : typeDef.emptyValue,
+      value:
+        existing.emptyValue !== undefined
+          ? existing.emptyValue
+          : typeDef.emptyValue,
       active: false,
     },
     opts
@@ -623,8 +669,15 @@ export function applyLocalFilter(
       const typeDef = allTypes[f.type] ?? allTypes.string!;
       const opDef = getOperatorDef(typeDef, f.operator);
 
-      const canRunWithoutValue = Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
-      const active = f.active !== undefined ? f.active : canRunWithoutValue ? true : !isEmptyLike(f.value);
+      const canRunWithoutValue =
+        Boolean(opDef?.filterOnEmptyValue) ||
+        Boolean(opDef?.disableFilterEditor);
+      const active =
+        f.active !== undefined
+          ? f.active
+          : canRunWithoutValue
+            ? true
+            : !isEmptyLike(f.value);
 
       if (!active) return true;
 

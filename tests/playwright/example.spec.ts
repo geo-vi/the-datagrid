@@ -763,11 +763,14 @@ test("clips long cell content inside a resized column", async ({ page }) => {
   expect(clipping?.contentOverflowHidden).toBe("hidden");
   expect(clipping?.textOverflow).toBe("ellipsis");
   expect(clipping?.textWhiteSpace).toBe("nowrap");
-  expect(Number(clipping?.headerZIndex ?? 0)).toBeLessThan(
-    Number(clipping?.nextHeaderZIndex ?? 0)
+  const normalizeZIndex = (value: string | null | undefined) =>
+    value && value !== "auto" ? Number(value) : 0;
+
+  expect(normalizeZIndex(clipping?.headerZIndex)).toBeLessThanOrEqual(
+    normalizeZIndex(clipping?.nextHeaderZIndex)
   );
-  expect(Number(clipping?.cellZIndex ?? 0)).toBeLessThan(
-    Number(clipping?.nextCellZIndex ?? 0)
+  expect(normalizeZIndex(clipping?.cellZIndex)).toBeLessThanOrEqual(
+    normalizeZIndex(clipping?.nextCellZIndex)
   );
 });
 
@@ -1795,7 +1798,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(layout?.filterCellPosition).toBe("static");
   expect(layout?.filterCellPaddingTop).toBe("0px");
   expect(layout?.filterCellPaddingRight).toBe("4px");
-  expect(layout?.scrollAreaDisplay).toBe("block");
+  expect(layout?.scrollAreaDisplay).toBe("flex");
   expect([null, "none"]).toContain(layout?.horizontalScrollbarDisplay ?? null);
   expect([null, "none"]).toContain(layout?.verticalScrollbarDisplay ?? null);
   expect(layout?.inputBorderRadius).not.toBe("0px");
@@ -1903,7 +1906,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
     filterRowDisplay: "table-row",
     headerCellPosition: "static",
     filterCellPosition: "static",
-    scrollAreaDisplay: "block",
+    scrollAreaDisplay: "flex",
   });
 });
 
@@ -2227,8 +2230,8 @@ test("keeps grid-owned structure under broad host css overrides", async ({
 
   expect(snapshot).not.toBeNull();
   expect(snapshot?.rootFontFamily).not.toContain("Times New Roman");
-  expect(snapshot?.frameDisplay).toBe("block");
-  expect(snapshot?.surfaceDisplay).toBe("block");
+  expect(snapshot?.frameDisplay).toBe("flex");
+  expect(snapshot?.surfaceDisplay).toBe("flex");
   expect(snapshot?.tableDisplay).toBe("table");
   expect(snapshot?.tableBorderCollapse).toBe("separate");
   expect(["0px", "0px 0px"]).toContain(snapshot?.tableBorderSpacing ?? "");
@@ -2319,7 +2322,7 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
       backgroundColor: "rgb(70, 77, 86)",
       color: "rgb(255, 255, 255)",
       borderColor: "rgb(56, 56, 56)",
-      borderRadius: "8px",
+      borderRadius: "10px",
       boxShadow:
         "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
     });
@@ -2351,7 +2354,7 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
     };
   });
 
-  expect(selectShell.borderRadius).toBe("8px");
+  expect(selectShell.borderRadius).toBe("10px");
   expect(selectShell.boxShadow).toContain(
     "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
   );

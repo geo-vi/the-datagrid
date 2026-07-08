@@ -8,7 +8,10 @@ import type {
   TypeComputedColumn,
   TypeComputedColumnsMap,
   TypeComputedProps,
+  TypeComputedVirtualList,
+  TypeComputedVirtualListRow,
   TypeDataGridProps,
+  TypeFilterTypes,
   TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
@@ -72,6 +75,16 @@ import { GridPagination } from "./components/GridPagination";
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
  */
 export const plugins: readonly unknown[] = [] as const;
+
+type ReactDataGridDefaultProps = Partial<TypeDataGridProps> & {
+  filterTypes: TypeFilterTypes;
+};
+
+type ReactDataGridComponent = ((
+  props: TypeDataGridProps
+) => React.ReactElement) & {
+  defaultProps: ReactDataGridDefaultProps;
+};
 
 let nextGridId = 1;
 
@@ -363,7 +376,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     for (const column of allInputColumns) {
       const columnId = getColumnId(column);
-      next[columnId] = columnVisibilityState[columnId] ?? isColumnVisible(column);
+      next[columnId] =
+        columnVisibilityState[columnId] ?? isColumnVisible(column);
     }
 
     return next;
@@ -1548,7 +1562,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
 
       const resolved =
-        getColumnByCompat(column, { initial: true }) ?? getColumnByCompat(column);
+        getColumnByCompat(column, { initial: true }) ??
+        getColumnByCompat(column);
 
       return resolved ? getColumnId(resolved) : null;
     },
@@ -1608,7 +1623,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const setColumnFilterValueCompat = React.useCallback(
     (column: TypeGetColumnByParam, value: unknown) => {
       const resolved = getColumnByCompat(column, { initial: true });
-      const columnId = resolved ? getColumnId(resolved) : getColumnIdCompat(column);
+      const columnId = resolved
+        ? getColumnId(resolved)
+        : getColumnIdCompat(column);
       if (!columnId) return;
 
       const existing = getFilterEntry(filterValue, columnId);
@@ -1682,7 +1699,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const setSelectedByIdCompat = React.useCallback(
     (id: string, nextSelected: boolean) => {
-      const row = rows.find((candidate, index) => getRowKey(candidate, index) === id);
+      const row = rows.find(
+        (candidate, index) => getRowKey(candidate, index) === id
+      );
       const next = multiSelect ? { ...selectedMap } : {};
 
       if (nextSelected && row) next[id] = row;
@@ -1833,11 +1852,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       window.requestAnimationFrame(() => {
         scrollToColumnCompat(cell.columnIndex, {
           offset: config?.offset,
-          direction: config?.left
-            ? "left"
-            : config?.right
-              ? "right"
-              : null,
+          direction: config?.left ? "left" : config?.right ? "right" : null,
         });
       });
     },
@@ -1885,12 +1900,215 @@ function ReactDataGrid(props: TypeDataGridProps) {
     );
   }, []);
 
+  const getVirtualListRowsCompat =
+    React.useCallback((): TypeComputedVirtualListRow[] => {
+      const virtualRows = virtualized
+        ? rowVirtualizer.getVirtualItems()
+        : rowModel.map((_, index) => ({
+            index,
+            start: index * rowHeight,
+            end: (index + 1) * rowHeight,
+            size: rowHeight,
+          }));
+
+      return virtualRows.map((virtualRow) => {
+        const row = rowModel[virtualRow.index];
+
+        return {
+          id: row?.id ?? virtualRow.index,
+          index: virtualRow.index,
+          rowIndex: virtualRow.index,
+          data: row?.original,
+          top: virtualRow.start,
+          height: virtualRow.size,
+          start: virtualRow.start,
+          end: virtualRow.end,
+        };
+      });
+    }, [rowHeight, rowModel, rowVirtualizer, virtualized]);
+
+  const getTotalRowHeightCompat = React.useCallback(() => {
+    return virtualized
+      ? rowVirtualizer.getTotalSize()
+      : rowModel.length * rowHeight;
+  }, [rowHeight, rowModel.length, rowVirtualizer, virtualized]);
+
+  const getScrollHeightCompat = React.useCallback(() => {
+    return Math.max(
+      scrollRef.current?.scrollHeight ?? 0,
+      getTotalRowHeightCompat()
+    );
+  }, [getTotalRowHeightCompat]);
+
+  const getScrollSizeCompat = React.useCallback(() => {
+    return {
+      width:
+        scrollRef.current?.scrollWidth ??
+        columnWidthPrefixSums[columnWidthPrefixSums.length - 1] ??
+        0,
+      height: getScrollHeightCompat(),
+    };
+  }, [columnWidthPrefixSums, getScrollHeightCompat]);
+
+  const getClientSizeCompat = React.useCallback(() => {
+    return {
+      width:
+        scrollRef.current?.clientWidth ?? surfaceRef.current?.clientWidth ?? 0,
+      height:
+        scrollRef.current?.clientHeight ??
+        surfaceRef.current?.clientHeight ??
+        0,
+    };
+  }, []);
+
+  const getVirtualListRangeCompat = React.useCallback(() => {
+    const virtualRows = getVirtualListRowsCompat();
+    if (virtualRows.length === 0) return { from: 0, to: 0 };
+
+    return {
+      from: virtualRows[0]!.index,
+      to: virtualRows[virtualRows.length - 1]!.index,
+    };
+  }, [getVirtualListRowsCompat]);
+
+  const getVirtualListVisibleCountCompat = React.useCallback(() => {
+    return getVirtualListRowsCompat().length;
+  }, [getVirtualListRowsCompat]);
+
+  const getVirtualListRenderedIndexesCompat = React.useCallback(() => {
+    return getVirtualListRowsCompat().map((row) => row.index);
+  }, [getVirtualListRowsCompat]);
+
+  const smoothScrollToCompat = React.useCallback<
+    TypeComputedVirtualList["smoothScrollTo"]
+  >(
+    (index, config, callback) => {
+      if (index < 0) return;
+
+      const viewport = scrollRef.current;
+      if (!viewport) {
+        scrollToIndexCompat(index, config, callback);
+        return;
+      }
+
+      const maxIndex = Math.max(0, rowModel.length - 1);
+      const targetIndex = clamp(index, 0, maxIndex);
+      const alignEnd = config?.direction === "bottom" || config?.top === false;
+      const offset = config?.offset ?? 0;
+      const top = alignEnd
+        ? targetIndex * rowHeight + rowHeight - viewport.clientHeight + offset
+        : targetIndex * rowHeight + offset;
+
+      viewport.scrollTo({
+        top: Math.max(0, top),
+        behavior: "smooth",
+      });
+      callback?.();
+    },
+    [rowHeight, rowModel.length, scrollToIndexCompat]
+  );
+
+  const refreshVirtualListLayoutCompat = React.useCallback(() => {
+    if (virtualized) {
+      rowVirtualizer.measure();
+    }
+  }, [rowVirtualizer, virtualized]);
+
+  const virtualListCompat = React.useMemo<TypeComputedVirtualList>(
+    () => ({
+      props: props as unknown as Record<string, unknown>,
+      context: {
+        rowHeight,
+        virtualized,
+      },
+      refs: {
+        container: surfaceRef as React.MutableRefObject<HTMLElement | null>,
+        scroller: scrollRef as React.MutableRefObject<HTMLElement | null>,
+      },
+      get size() {
+        return getClientSizeCompat();
+      },
+      get rows() {
+        return getVirtualListRowsCompat();
+      },
+      get row() {
+        return getVirtualListRowsCompat()[0] ?? null;
+      },
+      get scrollTopPos() {
+        return scrollRef.current?.scrollTop ?? 0;
+      },
+      get scrollLeftPos() {
+        return scrollRef.current?.scrollLeft ?? 0;
+      },
+      get prevScrollTopPos() {
+        return scrollRef.current?.scrollTop ?? 0;
+      },
+      get prevScrollLeftPos() {
+        return scrollRef.current?.scrollLeft ?? 0;
+      },
+      get visibleCount() {
+        return getVirtualListVisibleCountCompat();
+      },
+      getContainerNode: () => surfaceRef.current,
+      getScrollerNode: () => scrollRef.current,
+      getScrollingElement,
+      getTotalRowHeight: getTotalRowHeightCompat,
+      getScrollHeight: getScrollHeightCompat,
+      getScrollSize: getScrollSizeCompat,
+      getClientSize: getClientSizeCompat,
+      getRows: getVirtualListRowsCompat,
+      forEachRow: (callback) => {
+        getVirtualListRowsCompat().forEach(callback);
+      },
+      getRowAt: (index) => {
+        const virtualRows = getVirtualListRowsCompat();
+        return (
+          virtualRows.find((row) => row.index === index) ?? virtualRows[index]
+        );
+      },
+      getVisibleCount: getVirtualListVisibleCountCompat,
+      getVisibleRange: getVirtualListRangeCompat,
+      setRowIndex: (index) => scrollToIndexCompat(index),
+      scrollToIndex: scrollToIndexCompat,
+      smoothScrollTo: smoothScrollToCompat,
+      refreshLayout: refreshVirtualListLayoutCompat,
+      updateVisibleCount: getVirtualListVisibleCountCompat,
+      isRowRendered: isRowRenderedCompat,
+      isRowVisible: (rowIndex) => {
+        const range = getVirtualListRangeCompat();
+        return rowIndex >= range.from && rowIndex <= range.to;
+      },
+      getRenderedIndexes: getVirtualListRenderedIndexesCompat,
+      getMaxRenderCount: getVirtualListVisibleCountCompat,
+    }),
+    [
+      getClientSizeCompat,
+      getScrollingElement,
+      getScrollHeightCompat,
+      getScrollSizeCompat,
+      getTotalRowHeightCompat,
+      getVirtualListRangeCompat,
+      getVirtualListRenderedIndexesCompat,
+      getVirtualListRowsCompat,
+      getVirtualListVisibleCountCompat,
+      isRowRenderedCompat,
+      props,
+      refreshVirtualListLayoutCompat,
+      rowHeight,
+      scrollToIndexCompat,
+      smoothScrollToCompat,
+      virtualized,
+    ]
+  );
+
   React.useEffect(() => {
     const viewport = scrollRef.current;
     const rootNode = rootRef.current;
     const surfaceNode = surfaceRef.current;
-    const viewportWidth = viewport?.clientWidth ?? surfaceNode?.clientWidth ?? 0;
-    const viewportHeight = viewport?.clientHeight ?? surfaceNode?.clientHeight ?? 0;
+    const viewportWidth =
+      viewport?.clientWidth ?? surfaceNode?.clientWidth ?? 0;
+    const viewportHeight =
+      viewport?.clientHeight ?? surfaceNode?.clientHeight ?? 0;
     const totalComputedWidth =
       columnWidthPrefixSums[columnWidthPrefixSums.length - 1] ?? 0;
 
@@ -2118,10 +2336,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       isRowRendered: isRowRenderedCompat,
       getRenderRange: getRenderRangeCompat,
       scrollbars: {
-        vertical:
-          (viewport?.scrollHeight ?? 0) > (viewport?.clientHeight ?? 0),
-        horizontal:
-          (viewport?.scrollWidth ?? 0) > (viewport?.clientWidth ?? 0),
+        vertical: (viewport?.scrollHeight ?? 0) > (viewport?.clientHeight ?? 0),
+        horizontal: (viewport?.scrollWidth ?? 0) > (viewport?.clientWidth ?? 0),
       },
       i18n: (key, defaultValue) =>
         t(i18n, key, defaultValue ?? key) as string | React.ReactNode,
@@ -2181,8 +2397,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const columnId = getColumnId(column);
         const { minWidth, maxWidth } = getColumnWidthBounds(column);
         const nextWidth = clamp(
-          (columnWidths[columnId] ?? column.width ?? column.defaultWidth ?? 120) +
-            diff,
+          (columnWidths[columnId] ??
+            column.width ??
+            column.defaultWidth ??
+            120) + diff,
           minWidth,
           maxWidth
         );
@@ -2210,7 +2428,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedShowHeaderBorderRight: showVerticalCellBorders,
       silentSetData: setRows,
       setOriginalData: setRows,
-      getVirtualList: () => rowVirtualizer,
+      getVirtualList: () => virtualListCompat,
     };
 
     const proxy = new Proxy(baseApi, {
@@ -2273,7 +2491,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     paginationMode,
     props,
     rowModel.length,
-    rowVirtualizer,
     rows,
     safeLimit,
     selected,
@@ -2306,6 +2523,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     allInputColumns,
     visibleColumnsMap,
     visibleComputedColumns,
+    virtualListCompat,
     virtualItems.length,
     virtualized,
   ]);
@@ -2316,7 +2534,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     <div
       ref={attachRootRef}
       className={cn(
-        "tdg-root InovuaReactDataGrid flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden rounded-lg lg:gap-6",
+        "tdg-root InovuaReactDataGrid flex h-full min-h-0 w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden rounded-lg lg:gap-6",
         `tdg-theme-${themeClassSuffix}`,
         `InovuaReactDataGrid--theme-${themeClassSuffix}`,
         "InovuaReactDataGrid--direction-ltr InovuaReactDataGrid--show-hover-rows",
@@ -2336,12 +2554,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
         portalContainer={portalContainer}
       >
         <div
-          className="tdg-frame w-full min-w-0 max-w-full overflow-hidden rounded-lg"
+          className="tdg-frame flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg"
           data-slot="grid-frame"
         >
           <div
             ref={surfaceRef}
-            className="tdg-surface relative w-full min-w-0 max-w-full bg-[var(--tdg-grid-bg)] text-foreground"
+            className="tdg-surface relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col bg-[var(--tdg-grid-bg)] text-foreground"
             data-slot="grid-surface"
             tabIndex={-1}
             style={style}
@@ -2354,12 +2572,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
               />
             ) : null}
             <ScrollArea
-              className="tdg-scroll-area w-full min-w-0 max-w-full rounded-b-[inherit]"
+              className="tdg-scroll-area flex min-h-0 w-full min-w-0 max-w-full flex-1 rounded-b-[inherit]"
               viewportRef={scrollRef}
-              viewportClassName={cn(
-                "tdg-body-viewport relative w-full min-w-0 bg-[var(--tdg-grid-bg)] text-foreground",
-                virtualized ? "h-[560px]" : ""
-              )}
+              viewportClassName="tdg-body-viewport relative h-full min-h-0 w-full min-w-0 bg-[var(--tdg-grid-bg)] text-foreground"
             >
               {showHeader ? (
                 <div
@@ -2493,10 +2708,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
 // so apps can extend defaults like:
 // Object.assign({}, ReactDataGrid.defaultProps.filterTypes, { myCustomType: ... })
 // -----------------------------------------------------------------------------
-(ReactDataGrid as any).defaultProps = {
-  ...(ReactDataGrid as any).defaultProps,
+const ReactDataGridWithDefaultProps = ReactDataGrid as ReactDataGridComponent;
+
+ReactDataGridWithDefaultProps.defaultProps = {
+  ...ReactDataGridWithDefaultProps.defaultProps,
   filterTypes: DEFAULT_FILTER_TYPES,
 };
 
-export { ReactDataGrid };
-export default ReactDataGrid;
+export { ReactDataGridWithDefaultProps as ReactDataGrid };
+export default ReactDataGridWithDefaultProps;

@@ -5,6 +5,14 @@ import type {
   TypeSize,
 } from "../../src/main";
 
+type AssertFalse<T extends false> = T;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+type VirtualListGetter = TypeComputedProps["getVirtualList"];
+export type VirtualListGetterIsTyped = AssertFalse<IsAny<VirtualListGetter>>;
+type VirtualListCompat = ReturnType<NonNullable<VirtualListGetter>>;
+export type VirtualListCompatIsTyped = AssertFalse<IsAny<VirtualListCompat>>;
+
 export function assertComputedPropsCompat(
   api: TypeComputedProps,
   column: TypeGetColumnByParam,
@@ -18,6 +26,11 @@ export function assertComputedPropsCompat(
   const isFiltered = api.isColumnFiltered?.(column);
   const isVisible = api.isColumnVisible?.(column);
   const selectedMap = api.getSelectedMap?.();
+  const virtualList = api.getVirtualList?.();
+  const virtualListRange = virtualList?.getVisibleRange();
+  const virtualListRows = virtualList?.getRows();
+  const virtualListScrollSize = virtualList?.getScrollSize();
+  const virtualListClientSize = virtualList?.getClientSize();
 
   api.setColumnVisible?.(column, false);
   api.setColumnSortInfo?.(column, 1);
@@ -32,6 +45,11 @@ export function assertComputedPropsCompat(
   api.setLoading?.(false);
   api.selectAll?.();
   api.deselectAll?.();
+  virtualList?.scrollToIndex(0);
+  virtualList?.smoothScrollTo(0);
+
+  // @ts-expect-error TanStack Virtualizer internals must not be exposed here.
+  virtualList?.getVirtualItems();
 
   return {
     resolvedColumn,
@@ -49,5 +67,10 @@ export function assertComputedPropsCompat(
     visibleColumnsMap: api.visibleColumnsMap,
     computedFilterValue: api.computedFilterValue,
     computedSortInfo: api.computedSortInfo,
+    virtualList,
+    virtualListRange,
+    virtualListRows,
+    virtualListScrollSize,
+    virtualListClientSize,
   };
 }

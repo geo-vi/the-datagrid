@@ -9,6 +9,25 @@ const datagridOwnedMarkers = [
   ".InovuaReactDataGrid",
   ".inovua-react-toolkit",
 ];
+const shadcnCollisionUtilityMarkers = [
+  ".bg-background",
+  ".bg-background\\/",
+  ".bg-card",
+  ".bg-popover",
+  ".bg-primary",
+  ".border-border",
+  ".border-border\\/",
+  ".border-input",
+  ".rounded-md",
+  ".rounded-lg",
+  ".rounded-sm",
+  ".text-foreground",
+  ".text-muted-foreground",
+  ".text-primary",
+  ".text-primary-foreground",
+];
+const globalThemeVariablePattern =
+  /--(?:tdg-|font-sans|tracking-tight|color-[a-z0-9-]+|radius-[a-z0-9-]+)/i;
 
 function splitSelectorList(selector) {
   const selectors = [];
@@ -71,6 +90,16 @@ function isDatagridOwnedSelector(selector) {
   return datagridOwnedMarkers.some((marker) => selector.includes(marker));
 }
 
+function isRootOrHostSelector(selector) {
+  return selector === ":root" || selector === ":host";
+}
+
+function containsShadcnCollisionUtility(selector) {
+  return shadcnCollisionUtilityMarkers.some((marker) =>
+    selector.includes(marker)
+  );
+}
+
 if (!fs.existsSync(cssPath)) {
   console.error(
     `Missing CSS bundle at ${cssPath}. Run the library build first.`
@@ -81,25 +110,43 @@ if (!fs.existsSync(cssPath)) {
 const css = fs.readFileSync(cssPath, "utf8");
 const failures = [];
 
-if (/:root\s*,\s*:host/.test(css)) {
-  failures.push(
-    "dist/index.css still contains a global :root, :host theme rule."
-  );
-}
-
 const root = postcss.parse(css);
 
 root.walkRules((rule) => {
-  const containsDatagridTokens = rule.toString().includes("--tdg-");
-  if (!containsDatagridTokens) return;
+  const selectors = splitSelectorList(rule.selector);
+  if (selectors.length === 0) return;
 
-  const leakedSelectors = splitSelectorList(rule.selector).filter(
+  const globalThemeSelectors = selectors.filter(isRootOrHostSelector);
+  if (
+    globalThemeSelectors.length > 0 &&
+    globalThemeVariablePattern.test(rule.toString())
+  ) {
+    failures.push(
+      `Global theme variables are emitted by selector(s): ${globalThemeSelectors.join(
+        ", "
+      )}`
+    );
+  }
+
+  const containsDatagridTokens = rule.toString().includes("--tdg-");
+  const unscopedSelectors = selectors.filter(
     (selector) => !isDatagridOwnedSelector(selector)
   );
 
-  if (leakedSelectors.length > 0) {
+  if (containsDatagridTokens && unscopedSelectors.length > 0) {
     failures.push(
-      `Datagrid tokens are used by unscoped selector(s): ${leakedSelectors.join(
+      `Datagrid tokens are used by unscoped selector(s): ${unscopedSelectors.join(
+        ", "
+      )}`
+    );
+  }
+
+  const leakedUtilitySelectors = unscopedSelectors.filter(
+    containsShadcnCollisionUtility
+  );
+  if (leakedUtilitySelectors.length > 0) {
+    failures.push(
+      `Shadcn/Tailwind utility selector(s) are emitted globally: ${leakedUtilitySelectors.join(
         ", "
       )}`
     );

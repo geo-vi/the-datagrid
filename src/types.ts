@@ -94,13 +94,15 @@ export type TypeColumnRenderArgs = {
   columnId: string;
 };
 
-export type TypeColumnRenderCellProps = TypeColumnRenderArgs & {
+export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
 };
 
+export type TypeColumnRenderCellProps = CellProps;
+
 export type TypeColumnRenderFn =
-  | ((cellProps: TypeColumnRenderCellProps) => React.ReactNode)
+  | ((cellProps: CellProps) => React.ReactNode)
   | ((value: any, args: TypeColumnRenderArgs) => React.ReactNode);
 
 export interface IColumn {
@@ -197,6 +199,77 @@ export type TypeSize = {
   height: number;
 };
 
+export type TypeComputedVirtualListRange = {
+  from: number;
+  to: number;
+};
+
+export type TypeComputedVirtualListRow = {
+  id: string | number;
+  index: number;
+  rowIndex: number;
+  data: unknown;
+  top: number;
+  height: number;
+  start: number;
+  end: number;
+};
+
+export type TypeScrollToIndexConfig = {
+  top?: boolean;
+  direction?: "top" | "bottom";
+  force?: boolean;
+  duration?: number;
+  offset?: number;
+};
+
+export type TypeScrollToIndex = (
+  index: number,
+  config?: TypeScrollToIndexConfig,
+  callback?: (...args: unknown[]) => void
+) => void;
+
+export type TypeComputedVirtualList = {
+  props: Record<string, unknown>;
+  context: Record<string, unknown>;
+  refs: {
+    container: React.MutableRefObject<HTMLElement | null>;
+    scroller: React.MutableRefObject<HTMLElement | null>;
+  };
+  size: TypeSize;
+  rows: TypeComputedVirtualListRow[];
+  row: TypeComputedVirtualListRow | null;
+  scrollTopPos: number;
+  scrollLeftPos: number;
+  prevScrollTopPos: number;
+  prevScrollLeftPos: number;
+  visibleCount: number;
+
+  getContainerNode: () => HTMLElement | null;
+  getScrollerNode: () => HTMLElement | null;
+  getScrollingElement: () => HTMLElement | null;
+  getTotalRowHeight: () => number;
+  getScrollHeight: () => number;
+  getScrollSize: () => TypeSize;
+  getClientSize: () => TypeSize;
+  getRows: () => TypeComputedVirtualListRow[];
+  forEachRow: (
+    callback: (row: TypeComputedVirtualListRow, index: number) => void
+  ) => void;
+  getRowAt: (index: number) => TypeComputedVirtualListRow | undefined;
+  getVisibleCount: () => number;
+  getVisibleRange: () => TypeComputedVirtualListRange;
+  setRowIndex: (index: number) => void;
+  scrollToIndex: TypeScrollToIndex;
+  smoothScrollTo: TypeScrollToIndex;
+  refreshLayout: () => void;
+  updateVisibleCount: () => number;
+  isRowRendered: (rowIndex: number) => boolean;
+  isRowVisible: (rowIndex: number) => boolean;
+  getRenderedIndexes: () => number[];
+  getMaxRenderCount: () => number;
+};
+
 export type TypeComputedProps = {
   /**
    * Inovua exposes a very broad computed-props object.
@@ -244,10 +317,7 @@ export type TypeComputedProps = {
   getColumnFilterValue?: (
     column: TypeGetColumnByParam
   ) => TypeSingleFilterValue | undefined;
-  setColumnFilterValue?: (
-    column: TypeGetColumnByParam,
-    value: unknown
-  ) => void;
+  setColumnFilterValue?: (column: TypeGetColumnByParam, value: unknown) => void;
   isColumnFiltered?: (column: TypeGetColumnByParam) => boolean;
 
   computedColumnOrder?: string[] | undefined;
@@ -264,10 +334,7 @@ export type TypeComputedProps = {
   ) => TypeComputedColumn | TypeColumn | undefined;
   columnVisibilityMap?: Record<string, boolean>;
   isColumnVisible?: (column: TypeGetColumnByParam) => boolean;
-  setColumnVisible?: (
-    column: TypeGetColumnByParam,
-    visible: boolean
-  ) => void;
+  setColumnVisible?: (column: TypeGetColumnByParam, visible: boolean) => void;
 
   gridId?: number;
   size?: TypeSize;
@@ -346,26 +413,10 @@ export type TypeComputedProps = {
   setScrollTop?: (scrollTop: number) => void;
   incrementScrollTop?: (scrollTop: number) => void;
   getScrollTop?: () => number;
-  scrollToIndex?: (
-    index: number,
-    config?: {
-      top?: boolean;
-      direction?: "top" | "bottom";
-      force?: boolean;
-      duration?: number;
-      offset?: number;
-    },
-    callback?: (...args: unknown[]) => void
-  ) => void;
+  scrollToIndex?: TypeScrollToIndex;
   scrollToId?: (
     id: string | number,
-    config?: {
-      top?: boolean;
-      direction?: "top" | "bottom";
-      force?: boolean;
-      duration?: number;
-      offset?: number;
-    },
+    config?: TypeScrollToIndexConfig,
     callback?: (...args: unknown[]) => void
   ) => void;
   scrollToCell?: (
@@ -389,19 +440,14 @@ export type TypeComputedProps = {
   ) => void;
   scrollToIndexIfNeeded?: (
     index: number,
-    config?: {
-      top?: boolean;
-      direction?: "top" | "bottom";
-      force?: boolean;
-      duration?: number;
-      offset?: number;
-    },
+    config?: TypeScrollToIndexConfig,
     callback?: (...args: unknown[]) => void
   ) => boolean;
   getFirstVisibleIndex?: () => number;
   isRowFullyVisible?: (rowIndex: number) => boolean;
   isRowRendered?: (rowIndex: number) => boolean;
   getRenderRange?: () => { from: number; to: number };
+  getVirtualList?: () => TypeComputedVirtualList;
   scrollbars?: {
     vertical: boolean;
     horizontal: boolean;
@@ -547,7 +593,9 @@ export type TypeDataGridProps = {
   onReady?: (
     computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
   ) => void;
-  handle?: (gridApiRef: React.MutableRefObject<TypeComputedProps | null>) => void;
+  handle?: (
+    gridApiRef: React.MutableRefObject<TypeComputedProps | null>
+  ) => void;
 
   className?: string;
   style?: React.CSSProperties;
