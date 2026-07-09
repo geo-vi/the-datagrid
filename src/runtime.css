@@ -510,6 +510,9 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -520,9 +523,33 @@
 .tdg-root .tdg-scroll-area,
 .tdg-root .tdg-body-viewport,
 .tdg-root .tdg-pagination-shell {
-  display: block !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
+}
+
+.tdg-root .tdg-frame,
+.tdg-root .tdg-surface,
+.tdg-root .tdg-scroll-area {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+.tdg-root .tdg-surface,
+.tdg-root .tdg-scroll-area,
+.tdg-root .tdg-body-viewport {
+  flex: 1 1 0% !important;
+}
+
+.tdg-root .tdg-header-viewport,
+.tdg-root .tdg-body-viewport,
+.tdg-root .tdg-pagination-shell {
+  display: block !important;
+}
+
+.tdg-root .tdg-body-viewport {
+  height: 100% !important;
+  min-height: 0 !important;
 }
 
 .tdg-root .tdg-frame,

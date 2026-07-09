@@ -31,6 +31,25 @@ test("computed props expose the broader Inovua-compatible runtime surface", asyn
   );
   await expect(page.getByTestId("compat-size")).not.toContainText("0x0");
   await expect(page.getByTestId("compat-scrollWorked")).toContainText("true");
+  await expect(page.getByTestId("compat-virtualListKeys")).toContainText(
+    "getVisibleRange,getVisibleCount,getScrollSize,getClientSize,getScrollHeight,getTotalRowHeight,getRows,scrollToIndex,smoothScrollTo"
+  );
+  await expect(page.getByTestId("compat-virtualListRange")).not.toContainText(
+    "missing"
+  );
+  await expect(
+    page.getByTestId("compat-virtualListVisibleCount")
+  ).not.toHaveText("");
+  await expect(page.getByTestId("compat-virtualListSizes")).not.toContainText(
+    "0x0"
+  );
+  await expect(page.getByTestId("compat-virtualListRows")).not.toHaveText("");
+  await expect(
+    page.getByTestId("compat-virtualListScrollWorked")
+  ).toContainText("true");
+  await expect(
+    page.getByTestId("compat-virtualListTanStackLeak")
+  ).toContainText("false");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
   await expect(

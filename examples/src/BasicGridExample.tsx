@@ -61,26 +61,28 @@ export default function BasicGridExample() {
         Filtered rows: <span className="font-mono">{filteredCount}</span>
       </div>
 
-      <ReactDataGrid
-        theme={gridTheme}
-        idProperty="cldomnr"
-        columns={columns}
-        dataSource={rows}
-        columnOrder={columnOrder}
-        enableColumnFilterContextMenu
-        enableColumnAutosize
-        skipHeaderOnAutoSize={false}
-        resizable={resizable}
-        enableFiltering
-        defaultFilterValue={null}
-        filteredRowsCount={setFilteredCount}
-        onColumnOrderChange={setColumnOrder}
-        virtualized
-        columnUserSelect
-        showCellBorders={showCellBorders}
-        i18n={i18n}
-        showColumnMenuTool={false}
-      />
+      <div className="h-[480px] min-h-0" data-testid="basic-grid-shell">
+        <ReactDataGrid
+          theme={gridTheme}
+          idProperty="cldomnr"
+          columns={columns}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          enableColumnFilterContextMenu
+          enableColumnAutosize
+          skipHeaderOnAutoSize={false}
+          resizable={resizable}
+          enableFiltering
+          defaultFilterValue={null}
+          filteredRowsCount={setFilteredCount}
+          onColumnOrderChange={setColumnOrder}
+          virtualized
+          columnUserSelect
+          showCellBorders={showCellBorders}
+          i18n={i18n}
+          showColumnMenuTool={false}
+        />
+      </div>
     </section>
   );
 }

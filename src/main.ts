@@ -6,9 +6,10 @@ export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
 export { default as CheckBox } from "./packages/CheckBox";
 
 // optionally useful for consumers
-export { DEFAULT_FILTER_TYPES } from "./filters/utils";
+export { DEFAULT_FILTER_TYPES, filterTypes } from "./filters/utils";
 
 export type {
+  CellProps,
   IColumn,
   SortDirection,
   TypeColumn,

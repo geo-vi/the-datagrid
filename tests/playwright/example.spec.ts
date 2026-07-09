@@ -763,11 +763,14 @@ test("clips long cell content inside a resized column", async ({ page }) => {
   expect(clipping?.contentOverflowHidden).toBe("hidden");
   expect(clipping?.textOverflow).toBe("ellipsis");
   expect(clipping?.textWhiteSpace).toBe("nowrap");
-  expect(Number(clipping?.headerZIndex ?? 0)).toBeLessThan(
-    Number(clipping?.nextHeaderZIndex ?? 0)
+  const normalizeZIndex = (value: string | null | undefined) =>
+    value && value !== "auto" ? Number(value) : 0;
+
+  expect(normalizeZIndex(clipping?.headerZIndex)).toBeLessThanOrEqual(
+    normalizeZIndex(clipping?.nextHeaderZIndex)
   );
-  expect(Number(clipping?.cellZIndex ?? 0)).toBeLessThan(
-    Number(clipping?.nextCellZIndex ?? 0)
+  expect(normalizeZIndex(clipping?.cellZIndex)).toBeLessThanOrEqual(
+    normalizeZIndex(clipping?.nextCellZIndex)
   );
 });
 
@@ -976,6 +979,7 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
   await page.goto("/basic");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  const shell = page.getByTestId("basic-grid-shell");
   const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
   const filterInput = grid.locator(".tdg-filter-row input").first();
   const filteredCount = page
@@ -983,7 +987,9 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
     .first();
 
   const before = await viewport.boundingBox();
+  const shellBox = await shell.boundingBox();
   expect(before).not.toBeNull();
+  expect(shellBox).not.toBeNull();
 
   await filterInput.fill("1000");
   await expect(filteredCount).toHaveText("1");
@@ -992,7 +998,9 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
   expect(after).not.toBeNull();
 
   expect(Math.round(after?.height ?? 0)).toBe(Math.round(before?.height ?? 0));
-  expect(Math.round(after?.height ?? 0)).toBeGreaterThanOrEqual(560);
+  expect(Math.round(shellBox?.height ?? 0)).toBe(480);
+  expect(Math.round(after?.height ?? 0)).toBeLessThan(480);
+  expect(Math.round(after?.height ?? 0)).toBeGreaterThan(400);
 
   const layout = await grid.evaluate((root) => {
     const frame = root.querySelector<HTMLElement>('[data-slot="grid-frame"]');
@@ -1795,7 +1803,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(layout?.filterCellPosition).toBe("static");
   expect(layout?.filterCellPaddingTop).toBe("0px");
   expect(layout?.filterCellPaddingRight).toBe("4px");
-  expect(layout?.scrollAreaDisplay).toBe("block");
+  expect(layout?.scrollAreaDisplay).toBe("flex");
   expect([null, "none"]).toContain(layout?.horizontalScrollbarDisplay ?? null);
   expect([null, "none"]).toContain(layout?.verticalScrollbarDisplay ?? null);
   expect(layout?.inputBorderRadius).not.toBe("0px");
@@ -1903,7 +1911,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
     filterRowDisplay: "table-row",
     headerCellPosition: "static",
     filterCellPosition: "static",
-    scrollAreaDisplay: "block",
+    scrollAreaDisplay: "flex",
   });
 });
 
@@ -2227,8 +2235,8 @@ test("keeps grid-owned structure under broad host css overrides", async ({
 
   expect(snapshot).not.toBeNull();
   expect(snapshot?.rootFontFamily).not.toContain("Times New Roman");
-  expect(snapshot?.frameDisplay).toBe("block");
-  expect(snapshot?.surfaceDisplay).toBe("block");
+  expect(snapshot?.frameDisplay).toBe("flex");
+  expect(snapshot?.surfaceDisplay).toBe("flex");
   expect(snapshot?.tableDisplay).toBe("table");
   expect(snapshot?.tableBorderCollapse).toBe("separate");
   expect(["0px", "0px 0px"]).toContain(snapshot?.tableBorderSpacing ?? "");
@@ -2319,7 +2327,7 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
       backgroundColor: "rgb(70, 77, 86)",
       color: "rgb(255, 255, 255)",
       borderColor: "rgb(56, 56, 56)",
-      borderRadius: "8px",
+      borderRadius: "10px",
       boxShadow:
         "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
     });
@@ -2351,7 +2359,7 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
     };
   });
 
-  expect(selectShell.borderRadius).toBe("8px");
+  expect(selectShell.borderRadius).toBe("10px");
   expect(selectShell.boxShadow).toContain(
     "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
   );

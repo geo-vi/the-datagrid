@@ -8,8 +8,13 @@ import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
+import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
+import Issue16CssScopeExample from "./Issue16CssScopeExample";
+import Issue17FixedContractExample from "./Issue17FixedContractExample";
+import Issue20HeightExample from "./Issue20HeightExample";
+import Issue21MissingImportsExample from "./Issue21MissingImportsExample";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
 import DocsHomePage from "./docs/DocsHomePage";
@@ -56,6 +61,90 @@ function ActionsExamplePage() {
       tags={example.tags}
     >
       <ActionsGridExample />
+    </ExampleDetailPage>
+  );
+}
+
+function Issue16CssScopeExamplePage() {
+  const example = getExampleMeta("issue-16-css-scope");
+
+  if (!example) {
+    throw new Error("Missing example metadata for issue-16-css-scope");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <Issue16CssScopeExample />
+    </ExampleDetailPage>
+  );
+}
+
+function Issue17FixedContractExamplePage() {
+  const example = getExampleMeta("issue-17");
+
+  if (!example) {
+    throw new Error("Missing example metadata for issue-17");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <Issue17FixedContractExample />
+    </ExampleDetailPage>
+  );
+}
+
+function Issue20HeightExamplePage() {
+  const example = getExampleMeta("issue-20-height");
+
+  if (!example) {
+    throw new Error("Missing example metadata for issue-20-height");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <Issue20HeightExample />
+    </ExampleDetailPage>
+  );
+}
+
+function Issue21MissingImportsExamplePage() {
+  const example = getExampleMeta("issue-21-missing-imports");
+
+  if (!example) {
+    throw new Error("Missing example metadata for issue-21-missing-imports");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <Issue21MissingImportsExample />
     </ExampleDetailPage>
   );
 }
@@ -143,6 +232,30 @@ const exampleBasicRoute = createRoute({
   component: BasicExamplePage,
 });
 
+const exampleIssue16CssScopeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/issue-16-css-scope",
+  component: Issue16CssScopeExamplePage,
+});
+
+const exampleIssue17FixedContractRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/issue-17",
+  component: Issue17FixedContractExamplePage,
+});
+
+const exampleIssue20HeightRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/issue-20-height",
+  component: Issue20HeightExamplePage,
+});
+
+const exampleIssue21MissingImportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/issue-21-missing-imports",
+  component: Issue21MissingImportsExamplePage,
+});
+
 const exampleActionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "examples/actions",
@@ -165,6 +278,30 @@ const legacyBasicRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "basic",
   component: BasicExamplePage,
+});
+
+const legacyIssue16CssScopeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "issue-16-css-scope",
+  component: Issue16CssScopeExamplePage,
+});
+
+const legacyIssue17FixedContractRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "issue-17",
+  component: Issue17FixedContractExamplePage,
+});
+
+const legacyIssue20HeightRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "issue-20-height",
+  component: Issue20HeightExamplePage,
+});
+
+const legacyIssue21MissingImportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "issue-21-missing-imports",
+  component: Issue21MissingImportsExamplePage,
 });
 
 const legacyActionsRoute = createRoute({
@@ -191,17 +328,32 @@ const compatComputedPropsRoute = createRoute({
   component: ComputedPropsCompatPage,
 });
 
+const compatDefaultPropsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/default-props",
+  component: DefaultPropsCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
   compatComputedPropsRoute,
+  compatDefaultPropsRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,
+  exampleIssue16CssScopeRoute,
+  exampleIssue17FixedContractRoute,
+  exampleIssue20HeightRoute,
+  exampleIssue21MissingImportsRoute,
   exampleSelectionRoute,
   exampleUsersRoute,
   legacyActionsRoute,
   legacyBasicRoute,
+  legacyIssue16CssScopeRoute,
+  legacyIssue17FixedContractRoute,
+  legacyIssue20HeightRoute,
+  legacyIssue21MissingImportsRoute,
   legacySelectionRoute,
   legacyUsersRoute,
 ]);

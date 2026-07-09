@@ -12,7 +12,7 @@ const columns: TypeColumns = [
   { name: "city", header: "City", defaultWidth: 160, sortable: true },
 ];
 
-const rows = [
+const baseRows = [
   { id: 1, name: "Ada Lovelace", city: "London" },
   { id: 2, name: "Grace Hopper", city: "New York" },
   { id: 3, name: "Alan Turing", city: "Manchester" },
@@ -25,6 +25,27 @@ const rows = [
   { id: 10, name: "Tim Berners-Lee", city: "London" },
   { id: 11, name: "Frances Allen", city: "Lima" },
   { id: 12, name: "Linus Torvalds", city: "Helsinki" },
+];
+
+const rows = [
+  ...baseRows,
+  ...Array.from({ length: 28 }, (_, index) => ({
+    id: index + 13,
+    name: `Data Compat ${index + 13}`,
+    city: ["Sofia", "Berlin", "Prague", "Madrid"][index % 4],
+  })),
+];
+
+const virtualListCompatKeys = [
+  "getVisibleRange",
+  "getVisibleCount",
+  "getScrollSize",
+  "getClientSize",
+  "getScrollHeight",
+  "getTotalRowHeight",
+  "getRows",
+  "scrollToIndex",
+  "smoothScrollTo",
 ];
 
 type CompatStatus = {
@@ -42,6 +63,13 @@ type CompatStatus = {
   renderRange: string;
   size: string;
   scrollWorked: string;
+  virtualListKeys: string;
+  virtualListRange: string;
+  virtualListVisibleCount: string;
+  virtualListSizes: string;
+  virtualListRows: string;
+  virtualListScrollWorked: string;
+  virtualListTanStackLeak: string;
 };
 
 const initialStatus: CompatStatus = {
@@ -59,6 +87,13 @@ const initialStatus: CompatStatus = {
   renderRange: "",
   size: "",
   scrollWorked: "false",
+  virtualListKeys: "",
+  virtualListRange: "missing",
+  virtualListVisibleCount: "",
+  virtualListSizes: "",
+  virtualListRows: "",
+  virtualListScrollWorked: "false",
+  virtualListTanStackLeak: "unknown",
 };
 
 export default function ComputedPropsCompatPage() {
@@ -84,6 +119,11 @@ export default function ComputedPropsCompatPage() {
         ?.querySelectorAll<HTMLElement>('[data-slot="grid-header-cell"]') ?? []
     );
     const renderRange = api.getRenderRange?.();
+    const virtualList = api.getVirtualList();
+    const virtualListRange = virtualList?.getVisibleRange?.();
+    const virtualListRows = virtualList?.getRows?.();
+    const scrollSize = virtualList?.getScrollSize?.();
+    const clientSize = virtualList?.getClientSize?.();
 
     setStatus({
       apiReady: "true",
@@ -112,6 +152,23 @@ export default function ComputedPropsCompatPage() {
         : "missing",
       size: `${api.size?.width ?? 0}x${api.size?.height ?? 0}`,
       scrollWorked: String((api.getScrollTop?.() ?? 0) > 0),
+      virtualListKeys: virtualListCompatKeys
+        .filter((key) => Boolean(virtualList && key in virtualList))
+        .join(","),
+      virtualListRange: virtualListRange
+        ? `${virtualListRange.from}:${virtualListRange.to}`
+        : "missing",
+      virtualListVisibleCount: String(virtualList?.getVisibleCount?.() ?? ""),
+      virtualListSizes: `${scrollSize?.height ?? 0}x${clientSize?.height ?? 0}`,
+      virtualListRows: String(virtualListRows?.length ?? ""),
+      virtualListScrollWorked: String((virtualList?.scrollTopPos ?? 0) > 0),
+      virtualListTanStackLeak: String(
+        Boolean(
+          virtualList &&
+          ("getVirtualItems" in virtualList ||
+            "measurementsCache" in virtualList)
+        )
+      ),
     });
   }, [filteredCount]);
 
@@ -137,6 +194,8 @@ export default function ComputedPropsCompatPage() {
     api.setColumnVisible?.("city", false);
     api.setColumnOrder?.(["name", "id"]);
     api.scrollToIndex?.(8);
+    api.getVirtualList().scrollToIndex(8);
+    api.getVirtualList().smoothScrollTo(8);
 
     window.setTimeout(() => {
       collectStatus();
@@ -191,22 +250,24 @@ export default function ComputedPropsCompatPage() {
       </section>
 
       <section className="rounded-3xl border bg-background/95 p-4 shadow-sm">
-        <ReactDataGrid
-          idProperty="id"
-          columns={columns}
-          dataSource={rows}
-          columnOrder={columnOrder}
-          enableColumnFilterContextMenu
-          enableColumnAutosize
-          skipHeaderOnAutoSize={false}
-          enableFiltering
-          filteredRowsCount={setFilteredCount}
-          onColumnOrderChange={setColumnOrder}
-          virtualized
-          columnUserSelect
-          showColumnMenuTool={false}
-          onReady={handleReady}
-        />
+        <div className="h-[360px] min-h-0">
+          <ReactDataGrid
+            idProperty="id"
+            columns={columns}
+            dataSource={rows}
+            columnOrder={columnOrder}
+            enableColumnFilterContextMenu
+            enableColumnAutosize
+            skipHeaderOnAutoSize={false}
+            enableFiltering
+            filteredRowsCount={setFilteredCount}
+            onColumnOrderChange={setColumnOrder}
+            virtualized
+            columnUserSelect
+            showColumnMenuTool={false}
+            onReady={handleReady}
+          />
+        </div>
       </section>
     </main>
   );
