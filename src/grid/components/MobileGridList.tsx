@@ -1,10 +1,25 @@
 import * as React from "react";
 import { flexRender, type Row } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Columns3,
+  Search,
+  X,
+} from "lucide-react";
 
 import type { TypeColumn, TypeDataGridProps, TypeSortInfo } from "../../types";
 import { Button } from "../../components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
 import {
   Select,
@@ -70,6 +85,9 @@ export function MobileGridList({
   const deferredQuery = React.useDeferredValue(query);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const sortPanelId = React.useId();
+  const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
+    Set<string>
+  >(() => new Set());
   const searchIndex = React.useMemo(
     () =>
       rows.map((row) => ({ row, text: buildMobileSearchText(row.original) })),
@@ -88,6 +106,70 @@ export function MobileGridList({
   const columnMap = React.useMemo(
     () => new Map(columns.map((column) => [getColumnId(column), column])),
     [columns]
+  );
+  const displayColumns = React.useMemo(
+    () => columns.filter((column) => getColumnId(column) !== checkboxColumnId),
+    [checkboxColumnId, columns]
+  );
+  const visibleDisplayColumnCount = displayColumns.reduce(
+    (count, column) =>
+      count + (hiddenMobileColumnIds.has(getColumnId(column)) ? 0 : 1),
+    0
+  );
+
+  React.useEffect(() => {
+    const availableColumns = new Map(
+      displayColumns.map((column) => [getColumnId(column), column])
+    );
+
+    setHiddenMobileColumnIds((current) => {
+      const next = new Set(
+        [...current].filter((columnId) => {
+          const column = availableColumns.get(columnId);
+          return Boolean(column && column.hideable !== false);
+        })
+      );
+      let changed = next.size !== current.size;
+
+      if (
+        displayColumns.length > 0 &&
+        displayColumns.every((column) => next.has(getColumnId(column)))
+      ) {
+        next.delete(getColumnId(displayColumns[0]!));
+        changed = true;
+      }
+
+      return changed ? next : current;
+    });
+  }, [displayColumns]);
+
+  const setMobileColumnDisplayed = React.useCallback(
+    (columnId: string, displayed: boolean) => {
+      setHiddenMobileColumnIds((current) => {
+        const column = displayColumns.find(
+          (candidate) => getColumnId(candidate) === columnId
+        );
+        if (!column || column.hideable === false) return current;
+
+        const currentlyDisplayed = !current.has(columnId);
+        if (currentlyDisplayed === displayed) return current;
+
+        if (!displayed) {
+          const displayedCount = displayColumns.reduce(
+            (count, candidate) =>
+              count + (current.has(getColumnId(candidate)) ? 0 : 1),
+            0
+          );
+          if (displayedCount <= 1) return current;
+        }
+
+        const next = new Set(current);
+        if (displayed) next.delete(columnId);
+        else next.add(columnId);
+        return next;
+      });
+    },
+    [displayColumns]
   );
   const sortableColumns = React.useMemo(
     () =>
@@ -125,8 +207,27 @@ export function MobileGridList({
       sortableColumns[0],
     [activeSortColumn, sortableColumns]
   );
+  const mobileSortValue = t(i18n, "mobileSort", "Sort");
+  const mobileColumnsValue = t(i18n, "mobileColumns", "Display columns");
+  const mobileSortByValue = t(i18n, "mobileSortBy", "Sort by");
+  const mobileSortAscValue = t(i18n, "mobileSortAsc", "Ascending");
+  const mobileSortDescValue = t(i18n, "mobileSortDesc", "Descending");
+  const mobileSortLabel =
+    typeof mobileSortValue === "string" ? mobileSortValue : "Sort";
+  const mobileColumnsLabel =
+    typeof mobileColumnsValue === "string"
+      ? mobileColumnsValue
+      : "Display columns";
+  const mobileSortByLabel =
+    typeof mobileSortByValue === "string" ? mobileSortByValue : "Sort by";
+  const mobileSortAscLabel =
+    typeof mobileSortAscValue === "string" ? mobileSortAscValue : "Ascending";
+  const mobileSortDescLabel =
+    typeof mobileSortDescValue === "string"
+      ? mobileSortDescValue
+      : "Descending";
   const activeSortSummary = activeSortColumn
-    ? `${labelForColumn(activeSortColumn)} ${activeSort?.dir === -1 ? "descending" : "ascending"}`
+    ? `${labelForColumn(activeSortColumn)} ${activeSort?.dir === -1 ? mobileSortDescLabel : mobileSortAscLabel}`
     : null;
   const draftSortColumn = sortableColumns.find(
     (column) => getColumnId(column) === draftSortColumnId
@@ -213,22 +314,66 @@ export function MobileGridList({
             <Button
               type="button"
               variant={sortPanelOpen ? "secondary" : "outline"}
-              className="h-10 shrink-0 px-3 max-[359px]:w-10 max-[359px]:px-0"
+              size="icon"
+              className="h-10 w-10 shrink-0"
               aria-expanded={sortPanelOpen}
               aria-controls={sortPanelId}
               aria-label={
                 activeSortSummary
-                  ? `Sort rows: ${activeSortSummary}`
-                  : "Sort rows"
+                  ? `${mobileSortLabel}: ${activeSortSummary}`
+                  : mobileSortLabel
               }
-              title={activeSortSummary ? `Sort: ${activeSortSummary}` : "Sort"}
+              title={
+                activeSortSummary
+                  ? `${mobileSortLabel}: ${activeSortSummary}`
+                  : mobileSortLabel
+              }
               onClick={toggleSortPanel}
             >
               <ArrowUpDown />
-              <span className="max-[359px]:sr-only">
-                {t(i18n, "mobileSort", "Sort")}
-              </span>
             </Button>
+          ) : null}
+          {displayColumns.length ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 data-[state=open]:bg-secondary"
+                  aria-label={mobileColumnsLabel}
+                  title={mobileColumnsLabel}
+                >
+                  <Columns3 />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>{mobileColumnsValue}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {displayColumns.map((column) => {
+                  const columnId = getColumnId(column);
+                  const displayed = !hiddenMobileColumnIds.has(columnId);
+                  const disableHidingLastColumn =
+                    displayed && visibleDisplayColumnCount <= 1;
+
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={columnId}
+                      checked={displayed}
+                      disabled={
+                        column.hideable === false || disableHidingLastColumn
+                      }
+                      onCheckedChange={(checked) =>
+                        setMobileColumnDisplayed(columnId, checked === true)
+                      }
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      {labelForColumn(column)}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </div>
         <div className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -250,12 +395,12 @@ export function MobileGridList({
           >
             <div className="grid gap-3 min-[540px]:grid-cols-[minmax(0,1fr)_auto] min-[540px]:items-end">
               <label className="grid min-w-0 gap-1.5 text-xs font-medium text-muted-foreground">
-                {t(i18n, "mobileSortBy", "Sort by")}
+                {mobileSortByValue}
                 <Select
                   value={draftSortColumnId}
                   onValueChange={setDraftSortColumnId}
                 >
-                  <SelectTrigger aria-label="Sort by">
+                  <SelectTrigger aria-label={mobileSortByLabel}>
                     <SelectValue placeholder="Choose a column" />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +429,7 @@ export function MobileGridList({
                   onClick={() => setDraftSortDirection(1)}
                 >
                   <ArrowUp />
-                  {t(i18n, "mobileSortAsc", "Ascending")}
+                  {mobileSortAscValue}
                 </Button>
                 <Button
                   type="button"
@@ -295,7 +440,7 @@ export function MobileGridList({
                   onClick={() => setDraftSortDirection(-1)}
                 >
                   <ArrowDown />
-                  {t(i18n, "mobileSortDesc", "Descending")}
+                  {mobileSortDescValue}
                 </Button>
               </div>
             </div>
@@ -351,7 +496,9 @@ export function MobileGridList({
                 (cell) => cell.column.id === checkboxColumnId
               );
               const dataCells = cells.filter(
-                (cell) => cell.column.id !== checkboxColumnId
+                (cell) =>
+                  cell.column.id !== checkboxColumnId &&
+                  !hiddenMobileColumnIds.has(cell.column.id)
               );
               const actionCells = dataCells.filter((cell) =>
                 ACTION_COLUMN.test(

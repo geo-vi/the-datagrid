@@ -60,6 +60,20 @@ test("searches docs keys and example content from the shared header", async ({
 
   await page.getByRole("button", { name: "Open global search" }).click();
   await expect(searchInput).toBeVisible();
+  await searchInput.fill("mobileApplySort");
+
+  await expect(
+    page.getByText("Internationalization (i18n) · mobileApplySort")
+  ).toBeVisible();
+  await page.getByText("Internationalization (i18n) · mobileApplySort").click();
+
+  await expect(page).toHaveURL(/\/docs\/reference\/i18n#mobile-keys$/);
+  await expect(
+    page.getByRole("heading", { name: "Internationalization (i18n)" })
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Open global search" }).click();
+  await expect(searchInput).toBeVisible();
   await searchInput.fill("Selection example");
 
   await expect(
@@ -127,6 +141,8 @@ test("opens search from the mobile navigation menu", async ({ page }) => {
   await expect(searchInput).toBeVisible();
   await searchInput.fill("Users-style example");
   await expect(
-    page.getByText("Users-style example", { exact: true })
+    page
+      .getByLabel("Suggestions")
+      .getByText("Users-style example", { exact: true })
   ).toBeVisible();
 });

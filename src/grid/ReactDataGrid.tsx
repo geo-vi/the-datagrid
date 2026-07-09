@@ -172,6 +172,19 @@ function getColumnHeaderText(
   return "";
 }
 
+function getKnownTextColumnHeader(column: TypeColumn): string {
+  if (
+    typeof (column as { renderHeader?: unknown }).renderHeader === "function"
+  ) {
+    return "";
+  }
+  if (typeof column.header === "string") return column.header;
+  if (column.header != null) return "";
+  if (typeof column.name === "string") return column.name;
+  if (typeof column.id === "string") return column.id;
+  return "";
+}
+
 function getColumnWidthBounds(column: TypeColumn): {
   minWidth: number;
   maxWidth: number;
@@ -229,6 +242,26 @@ function resolveBaseColumnWidth(args: {
   }
 
   return clamp(column.minWidth ?? 120, minWidth, maxWidth);
+}
+
+function ensureLastColumnHeaderFits(args: {
+  column: TypeColumn;
+  baseWidth: number;
+  showColumnMenuTool: boolean;
+}): number {
+  const { column, baseWidth, showColumnMenuTool } = args;
+  const header = getKnownTextColumnHeader(column);
+  if (!header) return baseWidth;
+
+  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+  const sortControlWidth = column.sortable === false ? 0 : 24;
+  const menuControlWidth = showColumnMenuTool ? 36 : 0;
+  const headerWidth =
+    estimateAutoWidth({ header, values: [] }) +
+    sortControlWidth +
+    menuControlWidth;
+
+  return clamp(Math.max(baseWidth, headerWidth), minWidth, maxWidth);
 }
 
 function ReactDataGrid(props: TypeDataGridProps) {
@@ -758,15 +791,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const columnWidths = React.useMemo(() => {
     const next: Record<string, number> = {};
+    const lastColumnIndex = orderedColumns.length - 1;
 
-    for (const column of orderedColumns) {
+    for (const [index, column] of orderedColumns.entries()) {
       const columnId = getColumnId(column);
-      next[columnId] =
+      const baseWidth =
         manualColumnWidths[columnId] ?? autosizedWidths[columnId];
+
+      next[columnId] =
+        index === lastColumnIndex
+          ? ensureLastColumnHeaderFits({
+              column,
+              baseWidth,
+              showColumnMenuTool,
+            })
+          : baseWidth;
     }
 
     return next;
-  }, [autosizedWidths, manualColumnWidths, orderedColumns]);
+  }, [autosizedWidths, manualColumnWidths, orderedColumns, showColumnMenuTool]);
 
   /** ---------------- selection helpers ---------------- */
 
@@ -1097,6 +1140,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     estimateSize: () => rowHeight,
     overscan: 10,
     scrollMargin: stickyHeaderOffset,
+    // Seed a usable range before the desktop viewport observer reports its
+    // size, including when returning from the unmounted mobile branch.
+    initialRect: { width: 0, height: rowHeight * 10 },
     enabled: virtualized && !mobileTransformActive,
   });
 
@@ -1252,6 +1298,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
         rows: autosizeSample,
         skipHeaderOnAutoSize,
       });
+      const bodyViewport = scrollRef.current;
+      const restoreTrailingEdge = Boolean(
+        getColumnId(orderedColumns[orderedColumns.length - 1]!) === columnId &&
+        bodyViewport &&
+        bodyViewport.scrollWidth -
+          bodyViewport.clientWidth -
+          bodyViewport.scrollLeft <=
+          1
+      );
 
       setManualColumnWidths((current) => {
         const base =
@@ -1266,6 +1321,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           [columnId]: nextWidth,
         };
       });
+
+      if (restoreTrailingEdge && bodyViewport) {
+        window.requestAnimationFrame(() => {
+          bodyViewport.scrollLeft = bodyViewport.scrollWidth;
+        });
+      }
     },
     [
       autosizeSample,
@@ -1307,9 +1368,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const seededWidths = seedManualColumnWidthsFromDom();
       const startWidth =
         seededWidths?.[columnId] ?? Math.round(headerRect.width);
-      const { minWidth, maxWidth } = getColumnWidthBounds(column);
       const columnLeft = headerRect.left - surfaceRect.left;
       const previousDraggable = headerCell.draggable;
+      const bodyViewport = scrollRef.current;
+      const isLastColumn =
+        getColumnId(orderedColumns[orderedColumns.length - 1]!) === columnId;
+      const columnWidthBounds = getColumnWidthBounds(column);
+      const minWidth = isLastColumn
+        ? ensureLastColumnHeaderFits({
+            column,
+            baseWidth: columnWidthBounds.minWidth,
+            showColumnMenuTool,
+          })
+        : columnWidthBounds.minWidth;
+      const { maxWidth } = columnWidthBounds;
+      const restoreTrailingEdge = Boolean(
+        isLastColumn &&
+        bodyViewport &&
+        bodyViewport.scrollWidth -
+          bodyViewport.clientWidth -
+          bodyViewport.scrollLeft <=
+          1
+      );
 
       headerCell.draggable = false;
 
@@ -1345,6 +1425,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       const handleMouseUp = () => {
         stopColumnResize();
+
+        if (restoreTrailingEdge && bodyViewport) {
+          window.requestAnimationFrame(() => {
+            bodyViewport.scrollLeft = bodyViewport.scrollWidth;
+          });
+        }
       };
 
       resizeCleanupRef.current = () => {
@@ -1364,6 +1450,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       orderedColumns,
       seedManualColumnWidthsFromDom,
       setManualColumnWidth,
+      showColumnMenuTool,
       stopColumnResize,
     ]
   );

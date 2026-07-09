@@ -11,7 +11,7 @@ import { useExamplesUi } from "./App";
 const statuses = ["Active", "Review", "Paused"] as const;
 
 export default function MobileTransformExample() {
-  const { gridTheme, i18n } = useExamplesUi();
+  const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
   const [lastAction, setLastAction] = useState("No action selected");
   const rows = useMemo(
     () =>
@@ -65,7 +65,7 @@ export default function MobileTransformExample() {
       { name: "note", header: "Notes", minWidth: 300 },
       {
         name: "actions",
-        header: "Actions",
+        header: "Customer account actions",
         sortable: false,
         render: ({ data }: CellProps) => (
           <Button
@@ -82,7 +82,10 @@ export default function MobileTransformExample() {
   );
 
   return (
-    <section className="space-y-3">
+    <section
+      className="flex flex-col gap-3 rounded-2xl border bg-background/95 p-4 shadow-sm"
+      data-testid="mobile-transform-example"
+    >
       <output
         className="block text-sm text-muted-foreground"
         data-testid="mobile-action-output"
@@ -90,7 +93,7 @@ export default function MobileTransformExample() {
         {lastAction}
       </output>
       <div
-        className="h-[680px] min-h-0 overflow-hidden border bg-background"
+        className="h-[680px] min-h-0 overflow-hidden"
         data-testid="mobile-transform-shell"
       >
         <ReactDataGrid
@@ -99,8 +102,11 @@ export default function MobileTransformExample() {
           columns={columns}
           dataSource={rows}
           allowMobileTransform
+          resizable={resizable}
+          enableColumnAutosize={false}
           enableFiltering
           virtualized
+          showCellBorders={showCellBorders}
           i18n={i18n}
         />
       </div>

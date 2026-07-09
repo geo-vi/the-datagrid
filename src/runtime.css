@@ -576,6 +576,15 @@
   min-width: 100% !important;
 }
 
+/* Leave the final, centered resize handle clear of the viewport scrollbar. */
+.tdg-root .tdg-body-viewport {
+  padding-inline-end: 1.125rem !important;
+}
+
+.tdg-root .tdg-header-viewport {
+  overflow: visible !important;
+}
+
 .tdg-root .tdg-table caption {
   display: table-caption !important;
   font: inherit !important;
