@@ -26,9 +26,11 @@ export default function MobileTransformExample() {
           index % 4
         ],
         note:
-          index % 7 === 0
-            ? "Renewal requires legal review and procurement approval."
-            : "Healthy account with regular product activity.",
+          index === 9000
+            ? "Reference: AC-09001"
+            : index % 7 === 0
+              ? "Renewal requires legal review and procurement approval."
+              : "Healthy account with regular product activity.",
       })),
     []
   );

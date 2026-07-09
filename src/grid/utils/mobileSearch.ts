@@ -1,5 +1,16 @@
 const COMBINING_MARKS = /[\u0300-\u036f]/g;
 
+export type MobileSearchColumn = {
+  id: string;
+  aliases: readonly string[];
+};
+
+export type ParsedMobileSearchQuery = {
+  columnIds: string[];
+  prefixEnd: number | null;
+  searchQuery: string;
+};
+
 export function normalizeMobileSearchText(value: string): string {
   return value
     .normalize("NFKD")
@@ -42,6 +53,65 @@ export function buildMobileSearchText(value: unknown): string {
   return normalizeMobileSearchText(output.join(" "));
 }
 
+export function parseMobileSearchQuery(
+  query: string,
+  columns: readonly MobileSearchColumn[]
+): ParsedMobileSearchQuery {
+  let colonIndex = query.indexOf(":");
+  let match: ParsedMobileSearchQuery | null = null;
+
+  while (colonIndex >= 0) {
+    const requestedAlias = normalizeMobileSearchText(
+      query.slice(0, colonIndex)
+    );
+
+    if (requestedAlias) {
+      const columnIds = Array.from(
+        new Set(
+          columns
+            .filter((column) =>
+              column.aliases.some(
+                (alias) => normalizeMobileSearchText(alias) === requestedAlias
+              )
+            )
+            .map((column) => column.id)
+        )
+      );
+
+      if (columnIds.length > 0) {
+        match = {
+          columnIds,
+          prefixEnd: colonIndex + 1,
+          searchQuery: query.slice(colonIndex + 1),
+        };
+      }
+    }
+
+    colonIndex = query.indexOf(":", colonIndex + 1);
+  }
+
+  return (
+    match ?? {
+      columnIds: [],
+      prefixEnd: null,
+      searchQuery: query,
+    }
+  );
+}
+
+export function tokenizeMobileSearchQuery(query: string): string[] {
+  return normalizeMobileSearchText(query).split(" ").filter(Boolean);
+}
+
+export function matchesMobileSearchTokens(
+  searchText: string,
+  tokens: readonly string[]
+): boolean {
+  return (
+    tokens.length === 0 || tokens.every((token) => searchText.includes(token))
+  );
+}
+
 function ReactIsElement(value: object): boolean {
   return "$$typeof" in value && "props" in value;
 }
@@ -50,8 +120,8 @@ export function matchesMobileSearch(
   searchText: string,
   query: string
 ): boolean {
-  const tokens = normalizeMobileSearchText(query).split(" ").filter(Boolean);
-  return (
-    tokens.length === 0 || tokens.every((token) => searchText.includes(token))
+  return matchesMobileSearchTokens(
+    searchText,
+    tokenizeMobileSearchQuery(query)
   );
 }

@@ -1,12 +1,28 @@
-import * as React from "react"
+import * as React from "react";
 
-import { cn } from "../../lib/utils"
-import { useDatagridThemeClassSuffix } from "../../theme/context"
+import { cn } from "../../lib/utils";
+import { useDatagridThemeClassSuffix } from "../../theme/context";
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, onFocus, onBlur, disabled, style, ...props }, ref) => {
-    const themeClassSuffix = useDatagridThemeClassSuffix()
-    const [focused, setFocused] = React.useState(false)
+type InputProps = React.ComponentProps<"input"> & {
+  inputClassName?: string;
+};
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      className,
+      inputClassName,
+      type,
+      onFocus,
+      onBlur,
+      disabled,
+      style,
+      ...props
+    },
+    ref
+  ) => {
+    const themeClassSuffix = useDatagridThemeClassSuffix();
+    const [focused, setFocused] = React.useState(false);
 
     return (
       <div
@@ -22,23 +38,26 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
       >
         <input
           type={type}
-          className="inovua-react-toolkit-text-input__input flex-1 bg-transparent text-base text-[var(--tdg-input-color)] outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm"
+          className={cn(
+            "inovua-react-toolkit-text-input__input flex-1 bg-transparent text-base text-[var(--tdg-input-color)] outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm",
+            inputClassName
+          )}
           ref={ref}
           disabled={disabled}
           onFocus={(event) => {
-            setFocused(true)
-            onFocus?.(event)
+            setFocused(true);
+            onFocus?.(event);
           }}
           onBlur={(event) => {
-            setFocused(false)
-            onBlur?.(event)
+            setFocused(false);
+            onBlur?.(event);
           }}
           {...props}
         />
       </div>
-    )
+    );
   }
-)
-Input.displayName = "Input"
+);
+Input.displayName = "Input";
 
-export { Input }
+export { Input };
