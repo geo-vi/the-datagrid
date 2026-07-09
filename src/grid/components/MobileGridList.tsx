@@ -33,7 +33,10 @@ import { getColumnId, getColumnSortName } from "../../utils/column";
 import { t } from "../../utils/helpers";
 import {
   buildMobileSearchText,
-  matchesMobileSearch,
+  matchesMobileSearchTokens,
+  parseMobileSearchQuery,
+  tokenizeMobileSearchQuery,
+  type MobileSearchColumn,
 } from "../utils/mobileSearch";
 
 type MobileGridListProps = {
@@ -63,6 +66,23 @@ function labelForColumn(column: TypeColumn): string {
   return column.name ?? column.id ?? "Value";
 }
 
+function searchAliasesForColumn(column: TypeColumn): string[] {
+  const aliases = [
+    getColumnId(column),
+    column.id,
+    column.name,
+    typeof column.header === "string" ? column.header : undefined,
+  ];
+
+  return Array.from(
+    new Set(
+      aliases
+        .map((alias) => alias?.trim() ?? "")
+        .filter((alias) => alias.length > 0)
+    )
+  );
+}
+
 export function MobileGridList({
   rows,
   columns,
@@ -84,25 +104,13 @@ export function MobileGridList({
   );
   const deferredQuery = React.useDeferredValue(query);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const sortPanelId = React.useId();
+  const [isSearchComposing, setIsSearchComposing] = React.useState(false);
+  const [searchScrollLeft, setSearchScrollLeft] = React.useState(0);
   const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
     Set<string>
   >(() => new Set());
-  const searchIndex = React.useMemo(
-    () =>
-      rows.map((row) => ({ row, text: buildMobileSearchText(row.original) })),
-    [rows]
-  );
-  const filteredRows = React.useMemo(
-    () =>
-      searchIndex
-        .filter((entry) => matchesMobileSearch(entry.text, deferredQuery))
-        .map((entry) => entry.row),
-    [deferredQuery, searchIndex]
-  );
-  React.useEffect(() => {
-    onFilteredRowsCountChange?.(filteredRows.length);
-  }, [filteredRows.length, onFilteredRowsCountChange]);
   const columnMap = React.useMemo(
     () => new Map(columns.map((column) => [getColumnId(column), column])),
     [columns]
@@ -111,6 +119,75 @@ export function MobileGridList({
     () => columns.filter((column) => getColumnId(column) !== checkboxColumnId),
     [checkboxColumnId, columns]
   );
+  const mobileSearchColumns = React.useMemo<MobileSearchColumn[]>(
+    () =>
+      displayColumns.map((column) => ({
+        id: getColumnId(column),
+        aliases: searchAliasesForColumn(column),
+      })),
+    [displayColumns]
+  );
+  const parsedQuery = React.useMemo(
+    () => parseMobileSearchQuery(query, mobileSearchColumns),
+    [mobileSearchColumns, query]
+  );
+  const parsedDeferredQuery = React.useMemo(
+    () => parseMobileSearchQuery(deferredQuery, mobileSearchColumns),
+    [deferredQuery, mobileSearchColumns]
+  );
+  const deferredSearchTokens = React.useMemo(
+    () => tokenizeMobileSearchQuery(parsedDeferredQuery.searchQuery),
+    [parsedDeferredQuery.searchQuery]
+  );
+  const searchIndex = React.useMemo(
+    () =>
+      rows.map((row) => ({ row, text: buildMobileSearchText(row.original) })),
+    [rows]
+  );
+  const scopedColumnIdsKey =
+    parsedDeferredQuery.columnIds.length > 0 && deferredSearchTokens.length > 0
+      ? JSON.stringify(parsedDeferredQuery.columnIds)
+      : "[]";
+  const scopedSearchIndex = React.useMemo(() => {
+    const columnIds = JSON.parse(scopedColumnIdsKey) as string[];
+    if (columnIds.length === 0) return null;
+
+    return searchIndex.map((entry) => ({
+      row: entry.row,
+      texts: columnIds.map((columnId) =>
+        buildMobileSearchText(entry.row.getValue(columnId))
+      ),
+    }));
+  }, [scopedColumnIdsKey, searchIndex]);
+  const filteredRows = React.useMemo(() => {
+    if (parsedDeferredQuery.columnIds.length > 0) {
+      if (deferredSearchTokens.length === 0) {
+        return searchIndex.map((entry) => entry.row);
+      }
+
+      return (scopedSearchIndex ?? [])
+        .filter((entry) =>
+          entry.texts.some((text) =>
+            matchesMobileSearchTokens(text, deferredSearchTokens)
+          )
+        )
+        .map((entry) => entry.row);
+    }
+
+    return searchIndex
+      .filter((entry) =>
+        matchesMobileSearchTokens(entry.text, deferredSearchTokens)
+      )
+      .map((entry) => entry.row);
+  }, [
+    deferredSearchTokens,
+    parsedDeferredQuery.columnIds.length,
+    scopedSearchIndex,
+    searchIndex,
+  ]);
+  React.useEffect(() => {
+    onFilteredRowsCountChange?.(filteredRows.length);
+  }, [filteredRows.length, onFilteredRowsCountChange]);
   const visibleDisplayColumnCount = displayColumns.reduce(
     (count, column) =>
       count + (hiddenMobileColumnIds.has(getColumnId(column)) ? 0 : 1),
@@ -232,6 +309,8 @@ export function MobileGridList({
   const draftSortColumn = sortableColumns.find(
     (column) => getColumnId(column) === draftSortColumnId
   );
+  const highlightSearchQuery =
+    parsedQuery.prefixEnd !== null && !isSearchComposing;
 
   const toggleSortPanel = () => {
     if (!sortPanelOpen) {
@@ -282,27 +361,84 @@ export function MobileGridList({
     >
       <div className="shrink-0 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
         <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1 rounded-md bg-[var(--tdg-input-bg)]">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
-              className="h-10 pl-7 pr-9"
+              ref={searchInputRef}
+              className={cn(
+                "h-10 pl-7 pr-9",
+                highlightSearchQuery && "relative z-10 !bg-transparent"
+              )}
+              inputClassName={cn(
+                highlightSearchQuery &&
+                  "!text-transparent caret-[var(--tdg-input-color)]"
+              )}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSearchScrollLeft(event.currentTarget.scrollLeft);
+              }}
+              onScroll={(event) =>
+                setSearchScrollLeft(event.currentTarget.scrollLeft)
+              }
+              onSelect={(event) =>
+                setSearchScrollLeft(event.currentTarget.scrollLeft)
+              }
+              onCompositionStart={() => setIsSearchComposing(true)}
+              onCompositionEnd={(event) => {
+                setIsSearchComposing(false);
+                setSearchScrollLeft(event.currentTarget.scrollLeft);
+              }}
               placeholder="Search all fields"
               aria-label="Search all fields"
               type="text"
               role="searchbox"
             />
+            {highlightSearchQuery && parsedQuery.prefixEnd !== null ? (
+              <div
+                className="pointer-events-none absolute inset-y-0 left-7 right-9 z-0 flex items-center overflow-hidden text-base text-[var(--tdg-input-color)] md:text-sm"
+                data-slot="mobile-search-query-highlight"
+                aria-hidden="true"
+              >
+                <span
+                  className="inline-flex min-w-max whitespace-pre font-normal"
+                  style={{ transform: `translateX(${-searchScrollLeft}px)` }}
+                >
+                  <span className="relative inline-block">
+                    <span className="invisible">
+                      {query.slice(0, parsedQuery.prefixEnd)}
+                    </span>
+                    <strong
+                      className="absolute inset-0 whitespace-pre font-bold"
+                      data-slot="mobile-search-column-prefix"
+                    >
+                      {query.slice(0, parsedQuery.prefixEnd)}
+                    </strong>
+                  </span>
+                  <span
+                    className="font-normal"
+                    data-slot="mobile-search-query-value"
+                  >
+                    {query.slice(parsedQuery.prefixEnd)}
+                  </span>
+                </span>
+              </div>
+            ) : null}
             {query ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-10 w-10"
-                onClick={() => setQuery("")}
+                className="absolute right-0 top-0 z-20 h-10 w-10"
+                onClick={() => {
+                  setQuery("");
+                  setIsSearchComposing(false);
+                  setSearchScrollLeft(0);
+                  searchInputRef.current?.focus();
+                }}
                 aria-label="Clear search"
                 title="Clear search"
               >
