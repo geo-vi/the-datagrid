@@ -5,6 +5,7 @@ export type ExampleId =
   | "issue-17"
   | "issue-20-height"
   | "issue-21-missing-imports"
+  | "mobile-transform"
   | "selection"
   | "users";
 
@@ -97,6 +98,19 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
       "Uses exported filter type definitions to configure filter metadata and typed CellProps in column render functions.",
     sourcePath: "examples/src/Issue21MissingImportsExample.tsx",
     tags: ["Exports", "Filtering", "Types"],
+  },
+  {
+    id: "mobile-transform",
+    to: "/examples/mobile-transform",
+    legacyTo: "/mobile-transform",
+    label: "Mobile transform",
+    title: "Responsive mobile virtual list",
+    summary:
+      "A 10,000-row grid that becomes searchable responsive cards on phones and tablets.",
+    details:
+      "Exercises mixed text, identifiers, numbers, status icons, long notes, and interactive row actions while keeping only visible cards mounted.",
+    sourcePath: "examples/src/MobileTransformExample.tsx",
+    tags: ["Mobile", "Virtualized", "Search"],
   },
   {
     id: "selection",

@@ -15,6 +15,7 @@ import Issue16CssScopeExample from "./Issue16CssScopeExample";
 import Issue17FixedContractExample from "./Issue17FixedContractExample";
 import Issue20HeightExample from "./Issue20HeightExample";
 import Issue21MissingImportsExample from "./Issue21MissingImportsExample";
+import MobileTransformExample from "./MobileTransformExample";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
 import DocsHomePage from "./docs/DocsHomePage";
@@ -192,6 +193,16 @@ function UsersExamplePage() {
   );
 }
 
+function MobileTransformExamplePage() {
+  const example = getExampleMeta("mobile-transform");
+  if (!example) throw new Error("Missing mobile transform metadata");
+  return (
+    <ExampleDetailPage {...example}>
+      <MobileTransformExample />
+    </ExampleDetailPage>
+  );
+}
+
 const rootRoute = createRootRoute({
   component: App,
 });
@@ -274,6 +285,12 @@ const exampleUsersRoute = createRoute({
   component: UsersExamplePage,
 });
 
+const exampleMobileTransformRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/mobile-transform",
+  component: MobileTransformExamplePage,
+});
+
 const legacyBasicRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "basic",
@@ -348,6 +365,7 @@ const routeTree = rootRoute.addChildren([
   exampleIssue21MissingImportsRoute,
   exampleSelectionRoute,
   exampleUsersRoute,
+  exampleMobileTransformRoute,
   legacyActionsRoute,
   legacyBasicRoute,
   legacyIssue16CssScopeRoute,

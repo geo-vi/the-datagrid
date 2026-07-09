@@ -4,6 +4,7 @@ import issue16CssScopeExampleSource from "./Issue16CssScopeExample.tsx?raw";
 import issue17FixedContractExampleSource from "./Issue17FixedContractExample.tsx?raw";
 import issue20HeightExampleSource from "./Issue20HeightExample.tsx?raw";
 import issue21MissingImportsExampleSource from "./Issue21MissingImportsExample.tsx?raw";
+import mobileTransformExampleSource from "./MobileTransformExample.tsx?raw";
 import {
   exampleCatalog,
   type ExampleCatalogEntry,
@@ -23,6 +24,7 @@ const sourceById: Record<ExampleId, string> = {
   "issue-17": issue17FixedContractExampleSource,
   "issue-20-height": issue20HeightExampleSource,
   "issue-21-missing-imports": issue21MissingImportsExampleSource,
+  "mobile-transform": mobileTransformExampleSource,
   selection: selectionExampleSource,
   users: usersExampleSource,
 };

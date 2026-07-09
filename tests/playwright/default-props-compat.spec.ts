@@ -20,7 +20,7 @@ test("defaultProps static is available from the ReactDataGrid default export", a
     page.getByTestId("default-props-string-operators")
   ).toContainText("contains");
   await expect(page.getByTestId("default-props-values")).toHaveText(
-    "theme=default,virtualized=true,rowHeight=44"
+    "theme=default,virtualized=true,allowMobileTransform=false,rowHeight=44"
   );
   await expect(page.getByTestId("default-props-filtered-count")).toContainText(
     "3"

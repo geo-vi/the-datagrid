@@ -25,6 +25,7 @@ export default function DefaultPropsCompatPage() {
   const defaultValues = [
     `theme=${defaultProps.theme}`,
     `virtualized=${String(defaultProps.virtualized)}`,
+    `allowMobileTransform=${String(defaultProps.allowMobileTransform)}`,
     `rowHeight=${defaultProps.rowHeight}`,
   ].join(",");
 
