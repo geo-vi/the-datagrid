@@ -27,6 +27,15 @@ test("issue 17 example uses supported alternatives without adding grid props", a
   await expect(preview.getByTestId("issue17-unsupported-props")).toContainText(
     "emptyText"
   );
+  await expect(preview.getByTestId("issue17-unsupported-props")).toContainText(
+    "onColumnFilterValueChange"
+  );
+  await expect(preview.getByTestId("issue17-unsupported-props")).toContainText(
+    "enableSelection"
+  );
+  await expect(preview.getByTestId("issue17-unsupported-props")).toContainText(
+    "virtualizeColumnsThreshold"
+  );
 
   const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
   await expect(grid).toBeVisible();

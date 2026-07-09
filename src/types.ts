@@ -447,7 +447,7 @@ export type TypeComputedProps = {
   isRowFullyVisible?: (rowIndex: number) => boolean;
   isRowRendered?: (rowIndex: number) => boolean;
   getRenderRange?: () => { from: number; to: number };
-  getVirtualList?: () => TypeComputedVirtualList;
+  getVirtualList: () => TypeComputedVirtualList;
   scrollbars?: {
     vertical: boolean;
     horizontal: boolean;

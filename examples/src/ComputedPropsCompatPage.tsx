@@ -119,7 +119,7 @@ export default function ComputedPropsCompatPage() {
         ?.querySelectorAll<HTMLElement>('[data-slot="grid-header-cell"]') ?? []
     );
     const renderRange = api.getRenderRange?.();
-    const virtualList = api.getVirtualList?.();
+    const virtualList = api.getVirtualList();
     const virtualListRange = virtualList?.getVisibleRange?.();
     const virtualListRows = virtualList?.getRows?.();
     const scrollSize = virtualList?.getScrollSize?.();
@@ -194,8 +194,8 @@ export default function ComputedPropsCompatPage() {
     api.setColumnVisible?.("city", false);
     api.setColumnOrder?.(["name", "id"]);
     api.scrollToIndex?.(8);
-    api.getVirtualList?.()?.scrollToIndex?.(8);
-    api.getVirtualList?.()?.smoothScrollTo?.(8);
+    api.getVirtualList().scrollToIndex(8);
+    api.getVirtualList().smoothScrollTo(8);
 
     window.setTimeout(() => {
       collectStatus();
@@ -250,22 +250,24 @@ export default function ComputedPropsCompatPage() {
       </section>
 
       <section className="rounded-3xl border bg-background/95 p-4 shadow-sm">
-        <ReactDataGrid
-          idProperty="id"
-          columns={columns}
-          dataSource={rows}
-          columnOrder={columnOrder}
-          enableColumnFilterContextMenu
-          enableColumnAutosize
-          skipHeaderOnAutoSize={false}
-          enableFiltering
-          filteredRowsCount={setFilteredCount}
-          onColumnOrderChange={setColumnOrder}
-          virtualized
-          columnUserSelect
-          showColumnMenuTool={false}
-          onReady={handleReady}
-        />
+        <div className="h-[360px] min-h-0">
+          <ReactDataGrid
+            idProperty="id"
+            columns={columns}
+            dataSource={rows}
+            columnOrder={columnOrder}
+            enableColumnFilterContextMenu
+            enableColumnAutosize
+            skipHeaderOnAutoSize={false}
+            enableFiltering
+            filteredRowsCount={setFilteredCount}
+            onColumnOrderChange={setColumnOrder}
+            virtualized
+            columnUserSelect
+            showColumnMenuTool={false}
+            onReady={handleReady}
+          />
+        </div>
       </section>
     </main>
   );

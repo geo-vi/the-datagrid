@@ -86,13 +86,14 @@ const issue20Rows = Array.from({ length: 160 }, (_, index) => {
 type Issue20GridProps = {
   label: string;
   shellTestId: string;
+  rowCount?: number;
 };
 
 function Issue20Grid(props: Issue20GridProps) {
-  const { label, shellTestId } = props;
+  const { label, shellTestId, rowCount = issue20Rows.length } = props;
   const { gridTheme, i18n } = useExamplesUi();
   const columns = useMemo(() => issue20Columns, []);
-  const rows = useMemo(() => issue20Rows, []);
+  const rows = useMemo(() => issue20Rows.slice(0, rowCount), [rowCount]);
   const [columnOrder, setColumnOrder] = useState(() =>
     columns.map((column) => column.name ?? "")
   );
@@ -157,6 +158,14 @@ export default function Issue20HeightExample() {
           <Issue20Grid
             label="Expanded parent"
             shellTestId="issue-20-tall-container"
+          />
+        </div>
+
+        <div className="min-h-0 xl:col-span-2">
+          <Issue20Grid
+            label="Natural parent"
+            shellTestId="issue-20-natural-container"
+            rowCount={3}
           />
         </div>
       </div>

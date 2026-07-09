@@ -979,6 +979,7 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
   await page.goto("/basic");
 
   const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  const shell = page.getByTestId("basic-grid-shell");
   const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
   const filterInput = grid.locator(".tdg-filter-row input").first();
   const filteredCount = page
@@ -986,7 +987,9 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
     .first();
 
   const before = await viewport.boundingBox();
+  const shellBox = await shell.boundingBox();
   expect(before).not.toBeNull();
+  expect(shellBox).not.toBeNull();
 
   await filterInput.fill("1000");
   await expect(filteredCount).toHaveText("1");
@@ -995,7 +998,9 @@ test("keeps the body viewport height fixed when filtering down to one row", asyn
   expect(after).not.toBeNull();
 
   expect(Math.round(after?.height ?? 0)).toBe(Math.round(before?.height ?? 0));
-  expect(Math.round(after?.height ?? 0)).toBeGreaterThanOrEqual(560);
+  expect(Math.round(shellBox?.height ?? 0)).toBe(480);
+  expect(Math.round(after?.height ?? 0)).toBeLessThan(480);
+  expect(Math.round(after?.height ?? 0)).toBeGreaterThan(400);
 
   const layout = await grid.evaluate((root) => {
     const frame = root.querySelector<HTMLElement>('[data-slot="grid-frame"]');

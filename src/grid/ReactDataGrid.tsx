@@ -11,7 +11,6 @@ import type {
   TypeComputedVirtualList,
   TypeComputedVirtualListRow,
   TypeDataGridProps,
-  TypeFilterTypes,
   TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
@@ -76,8 +75,41 @@ import { GridPagination } from "./components/GridPagination";
  */
 export const plugins: readonly unknown[] = [] as const;
 
-type ReactDataGridDefaultProps = Partial<TypeDataGridProps> & {
-  filterTypes: TypeFilterTypes;
+type ReactDataGridDefaultPropName =
+  | "theme"
+  | "enableColumnFilterContextMenu"
+  | "enableColumnAutosize"
+  | "skipHeaderOnAutoSize"
+  | "resizable"
+  | "enableFiltering"
+  | "filterTypes"
+  | "virtualized"
+  | "columnUserSelect"
+  | "showCellBorders"
+  | "showColumnMenuTool"
+  | "rowHeight"
+  | "headerHeight"
+  | "filterRowHeight";
+
+type ReactDataGridDefaultProps = Required<
+  Pick<TypeDataGridProps, ReactDataGridDefaultPropName>
+>;
+
+const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
+  theme: "default",
+  enableColumnFilterContextMenu: false,
+  enableColumnAutosize: true,
+  skipHeaderOnAutoSize: false,
+  resizable: true,
+  enableFiltering: true,
+  filterTypes: DEFAULT_FILTER_TYPES,
+  virtualized: true,
+  columnUserSelect: true,
+  showCellBorders: true,
+  showColumnMenuTool: false,
+  rowHeight: 44,
+  headerHeight: 40,
+  filterRowHeight: 44,
 };
 
 type ReactDataGridComponent = ((
@@ -197,31 +229,31 @@ function resolveBaseColumnWidth(args: {
 
 function ReactDataGrid(props: TypeDataGridProps) {
   const {
-    theme = "default",
+    theme = REACT_DATA_GRID_DEFAULT_PROPS.theme,
     idProperty,
     columns: inputColumns,
     dataSource,
 
-    enableColumnFilterContextMenu = false,
+    enableColumnFilterContextMenu = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnFilterContextMenu,
 
-    enableColumnAutosize = true,
-    skipHeaderOnAutoSize = false,
-    resizable = true,
+    enableColumnAutosize = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnAutosize,
+    skipHeaderOnAutoSize = REACT_DATA_GRID_DEFAULT_PROPS.skipHeaderOnAutoSize,
+    resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
 
-    enableFiltering = true,
+    enableFiltering = REACT_DATA_GRID_DEFAULT_PROPS.enableFiltering,
 
     filteredRowsCount,
 
-    virtualized = true,
-    columnUserSelect = true,
-    showCellBorders = true,
+    virtualized = REACT_DATA_GRID_DEFAULT_PROPS.virtualized,
+    columnUserSelect = REACT_DATA_GRID_DEFAULT_PROPS.columnUserSelect,
+    showCellBorders = REACT_DATA_GRID_DEFAULT_PROPS.showCellBorders,
 
     i18n,
-    showColumnMenuTool = false,
+    showColumnMenuTool = REACT_DATA_GRID_DEFAULT_PROPS.showColumnMenuTool,
 
-    rowHeight = 44,
-    headerHeight = 40,
-    filterRowHeight = 44,
+    rowHeight = REACT_DATA_GRID_DEFAULT_PROPS.rowHeight,
+    headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
+    filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
 
     className,
     style,
@@ -2704,15 +2736,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
 }
 
 // -----------------------------------------------------------------------------
-// Inovua-compat: expose default filterTypes via ReactDataGrid.defaultProps.filterTypes
-// so apps can extend defaults like:
+// Inovua-compat: expose the runtime defaults via ReactDataGrid.defaultProps.
+// Apps commonly extend the filter registry like:
 // Object.assign({}, ReactDataGrid.defaultProps.filterTypes, { myCustomType: ... })
 // -----------------------------------------------------------------------------
 const ReactDataGridWithDefaultProps = ReactDataGrid as ReactDataGridComponent;
 
 ReactDataGridWithDefaultProps.defaultProps = {
-  ...ReactDataGridWithDefaultProps.defaultProps,
-  filterTypes: DEFAULT_FILTER_TYPES,
+  ...REACT_DATA_GRID_DEFAULT_PROPS,
 };
 
 export { ReactDataGridWithDefaultProps as ReactDataGrid };

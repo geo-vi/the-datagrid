@@ -22,6 +22,11 @@ export default function DefaultPropsCompatPage() {
     defaultProps.filterTypes.string.operators
       .map((operator) => operator.name)
       .join(",") || "none";
+  const defaultValues = [
+    `theme=${defaultProps.theme}`,
+    `virtualized=${String(defaultProps.virtualized)}`,
+    `rowHeight=${defaultProps.rowHeight}`,
+  ].join(",");
 
   return (
     <main className="flex flex-col gap-6">
@@ -72,6 +77,17 @@ export default function DefaultPropsCompatPage() {
             data-testid="default-props-string-operators"
           >
             {stringOperators}
+          </div>
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="text-xs font-medium uppercase text-muted-foreground">
+            values
+          </div>
+          <div
+            className="mt-2 break-all font-mono text-sm"
+            data-testid="default-props-values"
+          >
+            {defaultValues}
           </div>
         </div>
         <div className="rounded-md border bg-background p-3">

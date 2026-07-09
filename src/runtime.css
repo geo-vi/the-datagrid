@@ -510,11 +510,8 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
-  height: 100vh !important;
-  height: 100dvh !important;
+  height: 100% !important;
   min-height: 0 !important;
-  max-height: 100vh !important;
-  max-height: 100% !important;
   flex: 1 1 auto !important;
   background: transparent !important;
   box-shadow: none !important;

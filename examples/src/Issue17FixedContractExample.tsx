@@ -195,8 +195,9 @@ export default function Issue17FixedContractExample() {
             Issue 17 fixed-prop alternatives
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            The root grid props stay fixed; empty-state copy is supplied through
-            i18n and presentation-specific behavior stays on column definitions.
+            The root grid props stay fixed; the original report and its
+            follow-up are recorded here with the supported alternatives that
+            exist today.
           </p>
         </div>
 
@@ -248,7 +249,8 @@ export default function Issue17FixedContractExample() {
           </div>
           <div className="mt-2 text-sm font-medium">
             minRowHeight, rowStyle, onColumnResize, editable, editStartEvent,
-            showZebraRows, emptyText
+            showZebraRows, emptyText, onColumnFilterValueChange,
+            enableSelection, virtualizeColumnsThreshold
           </div>
         </div>
       </div>

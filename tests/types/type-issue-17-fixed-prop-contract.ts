@@ -7,7 +7,10 @@ type Issue17RequestedProp =
   | "editable"
   | "editStartEvent"
   | "showZebraRows"
-  | "emptyText";
+  | "emptyText"
+  | "onColumnFilterValueChange"
+  | "enableSelection"
+  | "virtualizeColumnsThreshold";
 
 type AssertNever<T extends never> = T;
 
@@ -71,8 +74,8 @@ export const issue17FixedContractProps = {
   skipHeaderOnAutoSize: false,
   enableFiltering: true,
   defaultFilterValue: null,
-  filteredRowsCount: (_count: number) => {},
-  onColumnOrderChange: (_columnOrder: string[]) => {},
+  filteredRowsCount: () => {},
+  onColumnOrderChange: () => {},
   virtualized: true,
   columnUserSelect: "text",
   i18n: issue17I18n,
@@ -98,7 +101,7 @@ export const issue17RowStyleReproduction = acceptGridProps({
 export const issue17OnColumnResizeReproduction = acceptGridProps({
   ...issue17FixedContractProps,
   // @ts-expect-error issue #17: onColumnResize is not in the fixed public prop contract.
-  onColumnResize: (_columnId: string, _width: number) => {},
+  onColumnResize: () => {},
 });
 
 export const issue17EditableReproduction = acceptGridProps({
@@ -123,4 +126,22 @@ export const issue17EmptyTextReproduction = acceptGridProps({
   ...issue17FixedContractProps,
   // @ts-expect-error issue #17: use i18n.noRecords instead of an emptyText root prop.
   emptyText: "No issue #17 rows match the current view",
+});
+
+export const issue17ColumnFilterCallbackReproduction = acceptGridProps({
+  ...issue17FixedContractProps,
+  // @ts-expect-error issue #17 follow-up: this callback is outside the fixed root contract.
+  onColumnFilterValueChange: () => {},
+});
+
+export const issue17EnableSelectionReproduction = acceptGridProps({
+  ...issue17FixedContractProps,
+  // @ts-expect-error issue #17 follow-up: enableSelection is outside the fixed root contract.
+  enableSelection: true,
+});
+
+export const issue17VirtualizeColumnsThresholdReproduction = acceptGridProps({
+  ...issue17FixedContractProps,
+  // @ts-expect-error issue #17 follow-up: column virtualization is internally managed.
+  virtualizeColumnsThreshold: 20,
 });

@@ -77,18 +77,26 @@ test("issue #20 grid viewport fills available parent height", async ({
 
   const smallContainer = page.getByTestId("issue-20-small-container");
   const tallContainer = page.getByTestId("issue-20-tall-container");
+  const naturalContainer = page.getByTestId("issue-20-natural-container");
 
   await expect(smallContainer).toBeVisible();
   await expect(tallContainer).toBeVisible();
+  await expect(naturalContainer).toBeVisible();
 
   await smallContainer.locator('[data-slot="scroll-area"]').hover();
   await tallContainer.locator('[data-slot="scroll-area"]').hover();
+  await naturalContainer.locator('[data-slot="scroll-area"]').hover();
 
   const smallLayout = await readGridLayout(page, "issue-20-small-container");
   const tallLayout = await readGridLayout(page, "issue-20-tall-container");
+  const naturalLayout = await readGridLayout(
+    page,
+    "issue-20-natural-container"
+  );
 
   expect(smallLayout).not.toBeNull();
   expect(tallLayout).not.toBeNull();
+  expect(naturalLayout).not.toBeNull();
 
   expect(smallLayout?.viewportClassName).not.toContain("h-[560px]");
   expect(tallLayout?.viewportClassName).not.toContain("h-[560px]");
@@ -116,4 +124,10 @@ test("issue #20 grid viewport fills available parent height", async ({
   expect(tallLayout?.viewportClientHeight).toBeGreaterThan(640);
   expect(tallLayout?.hasVerticalOverflow).toBe(true);
   expect(tallLayout?.hasHorizontalOverflow).toBe(true);
+
+  expect(naturalLayout?.gridMinHeight).toBe("0px");
+  expect(naturalLayout?.gridHeight).toBeLessThan(400);
+  expect(naturalLayout?.viewportClientHeight).toBeLessThan(360);
+  expect(naturalLayout?.gridBottomWithinContainer).toBe(true);
+  expect(naturalLayout?.viewportBottomWithinContainer).toBe(true);
 });

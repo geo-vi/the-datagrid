@@ -26,11 +26,11 @@ export function assertComputedPropsCompat(
   const isFiltered = api.isColumnFiltered?.(column);
   const isVisible = api.isColumnVisible?.(column);
   const selectedMap = api.getSelectedMap?.();
-  const virtualList = api.getVirtualList?.();
-  const virtualListRange = virtualList?.getVisibleRange();
-  const virtualListRows = virtualList?.getRows();
-  const virtualListScrollSize = virtualList?.getScrollSize();
-  const virtualListClientSize = virtualList?.getClientSize();
+  const virtualList = api.getVirtualList();
+  const virtualListRange = virtualList.getVisibleRange();
+  const virtualListRows = virtualList.getRows();
+  const virtualListScrollSize = virtualList.getScrollSize();
+  const virtualListClientSize = virtualList.getClientSize();
 
   api.setColumnVisible?.(column, false);
   api.setColumnSortInfo?.(column, 1);
@@ -45,11 +45,11 @@ export function assertComputedPropsCompat(
   api.setLoading?.(false);
   api.selectAll?.();
   api.deselectAll?.();
-  virtualList?.scrollToIndex(0);
-  virtualList?.smoothScrollTo(0);
+  virtualList.scrollToIndex(0);
+  virtualList.smoothScrollTo(0);
 
   // @ts-expect-error TanStack Virtualizer internals must not be exposed here.
-  virtualList?.getVirtualItems();
+  virtualList.getVirtualItems();
 
   return {
     resolvedColumn,
