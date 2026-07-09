@@ -41,6 +41,7 @@ import {
   t,
 } from "../utils/helpers";
 import { useControllableState } from "../hooks/useControllableState";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 
 import {
   DEFAULT_FILTER_TYPES,
@@ -69,6 +70,7 @@ import {
 import { GridHeader } from "./components/GridHeader";
 import { GridBody } from "./components/GridBody";
 import { GridPagination } from "./components/GridPagination";
+import { MobileGridList } from "./components/MobileGridList";
 
 /**
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
@@ -84,6 +86,7 @@ type ReactDataGridDefaultPropName =
   | "enableFiltering"
   | "filterTypes"
   | "virtualized"
+  | "allowMobileTransform"
   | "columnUserSelect"
   | "showCellBorders"
   | "showColumnMenuTool"
@@ -104,6 +107,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
+  allowMobileTransform: false,
   columnUserSelect: true,
   showCellBorders: true,
   showColumnMenuTool: false,
@@ -245,6 +249,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     filteredRowsCount,
 
     virtualized = REACT_DATA_GRID_DEFAULT_PROPS.virtualized,
+    allowMobileTransform = REACT_DATA_GRID_DEFAULT_PROPS.allowMobileTransform,
     columnUserSelect = REACT_DATA_GRID_DEFAULT_PROPS.columnUserSelect,
     showCellBorders = REACT_DATA_GRID_DEFAULT_PROPS.showCellBorders,
 
@@ -260,6 +265,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
   } = props;
 
   const themeName = normalizeThemeName(theme);
+  const isMobileViewport = useMediaQuery("(max-width: 1024px)");
+  const mobileTransformActive = allowMobileTransform && isMobileViewport;
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
   const shouldUseLegacyThemeBridge =
@@ -1090,7 +1097,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     estimateSize: () => rowHeight,
     overscan: 10,
     scrollMargin: stickyHeaderOffset,
-    enabled: virtualized,
+    enabled: virtualized && !mobileTransformActive,
   });
 
   const virtualItems = virtualized ? rowVirtualizer.getVirtualItems() : [];
@@ -2579,6 +2586,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-theme-base={themeBase}
       data-column-resizing={resizingColumnId ? "true" : "false"}
       data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
+      data-layout={mobileTransformActive ? "mobile-list" : "table"}
     >
       <DatagridThemeProvider
         theme={themeName}
@@ -2603,113 +2611,131 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 style={{ left: `${resizeProxyLeft}px` }}
               />
             ) : null}
-            <ScrollArea
-              className="tdg-scroll-area flex min-h-0 w-full min-w-0 max-w-full flex-1 rounded-b-[inherit]"
-              viewportRef={scrollRef}
-              viewportClassName="tdg-body-viewport relative h-full min-h-0 w-full min-w-0 bg-[var(--tdg-grid-bg)] text-foreground"
-            >
-              {showHeader ? (
-                <div
-                  className="tdg-header-layer sticky top-0 z-20 h-0 overflow-visible"
-                  aria-hidden="false"
-                >
-                  <div
-                    ref={headerScrollRef}
-                    className="tdg-header-viewport w-full min-w-0 max-w-full overflow-hidden"
-                    data-slot="grid-header-viewport"
-                  >
-                    <table
-                      className="tdg-table tdg-header-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
-                      style={sharedTableStyle}
-                    >
-                      <colgroup>
-                        {columnLayout.map((column) => (
-                          <col
-                            key={column.id}
-                            style={{
-                              width: column.width,
-                              minWidth: column.minWidth,
-                              maxWidth: column.maxWidth,
-                            }}
-                          />
-                        ))}
-                      </colgroup>
-                      <GridHeader
-                        headerGroups={table.getHeaderGroups()}
-                        headerHeight={headerHeight}
-                        filterRowHeight={filterRowHeight}
-                        columnWidths={columnWidths}
-                        sortInfo={sortInfo}
-                        setSortInfo={setSortInfo}
-                        setSkip={setSkip}
-                        allowUnsort={allowUnsort}
-                        defaultSortDir={defaultSortDir}
-                        showColumnMenuTool={showColumnMenuTool}
-                        showHorizontalCellBorders={showHorizontalCellBorders}
-                        showVerticalCellBorders={showVerticalCellBorders}
-                        i18n={i18n}
-                        allowColumnReorder={allowColumnReorder}
-                        allowColumnResize={resizable}
-                        checkboxEnabled={checkboxEnabled}
-                        checkboxColId={checkboxColId}
-                        onHeaderDragStart={onHeaderDragStart}
-                        onHeaderDragOver={onHeaderDragOver}
-                        onHeaderDrop={onHeaderDrop}
-                        resizingColumnId={resizingColumnId}
-                        onColumnResizeStart={startColumnResize}
-                        onColumnAutoResize={autosizeColumn}
-                        enableFiltering={effectiveEnableFiltering}
-                        enableColumnFilterContextMenu={
-                          enableColumnFilterContextMenu
-                        }
-                        filterControlled={filterControlled}
-                        filterValue={filterValue}
-                        draftFilterValue={draftFilterValue}
-                        setFilterValue={setFilterValue}
-                        setDraftFilterValue={setDraftFilterValue}
-                        filterTypes={filterTypes}
-                        openFilterMenuColId={openFilterMenuColId}
-                        setOpenFilterMenuColId={setOpenFilterMenuColId}
-                      />
-                    </table>
-                  </div>
-                </div>
-              ) : null}
-              <table
-                className="tdg-table tdg-body-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
-                style={sharedTableStyle}
+            {mobileTransformActive ? (
+              <MobileGridList
+                rows={rowModel}
+                columns={orderedColumns}
+                checkboxColumnId={checkboxColId}
+                loading={loading}
+                selectedMap={selectedMap}
+                i18n={i18n}
+                sortInfo={sortInfo}
+                defaultSortDirection={defaultSortDir}
+                onSortInfoChange={setSortInfoAndResetPage}
+                onFilteredRowsCountChange={filteredRowsCount}
+                onRowClick={(id, data, event) =>
+                  handleRowClick(id, data, event)
+                }
+              />
+            ) : (
+              <ScrollArea
+                className="tdg-scroll-area flex min-h-0 w-full min-w-0 max-w-full flex-1 rounded-b-[inherit]"
+                viewportRef={scrollRef}
+                viewportClassName="tdg-body-viewport relative h-full min-h-0 w-full min-w-0 bg-[var(--tdg-grid-bg)] text-foreground"
               >
-                <colgroup>
-                  {columnLayout.map((column) => (
-                    <col
-                      key={column.id}
-                      style={{
-                        width: column.width,
-                        minWidth: column.minWidth,
-                        maxWidth: column.maxWidth,
-                      }}
-                    />
-                  ))}
-                </colgroup>
-                <GridBody
-                  rowModel={rowModel}
-                  orderedColumns={orderedColumns}
-                  columnWidths={columnWidths}
-                  userSelectClass={userSelectClass}
-                  showHorizontalCellBorders={showHorizontalCellBorders}
-                  showVerticalCellBorders={showVerticalCellBorders}
-                  virtualized={virtualized}
-                  virtualItems={virtualItems}
-                  paddingTop={paddingTop}
-                  paddingBottom={paddingBottom}
-                  stickyHeaderOffset={stickyHeaderOffset}
-                  loading={loading}
-                  i18n={i18n}
-                  selectedMap={selectedMap}
-                  onRowClick={(id, data, e) => handleRowClick(id, data, e)}
-                />
-              </table>
-            </ScrollArea>
+                {showHeader ? (
+                  <div
+                    className="tdg-header-layer sticky top-0 z-20 h-0 overflow-visible"
+                    aria-hidden="false"
+                  >
+                    <div
+                      ref={headerScrollRef}
+                      className="tdg-header-viewport w-full min-w-0 max-w-full overflow-hidden"
+                      data-slot="grid-header-viewport"
+                    >
+                      <table
+                        className="tdg-table tdg-header-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                        style={sharedTableStyle}
+                      >
+                        <colgroup>
+                          {columnLayout.map((column) => (
+                            <col
+                              key={column.id}
+                              style={{
+                                width: column.width,
+                                minWidth: column.minWidth,
+                                maxWidth: column.maxWidth,
+                              }}
+                            />
+                          ))}
+                        </colgroup>
+                        <GridHeader
+                          headerGroups={table.getHeaderGroups()}
+                          headerHeight={headerHeight}
+                          filterRowHeight={filterRowHeight}
+                          columnWidths={columnWidths}
+                          sortInfo={sortInfo}
+                          setSortInfo={setSortInfo}
+                          setSkip={setSkip}
+                          allowUnsort={allowUnsort}
+                          defaultSortDir={defaultSortDir}
+                          showColumnMenuTool={showColumnMenuTool}
+                          showHorizontalCellBorders={showHorizontalCellBorders}
+                          showVerticalCellBorders={showVerticalCellBorders}
+                          i18n={i18n}
+                          allowColumnReorder={allowColumnReorder}
+                          allowColumnResize={resizable}
+                          checkboxEnabled={checkboxEnabled}
+                          checkboxColId={checkboxColId}
+                          onHeaderDragStart={onHeaderDragStart}
+                          onHeaderDragOver={onHeaderDragOver}
+                          onHeaderDrop={onHeaderDrop}
+                          resizingColumnId={resizingColumnId}
+                          onColumnResizeStart={startColumnResize}
+                          onColumnAutoResize={autosizeColumn}
+                          enableFiltering={effectiveEnableFiltering}
+                          enableColumnFilterContextMenu={
+                            enableColumnFilterContextMenu
+                          }
+                          filterControlled={filterControlled}
+                          filterValue={filterValue}
+                          draftFilterValue={draftFilterValue}
+                          setFilterValue={setFilterValue}
+                          setDraftFilterValue={setDraftFilterValue}
+                          filterTypes={filterTypes}
+                          openFilterMenuColId={openFilterMenuColId}
+                          setOpenFilterMenuColId={setOpenFilterMenuColId}
+                        />
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+                <table
+                  className="tdg-table tdg-body-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
+                  style={sharedTableStyle}
+                >
+                  <colgroup>
+                    {columnLayout.map((column) => (
+                      <col
+                        key={column.id}
+                        style={{
+                          width: column.width,
+                          minWidth: column.minWidth,
+                          maxWidth: column.maxWidth,
+                        }}
+                      />
+                    ))}
+                  </colgroup>
+                  <GridBody
+                    rowModel={rowModel}
+                    orderedColumns={orderedColumns}
+                    columnWidths={columnWidths}
+                    userSelectClass={userSelectClass}
+                    showHorizontalCellBorders={showHorizontalCellBorders}
+                    showVerticalCellBorders={showVerticalCellBorders}
+                    virtualized={virtualized}
+                    virtualItems={virtualItems}
+                    paddingTop={paddingTop}
+                    paddingBottom={paddingBottom}
+                    stickyHeaderOffset={stickyHeaderOffset}
+                    loading={loading}
+                    i18n={i18n}
+                    selectedMap={selectedMap}
+                    onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+                  />
+                </table>
+              </ScrollArea>
+            )}
           </div>
 
           {paginationEnabled ? (

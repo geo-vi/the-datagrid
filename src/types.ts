@@ -560,6 +560,9 @@ export type TypeDataGridProps = {
 
   virtualized?: boolean;
 
+  /** Transform the grid into a responsive virtual list at widths up to 1024px. */
+  allowMobileTransform?: boolean;
+
   columnUserSelect?: true | false | "text" | "none";
   /**
    * Defaults to `true`, which renders both horizontal and vertical separators.

@@ -1,0 +1,57 @@
+{
+  "date": "2026-07-09",
+  "rows": 10000,
+  "viewport": { "width": 390, "height": 844 },
+  "browser": "headless Chromium",
+  "runs": [
+    {
+      "interactiveMs": 337,
+      "searchMs": 46,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 345,
+      "searchMs": 40,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 331,
+      "searchMs": 38,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 335,
+      "searchMs": 41,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 325,
+      "searchMs": 42,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 331,
+      "searchMs": 40,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    },
+    {
+      "interactiveMs": 320,
+      "searchMs": 41,
+      "mountedRows": 7,
+      "gridDomNodes": 339
+    }
+  ],
+  "median": {
+    "interactiveMs": 331,
+    "searchMs": 41,
+    "mountedRows": 7,
+    "gridDomNodes": 339
+  },
+  "productionBundle": { "minifiedKb": 283.81, "gzipKb": 59.67 }
+}
