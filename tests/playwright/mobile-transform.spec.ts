@@ -55,4 +55,39 @@ test.describe("allowMobileTransform", () => {
       .evaluate((node) => getComputedStyle(node).gridTemplateColumns);
     expect(columns.split(" ")).toHaveLength(2);
   });
+
+  test("offers a recommended mobile sort and applies or clears it", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    await page.getByRole("button", { name: "Sort rows" }).click();
+    const sortPanel = page.locator('[data-slot="mobile-sort-panel"]');
+    await expect(sortPanel).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Sort by" })).toContainText(
+      "Account"
+    );
+    await expect(
+      page.getByRole("button", { name: "Ascending" })
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByRole("combobox", { name: "Sort by" }).click();
+    await page.getByRole("option", { name: "Account ID" }).click();
+    await page.getByRole("button", { name: "Descending" }).click();
+    await page.getByRole("button", { name: "Apply sort" }).click();
+
+    await expect(page.locator('article[data-row-id="AC-10000"]')).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Sort rows: Account ID descending",
+      })
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Sort rows: Account ID descending" })
+      .click();
+    await page.getByRole("button", { name: "Clear sort" }).click();
+    await expect(page.locator('article[data-row-id="AC-00001"]')).toBeVisible();
+  });
 });

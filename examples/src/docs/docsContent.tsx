@@ -385,6 +385,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         description: "Enables row virtualization via TanStack Virtual.",
       },
       {
+        name: "allowMobileTransform",
+        type: "boolean",
+        defaultValue: "false",
+        description:
+          "At widths up to 1024px, replaces the table with searchable and sortable virtual row cards while preserving cell renderers and actions.",
+      },
+      {
         name: "columnUserSelect",
         type: 'true | false | "text" | "none"',
         defaultValue: "true",
@@ -1014,6 +1021,12 @@ type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;`}
               type: "string | ReactNode",
               defaultValue: "built-in fallback",
               description: "Sorting action labels.",
+            },
+            {
+              name: "mobileSort / mobileSortBy / mobileSortAsc / mobileSortDesc / mobileApplySort / mobileClearSort",
+              type: "string | ReactNode",
+              defaultValue: "built-in fallback",
+              description: "Mobile sort disclosure and action labels.",
             },
           ]}
         />

@@ -2619,6 +2619,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 loading={loading}
                 selectedMap={selectedMap}
                 i18n={i18n}
+                sortInfo={sortInfo}
+                defaultSortDirection={defaultSortDir}
+                onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={filteredRowsCount}
                 onRowClick={(id, data, event) =>
                   handleRowClick(id, data, event)

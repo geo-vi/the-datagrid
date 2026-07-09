@@ -1,13 +1,20 @@
 import * as React from "react";
 import { flexRender, type Row } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 
-import type { TypeColumn, TypeDataGridProps } from "../../types";
+import type { TypeColumn, TypeDataGridProps, TypeSortInfo } from "../../types";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { cn } from "../../lib/utils";
-import { getColumnId } from "../../utils/column";
+import { getColumnId, getColumnSortName } from "../../utils/column";
 import { t } from "../../utils/helpers";
 import {
   buildMobileSearchText,
@@ -21,6 +28,9 @@ type MobileGridListProps = {
   loading: boolean;
   selectedMap: Record<string, unknown>;
   i18n: TypeDataGridProps["i18n"];
+  sortInfo: TypeSortInfo;
+  defaultSortDirection: 1 | -1;
+  onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
   onRowClick: (
     id: string,
@@ -45,12 +55,21 @@ export function MobileGridList({
   loading,
   selectedMap,
   i18n,
+  sortInfo,
+  defaultSortDirection,
+  onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
 }: MobileGridListProps) {
   const [query, setQuery] = React.useState("");
+  const [sortPanelOpen, setSortPanelOpen] = React.useState(false);
+  const [draftSortColumnId, setDraftSortColumnId] = React.useState("");
+  const [draftSortDirection, setDraftSortDirection] = React.useState<1 | -1>(
+    defaultSortDirection
+  );
   const deferredQuery = React.useDeferredValue(query);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const sortPanelId = React.useId();
   const searchIndex = React.useMemo(
     () =>
       rows.map((row) => ({ row, text: buildMobileSearchText(row.original) })),
@@ -70,6 +89,80 @@ export function MobileGridList({
     () => new Map(columns.map((column) => [getColumnId(column), column])),
     [columns]
   );
+  const sortableColumns = React.useMemo(
+    () =>
+      columns.filter((column) => {
+        const columnId = getColumnId(column);
+        return (
+          columnId !== checkboxColumnId &&
+          column.sortable !== false &&
+          !ACTION_COLUMN.test(`${columnId} ${labelForColumn(column)}`)
+        );
+      }),
+    [checkboxColumnId, columns]
+  );
+  const activeSort = React.useMemo(() => {
+    const sortList = sortInfo
+      ? Array.isArray(sortInfo)
+        ? sortInfo
+        : [sortInfo]
+      : [];
+    return sortList.find((entry) => entry.dir !== 0);
+  }, [sortInfo]);
+  const activeSortColumn = React.useMemo(
+    () =>
+      activeSort
+        ? sortableColumns.find(
+            (column) => getColumnSortName(column) === activeSort.name
+          )
+        : undefined,
+    [activeSort, sortableColumns]
+  );
+  const recommendedSortColumn = React.useMemo(
+    () =>
+      activeSortColumn ??
+      sortableColumns.find((column) => !ID_COLUMN.test(getColumnId(column))) ??
+      sortableColumns[0],
+    [activeSortColumn, sortableColumns]
+  );
+  const activeSortSummary = activeSortColumn
+    ? `${labelForColumn(activeSortColumn)} ${activeSort?.dir === -1 ? "descending" : "ascending"}`
+    : null;
+  const draftSortColumn = sortableColumns.find(
+    (column) => getColumnId(column) === draftSortColumnId
+  );
+
+  const toggleSortPanel = () => {
+    if (!sortPanelOpen) {
+      setDraftSortColumnId(
+        activeSortColumn
+          ? getColumnId(activeSortColumn)
+          : recommendedSortColumn
+            ? getColumnId(recommendedSortColumn)
+            : ""
+      );
+      setDraftSortDirection(
+        activeSort?.dir === -1 || activeSort?.dir === 1
+          ? activeSort.dir
+          : defaultSortDirection
+      );
+    }
+    setSortPanelOpen((open) => !open);
+  };
+
+  const applyMobileSort = () => {
+    if (!draftSortColumn) return;
+    onSortInfoChange({
+      name: getColumnSortName(draftSortColumn),
+      dir: draftSortDirection,
+    });
+    setSortPanelOpen(false);
+  };
+
+  const clearMobileSort = () => {
+    onSortInfoChange(null);
+    setSortPanelOpen(false);
+  };
   const virtualizer = useVirtualizer({
     count: filteredRows.length,
     getScrollElement: () => scrollRef.current,
@@ -86,42 +179,150 @@ export function MobileGridList({
       className="tdg-mobile flex min-h-0 flex-1 flex-col bg-muted/30"
       data-slot="mobile-grid-list"
     >
-      <div className="flex shrink-0 items-center gap-2 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-7 pr-8"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search all fields"
-            aria-label="Search all fields"
-            type="text"
-            role="searchbox"
-          />
-          {query ? (
+      <div className="shrink-0 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              className="h-10 pl-7 pr-9"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search all fields"
+              aria-label="Search all fields"
+              type="text"
+              role="searchbox"
+            />
+            {query ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-10 w-10"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                title="Clear search"
+              >
+                <X />
+              </Button>
+            ) : null}
+          </div>
+          {sortableColumns.length ? (
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-9 w-9"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              title="Clear search"
+              variant={sortPanelOpen ? "secondary" : "outline"}
+              className="h-10 shrink-0 px-3 max-[359px]:w-10 max-[359px]:px-0"
+              aria-expanded={sortPanelOpen}
+              aria-controls={sortPanelId}
+              aria-label={
+                activeSortSummary
+                  ? `Sort rows: ${activeSortSummary}`
+                  : "Sort rows"
+              }
+              title={activeSortSummary ? `Sort: ${activeSortSummary}` : "Sort"}
+              onClick={toggleSortPanel}
             >
-              <X />
+              <ArrowUpDown />
+              <span className="max-[359px]:sr-only">
+                {t(i18n, "mobileSort", "Sort")}
+              </span>
             </Button>
           ) : null}
         </div>
-        <output
-          className="shrink-0 text-xs tabular-nums text-muted-foreground"
-          aria-live="polite"
-        >
-          {filteredRows.length}{" "}
-          {filteredRows.length === 1 ? "result" : "results"}
-        </output>
+        <div className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-muted-foreground">
+          <output className="shrink-0 tabular-nums" aria-live="polite">
+            {filteredRows.length}{" "}
+            {filteredRows.length === 1 ? "result" : "results"}
+          </output>
+          {activeSortSummary ? (
+            <span className="min-w-0 truncate text-right">
+              Sorted by {activeSortSummary}
+            </span>
+          ) : null}
+        </div>
+        {sortPanelOpen ? (
+          <div
+            id={sortPanelId}
+            className="mt-3 rounded-md border bg-muted/30 p-3 [border-color:var(--tdg-grid-border-color)]"
+            data-slot="mobile-sort-panel"
+          >
+            <div className="grid gap-3 min-[540px]:grid-cols-[minmax(0,1fr)_auto] min-[540px]:items-end">
+              <label className="grid min-w-0 gap-1.5 text-xs font-medium text-muted-foreground">
+                {t(i18n, "mobileSortBy", "Sort by")}
+                <Select
+                  value={draftSortColumnId}
+                  onValueChange={setDraftSortColumnId}
+                >
+                  <SelectTrigger aria-label="Sort by">
+                    <SelectValue placeholder="Choose a column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortableColumns.map((column) => (
+                      <SelectItem
+                        key={getColumnId(column)}
+                        value={getColumnId(column)}
+                      >
+                        {labelForColumn(column)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+                role="group"
+                aria-label="Sort direction"
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={draftSortDirection === 1 ? "secondary" : "ghost"}
+                  className="h-10 px-3"
+                  aria-pressed={draftSortDirection === 1}
+                  onClick={() => setDraftSortDirection(1)}
+                >
+                  <ArrowUp />
+                  {t(i18n, "mobileSortAsc", "Ascending")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={draftSortDirection === -1 ? "secondary" : "ghost"}
+                  className="h-10 px-3"
+                  aria-pressed={draftSortDirection === -1}
+                  onClick={() => setDraftSortDirection(-1)}
+                >
+                  <ArrowDown />
+                  {t(i18n, "mobileSortDesc", "Descending")}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              {activeSort ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 flex-1 min-[540px]:flex-none"
+                  onClick={clearMobileSort}
+                >
+                  {t(i18n, "mobileClearSort", "Clear sort")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                className="h-10 flex-1 min-[540px]:flex-none"
+                disabled={!draftSortColumn}
+                onClick={applyMobileSort}
+              >
+                {t(i18n, "mobileApplySort", "Apply sort")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div

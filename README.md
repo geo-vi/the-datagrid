@@ -229,15 +229,16 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Display
 
-| Prop               | Type                          | Default     | Description                    |
-| ------------------ | ----------------------------- | ----------- | ------------------------------ |
-| `theme`            | `string`                      | `"default"` | Theme name                     |
-| `rowHeight`        | `number`                      | `44`        | Row height in pixels           |
-| `headerHeight`     | `number`                      | `40`        | Header height in pixels        |
-| `filterRowHeight`  | `number`                      | `44`        | Filter row height in pixels    |
-| `virtualized`      | `boolean`                     | `true`      | Enable virtual scrolling       |
-| `columnUserSelect` | `boolean \| "text" \| "none"` | `true`      | Column text selection behavior |
-| `showCellBorders`  | `boolean \| "vertical" \| "horizontal"` | `true` | Cell separator mode; use `"horizontal"` to disable vertical lines |
+| Prop                   | Type                                    | Default     | Description                                                       |
+| ---------------------- | --------------------------------------- | ----------- | ----------------------------------------------------------------- |
+| `theme`                | `string`                                | `"default"` | Theme name                                                        |
+| `rowHeight`            | `number`                                | `44`        | Row height in pixels                                              |
+| `headerHeight`         | `number`                                | `40`        | Header height in pixels                                           |
+| `filterRowHeight`      | `number`                                | `44`        | Filter row height in pixels                                       |
+| `virtualized`          | `boolean`                               | `true`      | Enable virtual scrolling                                          |
+| `allowMobileTransform` | `boolean`                               | `false`     | Use searchable, sortable virtual cards at widths up to 1024px     |
+| `columnUserSelect`     | `boolean \| "text" \| "none"`           | `true`      | Column text selection behavior                                    |
+| `showCellBorders`      | `boolean \| "vertical" \| "horizontal"` | `true`      | Cell separator mode; use `"horizontal"` to disable vertical lines |
 
 ### Columns
 
