@@ -9,6 +9,7 @@ import ReactDataGrid, {
   type TypeColumns,
   type TypeFilterValue,
   type TypeI18n,
+  type TypeShowCellBorders,
 } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
 import { ButtonGroup } from "../../src/components/ui/button-group";
@@ -51,6 +52,7 @@ type UsersGridExampleProps = {
   theme: string;
   i18n: TypeI18n;
   resizable: boolean;
+  showCellBorders: TypeShowCellBorders;
 };
 
 type UsersToolbarProps = {
@@ -257,7 +259,12 @@ function UsersToolbar({
   );
 }
 
-export default function UsersGridExample({ theme, i18n, resizable }: UsersGridExampleProps) {
+export default function UsersGridExample({
+  theme,
+  i18n,
+  resizable,
+  showCellBorders,
+}: UsersGridExampleProps) {
   const rows = useMemo(() => createUsers(), []);
 
   const defaultFilterValue = useMemo<TypeFilterValue>(
@@ -554,6 +561,7 @@ export default function UsersGridExample({ theme, i18n, resizable }: UsersGridEx
         onColumnOrderChange={setColumnOrder}
         virtualized
         columnUserSelect
+        showCellBorders={showCellBorders}
         i18n={i18n}
         showColumnMenuTool={false}
       />

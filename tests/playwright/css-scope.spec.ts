@@ -254,33 +254,4 @@ test.describe("issue #16 package CSS scope", () => {
       trackingTight: "0em",
     });
   });
-
-  test("examples catalog includes the issue #16 reproduction page", async ({
-    page,
-  }) => {
-    await page.goto("/examples/issue-16-css-scope");
-
-    await expect(
-      page.getByRole("heading", { name: "Issue 16 CSS scope example" })
-    ).toBeVisible();
-    await expect(page.getByTestId("issue-16-host-probe")).toBeVisible();
-    await expect(page.locator(".InovuaReactDataGrid.tdg-root")).toBeVisible();
-
-    await expect
-      .poll(async () => {
-        return page.getByTestId("issue-16-host-probe").evaluate((element) => {
-          return Boolean(element.closest(".tdg-root"));
-        });
-      })
-      .toBe(false);
-
-    await page.goto("/examples");
-    await expect(
-      page.locator("article", {
-        has: page.getByRole("heading", {
-          name: "Issue 16 CSS scope example",
-        }),
-      })
-    ).toBeVisible();
-  });
 });

@@ -14,10 +14,207 @@ test.describe("allowMobileTransform", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/examples/mobile-transform");
     const grid = page.locator(".tdg-root");
+    const example = page.getByTestId("mobile-transform-example");
+    const shell = page.getByTestId("mobile-transform-shell");
+
     await expect(grid).toHaveAttribute("data-layout", "table");
+    await expect(example).toHaveCSS("border-radius", "16px");
+    await expect(shell).toHaveCSS("border-top-width", "0px");
+    await expect(grid).toHaveCSS("border-radius", "12px");
     await expect(
       page.getByRole("columnheader", { name: /^Account Resize/ })
     ).toBeVisible();
+  });
+
+  test("keeps the final column label and resize handle fully accessible", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/examples/mobile-transform");
+
+    const grid = page.locator(".tdg-root");
+    const scrollArea = grid.locator('[data-slot="scroll-area"]');
+    const viewport = grid.locator('[data-slot="scroll-area-viewport"]');
+    const actionsHeader = grid.locator(
+      '[data-slot="grid-header-cell"][data-column-id="actions"]'
+    );
+    const actionsResizer = actionsHeader.getByRole("button", {
+      name: "Resize Customer account actions",
+    });
+
+    await viewport.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect
+      .poll(async () => {
+        return viewport.evaluate(
+          (element) =>
+            element.scrollWidth - element.clientWidth - element.scrollLeft
+        );
+      })
+      .toBeLessThanOrEqual(1);
+
+    const scrollAreaBox = await scrollArea.boundingBox();
+    await scrollArea.hover({
+      position: {
+        x: Math.max(1, (scrollAreaBox?.width ?? 2) - 2),
+        y: 24,
+      },
+    });
+
+    await expect(actionsHeader).toBeVisible();
+    await expect(actionsHeader).toContainText("Customer account actions");
+    await expect(actionsResizer).toBeVisible();
+
+    const edgeLayout = await grid.evaluate((gridElement) => {
+      const frame = gridElement.querySelector<HTMLElement>(
+        '[data-slot="grid-frame"]'
+      );
+      const bodyViewport = gridElement.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      );
+      const header = gridElement.querySelector<HTMLElement>(
+        '[data-slot="grid-header-cell"][data-column-id="actions"]'
+      );
+      const label = header?.querySelector<HTMLElement>("span.truncate");
+      const handle = header?.querySelector<HTMLElement>(
+        '[data-slot="column-resizer"]'
+      );
+      const verticalScrollbar = gridElement.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
+      );
+
+      if (!frame || !bodyViewport || !header || !label || !handle) {
+        return null;
+      }
+
+      const frameRect = frame.getBoundingClientRect();
+      const viewportRect = bodyViewport.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const labelRect = label.getBoundingClientRect();
+      const handleRect = handle.getBoundingClientRect();
+      const scrollbarRect = verticalScrollbar?.getBoundingClientRect();
+      const clipRight = Math.min(frameRect.right, viewportRect.right);
+      const hitTarget = document.elementFromPoint(
+        handleRect.left + handleRect.width / 2,
+        handleRect.top + handleRect.height / 2
+      );
+
+      return {
+        gutterWidth: clipRight - headerRect.right,
+        handleWidth: handleRect.width,
+        handleFullyVisible: handleRect.right <= clipRight + 1,
+        handleClearsScrollbar:
+          !scrollbarRect || handleRect.right <= scrollbarRect.left + 1,
+        handleHitTarget:
+          hitTarget === handle ||
+          Boolean(hitTarget && handle.contains(hitTarget)),
+        headerFullyVisible:
+          headerRect.left >= viewportRect.left - 1 &&
+          headerRect.right <= viewportRect.right + 1,
+        labelFullyVisible:
+          labelRect.left >= headerRect.left - 1 &&
+          labelRect.right <= headerRect.right + 1 &&
+          label.scrollWidth <= label.clientWidth + 1,
+      };
+    });
+
+    expect(edgeLayout).not.toBeNull();
+    expect(edgeLayout?.headerFullyVisible).toBe(true);
+    expect(edgeLayout?.labelFullyVisible).toBe(true);
+    expect(edgeLayout?.gutterWidth ?? 0).toBeGreaterThanOrEqual(
+      (edgeLayout?.handleWidth ?? 0) / 2
+    );
+    expect(edgeLayout?.handleFullyVisible).toBe(true);
+    expect(edgeLayout?.handleClearsScrollbar).toBe(true);
+    expect(edgeLayout?.handleHitTarget).toBe(true);
+
+    const initialWidth = await actionsHeader.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().width)
+    );
+    const handleBox = await actionsResizer.boundingBox();
+    expect(handleBox).not.toBeNull();
+
+    await page.mouse.move(
+      (handleBox?.x ?? 0) + (handleBox?.width ?? 0) / 2,
+      (handleBox?.y ?? 0) + (handleBox?.height ?? 0) / 2
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      (handleBox?.x ?? 0) + (handleBox?.width ?? 0) / 2 + 40,
+      (handleBox?.y ?? 0) + (handleBox?.height ?? 0) / 2,
+      { steps: 4 }
+    );
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        return actionsHeader.evaluate((element) =>
+          Math.round(element.getBoundingClientRect().width)
+        );
+      })
+      .toBeGreaterThan(initialWidth + 20);
+
+    await expect
+      .poll(async () => {
+        return grid.evaluate((gridElement) => {
+          const viewport = gridElement.querySelector<HTMLElement>(
+            '[data-slot="scroll-area-viewport"]'
+          );
+          const header = gridElement.querySelector<HTMLElement>(
+            '[data-slot="grid-header-cell"][data-column-id="actions"]'
+          );
+          const label = header?.querySelector<HTMLElement>("span.truncate");
+          const handle = header?.querySelector<HTMLElement>(
+            '[data-slot="column-resizer"]'
+          );
+
+          if (!viewport || !header || !label || !handle) return null;
+
+          const viewportRect = viewport.getBoundingClientRect();
+          const handleRect = handle.getBoundingClientRect();
+
+          return {
+            atTrailingEdge:
+              viewport.scrollWidth -
+                viewport.clientWidth -
+                viewport.scrollLeft <=
+              1,
+            handleFullyVisible: handleRect.right <= viewportRect.right + 1,
+            labelFullyVisible: label.scrollWidth <= label.clientWidth + 1,
+          };
+        });
+      })
+      .toEqual({
+        atTrailingEdge: true,
+        handleFullyVisible: true,
+        labelFullyVisible: true,
+      });
+
+    const resizedHandleBox = await actionsResizer.boundingBox();
+    expect(resizedHandleBox).not.toBeNull();
+    await page.mouse.move(
+      (resizedHandleBox?.x ?? 0) + (resizedHandleBox?.width ?? 0) / 2,
+      (resizedHandleBox?.y ?? 0) + (resizedHandleBox?.height ?? 0) / 2
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      (resizedHandleBox?.x ?? 0) - 500,
+      (resizedHandleBox?.y ?? 0) + (resizedHandleBox?.height ?? 0) / 2,
+      { steps: 4 }
+    );
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        return actionsHeader.evaluate((header) => {
+          const label = header.querySelector<HTMLElement>("span.truncate");
+          if (!label) return false;
+          return label.scrollWidth <= label.clientWidth + 1;
+        });
+      })
+      .toBe(true);
   });
 
   test("renders, searches, virtualizes, and preserves actions on mobile", async ({
@@ -34,12 +231,56 @@ test.describe("allowMobileTransform", () => {
 
     const search = page.getByRole("searchbox", { name: "Search all fields" });
     await search.fill("ZX-9001 Maya");
-    await expect(page.getByText("Aurora Clinic ZX-9001")).toBeVisible();
+    await expect(
+      page
+        .getByTestId("mobile-transform-shell")
+        .getByText("Aurora Clinic ZX-9001")
+    ).toBeVisible();
     await expect(page.getByText("1 result")).toBeVisible();
     await page.getByRole("button", { name: "View" }).click();
     await expect(page.getByTestId("mobile-action-output")).toHaveText(
       "Opened Aurora Clinic ZX-9001"
     );
+  });
+
+  test("uses icon-only toolbar actions and controls displayed columns", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    const sortButton = page.getByRole("button", { name: "Sort" });
+    const columnsButton = page.getByRole("button", {
+      name: "Display columns",
+    });
+
+    for (const button of [sortButton, columnsButton]) {
+      await expect(button).toBeVisible();
+      await expect(button).toHaveText("");
+      await expect(button.locator("svg")).toHaveCount(1);
+      const box = await button.boundingBox();
+      expect(Math.round(box?.width ?? 0)).toBe(40);
+      expect(Math.round(box?.height ?? 0)).toBe(40);
+    }
+
+    const firstCard = page.locator('article[data-row-id="AC-00001"]');
+    await expect(firstCard.getByText("Notes", { exact: true })).toBeVisible();
+
+    await columnsButton.click();
+    const columnsMenu = page.getByRole("menu");
+    await expect(columnsMenu.getByText("Display columns")).toBeVisible();
+
+    const notesItem = columnsMenu.getByRole("menuitemcheckbox", {
+      name: "Notes",
+    });
+    await expect(notesItem).toHaveAttribute("aria-checked", "true");
+    await notesItem.click();
+    await expect(notesItem).toHaveAttribute("aria-checked", "false");
+    await expect(firstCard.getByText("Notes", { exact: true })).toHaveCount(0);
+
+    await notesItem.click();
+    await expect(notesItem).toHaveAttribute("aria-checked", "true");
+    await expect(firstCard.getByText("Notes", { exact: true })).toBeVisible();
   });
 
   test("uses two metadata columns on iPad widths", async ({ page }) => {
@@ -56,13 +297,61 @@ test.describe("allowMobileTransform", () => {
     expect(columns.split(" ")).toHaveLength(2);
   });
 
+  test("restores virtualized table rows after leaving the mobile layout", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/examples/mobile-transform");
+
+    const grid = page.locator(".tdg-root");
+    await expect(grid).toHaveAttribute("data-layout", "mobile-list");
+    await expect(grid.locator('[role="listitem"]')).not.toHaveCount(0);
+
+    for (let transition = 0; transition < 2; transition += 1) {
+      await page.setViewportSize({ width: 1025, height: 768 });
+      await expect(grid).toHaveAttribute("data-layout", "table");
+
+      const viewport = grid.locator('[data-slot="scroll-area-viewport"]');
+      const firstHeader = grid.locator(
+        '[data-slot="grid-header-cell"][data-column-id="id"]'
+      );
+      const firstRow = grid.locator(
+        '[data-slot="grid-row"][data-row-index="0"]'
+      );
+
+      await expect(viewport).toBeVisible();
+      await expect(firstHeader).toBeVisible();
+      await expect(firstRow).toBeVisible();
+      await expect
+        .poll(() => viewport.evaluate((element) => element.clientHeight))
+        .toBeGreaterThan(0);
+      await expect
+        .poll(() =>
+          viewport.evaluate(
+            (element) => element.scrollHeight > element.clientHeight
+          )
+        )
+        .toBe(true);
+
+      const renderedRows = await grid.locator('[data-slot="grid-row"]').count();
+      expect(renderedRows).toBeGreaterThan(0);
+      expect(renderedRows).toBeLessThan(100);
+
+      if (transition === 0) {
+        await page.setViewportSize({ width: 1024, height: 768 });
+        await expect(grid).toHaveAttribute("data-layout", "mobile-list");
+        await expect(grid.locator('[role="listitem"]')).not.toHaveCount(0);
+      }
+    }
+  });
+
   test("offers a recommended mobile sort and applies or clears it", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/examples/mobile-transform");
 
-    await page.getByRole("button", { name: "Sort rows" }).click();
+    await page.getByRole("button", { name: "Sort" }).click();
     const sortPanel = page.locator('[data-slot="mobile-sort-panel"]');
     await expect(sortPanel).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Sort by" })).toContainText(
@@ -80,12 +369,12 @@ test.describe("allowMobileTransform", () => {
     await expect(page.locator('article[data-row-id="AC-10000"]')).toBeVisible();
     await expect(
       page.getByRole("button", {
-        name: "Sort rows: Account ID descending",
+        name: "Sort: Account ID descending",
       })
     ).toBeVisible();
 
     await page
-      .getByRole("button", { name: "Sort rows: Account ID descending" })
+      .getByRole("button", { name: "Sort: Account ID descending" })
       .click();
     await page.getByRole("button", { name: "Clear sort" }).click();
     await expect(page.locator('article[data-row-id="AC-00001"]')).toBeVisible();

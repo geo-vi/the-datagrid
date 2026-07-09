@@ -388,7 +388,6 @@ export default function App() {
       pageText: "Page",
       ofText: "of",
       showingText: "Showing",
-      columns: "Column",
       clearAll: "All",
     }),
     []

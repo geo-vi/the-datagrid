@@ -2,19 +2,17 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
 } from "@tanstack/react-router";
 
 import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
+import ColumnsGridExample from "./ColumnsGridExample";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
-import Issue16CssScopeExample from "./Issue16CssScopeExample";
-import Issue17FixedContractExample from "./Issue17FixedContractExample";
-import Issue20HeightExample from "./Issue20HeightExample";
-import Issue21MissingImportsExample from "./Issue21MissingImportsExample";
 import MobileTransformExample from "./MobileTransformExample";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
@@ -66,11 +64,11 @@ function ActionsExamplePage() {
   );
 }
 
-function Issue16CssScopeExamplePage() {
-  const example = getExampleMeta("issue-16-css-scope");
+function ColumnsExamplePage() {
+  const example = getExampleMeta("columns");
 
   if (!example) {
-    throw new Error("Missing example metadata for issue-16-css-scope");
+    throw new Error("Missing example metadata for columns");
   }
 
   return (
@@ -82,70 +80,7 @@ function Issue16CssScopeExamplePage() {
       sourceCode={example.sourceCode}
       tags={example.tags}
     >
-      <Issue16CssScopeExample />
-    </ExampleDetailPage>
-  );
-}
-
-function Issue17FixedContractExamplePage() {
-  const example = getExampleMeta("issue-17");
-
-  if (!example) {
-    throw new Error("Missing example metadata for issue-17");
-  }
-
-  return (
-    <ExampleDetailPage
-      title={example.title}
-      summary={example.summary}
-      details={example.details}
-      sourcePath={example.sourcePath}
-      sourceCode={example.sourceCode}
-      tags={example.tags}
-    >
-      <Issue17FixedContractExample />
-    </ExampleDetailPage>
-  );
-}
-
-function Issue20HeightExamplePage() {
-  const example = getExampleMeta("issue-20-height");
-
-  if (!example) {
-    throw new Error("Missing example metadata for issue-20-height");
-  }
-
-  return (
-    <ExampleDetailPage
-      title={example.title}
-      summary={example.summary}
-      details={example.details}
-      sourcePath={example.sourcePath}
-      sourceCode={example.sourceCode}
-      tags={example.tags}
-    >
-      <Issue20HeightExample />
-    </ExampleDetailPage>
-  );
-}
-
-function Issue21MissingImportsExamplePage() {
-  const example = getExampleMeta("issue-21-missing-imports");
-
-  if (!example) {
-    throw new Error("Missing example metadata for issue-21-missing-imports");
-  }
-
-  return (
-    <ExampleDetailPage
-      title={example.title}
-      summary={example.summary}
-      details={example.details}
-      sourcePath={example.sourcePath}
-      sourceCode={example.sourceCode}
-      tags={example.tags}
-    >
-      <Issue21MissingImportsExample />
+      <ColumnsGridExample />
     </ExampleDetailPage>
   );
 }
@@ -172,7 +107,7 @@ function SelectionExamplePage() {
 }
 
 function UsersExamplePage() {
-  const { gridTheme, i18n, resizable } = useExamplesUi();
+  const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
   const example = getExampleMeta("users");
 
   if (!example) {
@@ -188,7 +123,12 @@ function UsersExamplePage() {
       sourceCode={example.sourceCode}
       tags={example.tags}
     >
-      <UsersGridExample theme={gridTheme} i18n={i18n} resizable={resizable} />
+      <UsersGridExample
+        theme={gridTheme}
+        i18n={i18n}
+        resizable={resizable}
+        showCellBorders={showCellBorders}
+      />
     </ExampleDetailPage>
   );
 }
@@ -243,28 +183,10 @@ const exampleBasicRoute = createRoute({
   component: BasicExamplePage,
 });
 
-const exampleIssue16CssScopeRoute = createRoute({
+const exampleColumnsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "examples/issue-16-css-scope",
-  component: Issue16CssScopeExamplePage,
-});
-
-const exampleIssue17FixedContractRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "examples/issue-17",
-  component: Issue17FixedContractExamplePage,
-});
-
-const exampleIssue20HeightRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "examples/issue-20-height",
-  component: Issue20HeightExamplePage,
-});
-
-const exampleIssue21MissingImportsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "examples/issue-21-missing-imports",
-  component: Issue21MissingImportsExamplePage,
+  path: "examples/columns",
+  component: ColumnsExamplePage,
 });
 
 const exampleActionsRoute = createRoute({
@@ -297,28 +219,10 @@ const legacyBasicRoute = createRoute({
   component: BasicExamplePage,
 });
 
-const legacyIssue16CssScopeRoute = createRoute({
+const legacyColumnsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "issue-16-css-scope",
-  component: Issue16CssScopeExamplePage,
-});
-
-const legacyIssue17FixedContractRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "issue-17",
-  component: Issue17FixedContractExamplePage,
-});
-
-const legacyIssue20HeightRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "issue-20-height",
-  component: Issue20HeightExamplePage,
-});
-
-const legacyIssue21MissingImportsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "issue-21-missing-imports",
-  component: Issue21MissingImportsExamplePage,
+  path: "columns",
+  component: ColumnsExamplePage,
 });
 
 const legacyActionsRoute = createRoute({
@@ -338,6 +242,27 @@ const legacyUsersRoute = createRoute({
   path: "users",
   component: UsersExamplePage,
 });
+
+const removedIssueExamplePaths = [
+  "examples/issue-16-css-scope",
+  "examples/issue-17",
+  "examples/issue-20-height",
+  "examples/issue-21-missing-imports",
+  "issue-16-css-scope",
+  "issue-17",
+  "issue-20-height",
+  "issue-21-missing-imports",
+] as const;
+
+const removedIssueExampleRedirectRoutes = removedIssueExamplePaths.map((path) =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path,
+    beforeLoad: () => {
+      throw redirect({ to: "/examples/columns", replace: true });
+    },
+  })
+);
 
 const compatComputedPropsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -359,21 +284,16 @@ const routeTree = rootRoute.addChildren([
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,
-  exampleIssue16CssScopeRoute,
-  exampleIssue17FixedContractRoute,
-  exampleIssue20HeightRoute,
-  exampleIssue21MissingImportsRoute,
+  exampleColumnsRoute,
   exampleSelectionRoute,
   exampleUsersRoute,
   exampleMobileTransformRoute,
   legacyActionsRoute,
   legacyBasicRoute,
-  legacyIssue16CssScopeRoute,
-  legacyIssue17FixedContractRoute,
-  legacyIssue20HeightRoute,
-  legacyIssue21MissingImportsRoute,
+  legacyColumnsRoute,
   legacySelectionRoute,
   legacyUsersRoute,
+  ...removedIssueExampleRedirectRoutes,
 ]);
 
 export const router = createRouter({

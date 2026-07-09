@@ -311,7 +311,7 @@ export function HeaderCell(props: HeaderCellProps) {
         {canResize ? (
           <button
             type="button"
-            aria-label={`Resize ${typeof header.column.columnDef.header === "string" ? header.column.columnDef.header : colId}`}
+            aria-label={`Resize ${typeof col?.header === "string" ? col.header : colId}`}
             data-slot="column-resizer"
             data-resizing={isResizing ? "true" : "false"}
             className="tdg-column-resizer InovuaReactDataGrid__column-header__resize-handle"

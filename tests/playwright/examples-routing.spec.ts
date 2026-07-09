@@ -1,5 +1,61 @@
 import { expect, test } from "@playwright/test";
 
+const examplesWithSharedGridControls = [
+  "basic",
+  "actions",
+  "columns",
+  "selection",
+  "users",
+  "mobile-transform",
+] as const;
+
+const removedExamplePaths = [
+  "/examples/issue-16-css-scope",
+  "/examples/issue-17",
+  "/examples/issue-20-height",
+  "/examples/issue-21-missing-imports",
+  "/issue-16-css-scope",
+  "/issue-17",
+  "/issue-20-height",
+  "/issue-21-missing-imports",
+] as const;
+
+test("redirects removed issue examples to the consolidated columns page", async ({
+  page,
+}) => {
+  for (const path of removedExamplePaths) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/examples\/columns$/);
+    await expect(
+      page
+        .getByTestId("example-preview-panel")
+        .getByRole("heading", { name: "Columns example" })
+    ).toBeVisible();
+  }
+});
+
+test("applies the shared vertical separator control to every example grid", async ({
+  page,
+}) => {
+  for (const example of examplesWithSharedGridControls) {
+    await page.goto(`/examples/${example}`);
+
+    const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+    const headerCell = grid.locator(".tdg-header-cell").first();
+    const bodyCell = grid.locator(".InovuaReactDataGrid__cell").first();
+
+    await expect(headerCell).toHaveCSS("border-right-width", "1px");
+    await expect(bodyCell).toHaveCSS("border-right-width", "1px");
+
+    await page.getByRole("button", { name: "Vertical separators on" }).click();
+    await expect(
+      page.getByRole("button", { name: "Vertical separators off" })
+    ).toBeVisible();
+    await expect(headerCell).toHaveCSS("border-right-width", "0px");
+    await expect(bodyCell).toHaveCSS("border-right-width", "0px");
+  }
+});
+
 test("navigates between docs and dedicated example pages", async ({ page }) => {
   await page.goto("/");
 

@@ -139,6 +139,23 @@ const selectionSnippet = `const [selectedRows, setSelectedRows] = useState<TypeR
 // { selected, data, unselected, originalData }
 // It also accepts that wrapper back through \`selected\`.`;
 
+const i18nSnippet = `import ReactDataGrid, { type TypeI18n } from "@geovi/the-datagrid";
+
+const i18n: TypeI18n = {
+  noRecords: "Nothing to display",
+  clear: "Reset filter",
+  mobileColumns: "Choose fields",
+};
+
+<ReactDataGrid
+  idProperty="id"
+  columns={columns}
+  dataSource={rows}
+  i18n={i18n}
+/>;
+
+// Every omitted key keeps its built-in English fallback.`;
+
 function CodeBlock(props: { code: string; language?: string }) {
   const { code, language = "tsx" } = props;
 
@@ -981,57 +998,225 @@ type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;`}
     body: (
       <div className="space-y-4 text-sm text-muted-foreground">
         <p>
-          <code>TypeI18n</code> is a simple object map. At minimum, provide keys
-          for the strings your product needs to localize.
+          <code>TypeI18n</code> is an open object map whose values may be
+          strings or React nodes.
         </p>
-        <ReferenceTable
-          rows={[
-            {
-              name: "noRecords",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Empty-state body text.",
-            },
-            {
-              name: "clear",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Single-filter clear action label.",
-            },
-            {
-              name: "clearAll",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Global clear action label.",
-            },
-            {
-              name: "contains / startsWith / endsWith / eq / neq / empty / notEmpty",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Filter operator labels.",
-            },
-            {
-              name: "columns",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Column menu heading.",
-            },
-            {
-              name: "sortAsc / sortDesc / unsort",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Sorting action labels.",
-            },
-            {
-              name: "mobileSort / mobileSortBy / mobileSortAsc / mobileSortDesc / mobileApplySort / mobileClearSort",
-              type: "string | ReactNode",
-              defaultValue: "built-in fallback",
-              description: "Mobile sort disclosure and action labels.",
-            },
-          ]}
+        <CodeBlock
+          code={`type TypeI18n = {
+  [key: string]: string | React.ReactNode;
+};`}
+          language="ts"
         />
+        <p>
+          See the complete list of supported keys and their English fallbacks in
+          the{" "}
+          <DocsRouteLink
+            group="reference"
+            slug="i18n"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            internationalization reference
+          </DocsRouteLink>
+          .
+        </p>
       </div>
     ),
+  },
+];
+
+function i18nRow(
+  name: string,
+  fallback: string,
+  description: string
+): ReferenceRow {
+  return {
+    name,
+    type: "string | ReactNode",
+    defaultValue: `"${fallback}"`,
+    description,
+  };
+}
+
+function stringI18nRow(
+  name: string,
+  fallback: string,
+  description: string
+): ReferenceRow {
+  return {
+    ...i18nRow(name, fallback, description),
+    type: "string",
+  };
+}
+
+function operatorI18nRow(
+  name: string,
+  humanizedFallback: string
+): ReferenceRow {
+  return {
+    name,
+    type: "string",
+    defaultValue: `"${humanizedFallback}" (filter cell); "${name}" (operator menu)`,
+    description: `Label for the built-in ${name} filter operator. Filter cells humanize the fallback; the operator menu falls back to the raw key.`,
+  };
+}
+
+const i18nSections: ReferenceSection[] = [
+  {
+    id: "overview",
+    title: "How localization works",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          The built-in language is English. The grid does not bundle language
+          packs or select a locale automatically; pass an <code>i18n</code> map
+          to replace the strings your application needs.
+        </p>
+        <p>
+          Overrides are partial. When a key is omitted, the grid keeps its
+          built-in English fallback. The <code>TypeI18n</code> map accepts
+          strings and React nodes.
+        </p>
+        <p>
+          Use strings for keys marked <code>string</code> below. Those values
+          are reused in native attributes or menu primitives that stringify the
+          supplied value; the remaining keys can render a React node directly.
+        </p>
+        <CodeBlock code={i18nSnippet} language="tsx" />
+        <Callout title="Current localization scope">
+          <p>
+            The keys listed below are the strings that can currently be
+            overridden. Some other interface text remains fixed in English.
+          </p>
+        </Callout>
+      </div>
+    ),
+  },
+  {
+    id: "general-keys",
+    title: "General keys",
+    rows: [
+      i18nRow(
+        "noRecords",
+        "No records",
+        "Empty-state text shown when the grid or mobile list has no rows."
+      ),
+    ],
+  },
+  {
+    id: "filter-keys",
+    title: "Filtering keys",
+    body: (
+      <p className="text-sm text-muted-foreground">
+        Custom filter operator names are also looked up in <code>i18n</code>
+        using the operator name as the key. Like the built-ins, their fallback
+        is humanized in the filter cell and uses the raw operator name in the
+        operator menu. Custom operator labels must also be strings.
+      </p>
+    ),
+    rows: [
+      stringI18nRow("clear", "Clear", "Action label for clearing one filter."),
+      stringI18nRow(
+        "clearAll",
+        "All",
+        "All/no-filter option and placeholder for select filters."
+      ),
+      stringI18nRow(
+        "selected",
+        "selected",
+        "Suffix shown after the selected-option count in a multi-select filter."
+      ),
+      stringI18nRow("filter", "Filter", "Filter tool and filter menu label."),
+      stringI18nRow("operator", "Operator", "Filter operator group label."),
+      operatorI18nRow("contains", "Contains"),
+      operatorI18nRow("notContains", "Not Contains"),
+      operatorI18nRow("containsOr", "Contains Or"),
+      operatorI18nRow("eq", "Eq"),
+      operatorI18nRow("neq", "Neq"),
+      operatorI18nRow("empty", "Empty"),
+      operatorI18nRow("notEmpty", "Not Empty"),
+      operatorI18nRow("startsWith", "Starts With"),
+      operatorI18nRow("endsWith", "Ends With"),
+      operatorI18nRow("inlist", "Inlist"),
+      operatorI18nRow("notinlist", "Notinlist"),
+      operatorI18nRow("gt", "Gt"),
+      operatorI18nRow("gte", "Gte"),
+      operatorI18nRow("lt", "Lt"),
+      operatorI18nRow("lte", "Lte"),
+      operatorI18nRow("inrange", "Inrange"),
+      operatorI18nRow("notinrange", "Notinrange"),
+      operatorI18nRow("after", "After"),
+      operatorI18nRow("afterOrOn", "After Or On"),
+      operatorI18nRow("before", "Before"),
+      operatorI18nRow("beforeOrOn", "Before Or On"),
+    ],
+  },
+  {
+    id: "sorting-keys",
+    title: "Sorting keys",
+    rows: [
+      i18nRow("sortAsc", "Sort A→Z", "Ascending sort action label."),
+      i18nRow("sortDesc", "Sort Z→A", "Descending sort action label."),
+      i18nRow("unsort", "Unsort", "Action label for removing a sort."),
+    ],
+  },
+  {
+    id: "pagination-keys",
+    title: "Pagination keys",
+    rows: [
+      i18nRow(
+        "showingText",
+        "Showing",
+        "Lead-in text before the visible row range."
+      ),
+      i18nRow(
+        "ofText",
+        "of",
+        "Connector between the current range or page and the total."
+      ),
+      i18nRow("perPageText", "Rows", "Page-size selector label."),
+      i18nRow("pageText", "Page", "Current-page label."),
+    ],
+  },
+  {
+    id: "mobile-keys",
+    title: "Mobile transform keys",
+    rows: [
+      i18nRow(
+        "mobileColumns",
+        "Display columns",
+        "Mobile column-picker heading. String overrides also label the icon trigger; React nodes keep its English accessible name."
+      ),
+      stringI18nRow(
+        "mobileSort",
+        "Sort",
+        "Accessible label and title for the icon-only mobile sort control."
+      ),
+      i18nRow(
+        "mobileSortBy",
+        "Sort by",
+        "Column-selector label. String overrides also become its accessible name."
+      ),
+      i18nRow(
+        "mobileSortAsc",
+        "Ascending",
+        "Ascending direction option. String overrides also appear in the active-sort summary."
+      ),
+      i18nRow(
+        "mobileSortDesc",
+        "Descending",
+        "Descending direction option. String overrides also appear in the active-sort summary."
+      ),
+      i18nRow(
+        "mobileClearSort",
+        "Clear sort",
+        "Action label for clearing mobile sorting."
+      ),
+      i18nRow(
+        "mobileApplySort",
+        "Apply sort",
+        "Action label for applying mobile sorting."
+      ),
+    ],
   },
 ];
 
@@ -1757,6 +1942,17 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
       "These are the types most often used in app-level state, API requests, and migration helpers.",
     tags: ["Reference", "Types", "DataSource"],
     sections: typesSections,
+  },
+  {
+    group: "reference",
+    slug: "i18n",
+    title: "Internationalization (i18n)",
+    summary:
+      "Complete reference for every UI string that can currently be overridden through the i18n prop.",
+    description:
+      "The grid uses English fallbacks and accepts partial string or React-node overrides without requiring a locale registry or bundled language pack.",
+    tags: ["Reference", "i18n", "Localization"],
+    sections: i18nSections,
   },
   {
     group: "reference",

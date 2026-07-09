@@ -791,10 +791,14 @@ test("shows and hides columns when the grid receives a filtered columns array", 
 
   await expect(failedLoginsHeader).toHaveCount(0);
 
-  await usersExample.getByRole("button", { name: "Failed logins" }).click();
+  await usersExample
+    .getByRole("button", { name: "Failed logins", exact: true })
+    .click();
   await expect(failedLoginsHeader).toHaveCount(1);
 
-  await usersExample.getByRole("button", { name: "Failed logins" }).click();
+  await usersExample
+    .getByRole("button", { name: "Failed logins", exact: true })
+    .click();
   await expect(failedLoginsHeader).toHaveCount(0);
 });
 
