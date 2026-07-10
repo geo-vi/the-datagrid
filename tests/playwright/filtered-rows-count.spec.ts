@@ -19,16 +19,59 @@ test.describe("filteredRowsCount callback identity", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto("/compat/filtered-rows-count");
+    await page.goto("/compat/filtered-rows-count?data-source=remote");
 
     await expect(page.locator(".tdg-root")).toHaveAttribute(
       "data-layout",
       "table"
     );
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __tdgFilteredDataSourceCalls?: number;
+              }
+            ).__tdgFilteredDataSourceCalls ?? 0
+        )
+      )
+      .toBeGreaterThan(0);
+    const callsBeforeChange = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __tdgFilteredDataSourceCalls?: number;
+          }
+        ).__tdgFilteredDataSourceCalls ?? 0
+    );
     await page.getByTestId("arm-filtered-callback").click();
     await page.getByTestId("toggle-filter-feedback").click();
 
-    await expectSingleSettledObserverCall(page, 3);
+    await expectSingleSettledObserverCall(page, 2);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window as typeof window & {
+                __tdgFilteredDataSourceCalls?: number;
+              }
+            ).__tdgFilteredDataSourceCalls ?? 0
+        )
+      )
+      .toBe(callsBeforeChange + 1);
+    await page.waitForTimeout(350);
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              __tdgFilteredDataSourceCalls?: number;
+            }
+          ).__tdgFilteredDataSourceCalls ?? 0
+      )
+    ).toBe(callsBeforeChange + 1);
   });
 
   test("does not refilter when a mobile observer is recreated", async ({

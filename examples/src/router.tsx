@@ -14,6 +14,7 @@ import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
+import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
@@ -283,12 +284,19 @@ const compatFilteredRowsCountRoute = createRoute({
   component: FilteredRowsCountCompatPage,
 });
 
+const compatMemorySafetyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/memory-safety",
+  component: MemorySafetyCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
   compatFilteredRowsCountRoute,
+  compatMemorySafetyRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,

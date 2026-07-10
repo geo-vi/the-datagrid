@@ -21,10 +21,12 @@ const rows = [
 ];
 
 export default function FilteredRowsCountCompatPage() {
+  const useRemoteDataSource =
+    new URLSearchParams(window.location.search).get("data-source") === "remote";
   const observerArmedRef = React.useRef(false);
   const observerCallsRef = React.useRef(0);
   const settleTimerRef = React.useRef<number | null>(null);
-  const [filtersVisible, setFiltersVisible] = React.useState(true);
+  const [rowLimit, setRowLimit] = React.useState(rows.length);
   const [liveObserverCalls, setLiveObserverCalls] = React.useState(0);
   const [lastReportedCount, setLastReportedCount] = React.useState<
     number | null
@@ -42,10 +44,26 @@ export default function FilteredRowsCountCompatPage() {
     []
   );
 
+  React.useLayoutEffect(() => {
+    (
+      window as typeof window & { __tdgFilteredDataSourceCalls?: number }
+    ).__tdgFilteredDataSourceCalls = 0;
+  }, []);
+
   const armObserver = () => {
     observerCallsRef.current = 0;
     observerArmedRef.current = true;
   };
+
+  const visibleRows = React.useMemo(() => rows.slice(0, rowLimit), [rowLimit]);
+  const remoteDataSource = React.useCallback(() => {
+    const target = window as typeof window & {
+      __tdgFilteredDataSourceCalls?: number;
+    };
+    target.__tdgFilteredDataSourceCalls =
+      (target.__tdgFilteredDataSourceCalls ?? 0) + 1;
+    return visibleRows;
+  }, [visibleRows]);
 
   // Intentionally render-local: issue #26 is caused by consumers passing an
   // otherwise valid callback whose identity changes after a parent update.
@@ -87,9 +105,13 @@ export default function FilteredRowsCountCompatPage() {
           type="button"
           variant="outline"
           data-testid="toggle-filter-feedback"
-          onClick={() => setFiltersVisible((visible) => !visible)}
+          onClick={() =>
+            setRowLimit((current) =>
+              current === rows.length ? 2 : rows.length
+            )
+          }
         >
-          Toggle filters
+          Change rows
         </Button>
         <dl className="flex flex-wrap gap-4 text-sm">
           <div>
@@ -117,12 +139,12 @@ export default function FilteredRowsCountCompatPage() {
         <ReactDataGrid
           idProperty="id"
           columns={columns}
-          dataSource={rows}
+          dataSource={useRemoteDataSource ? remoteDataSource : visibleRows}
           columnOrder={columnOrder}
           enableColumnFilterContextMenu
           enableColumnAutosize
           skipHeaderOnAutoSize={false}
-          enableFiltering={filtersVisible}
+          enableFiltering
           filteredRowsCount={reportFilteredRows}
           virtualized={false}
           allowMobileTransform
