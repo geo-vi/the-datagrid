@@ -6,9 +6,11 @@ import ReactDataGrid, {
   type TypeDataSourceArgs,
   type TypeOnSelectionChangeArg,
 } from "../../src/main";
-import { RDGSearchBar } from "../../src/search/RDGSearchBar";
-import { RDGSearchProvider } from "../../src/search/RDGSearchProvider";
-import { RDGSearchTarget } from "../../src/search/RDGSearchTarget";
+import {
+  RDGSearchBar,
+  RDGSearchProvider,
+  RDGSearchTarget,
+} from "../../src/search";
 
 const columns: TypeColumns = [
   { name: "id", header: "ID", defaultWidth: 72 },

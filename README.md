@@ -141,8 +141,10 @@ export default function App() {
 
 Global search is intentionally separate from the main component entry. A plain
 `ReactDataGrid` does not render a search control, subscribe to search context,
-or load the optional search UI. Import the provider and bar only on screens
-that need them:
+or load the optional provider, store, or search stylesheet. The optional entry
+reuses the same core search field and search engine already used by the mobile
+layout, so search-enabled screens do not ship a second implementation. Import
+the provider and bar only on screens that need them:
 
 ```tsx
 import ReactDataGrid from "@geovi/the-datagrid";
@@ -184,13 +186,20 @@ import {
 </RDGSearchProvider>;
 ```
 
-When `allowMobileTransform` is active, the connected external bar remains the
-single search control; the mobile list suppresses its built-in search input
-while keeping its sort and column tools.
+The normal-table bar and transformed-mobile search are two placements of the
+same internal component. They use the same shadcn-style Input and Button,
+column-prefix highlighting, IME handling, Escape behavior, and clear/refocus
+interaction. Local arrays and static Promise snapshots also use the same
+normalization and matching engine. Function data sources receive the committed
+`searchValue` and remain responsible for remote matching. When
+`allowMobileTransform` is active under `RDGSearchProvider`, the external
+placement remains the single search control; the mobile list suppresses only
+its duplicate placement while keeping its sort and column tools.
 
 `RDGSearchBar` uses the accessible label `Search all fields`, the placeholder
-`Search all fields…`, and a 150 ms debounce by default. Set `debounceMs={0}`
-for an immediate commit or pass another delay. Terms are matched with AND
+`Search all fields`, and a 150 ms provider commit debounce by default. Set
+`debounceMs={0}` for an immediate remote/local commit or pass another delay.
+The input interaction itself is shared with mobile. Terms are matched with AND
 semantics after case, whitespace, and diacritic normalization. Prefix a query
 with a column id, name, string header, or configured alias to scope it, for
 example `city:paris`.

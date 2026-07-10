@@ -1,4 +1,35 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+
+async function sharedSearchBarSignature(searchBar: Locator) {
+  return searchBar.evaluate((root) => {
+    const input = root.querySelector<HTMLInputElement>('[role="searchbox"]');
+    const control = input?.parentElement;
+    const clear = root.querySelector<HTMLElement>(
+      '[data-slot="rdg-search-clear"]'
+    );
+    const highlight = root.querySelector<HTMLElement>(
+      '[data-slot="rdg-search-query-highlight"]'
+    );
+    if (!input || !control || !clear || !highlight) return null;
+
+    const controlStyle = getComputedStyle(control);
+    const clearStyle = getComputedStyle(clear);
+
+    return {
+      clearClass: clear.className,
+      clearHeight: clearStyle.height,
+      clearWidth: clearStyle.width,
+      controlClass: control.className,
+      controlHeight: controlStyle.height,
+      highlightClass: highlight.className,
+      inputClass: input.className,
+      inputPlaceholder: input.placeholder,
+      inputRole: input.getAttribute("role"),
+      inputType: input.type,
+      rootSlot: root.getAttribute("data-slot"),
+    };
+  });
+}
 
 test.describe("optional table search", () => {
   test("searches a virtualized table without adding search UI to plain grids", async ({
@@ -11,11 +42,14 @@ test.describe("optional table search", () => {
     const search = page.getByRole("searchbox", {
       name: "Search all fields",
     });
+    const searchBar = page.locator('[data-slot="rdg-search-bar"]');
     const filteredCount = page.getByTestId("basic-filtered-count");
 
     await expect(grid).toHaveAttribute("data-layout", "table");
     await expect(search).toBeVisible();
-    await expect(search).toHaveAttribute("placeholder", "Search all fields…");
+    await expect(searchBar).toHaveCount(1);
+    await expect(search).toHaveAttribute("placeholder", "Search all fields");
+    await expect(search).toHaveAttribute("type", "text");
     await expect(filteredCount).toHaveText("1000");
 
     const initialMountedRows = await grid
@@ -31,6 +65,8 @@ test.describe("optional table search", () => {
     await search.dispatchEvent("compositionend");
     await expect(filteredCount).toHaveText("1");
     await page.getByRole("button", { name: "Clear search" }).click();
+    await expect(search).toHaveValue("");
+    await expect(search).toBeFocused();
     await expect(filteredCount).toHaveText("1000");
 
     await search.fill("ROW 999 páris");
@@ -39,7 +75,7 @@ test.describe("optional table search", () => {
     await expect(grid.getByText("Paris", { exact: true })).toBeVisible();
     await expect(grid.locator('[data-slot="grid-row"]')).toHaveCount(1);
 
-    await page.getByRole("button", { name: "Clear search" }).click();
+    await search.press("Escape");
     await expect(search).toHaveValue("");
     await expect(search).toBeFocused();
     await expect(filteredCount).toHaveText("1000");
@@ -68,6 +104,12 @@ test.describe("optional table search", () => {
     await search.fill("city:paris");
     await expect(filteredCount).toHaveText("250");
     await expect(
+      page.locator('[data-slot="rdg-search-column-prefix"]')
+    ).toHaveText("city:");
+    await expect(
+      page.locator('[data-slot="rdg-search-query-value"]')
+    ).toHaveText("paris");
+    await expect(
       grid.getByText("Paris", { exact: true }).first()
     ).toBeVisible();
     expect(await grid.locator('[data-slot="grid-row"]').count()).toBeLessThan(
@@ -83,6 +125,38 @@ test.describe("optional table search", () => {
     await expect(grid.getByText("Row 995", { exact: true })).toBeVisible();
     await expect(grid.getByText("Row 999", { exact: true })).toBeVisible();
     await expect(grid.locator('[data-slot="grid-row"]')).toHaveCount(4);
+  });
+
+  test("uses the exact mobile search field component and design", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/basic");
+
+    const externalBar = page.locator('[data-slot="rdg-search-bar"]');
+    await externalBar
+      .getByRole("searchbox", { name: "Search all fields" })
+      .fill("city:paris");
+    await expect(
+      externalBar.locator('[data-slot="rdg-search-column-prefix"]')
+    ).toHaveText("city:");
+    const externalSignature = await sharedSearchBarSignature(externalBar);
+
+    await page.goto("/examples/mobile-transform");
+
+    const mobileBar = page
+      .locator('.tdg-root[data-layout="mobile-list"]')
+      .locator('[data-slot="rdg-search-bar"]');
+    await mobileBar
+      .getByRole("searchbox", { name: "Search all fields" })
+      .fill("Account ID: AC-09001");
+    await expect(
+      mobileBar.locator('[data-slot="rdg-search-column-prefix"]')
+    ).toHaveText("Account ID:");
+    const mobileSignature = await sharedSearchBarSignature(mobileBar);
+
+    expect(externalSignature).not.toBeNull();
+    expect(mobileSignature).toEqual(externalSignature);
   });
 
   test("resets remote pagination, forwards searchValue, and preserves originalData", async ({
@@ -190,6 +264,7 @@ test.describe("optional table search", () => {
 
     await expect(grid).toHaveAttribute("data-layout", "mobile-list");
     await expect(search).toHaveCount(1);
+    await expect(scope.locator('[data-slot="rdg-search-bar"]')).toHaveCount(1);
     await expect(page.getByTestId("search-remote-filtered-count")).toHaveText(
       "18"
     );

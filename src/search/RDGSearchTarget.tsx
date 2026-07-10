@@ -4,7 +4,7 @@ import * as React from "react";
 import type { TypeColumn, TypeDataGridProps } from "../types";
 import { isMarkedGridType } from "./marker";
 import { filterRDGSearchIndex, getCachedRDGSearchIndex } from "./utils";
-import { useRDGSearchSnapshot } from "./store";
+import { useRDGSearchSnapshot, useRDGSearchStore } from "./store";
 
 type SearchController = {
   value: string;
@@ -35,6 +35,7 @@ function looksLikeGridElement(
 
 export function RDGSearchTarget(props: RDGSearchTargetProps) {
   const { children } = props;
+  const store = useRDGSearchStore();
   const committedValue = useRDGSearchSnapshot();
   const query = committedValue.trim();
 
@@ -45,6 +46,12 @@ export function RDGSearchTarget(props: RDGSearchTargetProps) {
   if (!isMarkedGridElement(children) && !looksLikeGridElement(children)) {
     throw new Error("RDGSearchTarget expects a ReactDataGrid child.");
   }
+
+  const targetColumns = children.props.columns;
+  React.useEffect(
+    () => store.registerColumns(targetColumns),
+    [store, targetColumns]
+  );
 
   const controller = React.useMemo<SearchController>(
     () => ({

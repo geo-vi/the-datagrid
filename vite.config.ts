@@ -196,10 +196,31 @@ function scopeLibraryCssBundle() {
   };
 }
 
+function scopeSearchCssForSite() {
+  const searchStyleSuffix = "/src/search/style.css";
+
+  return {
+    name: "scope-search-css-for-site",
+    // Tailwind's generator is also `pre`; placing this plugin after it scopes
+    // the generated CSS before Vite turns the stylesheet into a JS module.
+    enforce: "pre" as const,
+    transform(code: string, id: string) {
+      const cleanId = id.split("?", 1)[0].replaceAll("\\", "/");
+      if (!cleanId.endsWith(searchStyleSuffix)) return null;
+
+      return {
+        code: scopeLibraryCss(code, ".tdg-search-root"),
+        map: null,
+      };
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const isDev = command === "serve";
   const isSiteBuild = command === "build" && mode === "site";
+  const isSearchLibraryBuild = command === "build" && mode === "library-search";
   const resolveAlias = {
     "@": path.resolve(__dirname, "./src"),
   };
@@ -210,7 +231,7 @@ export default defineConfig(({ command, mode }) => {
   // In site mode, build the same app for GitHub Pages.
   if (isDev || isSiteBuild) {
     return {
-      plugins: [react(), tailwindcss()],
+      plugins: [react(), tailwindcss(), scopeSearchCssForSite()],
       resolve: {
         alias: resolveAlias,
       },
@@ -225,16 +246,42 @@ export default defineConfig(({ command, mode }) => {
     };
   }
 
-  // In build mode, build the library
+  const libraryEntryName = isSearchLibraryBuild ? "search" : "index";
+  const coreLibraryEntry = fileURLToPath(
+    new URL("./src/main.ts", import.meta.url)
+  );
+  const coreLibraryModuleId = coreLibraryEntry.replace(/\.ts$/, "");
+  const libraryEntry = isSearchLibraryBuild
+    ? fileURLToPath(new URL("./src/search/index.ts", import.meta.url))
+    : coreLibraryEntry;
+  const externalDependencies = new Set([
+    "react",
+    "react-dom",
+    "react/jsx-runtime",
+    "@tanstack/react-table",
+    "@tanstack/react-virtual",
+    "@tabler/icons-react",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-select",
+    "@radix-ui/react-label",
+  ]);
+
+  // Build core and search independently. Search externalizes the already
+  // required core entry, giving it one shared component/engine at runtime
+  // without extracting a chunk that plain core consumers would need to fetch.
   return {
     plugins: [
       react(),
       tailwindcss(),
-      dts({
-        include: ["src/**/*"],
-        exclude: ["src/**/*.test.*", "src/**/__tests__/**"],
-        tsconfigPath: "./tsconfig-build.json",
-      }),
+      ...(isSearchLibraryBuild
+        ? []
+        : [
+            dts({
+              include: ["src/**/*"],
+              exclude: ["src/**/*.test.*", "src/**/__tests__/**"],
+              tsconfigPath: "./tsconfig-build.json",
+            }),
+          ]),
       scopeLibraryCssBundle(),
       injectLibraryCssEntry(),
     ],
@@ -244,30 +291,29 @@ export default defineConfig(({ command, mode }) => {
     build: {
       copyPublicDir: false,
       cssCodeSplit: true,
+      emptyOutDir: !isSearchLibraryBuild,
       lib: {
         entry: {
-          index: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
-          search: fileURLToPath(
-            new URL("./src/search/index.ts", import.meta.url)
-          ),
+          [libraryEntryName]: libraryEntry,
         },
         formats: ["es"],
         fileName: (_format, entryName) => `${entryName}.js`,
-        cssFileName: "index",
+        cssFileName: libraryEntryName,
       },
       rollupOptions: {
-        external: [
-          "react",
-          "react-dom",
-          "react/jsx-runtime",
-          "@tanstack/react-table",
-          "@tanstack/react-virtual",
-          "@tabler/icons-react",
-          "@radix-ui/react-dropdown-menu",
-          "@radix-ui/react-select",
-          "@radix-ui/react-label",
-        ],
+        external: (id) =>
+          externalDependencies.has(id) ||
+          (isSearchLibraryBuild &&
+            (id === "../main" || id === coreLibraryEntry)),
         output: {
+          inlineDynamicImports: true,
+          paths: (id) =>
+            isSearchLibraryBuild &&
+            (id === "../main" ||
+              id === coreLibraryEntry ||
+              id === coreLibraryModuleId)
+              ? "./index.js"
+              : id,
           preserveModules: false,
         },
       },

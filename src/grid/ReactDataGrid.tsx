@@ -71,6 +71,10 @@ import { GridHeader } from "./components/GridHeader";
 import { GridBody } from "./components/GridBody";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
+import {
+  DATA_GRID_SEARCH_RUNTIME_SYMBOL,
+  getDataGridSearchRuntime,
+} from "./searchRuntime";
 
 /**
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
@@ -2959,6 +2963,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               <MobileGridList
                 rows={rowModel}
                 columns={orderedColumns}
+                searchColumns={inputColumns}
                 checkboxColumnId={checkboxColId}
                 loading={loading}
                 selectedMap={selectedMap}
@@ -3117,12 +3122,21 @@ ReactDataGridWithDefaultProps.defaultProps = {
   ...REACT_DATA_GRID_DEFAULT_PROPS,
 };
 
-// Optional packages can identify the canonical component without importing
-// the core entry (and therefore without pulling it into their own entry chunk).
+// Optional packages can identify the canonical component without relying on
+// component names, wrappers, or a public prop.
 Object.defineProperty(
   ReactDataGridWithDefaultProps,
   Symbol.for("@geovi/the-datagrid/search-target"),
   { value: true }
+);
+
+// Mobile already uses this component and engine. The optional search entry
+// reads the same lazy runtime through a private symbol, avoiding both a second
+// implementation and a public internal export.
+Object.defineProperty(
+  ReactDataGridWithDefaultProps,
+  DATA_GRID_SEARCH_RUNTIME_SYMBOL,
+  { get: getDataGridSearchRuntime }
 );
 
 export { ReactDataGridWithDefaultProps as ReactDataGrid };

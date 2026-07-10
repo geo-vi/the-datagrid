@@ -1771,7 +1771,7 @@ pnpm add @geovi/the-datagrid`}
     summary:
       "Add a global search bar to normal table layouts without putting search UI or context subscriptions into every grid.",
     description:
-      "The search package is a separate entry point. Import it only for screens that need global row search, then connect direct grid children automatically or mark a nested grid explicitly.",
+      "The search package is a separate provider entry point that reuses the exact core search field and engine used by mobile. Import it only for screens that need global row search, then connect direct grid children automatically or mark a nested grid explicitly.",
     tags: ["Guide", "Search", "Performance"],
     sections: [
       {
@@ -1783,7 +1783,9 @@ pnpm add @geovi/the-datagrid`}
               Import the grid from the main package and search UI from{" "}
               <code>@geovi/the-datagrid/search</code>. A plain grid does not
               render a hidden search control, subscribe to the search context,
-              or load the optional search UI.
+              or load the optional provider, store, or search stylesheet. The
+              entry reuses the field already present for transformed-mobile
+              grids instead of shipping another component implementation.
             </p>
             <CodeBlock code={tableSearchSnippet} language="tsx" />
             <p>
@@ -1814,7 +1816,8 @@ pnpm add @geovi/the-datagrid`}
               <p>
                 With <code>allowMobileTransform</code>, the connected external
                 bar remains the single search control. The mobile list keeps its
-                sort and column tools but suppresses its built-in search input.
+                sort and column tools but suppresses only the second placement
+                of that same shared field.
               </p>
             </Callout>
           </div>
@@ -1826,10 +1829,12 @@ pnpm add @geovi/the-datagrid`}
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Search is case-, whitespace-, and diacritic-insensitive. Multiple
+              Local arrays and static Promise snapshots use the shared case-,
+              whitespace-, and diacritic-insensitive matching engine. Multiple
               terms use AND semantics. Prefix a query with a column id, name,
               string header, or configured alias to scope it, such as{" "}
-              <code>city:paris</code>.
+              <code>city:paris</code>. Function data sources receive the
+              committed <code>searchValue</code> and own remote matching.
             </p>
             <CodeBlock code={searchColumnsSnippet} language="tsx" />
             <p>
@@ -1858,7 +1863,10 @@ pnpm add @geovi/the-datagrid`}
             <p>
               The input commits its query after 150 ms by default. Set{" "}
               <code>{"debounceMs={0}"}</code> for an immediate commit or pass a
-              different delay for a remote screen.
+              different delay for a remote screen. Its Input/Button markup,
+              recognized-prefix highlight, IME behavior, Escape handling, and
+              clear/refocus interaction are identical to mobile because both
+              placements render the same internal component.
             </p>
             <ReferenceTable
               rows={[
@@ -1871,7 +1879,7 @@ pnpm add @geovi/the-datagrid`}
                 {
                   name: "placeholder",
                   type: "string",
-                  defaultValue: '"Search all fields…"',
+                  defaultValue: '"Search all fields"',
                   description: "Placeholder shown while the query is empty.",
                 },
                 {

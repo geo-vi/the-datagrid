@@ -19,8 +19,18 @@ type SearchOnlyGridProp =
   | "defaultSearchValue"
   | "onSearchValueChange";
 
+type InternalSearchFieldProp =
+  | "columns"
+  | "onValueChange"
+  | "standalone"
+  | "value";
+
 export type SearchRemainsOutsideTypeDataGridProps = AssertNever<
   Extract<SearchOnlyGridProp, keyof TypeDataGridProps>
+>;
+
+export type InternalSearchFieldPropsStayPrivate = AssertNever<
+  Extract<InternalSearchFieldProp, keyof ComponentProps<typeof RDGSearchBar>>
 >;
 
 export const searchableColumns: TypeColumns = [

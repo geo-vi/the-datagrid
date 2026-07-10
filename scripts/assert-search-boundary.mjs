@@ -40,9 +40,9 @@ for (const [entryName, code, cssFileName] of [
   }
 }
 
-// CSS is intentionally loaded by the core entry. Any relative JavaScript
-// dependency means Rollup extracted code shared with the optional search
-// entry, adding a request to consumers that only import the grid.
+// Core remains a single-file entry. Search has one intentional, one-way import
+// of core so it can reuse the exact mobile component and engine without
+// extracting a chunk that plain grid consumers would need to fetch.
 const relativeJsImportPatterns = [
   /\bimport\s+(?:[^"']+?\s+from\s+)?["'](\.\.?\/[^"']+\.js)["']/g,
   /\bexport\s+[^"']+?\s+from\s+["'](\.\.?\/[^"']+\.js)["']/g,
@@ -62,23 +62,45 @@ function collectRelativeJsImports(code) {
   return imports;
 }
 
-for (const [entryName, code] of [
-  ["core", indexCode],
-  ["search", searchCode],
-]) {
-  const relativeJsImports = collectRelativeJsImports(code);
-  if (relativeJsImports.size > 0) {
-    console.error(
-      `The ${entryName} entry imports local JavaScript chunks:\n${Array.from(
-        relativeJsImports
-      )
-        .map((specifier) => `- ${specifier}`)
-        .join(
-          "\n"
-        )}\nKeep the optional search graph disjoint from the core graph.`
-    );
-    process.exit(1);
-  }
+const coreRelativeJsImports = collectRelativeJsImports(indexCode);
+if (coreRelativeJsImports.size > 0) {
+  console.error(
+    `The core entry imports local JavaScript chunks:\n${Array.from(
+      coreRelativeJsImports
+    )
+      .map((specifier) => `- ${specifier}`)
+      .join("\n")}\nKeep plain grid consumers on a single JavaScript entry.`
+  );
+  process.exit(1);
+}
+
+const searchRelativeJsImports = collectRelativeJsImports(searchCode);
+if (
+  searchRelativeJsImports.size !== 1 ||
+  !searchRelativeJsImports.has("./index.js")
+) {
+  console.error(
+    `The optional search entry must depend only on ./index.js; found:\n${Array.from(
+      searchRelativeJsImports
+    )
+      .map((specifier) => `- ${specifier}`)
+      .join("\n")}`
+  );
+  process.exit(1);
+}
+
+const topLevelJavaScript = fs
+  .readdirSync(distDir)
+  .filter((fileName) => fileName.endsWith(".js"))
+  .sort();
+if (
+  JSON.stringify(topLevelJavaScript) !==
+  JSON.stringify(["index.js", "search.js"])
+) {
+  console.error(
+    `Unexpected JavaScript chunks in dist: ${topLevelJavaScript.join(", ")}`
+  );
+  process.exit(1);
 }
 
 if (indexCss.includes(".tdg-search-root")) {
@@ -109,6 +131,16 @@ if (leakedRuntimeExports.length > 0) {
   process.exit(1);
 }
 
+const sharedCoreMarkers = ["rdg-search-query-highlight", "NFKD"];
+for (const marker of sharedCoreMarkers) {
+  if (!indexCode.includes(marker) || searchCode.includes(marker)) {
+    console.error(
+      `Shared search component/engine marker ${marker} must exist only in core.`
+    );
+    process.exit(1);
+  }
+}
+
 console.log(
-  "Optional search boundary verified: core and search entries are independently loadable."
+  "Optional search boundary verified: core stays single-file and search reuses it one-way."
 );

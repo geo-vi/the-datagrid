@@ -1,28 +1,28 @@
 import { expect, test } from "@playwright/test";
 
-import { parseMobileSearchQuery } from "../../src/grid/utils/mobileSearch";
+import { parseDataGridSearchQuery } from "../../src/grid/utils/search";
 
 test.describe("allowMobileTransform", () => {
   test("recognizes punctuation-rich column headers and column keys", () => {
     const columns = [{ id: "orgid", aliases: ["orgid", "Org #"] }];
 
-    expect(parseMobileSearchQuery("Org #: 154", columns)).toEqual({
+    expect(parseDataGridSearchQuery("Org #: 154", columns)).toEqual({
       columnIds: ["orgid"],
       prefixEnd: 6,
       searchQuery: " 154",
     });
-    expect(parseMobileSearchQuery("ORGID: 154", columns)).toEqual({
+    expect(parseDataGridSearchQuery("ORGID: 154", columns)).toEqual({
       columnIds: ["orgid"],
       prefixEnd: 6,
       searchQuery: " 154",
     });
-    expect(parseMobileSearchQuery("Test: 123", columns)).toEqual({
+    expect(parseDataGridSearchQuery("Test: 123", columns)).toEqual({
       columnIds: [],
       prefixEnd: null,
       searchQuery: "Test: 123",
     });
     expect(
-      parseMobileSearchQuery("Time: UTC: 12", [
+      parseDataGridSearchQuery("Time: UTC: 12", [
         { id: "localTime", aliases: ["Time"] },
         { id: "utcTime", aliases: ["Time: UTC"] },
       ])
@@ -284,10 +284,8 @@ test.describe("allowMobileTransform", () => {
     const grid = page.locator('.tdg-root[data-layout="mobile-list"]');
     const search = grid.getByRole("searchbox", { name: "Search all fields" });
     const resultCount = grid.locator('output[aria-live="polite"]');
-    const prefix = grid.locator(
-      'strong[data-slot="mobile-search-column-prefix"]'
-    );
-    const value = grid.locator('[data-slot="mobile-search-query-value"]');
+    const prefix = grid.locator('strong[data-slot="rdg-search-column-prefix"]');
+    const value = grid.locator('[data-slot="rdg-search-query-value"]');
     const targetRow = grid.locator('article[data-row-id="AC-09001"]');
     const composingRow = grid.locator('article[data-row-id="AC-00001"]');
 
@@ -319,10 +317,12 @@ test.describe("allowMobileTransform", () => {
     await search.fill("Account ID: AC-00001");
     await expect(search).toHaveValue("Account ID: AC-00001");
     await expect(resultCount).toHaveText("1 result");
-    await expect(composingRow).toBeVisible();
+    await expect(targetRow).toBeVisible();
+    await expect(composingRow).toHaveCount(0);
     await expect(prefix).toHaveCount(0);
     await search.dispatchEvent("compositionend");
     await expect(prefix).toHaveText("Account ID:");
+    await expect(composingRow).toBeVisible();
     await expect
       .poll(() => search.evaluate((node) => getComputedStyle(node).color))
       .toBe("rgba(0, 0, 0, 0)");
@@ -336,14 +336,28 @@ test.describe("allowMobileTransform", () => {
     await expect(targetRow).toBeVisible();
     await expect(prefix).toHaveText("id:");
 
-    await search.fill("Reference: AC-09001");
-    await expect(search).toHaveValue("Reference: AC-09001");
+    await search.fill("account-key: AC-09001");
     await expect(resultCount).toHaveText("1 result");
     await expect(targetRow).toBeVisible();
+    await expect(prefix).toHaveText("account-key:");
+
+    await search.fill("Revenue: ledger-AC-09001");
+    await expect(resultCount).toHaveText("1 result");
+    await expect(targetRow).toBeVisible();
+    await expect(prefix).toHaveText("Revenue:");
+
+    await search.fill("Reference: AC-09001");
+    await expect(search).toHaveValue("Reference: AC-09001");
+    await expect(resultCount).toHaveText("0 results");
     await expect(prefix).toHaveCount(0);
     await expect
       .poll(() => search.evaluate((node) => getComputedStyle(node).color))
       .not.toBe("rgba(0, 0, 0, 0)");
+
+    await search.press("Escape");
+    await expect(search).toHaveValue("");
+    await expect(search).toBeFocused();
+    await expect(resultCount).toHaveText("10000 results");
   });
 
   test("uses icon-only toolbar actions and controls displayed columns", async ({

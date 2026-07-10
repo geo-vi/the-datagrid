@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
-import { RDGSearchBar } from "../../src/search/RDGSearchBar";
-import { RDGSearchProvider } from "../../src/search/RDGSearchProvider";
+import { RDGSearchBar, RDGSearchProvider } from "../../src/search";
 import { useExamplesUi } from "./App";
 
 export default function BasicGridExample() {

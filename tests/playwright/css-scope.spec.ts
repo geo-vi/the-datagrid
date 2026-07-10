@@ -291,12 +291,17 @@ test.describe("optional search package CSS", () => {
 
       <div
         id="packaged-search-scope"
-        class="tdg-search-root tdg-search-bar relative flex w-full items-center rounded-md text-foreground"
+        class="tdg-search-root tdg-search-bar relative min-w-0 flex-1 w-full rounded-md bg-[var(--tdg-input-bg,var(--background))]"
       >
-        <input
-          id="packaged-search-input"
-          class="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-10 text-sm shadow-xs outline-none"
-        />
+        <div
+          id="packaged-search-control"
+          class="flex h-10 w-full items-center rounded-md border bg-[var(--tdg-input-bg,var(--background))] pl-7 pr-9 py-1 text-[var(--tdg-input-color,var(--foreground))] shadow-sm [border-color:var(--tdg-input-border-color,var(--input))]"
+        >
+          <input
+            id="packaged-search-input"
+            class="inovua-react-toolkit-text-input__input m-0 min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-base text-[var(--tdg-input-color,var(--foreground))] shadow-none outline-none [font:inherit] [line-height:inherit]"
+          />
+        </div>
       </div>
     `);
 
@@ -322,7 +327,7 @@ test.describe("optional search package CSS", () => {
     });
 
     const packagedStyles = await page
-      .locator("#packaged-search-input")
+      .locator("#packaged-search-control")
       .evaluate((element) => {
         const style = getComputedStyle(element);
         return {
@@ -340,8 +345,75 @@ test.describe("optional search package CSS", () => {
       borderLeftWidth: "1px",
       borderRadius: "6px",
       height: "40px",
-      paddingLeft: "36px",
-      paddingRight: "40px",
+      paddingLeft: "28px",
+      paddingRight: "36px",
     });
+
+    const packagedInputStyles = await page
+      .locator("#packaged-search-input")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          appearance: style.appearance,
+          borderLeftWidth: style.borderLeftWidth,
+          marginLeft: style.marginLeft,
+          paddingLeft: style.paddingLeft,
+        };
+      });
+
+    expect(packagedInputStyles).toEqual({
+      appearance: "none",
+      borderLeftWidth: "0px",
+      marginLeft: "0px",
+      paddingLeft: "0px",
+    });
+  });
+
+  test("uses standalone fallback tokens without a host reset or theme", async ({
+    page,
+  }) => {
+    await page.setContent(`
+      <div
+        id="standalone-search"
+        class="tdg-search-root tdg-search-bar relative w-full shrink-0 rounded-md bg-[var(--tdg-input-bg,var(--background))]"
+      >
+        <div
+          id="standalone-control"
+          class="inovua-react-toolkit-text-input flex h-10 w-full items-center rounded-md border bg-[var(--tdg-input-bg,var(--background))] px-3 py-1 text-[var(--tdg-input-color,var(--foreground))] shadow-sm [border-color:var(--tdg-input-border-color,var(--input))]"
+        >
+          <input
+            id="standalone-input"
+            class="inovua-react-toolkit-text-input__input m-0 min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-base text-[var(--tdg-input-color,var(--foreground))] shadow-none outline-none [font:inherit] [line-height:inherit]"
+          />
+        </div>
+      </div>
+    `);
+
+    await page.addStyleTag({ content: SEARCH_PACKAGE_CSS });
+
+    const fallbackStyles = await page
+      .locator("#standalone-search")
+      .evaluate((root) => {
+        const control = root.querySelector<HTMLElement>("#standalone-control");
+        const input = root.querySelector<HTMLInputElement>("#standalone-input");
+        if (!control || !input) return null;
+
+        const controlStyle = getComputedStyle(control);
+        const inputStyle = getComputedStyle(input);
+        return {
+          appearance: inputStyle.appearance,
+          backgroundColor: controlStyle.backgroundColor,
+          borderColor: controlStyle.borderLeftColor,
+          inputBorderWidth: inputStyle.borderLeftWidth,
+          inputColor: inputStyle.color,
+        };
+      });
+
+    expect(fallbackStyles).not.toBeNull();
+    expect(fallbackStyles?.appearance).toBe("none");
+    expect(fallbackStyles?.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(fallbackStyles?.borderColor).not.toBe("rgb(0, 0, 0)");
+    expect(fallbackStyles?.inputBorderWidth).toBe("0px");
+    expect(fallbackStyles?.inputColor).not.toBe("rgb(0, 0, 0)");
   });
 });

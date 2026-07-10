@@ -27,7 +27,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         className={cn(
-          "flex h-9 w-full items-center rounded-md border bg-[var(--tdg-input-bg)] px-3 py-1 text-[var(--tdg-input-color)] shadow-sm transition-colors [border-color:var(--tdg-input-border-color)] hover:[border-color:var(--tdg-input-border-color-hover)] focus-within:ring-1 focus-within:ring-ring focus-within:[border-color:var(--tdg-input-border-color-focus)] disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full items-center rounded-md border bg-[var(--tdg-input-bg,var(--background))] px-3 py-1 text-[var(--tdg-input-color,var(--foreground))] shadow-sm transition-colors [border-color:var(--tdg-input-border-color,var(--input))] hover:[border-color:var(--tdg-input-border-color-hover,var(--ring))] focus-within:ring-1 focus-within:ring-ring focus-within:[border-color:var(--tdg-input-border-color-focus,var(--ring))] disabled:cursor-not-allowed disabled:opacity-50",
           "inovua-react-toolkit-text-input",
           `inovua-react-toolkit-text-input--theme-${themeClassSuffix}`,
           disabled ? "inovua-react-toolkit-text-input--disabled" : "",
@@ -39,7 +39,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "inovua-react-toolkit-text-input__input flex-1 bg-transparent text-base text-[var(--tdg-input-color)] outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm",
+            "inovua-react-toolkit-text-input__input m-0 min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-base text-[var(--tdg-input-color,var(--foreground))] shadow-none outline-none [font:inherit] [line-height:inherit] file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground md:text-sm",
             inputClassName
           )}
           ref={ref}

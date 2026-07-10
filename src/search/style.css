@@ -2,6 +2,9 @@
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 
 @source "./**/*.{ts,tsx}";
+@source "../grid/components/DataGridSearchBar.tsx";
+@source "../components/ui/input.tsx";
+@source "../components/ui/button.tsx";
 
 .tdg-search-root {
   --tdg-search-background: var(
@@ -23,6 +26,12 @@
   );
   --tdg-search-input: var(--tdg-color-input, var(--input, oklch(0.922 0 0)));
   --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.708 0 0)));
+  --tdg-input-bg: var(--tdg-search-background);
+  --tdg-input-color: var(--tdg-search-foreground);
+  --tdg-input-border-color: var(--tdg-search-input);
+  --tdg-input-border-color-hover: var(--tdg-search-ring);
+  --tdg-input-border-color-focus: var(--tdg-search-ring);
+  color: var(--tdg-search-foreground);
 }
 
 .dark .tdg-search-root,
