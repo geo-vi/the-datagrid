@@ -501,7 +501,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(count: number) => void",
         defaultValue: "-",
         description:
-          "Reports the post-filter row count so host UIs can display totals.",
+          "Reports changes to the post-filter row count so host UIs can display totals.",
       },
     ],
   },

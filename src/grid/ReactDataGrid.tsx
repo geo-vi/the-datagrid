@@ -297,6 +297,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     style,
   } = props;
 
+  const filteredRowsCountRef = React.useRef(filteredRowsCount);
+  const lastObservedFilteredRowsCountRef = React.useRef<number | undefined>(
+    undefined
+  );
+  React.useLayoutEffect(() => {
+    filteredRowsCountRef.current = filteredRowsCount;
+
+    return () => {
+      filteredRowsCountRef.current = undefined;
+    };
+  }, [filteredRowsCount]);
+  const notifyFilteredRowsCount = React.useCallback((count: number) => {
+    const previousCount = lastObservedFilteredRowsCountRef.current;
+    lastObservedFilteredRowsCountRef.current = count;
+    const callback = filteredRowsCountRef.current;
+    if (!callback || Object.is(previousCount, count)) {
+      return;
+    }
+
+    callback(count);
+  }, []);
+
   const themeName = normalizeThemeName(theme);
   const isMobileViewport = useMediaQuery("(max-width: 1024px)");
   const mobileTransformActive = allowMobileTransform && isMobileViewport;
@@ -575,6 +597,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [loadingOverride, setLoadingOverride] = React.useState<boolean | null>(
     null
   );
+  const loadMountedRef = React.useRef(false);
+  const loadRequestIdRef = React.useRef(0);
   const loading = props.loading ?? loadingOverride ?? internalLoading;
 
   const computedFilterForFetch = filterValue;
@@ -593,34 +617,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [checkboxColId, checkboxEnabled, effectiveColumnOrder]);
 
   const loadData = React.useCallback(async () => {
-    if (Array.isArray(dataSource)) {
-      let data = dataSource;
+    if (!loadMountedRef.current) return;
 
-      if (effectiveEnableFiltering && computedFilterForFetch) {
-        data = applyLocalFilter(data, computedFilterForFetch, {
-          filterTypes,
-          columns: orderedColumns,
-        });
-      }
-      if (computedSortForFetch) {
-        data = applyLocalSort(data, computedSortForFetch, orderedColumns);
-      }
+    const requestId = ++loadRequestIdRef.current;
+    const remoteDataSource = !Array.isArray(dataSource);
 
-      const totalCount = data.length;
-
-      const doPage = paginationMode !== false && paginationMode !== "remote";
-
-      const sliced = doPage ? data.slice(skip, skip + limit) : data;
-
-      setRows(sliced);
-      setCount(totalCount);
-      filteredRowsCount?.(totalCount);
-      return;
+    if (remoteDataSource) {
+      setInternalLoading(true);
+    } else {
+      setInternalLoading(false);
     }
 
-    setInternalLoading(true);
-
     try {
+      if (Array.isArray(dataSource)) {
+        let data = dataSource;
+
+        if (effectiveEnableFiltering && computedFilterForFetch) {
+          data = applyLocalFilter(data, computedFilterForFetch, {
+            filterTypes,
+            columns: orderedColumns,
+          });
+        }
+        if (computedSortForFetch) {
+          data = applyLocalSort(data, computedSortForFetch, orderedColumns);
+        }
+
+        const totalCount = data.length;
+
+        const doPage = paginationMode !== false && paginationMode !== "remote";
+
+        const sliced = doPage ? data.slice(skip, skip + limit) : data;
+
+        setRows(sliced);
+        setCount(totalCount);
+        notifyFilteredRowsCount(totalCount);
+        return;
+      }
+
       const ds = dataSource;
 
       const dsIsFn = typeof ds === "function";
@@ -639,25 +672,36 @@ function ReactDataGrid(props: TypeDataGridProps) {
         theme: themeName,
       };
 
-      let result: any = ds;
+      let result: any;
 
-      if (dsIsFn) {
-        result = ds(dsArg);
+      try {
+        result = dsIsFn ? ds(dsArg) : ds;
+
+        if (result && typeof result.then === "function") {
+          result = await result;
+        }
+      } catch {
+        // Remote data-source failures have no public error callback. Preserve
+        // the last committed rows and contain the rejected request here.
+        return;
       }
 
-      if (result && typeof result.then === "function") {
-        result = await result;
+      if (!loadMountedRef.current || requestId !== loadRequestIdRef.current) {
+        return;
       }
 
       if (result && typeof result === "object" && Array.isArray(result.data)) {
-        const totalCount = Number(result.count ?? result.data.length);
+        const reportedCount = Number(result.count ?? result.data.length);
+        const totalCount = Number.isFinite(reportedCount)
+          ? reportedCount
+          : result.data.length;
         const nextRows = sliceLocally
           ? result.data.slice(skip, skip + limit)
           : result.data;
 
         setRows(nextRows);
         setCount(totalCount);
-        filteredRowsCount?.(totalCount);
+        notifyFilteredRowsCount(totalCount);
       } else if (Array.isArray(result)) {
         const totalCount = result.length;
         const nextRows = sliceLocally
@@ -666,21 +710,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
         setRows(nextRows);
         setCount(totalCount);
-        filteredRowsCount?.(totalCount);
+        notifyFilteredRowsCount(totalCount);
       } else {
         setRows([]);
         setCount(0);
-        filteredRowsCount?.(0);
+        notifyFilteredRowsCount(0);
       }
     } finally {
-      setInternalLoading(false);
+      if (
+        remoteDataSource &&
+        loadMountedRef.current &&
+        requestId === loadRequestIdRef.current
+      ) {
+        setInternalLoading(false);
+      }
     }
   }, [
     dataSource,
     effectiveEnableFiltering,
     computedFilterForFetch,
     computedSortForFetch,
-    filteredRowsCount,
+    notifyFilteredRowsCount,
     idProperty,
     limit,
     orderedColumns,
@@ -692,19 +742,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     filterTypes,
   ]);
 
+  React.useLayoutEffect(() => {
+    loadMountedRef.current = true;
+
+    return () => {
+      loadMountedRef.current = false;
+      loadRequestIdRef.current += 1;
+    };
+  }, []);
+
   React.useEffect(() => {
     void loadData();
   }, [loadData]);
 
   React.useEffect(() => {
-    if (filterControlled) return;
+    if (filterControlled || Object.is(draftFilterValue, filterValue)) return;
 
     const handle = window.setTimeout(() => {
       setFilterValue(draftFilterValue);
     }, 300);
 
     return () => window.clearTimeout(handle);
-  }, [draftFilterValue, filterControlled, setFilterValue]);
+  }, [draftFilterValue, filterControlled, filterValue, setFilterValue]);
 
   const autosizeSample = React.useMemo(() => {
     if (Array.isArray(dataSource)) {
@@ -1432,6 +1491,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
           });
         }
       };
+      const handleWindowBlur = () => {
+        stopColumnResize();
+      };
 
       resizeCleanupRef.current = () => {
         headerCell.draggable = previousDraggable;
@@ -1439,10 +1501,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
         document.body.style.userSelect = previousUserSelect;
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("blur", handleWindowBlur);
       };
 
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("blur", handleWindowBlur);
       setResizingColumnId(columnId);
       setResizeProxyLeft(columnLeft + startWidth);
     },
@@ -1455,11 +1519,35 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ]
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     return () => {
       resizeCleanupRef.current?.();
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!resizingColumnId) return;
+
+    const resizingColumnExists = orderedColumns.some(
+      (column) => getColumnId(column) === resizingColumnId
+    );
+
+    if (
+      mobileTransformActive ||
+      !resizable ||
+      !showHeader ||
+      !resizingColumnExists
+    ) {
+      stopColumnResize();
+    }
+  }, [
+    mobileTransformActive,
+    orderedColumns,
+    resizable,
+    resizingColumnId,
+    showHeader,
+    stopColumnResize,
+  ]);
 
   /** ---------------- header drag/drop reorder ---------------- */
 
@@ -1514,6 +1602,53 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- imperative API / compat surface ---------------- */
 
   const apiRef = React.useRef<TypeComputedProps | null>(null);
+  const [stableApiTarget] = React.useState<TypeComputedProps>(
+    () => ({}) as TypeComputedProps
+  );
+  const [stableApi] = React.useState<TypeComputedProps>(
+    () =>
+      new Proxy(stableApiTarget, {
+        get(target, property, receiver) {
+          if (Reflect.has(target, property)) {
+            return Reflect.get(target, property, receiver);
+          }
+
+          if (
+            typeof property === "string" &&
+            COMPAT_METHOD_NAME_RE.test(property)
+          ) {
+            return () => undefined;
+          }
+
+          return undefined;
+        },
+      })
+  );
+  const onReadyRef = React.useRef(props.onReady);
+  const handleRef = React.useRef(props.handle);
+  const onReadyNotifiedRef = React.useRef(false);
+  const handleNotifiedRef = React.useRef(false);
+
+  React.useLayoutEffect(() => {
+    onReadyRef.current = props.onReady;
+    handleRef.current = props.handle;
+
+    return () => {
+      onReadyRef.current = undefined;
+      handleRef.current = undefined;
+    };
+  }, [props.handle, props.onReady]);
+
+  React.useLayoutEffect(() => {
+    return () => {
+      apiRef.current = null;
+
+      for (const property of Reflect.ownKeys(stableApiTarget)) {
+        Reflect.deleteProperty(stableApiTarget, property);
+      }
+    };
+  }, [stableApiTarget]);
+
   const originalData = React.useMemo(
     () => (Array.isArray(dataSource) ? dataSource : rows),
     [dataSource, rows]
@@ -2557,28 +2692,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getVirtualList: () => virtualListCompat,
     };
 
-    const proxy = new Proxy(baseApi, {
-      get(target, property, receiver) {
-        if (Reflect.has(target, property)) {
-          return Reflect.get(target, property, receiver);
-        }
+    baseApi.publicAPI = stableApi;
 
-        if (
-          typeof property === "string" &&
-          COMPAT_METHOD_NAME_RE.test(property)
-        ) {
-          return () => undefined;
-        }
+    for (const property of Reflect.ownKeys(stableApiTarget)) {
+      Reflect.deleteProperty(stableApiTarget, property);
+    }
+    Object.assign(stableApiTarget, baseApi);
+    apiRef.current = stableApi;
 
-        return undefined;
-      },
-    }) as TypeComputedProps;
+    const handle = handleRef.current;
+    if (!handleNotifiedRef.current && handle) {
+      handleNotifiedRef.current = true;
+      handle(apiRef);
+    }
 
-    baseApi.publicAPI = proxy;
-    apiRef.current = proxy;
-
-    props.handle?.(apiRef);
-    props.onReady?.(apiRef);
+    const onReady = onReadyRef.current;
+    if (!onReadyNotifiedRef.current && onReady) {
+      onReadyNotifiedRef.current = true;
+      onReady(apiRef);
+    }
   }, [
     allComputedColumns,
     canNext,
@@ -2639,6 +2771,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showCellBorders,
     skip,
     sortInfo,
+    stableApi,
+    stableApiTarget,
     toggleColumnSortCompat,
     scrollToCellCompat,
     scrollToColumnCompat,
@@ -2709,7 +2843,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 onSortInfoChange={setSortInfoAndResetPage}
-                onFilteredRowsCountChange={filteredRowsCount}
+                onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, event) =>
                   handleRowClick(id, data, event)
                 }
