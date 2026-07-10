@@ -18,6 +18,7 @@ export type {
   TypeComputedColumnsMap,
   TypeComputedProps,
   TypeDataGridProps,
+  TypeDataSourceArgs,
   TypeDataSource,
   TypeFilterOperator,
   TypeFilterType,

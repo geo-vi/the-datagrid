@@ -109,9 +109,10 @@ const remoteDataSnippet = `type RemoteArgs = {
   columnOrder: string[];
   columns: TypeColumns;
   idProperty: string;
-  theme?: string;
+  theme: string;
   skip?: number;
   limit?: number;
+  searchValue?: string;
 };
 
 const dataSource = async (args: RemoteArgs) => {
@@ -123,6 +124,73 @@ const dataSource = async (args: RemoteArgs) => {
 
   return response.json() as Promise<{ data: AccountRow[]; count: number }>;
 };`;
+
+const tableSearchSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGSearchBar,
+  RDGSearchProvider,
+} from "@geovi/the-datagrid/search";
+
+export function SearchableAccountsGrid() {
+  return (
+    <RDGSearchProvider>
+      <RDGSearchBar />
+      <ReactDataGrid
+        idProperty="id"
+        columns={columns}
+        dataSource={rows}
+        virtualized
+      />
+    </RDGSearchProvider>
+  );
+}`;
+
+const nestedTableSearchSnippet = `import {
+  RDGSearchBar,
+  RDGSearchProvider,
+  RDGSearchTarget,
+} from "@geovi/the-datagrid/search";
+
+<RDGSearchProvider>
+  <RDGSearchBar />
+  <section className="min-h-0 flex-1">
+    <RDGSearchTarget>
+      <ReactDataGrid
+        idProperty="id"
+        columns={columns}
+        dataSource={rows}
+      />
+    </RDGSearchTarget>
+  </section>
+</RDGSearchProvider>;`;
+
+const searchColumnsSnippet = `const columns: TypeColumns = [
+  {
+    name: "city",
+    header: "Office city",
+    searchAliases: ["location", "office"],
+  },
+  {
+    name: "customer",
+    searchValue: (row) => [row.customer.name, row.customer.reference],
+  },
+  { name: "internalNote", searchable: false },
+];`;
+
+const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
+
+const dataSource = async (args: TypeDataSourceArgs) => {
+  const response = await fetch("/api/accounts/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(args),
+  });
+
+  return response.json() as Promise<{ data: AccountRow[]; count: number }>;
+};
+
+// Inside RDGSearchProvider, args.searchValue contains the committed query.
+// Remote pagination resets to skip: 0 before a new query is requested.`;
 
 const selectionSnippet = `const [selectedRows, setSelectedRows] = useState<TypeRowSelection>({});
 
@@ -820,7 +888,7 @@ const columnSections: ReferenceSection[] = [
   },
   {
     id: "sorting-filtering-fields",
-    title: "Sorting and filtering",
+    title: "Sorting, filtering, and search",
     rows: [
       {
         name: "sortable",
@@ -873,6 +941,27 @@ const columnSections: ReferenceSection[] = [
         description:
           "Column-level padding for the filter cell, useful for compact filter controls.",
       },
+      {
+        name: "searchable",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Excludes the column from optional global search when set to false.",
+      },
+      {
+        name: "searchAliases",
+        type: "readonly string[]",
+        defaultValue: "[]",
+        description:
+          "Adds exact normalized aliases for column-scoped queries such as location:paris.",
+      },
+      {
+        name: "searchValue",
+        type: "(row) => unknown",
+        defaultValue: "row[column id/name]",
+        description:
+          "Supplies the raw value indexed for this column when nested data or a derived value should be searchable.",
+      },
     ],
   },
   {
@@ -922,16 +1011,30 @@ const typesSections: ReferenceSection[] = [
         <p>
           <code>TypeDataSource</code> accepts local arrays, promises, and
           function-based remote sources. Remote functions receive the current
-          grid state every time the grid reloads.
+          grid state every time the grid reloads. When optional search is
+          connected, that state also includes <code>searchValue</code>.
         </p>
         <CodeBlock
-          code={`type TypeDataSource =
+          code={`type TypeDataSourceArgs = {
+  sortInfo: TypeSortInfo;
+  filterValue: TypeFilterValue;
+  columnOrder: string[];
+  columns: TypeColumns;
+  idProperty: string;
+  theme: string;
+  skip?: number;
+  limit?: number;
+  searchValue?: string;
+};
+
+type TypeDataSource =
   | unknown[]
   | Promise<unknown[]>
   | Promise<{ data: unknown[]; count: number }>
-  | ((props: unknown) => unknown[])
-  | ((props: unknown) => Promise<unknown[]>)
-  | ((props: unknown) => Promise<{ data: unknown[]; count: number }>);`}
+  | ((props: TypeDataSourceArgs) =>
+      | unknown[]
+      | Promise<unknown[]>
+      | Promise<{ data: unknown[]; count: number }>);`}
           language="ts"
         />
         <CodeBlock code={remoteDataSnippet} language="tsx" />
@@ -1628,7 +1731,13 @@ pnpm add @geovi/the-datagrid`}
               enableFiltering applies local filter operators against the array.
             </li>
             <li>sortInfo applies local sorting against the same array.</li>
-            <li>filteredRowsCount receives the post-filter row count.</li>
+            <li>
+              Optional global search runs before column filters and sorting.
+            </li>
+            <li>
+              filteredRowsCount receives the combined post-search, post-filter
+              row count.
+            </li>
             <li>
               Pagination slices the filtered/sorted array when enabled locally.
             </li>
@@ -1649,6 +1758,214 @@ pnpm add @geovi/the-datagrid`}
               className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
             >
               Open the basic example
+            </Link>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    group: "guides",
+    slug: "table-search",
+    title: "Guide: optional table search",
+    summary:
+      "Add a global search bar to normal table layouts without putting search UI or context subscriptions into every grid.",
+    description:
+      "The search package is a separate entry point. Import it only for screens that need global row search, then connect direct grid children automatically or mark a nested grid explicitly.",
+    tags: ["Guide", "Search", "Performance"],
+    sections: [
+      {
+        id: "opt-in-search",
+        title: "Opt in from the search entry",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Import the grid from the main package and search UI from{" "}
+              <code>@geovi/the-datagrid/search</code>. A plain grid does not
+              render a hidden search control, subscribe to the search context,
+              or load the optional search UI.
+            </p>
+            <CodeBlock code={tableSearchSnippet} language="tsx" />
+            <p>
+              The provider recognizes a marked <code>ReactDataGrid</code> when
+              it is a direct child. No search-specific prop is added to the
+              public <code>TypeDataGridProps</code> surface.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "nested-targets",
+        title: "Target a grid through layout markup",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              If a section, card, suspense boundary, or other component sits
+              between the provider and grid, wrap the grid in{" "}
+              <code>RDGSearchTarget</code>. This makes the intended target
+              explicit without moving search state into the grid props.
+            </p>
+            <CodeBlock code={nestedTableSearchSnippet} language="tsx" />
+            <Callout title="Provider scope">
+              <p>
+                A search bar updates targets in its nearest provider. Use
+                separate providers when two tables need independent queries.
+              </p>
+              <p>
+                With <code>allowMobileTransform</code>, the connected external
+                bar remains the single search control. The mobile list keeps its
+                sort and column tools but suppresses its built-in search input.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "matching-and-columns",
+        title: "Matching and column fields",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Search is case-, whitespace-, and diacritic-insensitive. Multiple
+              terms use AND semantics. Prefix a query with a column id, name,
+              string header, or configured alias to scope it, such as{" "}
+              <code>city:paris</code>.
+            </p>
+            <CodeBlock code={searchColumnsSnippet} language="tsx" />
+            <p>
+              Search indexes raw column values rather than rendered DOM text.
+              Configured columns remain searchable when hidden. Use{" "}
+              <code>searchValue</code> for nested or derived content, and{" "}
+              <code>{"searchable={false}"}</code> for fields that must be
+              excluded.
+            </p>
+            <Callout title="Immutable inputs keep the index fast and fresh">
+              <p>
+                Local search builds its normalized index lazily and reuses it
+                while the row and column arrays retain their identity. Replace
+                those arrays when searchable row data or column configuration
+                changes so the cache is invalidated naturally.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "search-bar-props",
+        title: "RDGSearchBar props",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The input commits its query after 150 ms by default. Set{" "}
+              <code>{"debounceMs={0}"}</code> for an immediate commit or pass a
+              different delay for a remote screen.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "ariaLabel",
+                  type: "string",
+                  defaultValue: '"Search all fields"',
+                  description: "Accessible name for the search input.",
+                },
+                {
+                  name: "placeholder",
+                  type: "string",
+                  defaultValue: '"Search all fields…"',
+                  description: "Placeholder shown while the query is empty.",
+                },
+                {
+                  name: "clearLabel",
+                  type: "string",
+                  defaultValue: '"Clear search"',
+                  description:
+                    "Accessible label and title for the clear action.",
+                },
+                {
+                  name: "debounceMs",
+                  type: "number",
+                  defaultValue: "150",
+                  description: "Delay before the draft query is committed.",
+                },
+                {
+                  name: "autoFocus",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description: "Requests input focus when the bar mounts.",
+                },
+              ]}
+            />
+            <ReferenceTable
+              rows={[
+                {
+                  name: "RDGSearchProvider.defaultValue",
+                  type: "string",
+                  defaultValue: '""',
+                  description:
+                    "Initial committed query for every target in this provider.",
+                },
+                {
+                  name: "RDGSearchTarget.children",
+                  type: "ReactElement<TypeDataGridProps>",
+                  defaultValue: "required",
+                  description:
+                    "The single nested ReactDataGrid element to connect to the nearest provider.",
+                },
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "data-source-semantics",
+        title: "Local, Promise, and remote semantics",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                Local arrays are searched before ordinary column filters,
+                sorting, filteredRowsCount, and local pagination.
+              </li>
+              <li>
+                A static Promise is resolved as a complete locally searchable
+                snapshot before its count and local page are derived.
+              </li>
+              <li>
+                Function data sources receive the committed query as the
+                optional <code>searchValue</code> field and own remote search
+                plus the authoritative returned count.
+              </li>
+              <li>
+                A committed query resets local or remote pagination to{" "}
+                <code>skip: 0</code> before loading the result.
+              </li>
+            </ul>
+            <CodeBlock code={remoteSearchSnippet} language="tsx" />
+            <Callout title="Server-wide search remains server-owned">
+              <p>
+                The grid does not post-filter one returned remote page and
+                present it as a server-wide result. Implement{" "}
+                <code>searchValue</code> in the function data source, or keep
+                search application-owned until that backend contract exists.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "live-example",
+        title: "Live example",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The Basic example opts into search over 1,000 local rows while
+              preserving the normal virtualized table layout.
+            </p>
+            <Link
+              to="/examples/basic"
+              className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
+            >
+              Open the searchable Basic example
             </Link>
           </div>
         ),
@@ -1692,12 +2009,22 @@ pnpm add @geovi/the-datagrid`}
               Remote data sources always receive sortInfo and filterValue.
             </li>
             <li>
+              A grid connected to RDGSearchProvider also sends the committed
+              query as searchValue. The remote function owns search and its
+              authoritative count.
+            </li>
+            <li>
               When pagination is remote, skip and limit are included in the
-              args.
+              args; a new search starts again at skip 0.
             </li>
             <li>
               columns and columnOrder are passed so the server can understand
               the current user-facing grid shape.
+            </li>
+            <li>
+              Promise data sources are different from functions: the resolved
+              Promise payload is treated as a complete, locally searchable
+              snapshot.
             </li>
             <li>
               Return either an array or a {`{ data, count }`} object when the

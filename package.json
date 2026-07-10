@@ -11,6 +11,11 @@
       "types": "./dist/main.d.ts",
       "import": "./dist/index.js"
     },
+    "./search": {
+      "types": "./dist/search/index.d.ts",
+      "import": "./dist/search.js"
+    },
+    "./search/style.css": "./dist/search.css",
     "./style.css": "./dist/index.css"
   },
   "files": [
@@ -40,10 +45,11 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "tsc -p ./tsconfig-build.json && vite build && node scripts/assert-css-scope.mjs",
+    "build": "tsc -p ./tsconfig-build.json && vite build && node scripts/fix-dts-specifiers.mjs && tsc -p ./tests/published-types/tsconfig.json --noEmit && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
+    "test:published-types": "tsc -p ./tests/published-types/tsconfig.json --noEmit",
     "test:compat": "yarn test:types && playwright test tests/playwright/computed-props-compat.spec.ts",
     "test:css-scope": "node scripts/assert-css-scope.mjs",
     "test:e2e:prepare": "yarn build",

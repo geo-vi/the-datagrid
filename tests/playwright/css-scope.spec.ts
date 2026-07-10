@@ -6,6 +6,10 @@ const PACKAGE_CSS = readFileSync(
   resolve(process.cwd(), "dist/index.css"),
   "utf8"
 );
+const SEARCH_PACKAGE_CSS = readFileSync(
+  resolve(process.cwd(), "dist/search.css"),
+  "utf8"
+);
 
 test.describe("issue #16 package CSS scope", () => {
   test("does not leak datagrid Tailwind utilities onto host shadcn classes", async ({
@@ -252,6 +256,92 @@ test.describe("issue #16 package CSS scope", () => {
     expect(rootTokens).toEqual({
       fontSans: '"Host Sans", sans-serif',
       trackingTight: "0em",
+    });
+  });
+});
+
+test.describe("optional search package CSS", () => {
+  test("styles the search scope without changing matching host utilities", async ({
+    page,
+  }) => {
+    await page.setContent(`
+      <style>
+        :root {
+          --background: rgb(250 251 252);
+          --foreground: rgb(20 24 28);
+          --input: rgb(90 100 110);
+          --ring: rgb(30 100 220);
+        }
+
+        #host-search-probe {
+          display: block;
+          width: 180px;
+          height: 23px;
+          padding: 1px;
+          border: 0;
+          border-radius: 2px;
+          background: rgb(210 220 230);
+        }
+      </style>
+
+      <input
+        id="host-search-probe"
+        class="h-10 rounded-md border border-input bg-background pl-9 pr-10"
+      />
+
+      <div
+        id="packaged-search-scope"
+        class="tdg-search-root tdg-search-bar relative flex w-full items-center rounded-md text-foreground"
+      >
+        <input
+          id="packaged-search-input"
+          class="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-10 text-sm shadow-xs outline-none"
+        />
+      </div>
+    `);
+
+    await page.addStyleTag({ content: SEARCH_PACKAGE_CSS });
+
+    const hostStyles = await page
+      .locator("#host-search-probe")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          borderRadius: style.borderRadius,
+          height: style.height,
+          paddingLeft: style.paddingLeft,
+        };
+      });
+
+    expect(hostStyles).toEqual({
+      backgroundColor: "rgb(210, 220, 230)",
+      borderRadius: "2px",
+      height: "23px",
+      paddingLeft: "1px",
+    });
+
+    const packagedStyles = await page
+      .locator("#packaged-search-input")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          borderLeftWidth: style.borderLeftWidth,
+          borderRadius: style.borderRadius,
+          height: style.height,
+          paddingLeft: style.paddingLeft,
+          paddingRight: style.paddingRight,
+        };
+      });
+
+    expect(packagedStyles).toEqual({
+      backgroundColor: "rgb(250, 251, 252)",
+      borderLeftWidth: "1px",
+      borderRadius: "6px",
+      height: "40px",
+      paddingLeft: "36px",
+      paddingRight: "40px",
     });
   });
 });

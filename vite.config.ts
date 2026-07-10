@@ -103,52 +103,68 @@ function isRootThemeSelector(selector: string): boolean {
   );
 }
 
-function scopeUtilitySelector(selector: string): string {
+function scopeUtilitySelector(selector: string, scopeSelector: string): string {
   if (isDatagridOwnedSelector(selector)) return selector;
-  if (selector === "*")
-    return `${DATAGRID_SCOPE_SELECTOR}, ${DATAGRID_SCOPE_SELECTOR} *`;
-  return `${DATAGRID_SCOPE_SELECTOR}${selector}, ${DATAGRID_SCOPE_SELECTOR} ${selector}`;
+  if (selector === "*") return `${scopeSelector}, ${scopeSelector} *`;
+  return `${scopeSelector}${selector}, ${scopeSelector} ${selector}`;
 }
 
-function scopeLibraryCss(css: string): string {
+function scopeLibraryCss(
+  css: string,
+  scopeSelector = DATAGRID_SCOPE_SELECTOR
+): string {
   const root = postcss.parse(css);
 
   root.walkRules((rule) => {
     if (isInsideKeyframes(rule)) return;
 
     if (isRootThemeSelector(rule.selector)) {
-      rule.selector = DATAGRID_SCOPE_SELECTOR;
+      rule.selector = scopeSelector;
       return;
     }
 
     const selectors = splitSelectorList(rule.selector);
     if (selectors.length === 0) return;
 
-    rule.selector = selectors.map(scopeUtilitySelector).join(", ");
+    rule.selector = selectors
+      .map((selector) => scopeUtilitySelector(selector, scopeSelector))
+      .join(", ");
   });
 
   return root.toString();
 }
 
 function injectLibraryCssEntry() {
+  const cssEntryByJsEntry: Record<string, string> = {
+    "index.js": "index.css",
+    "search.js": "search.css",
+  };
+
   return {
     name: "inject-library-css-entry",
     apply: "build" as const,
     enforce: "post" as const,
     generateBundle(_: unknown, bundle: OutputBundle) {
       for (const item of Object.values(bundle)) {
-        if (
-          item?.type !== "chunk" ||
-          item.isEntry !== true ||
-          item.fileName !== "index.js"
-        )
-          continue;
-        if (
-          typeof item.code === "string" &&
-          !item.code.startsWith('import "./index.css";')
-        ) {
-          item.code = `import "./index.css";\n${item.code}`;
-        }
+        if (item?.type !== "chunk" || item.isEntry !== true) continue;
+
+        const cssFileName = cssEntryByJsEntry[item.fileName];
+        if (!cssFileName || bundle[cssFileName]?.type !== "asset") continue;
+
+        const cssImport = `import "./${cssFileName}";`;
+        if (typeof item.code !== "string") continue;
+
+        const withoutClientDirective = item.code.replace(
+          /^\s*["']use client["'];\s*/,
+          ""
+        );
+        const withoutInjectedCss = withoutClientDirective.replace(
+          new RegExp(
+            `^${cssImport.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`
+          ),
+          ""
+        );
+        item.code = `"use client";\n${cssImport}\n${withoutInjectedCss}`;
       }
     },
   };
@@ -160,11 +176,22 @@ function scopeLibraryCssBundle() {
     apply: "build" as const,
     enforce: "post" as const,
     generateBundle(_: unknown, bundle: OutputBundle) {
-      const cssAsset = bundle["index.css"];
-      if (!cssAsset || cssAsset.type !== "asset") return;
+      for (const cssAsset of Object.values(bundle)) {
+        if (
+          !cssAsset ||
+          cssAsset.type !== "asset" ||
+          !cssAsset.fileName.endsWith(".css")
+        ) {
+          continue;
+        }
 
-      const source = String(cssAsset.source ?? "");
-      cssAsset.source = scopeLibraryCss(source);
+        const source = String(cssAsset.source ?? "");
+        const scopeSelector =
+          cssAsset.fileName === "search.css"
+            ? ".tdg-search-root"
+            : DATAGRID_SCOPE_SELECTOR;
+        cssAsset.source = scopeLibraryCss(source, scopeSelector);
+      }
     },
   };
 }
@@ -216,10 +243,17 @@ export default defineConfig(({ command, mode }) => {
     },
     build: {
       copyPublicDir: false,
+      cssCodeSplit: true,
       lib: {
-        entry: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
+        entry: {
+          index: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
+          search: fileURLToPath(
+            new URL("./src/search/index.ts", import.meta.url)
+          ),
+        },
         formats: ["es"],
-        fileName: "index",
+        fileName: (_format, entryName) => `${entryName}.js`,
+        cssFileName: "index",
       },
       rollupOptions: {
         external: [

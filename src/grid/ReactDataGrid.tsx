@@ -122,6 +122,38 @@ type ReactDataGridComponent = ((
   defaultProps: ReactDataGridDefaultProps;
 };
 
+type InternalSearchController = {
+  value: string;
+  filterRows: <Row>(rows: Row[], columns: TypeColumn[]) => Row[];
+};
+
+type InternalDataGridProps = TypeDataGridProps & {
+  /** Injected by the optional search package; intentionally not public API. */
+  __rdgSearchController?: InternalSearchController;
+};
+
+let publicSearchPropsCache:
+  | WeakMap<InternalDataGridProps, InternalDataGridProps>
+  | undefined;
+
+function getPublicSearchProps(
+  internalProps: InternalDataGridProps
+): InternalDataGridProps {
+  const cache =
+    publicSearchPropsCache ??
+    (publicSearchPropsCache = new WeakMap<
+      InternalDataGridProps,
+      InternalDataGridProps
+    >());
+  const cached = cache.get(internalProps);
+  if (cached) return cached;
+
+  const publicProps = { ...internalProps };
+  delete publicProps.__rdgSearchController;
+  cache.set(internalProps, publicProps);
+  return publicProps;
+}
+
 let nextGridId = 1;
 
 const COMPAT_METHOD_NAME_RE =
@@ -265,6 +297,19 @@ function ensureLastColumnHeaderFits(args: {
 }
 
 function ReactDataGrid(props: TypeDataGridProps) {
+  const internalProps = props as InternalDataGridProps;
+  const searchController = internalProps.__rdgSearchController;
+  const searchConnected = searchController != null;
+  // The optional search entry uses a private prop as its zero-dependency
+  // bridge. Keep that bridge out of every consumer-facing props mirror.
+  const publicProps: InternalDataGridProps = searchConnected
+    ? getPublicSearchProps(internalProps)
+    : internalProps;
+  const searchValue = searchController?.value ?? "";
+  const searchFilterRows = searchController?.filterRows;
+  const searchActive = searchValue.trim().length > 0;
+  const loadRequestIdRef = React.useRef(0);
+
   const {
     theme = REACT_DATA_GRID_DEFAULT_PROPS.theme,
     idProperty,
@@ -545,11 +590,56 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return unique.length ? unique : [10, 50, 100, 1000];
   }, [props.pageSizes]);
 
-  const [skip, setSkip] = useControllableState<number>({
+  const [skip, setSkipState] = useControllableState<number>({
     value: props.skip,
     defaultValue: props.defaultSkip ?? 0,
     onChange: props.onSkipChange,
   });
+
+  // Treat a committed global query like any other filter: start from page one.
+  // Keep an override until a controlled parent acknowledges the reset (or
+  // intentionally moves to another page), so loading-state renders cannot
+  // bounce a remote request back to the stale controlled skip.
+  const previousSearchValueRef = React.useRef("");
+  const [searchSkipOverride, setSearchSkipOverride] = React.useState<{
+    searchValue: string;
+    previousSkip: number;
+  } | null>(null);
+  const searchValueChanged = previousSearchValueRef.current !== searchValue;
+  const searchSkipOverrideActive = Boolean(
+    searchSkipOverride?.searchValue === searchValue &&
+    searchSkipOverride.previousSkip === skip
+  );
+  const loadSkip = searchValueChanged || searchSkipOverrideActive ? 0 : skip;
+  const setSkip = React.useCallback(
+    (nextSkip: number) => {
+      if (nextSkip !== 0) setSearchSkipOverride(null);
+      setSkipState(nextSkip);
+    },
+    [setSkipState]
+  );
+  React.useLayoutEffect(() => {
+    if (previousSearchValueRef.current !== searchValue) {
+      previousSearchValueRef.current = searchValue;
+      loadRequestIdRef.current += 1;
+
+      if (skip !== 0) {
+        setSearchSkipOverride({ searchValue, previousSkip: skip });
+        setSkipState(0);
+      } else {
+        setSearchSkipOverride(null);
+      }
+      return;
+    }
+
+    if (
+      searchSkipOverride &&
+      (searchSkipOverride.searchValue !== searchValue ||
+        searchSkipOverride.previousSkip !== skip)
+    ) {
+      setSearchSkipOverride(null);
+    }
+  }, [searchSkipOverride, searchValue, setSkipState, skip]);
 
   const [limit, setLimit] = useControllableState<number>({
     value: props.limit,
@@ -598,7 +688,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     null
   );
   const loadMountedRef = React.useRef(false);
-  const loadRequestIdRef = React.useRef(0);
   const loading = props.loading ?? loadingOverride ?? internalLoading;
 
   const computedFilterForFetch = filterValue;
@@ -632,6 +721,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (Array.isArray(dataSource)) {
         let data = dataSource;
 
+        if (searchActive && searchFilterRows) {
+          data = searchFilterRows(data, inputColumns);
+        }
+
         if (effectiveEnableFiltering && computedFilterForFetch) {
           data = applyLocalFilter(data, computedFilterForFetch, {
             filterTypes,
@@ -646,7 +739,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
         const doPage = paginationMode !== false && paginationMode !== "remote";
 
-        const sliced = doPage ? data.slice(skip, skip + limit) : data;
+        const sliced = doPage ? data.slice(loadSkip, loadSkip + limit) : data;
 
         setRows(sliced);
         setCount(totalCount);
@@ -662,7 +755,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       const dsArg = {
         ...(paginationMode !== false && paginationMode !== "local" && dsIsFn
-          ? { skip, limit }
+          ? { skip: loadSkip, limit }
           : {}),
         sortInfo: computedSortForFetch,
         filterValue: computedFilterForFetch,
@@ -670,6 +763,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         columns: columnsForDs,
         idProperty,
         theme: themeName,
+        ...(searchConnected ? { searchValue } : {}),
       };
 
       let result: any;
@@ -691,22 +785,37 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
 
       if (result && typeof result === "object" && Array.isArray(result.data)) {
-        const reportedCount = Number(result.count ?? result.data.length);
+        // Functions own remote search and return an authoritative count. A
+        // static Promise cannot receive args, so search its resolved payload as
+        // a local snapshot before count and pagination are derived.
+        const resultData =
+          !dsIsFn && searchActive && searchFilterRows
+            ? searchFilterRows(result.data, inputColumns)
+            : result.data;
+        const reportedCount = Number(
+          !dsIsFn && searchActive
+            ? resultData.length
+            : (result.count ?? resultData.length)
+        );
         const totalCount = Number.isFinite(reportedCount)
           ? reportedCount
-          : result.data.length;
+          : resultData.length;
         const nextRows = sliceLocally
-          ? result.data.slice(skip, skip + limit)
-          : result.data;
+          ? resultData.slice(loadSkip, loadSkip + limit)
+          : resultData;
 
         setRows(nextRows);
         setCount(totalCount);
         notifyFilteredRowsCount(totalCount);
       } else if (Array.isArray(result)) {
-        const totalCount = result.length;
+        const resultData =
+          !dsIsFn && searchActive && searchFilterRows
+            ? searchFilterRows(result, inputColumns)
+            : result;
+        const totalCount = resultData.length;
         const nextRows = sliceLocally
-          ? result.slice(skip, skip + limit)
-          : result;
+          ? resultData.slice(loadSkip, loadSkip + limit)
+          : resultData;
 
         setRows(nextRows);
         setCount(totalCount);
@@ -732,14 +841,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
     computedSortForFetch,
     notifyFilteredRowsCount,
     idProperty,
+    inputColumns,
     limit,
+    loadSkip,
     orderedColumns,
     paginationMode,
-    skip,
     themeName,
     columnOrderForDs,
     columnsForDs,
     filterTypes,
+    searchActive,
+    searchConnected,
+    searchFilterRows,
+    searchValue,
   ]);
 
   React.useLayoutEffect(() => {
@@ -767,6 +881,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const autosizeSample = React.useMemo(() => {
     if (Array.isArray(dataSource)) {
+      // Search commits load rows in an effect. Reuse that processed result for
+      // autosizing so a large index is never built synchronously during render
+      // (and the same query is not scanned a second time).
+      if (searchActive) {
+        return rows.slice(0, 25);
+      }
+
       let data = dataSource;
 
       if (effectiveEnableFiltering && computedFilterForFetch) {
@@ -787,6 +908,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     filterTypes,
     orderedColumns,
     rows,
+    searchActive,
   ]);
 
   /** ---------------- column widths ---------------- */
@@ -1220,11 +1342,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- pagination derived ---------------- */
 
   const safeLimit = Math.max(1, limit);
-  const pageIndex = Math.floor(skip / safeLimit);
+  const pageIndex = Math.floor(loadSkip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
 
-  const canPrev = skip > 0;
-  const canNext = skip + safeLimit < count;
+  const canPrev = loadSkip > 0;
+  const canNext = loadSkip + safeLimit < count;
 
   const userSelectClass =
     coerceUserSelect(columnUserSelect) === "none"
@@ -2277,7 +2399,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const virtualListCompat = React.useMemo<TypeComputedVirtualList>(
     () => ({
-      props: props as unknown as Record<string, unknown>,
+      props: publicProps as unknown as Record<string, unknown>,
       context: {
         rowHeight,
         virtualized,
@@ -2353,7 +2475,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getVirtualListRowsCompat,
       getVirtualListVisibleCountCompat,
       isRowRenderedCompat,
-      props,
+      publicProps,
       refreshVirtualListLayoutCompat,
       rowHeight,
       scrollToIndexCompat,
@@ -2401,18 +2523,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
     };
 
     const baseApi: TypeComputedProps = {
-      ...props,
+      ...publicProps,
       reload: () => void loadData(),
-      initialProps: props,
+      initialProps: publicProps,
       data: rows,
       originalData,
       count,
       dataCountAfterFilter: count,
-      computedSkip: skip,
+      computedSkip: loadSkip,
       computedLimit: limit,
       getData: () => rows,
       getCount: () => count,
-      getSkip: () => skip,
+      getSkip: () => loadSkip,
       getLimit: () => limit,
       setSkip: (next) => setSkip(next),
       setLimit: setLimitAndResetPage,
@@ -2623,7 +2745,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       hideRowContextMenu: () => undefined,
       loadNextPage: canNext
         ? () => {
-            setSkip(skip + safeLimit);
+            setSkip(loadSkip + safeLimit);
           }
         : undefined,
       paginationCount: pageCount,
@@ -2743,11 +2865,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     limit,
     loadData,
     loading,
+    loadSkip,
     openFilterMenuColId,
     originalData,
     pageCount,
     paginationMode,
-    props,
+    publicProps,
     rowModel.length,
     rows,
     safeLimit,
@@ -2842,6 +2965,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 i18n={i18n}
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
+                searchEnabled={!searchConnected}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, event) =>
@@ -2963,7 +3087,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             <div className="tdg-pagination-shell border-t py-2 [border-color:var(--tdg-grid-border-color)]">
               <GridPagination
                 count={count}
-                skip={skip}
+                skip={loadSkip}
                 limit={limit}
                 pageIndex={pageIndex}
                 pageCount={pageCount}
@@ -2992,6 +3116,14 @@ const ReactDataGridWithDefaultProps = ReactDataGrid as ReactDataGridComponent;
 ReactDataGridWithDefaultProps.defaultProps = {
   ...REACT_DATA_GRID_DEFAULT_PROPS,
 };
+
+// Optional packages can identify the canonical component without importing
+// the core entry (and therefore without pulling it into their own entry chunk).
+Object.defineProperty(
+  ReactDataGridWithDefaultProps,
+  Symbol.for("@geovi/the-datagrid/search-target"),
+  { value: true }
+);
 
 export { ReactDataGridWithDefaultProps as ReactDataGrid };
 export default ReactDataGridWithDefaultProps;

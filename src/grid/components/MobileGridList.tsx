@@ -48,6 +48,7 @@ type MobileGridListProps = {
   i18n: TypeDataGridProps["i18n"];
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
+  searchEnabled?: boolean;
   onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
   onRowClick: (
@@ -92,6 +93,7 @@ export function MobileGridList({
   i18n,
   sortInfo,
   defaultSortDirection,
+  searchEnabled = true,
   onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
@@ -141,8 +143,13 @@ export function MobileGridList({
   );
   const searchIndex = React.useMemo(
     () =>
-      rows.map((row) => ({ row, text: buildMobileSearchText(row.original) })),
-    [rows]
+      searchEnabled
+        ? rows.map((row) => ({
+            row,
+            text: buildMobileSearchText(row.original),
+          }))
+        : [],
+    [rows, searchEnabled]
   );
   const scopedColumnIdsKey =
     parsedDeferredQuery.columnIds.length > 0 && deferredSearchTokens.length > 0
@@ -160,6 +167,8 @@ export function MobileGridList({
     }));
   }, [scopedColumnIdsKey, searchIndex]);
   const filteredRows = React.useMemo(() => {
+    if (!searchEnabled) return rows;
+
     if (parsedDeferredQuery.columnIds.length > 0) {
       if (deferredSearchTokens.length === 0) {
         return searchIndex.map((entry) => entry.row);
@@ -184,10 +193,22 @@ export function MobileGridList({
     parsedDeferredQuery.columnIds.length,
     scopedSearchIndex,
     searchIndex,
+    searchEnabled,
+    rows,
   ]);
   React.useEffect(() => {
-    onFilteredRowsCountChange?.(filteredRows.length);
-  }, [filteredRows.length, onFilteredRowsCountChange]);
+    if (searchEnabled) {
+      onFilteredRowsCountChange?.(filteredRows.length);
+    }
+  }, [filteredRows.length, onFilteredRowsCountChange, searchEnabled]);
+
+  React.useEffect(() => {
+    if (!searchEnabled && query) {
+      setQuery("");
+      setIsSearchComposing(false);
+      setSearchScrollLeft(0);
+    }
+  }, [query, searchEnabled]);
   const visibleDisplayColumnCount = displayColumns.reduce(
     (count, column) =>
       count + (hiddenMobileColumnIds.has(getColumnId(column)) ? 0 : 1),
@@ -361,91 +382,95 @@ export function MobileGridList({
     >
       <div className="shrink-0 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
         <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1 rounded-md bg-[var(--tdg-input-bg)]">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              ref={searchInputRef}
-              className={cn(
-                "h-10 pl-7 pr-9",
-                highlightSearchQuery && "relative z-10 !bg-transparent"
-              )}
-              inputClassName={cn(
-                highlightSearchQuery &&
-                  "!text-transparent caret-[var(--tdg-input-color)]"
-              )}
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setSearchScrollLeft(event.currentTarget.scrollLeft);
-              }}
-              onScroll={(event) =>
-                setSearchScrollLeft(event.currentTarget.scrollLeft)
-              }
-              onSelect={(event) =>
-                setSearchScrollLeft(event.currentTarget.scrollLeft)
-              }
-              onCompositionStart={() => setIsSearchComposing(true)}
-              onCompositionEnd={(event) => {
-                setIsSearchComposing(false);
-                setSearchScrollLeft(event.currentTarget.scrollLeft);
-              }}
-              placeholder="Search all fields"
-              aria-label="Search all fields"
-              type="text"
-              role="searchbox"
-            />
-            {highlightSearchQuery && parsedQuery.prefixEnd !== null ? (
-              <div
-                className="pointer-events-none absolute inset-y-0 left-7 right-9 z-0 flex items-center overflow-hidden text-base text-[var(--tdg-input-color)] md:text-sm"
-                data-slot="mobile-search-query-highlight"
+          {searchEnabled ? (
+            <div className="relative min-w-0 flex-1 rounded-md bg-[var(--tdg-input-bg)]">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden="true"
-              >
-                <span
-                  className="inline-flex min-w-max whitespace-pre font-normal"
-                  style={{ transform: `translateX(${-searchScrollLeft}px)` }}
-                >
-                  <span className="relative inline-block">
-                    <span className="invisible">
-                      {query.slice(0, parsedQuery.prefixEnd)}
-                    </span>
-                    <strong
-                      className="absolute inset-0 whitespace-pre font-bold"
-                      data-slot="mobile-search-column-prefix"
-                    >
-                      {query.slice(0, parsedQuery.prefixEnd)}
-                    </strong>
-                  </span>
-                  <span
-                    className="font-normal"
-                    data-slot="mobile-search-query-value"
-                  >
-                    {query.slice(parsedQuery.prefixEnd)}
-                  </span>
-                </span>
-              </div>
-            ) : null}
-            {query ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 z-20 h-10 w-10"
-                onClick={() => {
-                  setQuery("");
-                  setIsSearchComposing(false);
-                  setSearchScrollLeft(0);
-                  searchInputRef.current?.focus();
+              />
+              <Input
+                ref={searchInputRef}
+                className={cn(
+                  "h-10 pl-7 pr-9",
+                  highlightSearchQuery && "relative z-10 !bg-transparent"
+                )}
+                inputClassName={cn(
+                  highlightSearchQuery &&
+                    "!text-transparent caret-[var(--tdg-input-color)]"
+                )}
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSearchScrollLeft(event.currentTarget.scrollLeft);
                 }}
-                aria-label="Clear search"
-                title="Clear search"
-              >
-                <X />
-              </Button>
-            ) : null}
-          </div>
+                onScroll={(event) =>
+                  setSearchScrollLeft(event.currentTarget.scrollLeft)
+                }
+                onSelect={(event) =>
+                  setSearchScrollLeft(event.currentTarget.scrollLeft)
+                }
+                onCompositionStart={() => setIsSearchComposing(true)}
+                onCompositionEnd={(event) => {
+                  setIsSearchComposing(false);
+                  setSearchScrollLeft(event.currentTarget.scrollLeft);
+                }}
+                placeholder="Search all fields"
+                aria-label="Search all fields"
+                type="text"
+                role="searchbox"
+              />
+              {highlightSearchQuery && parsedQuery.prefixEnd !== null ? (
+                <div
+                  className="pointer-events-none absolute inset-y-0 left-7 right-9 z-0 flex items-center overflow-hidden text-base text-[var(--tdg-input-color)] md:text-sm"
+                  data-slot="mobile-search-query-highlight"
+                  aria-hidden="true"
+                >
+                  <span
+                    className="inline-flex min-w-max whitespace-pre font-normal"
+                    style={{ transform: `translateX(${-searchScrollLeft}px)` }}
+                  >
+                    <span className="relative inline-block">
+                      <span className="invisible">
+                        {query.slice(0, parsedQuery.prefixEnd)}
+                      </span>
+                      <strong
+                        className="absolute inset-0 whitespace-pre font-bold"
+                        data-slot="mobile-search-column-prefix"
+                      >
+                        {query.slice(0, parsedQuery.prefixEnd)}
+                      </strong>
+                    </span>
+                    <span
+                      className="font-normal"
+                      data-slot="mobile-search-query-value"
+                    >
+                      {query.slice(parsedQuery.prefixEnd)}
+                    </span>
+                  </span>
+                </div>
+              ) : null}
+              {query ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 z-20 h-10 w-10"
+                  onClick={() => {
+                    setQuery("");
+                    setIsSearchComposing(false);
+                    setSearchScrollLeft(0);
+                    searchInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
+                  title="Clear search"
+                >
+                  <X />
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1" aria-hidden="true" />
+          )}
           {sortableColumns.length ? (
             <Button
               type="button"

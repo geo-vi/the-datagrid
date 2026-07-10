@@ -3,7 +3,10 @@ import path from "node:path";
 import process from "node:process";
 import postcss from "postcss";
 
-const cssPath = path.resolve(process.cwd(), "dist/index.css");
+const cssPaths = [
+  path.resolve(process.cwd(), "dist/index.css"),
+  path.resolve(process.cwd(), "dist/search.css"),
+];
 const datagridOwnedMarkers = [
   ".tdg-",
   ".InovuaReactDataGrid",
@@ -100,14 +103,17 @@ function containsShadcnCollisionUtility(selector) {
   );
 }
 
-if (!fs.existsSync(cssPath)) {
+const missingCssPaths = cssPaths.filter((cssPath) => !fs.existsSync(cssPath));
+if (missingCssPaths.length > 0) {
   console.error(
-    `Missing CSS bundle at ${cssPath}. Run the library build first.`
+    `Missing CSS bundle(s): ${missingCssPaths.join(", ")}. Run the library build first.`
   );
   process.exit(1);
 }
 
-const css = fs.readFileSync(cssPath, "utf8");
+const css = cssPaths
+  .map((cssPath) => fs.readFileSync(cssPath, "utf8"))
+  .join("\n");
 const failures = [];
 
 const root = postcss.parse(css);

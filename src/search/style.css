@@ -1,0 +1,63 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@source "./**/*.{ts,tsx}";
+
+.tdg-search-root {
+  --tdg-search-background: var(
+    --tdg-color-background,
+    var(--background, oklch(1 0 0))
+  );
+  --tdg-search-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.145 0 0))
+  );
+  --tdg-search-accent: var(--tdg-color-accent, var(--accent, oklch(0.97 0 0)));
+  --tdg-search-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.205 0 0))
+  );
+  --tdg-search-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.556 0 0))
+  );
+  --tdg-search-input: var(--tdg-color-input, var(--input, oklch(0.922 0 0)));
+  --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.708 0 0)));
+}
+
+.dark .tdg-search-root,
+.tdg-search-root.dark {
+  --tdg-search-background: var(
+    --tdg-color-background,
+    var(--background, oklch(0.145 0 0))
+  );
+  --tdg-search-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.985 0 0))
+  );
+  --tdg-search-accent: var(--tdg-color-accent, var(--accent, oklch(0.269 0 0)));
+  --tdg-search-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.985 0 0))
+  );
+  --tdg-search-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.708 0 0))
+  );
+  --tdg-search-input: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%)));
+  --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.556 0 0)));
+}
+
+@theme inline {
+  --radius-sm: var(--tdg-radius-sm, var(--radius-sm, 0.25rem));
+  --radius-md: var(--tdg-radius-md, var(--radius-md, 0.375rem));
+  --radius-lg: var(--tdg-radius-lg, var(--radius-lg, 0.5rem));
+
+  --color-background: var(--tdg-search-background);
+  --color-foreground: var(--tdg-search-foreground);
+  --color-accent: var(--tdg-search-accent);
+  --color-accent-foreground: var(--tdg-search-accent-foreground);
+  --color-muted-foreground: var(--tdg-search-muted-foreground);
+  --color-input: var(--tdg-search-input);
+  --color-ring: var(--tdg-search-ring);
+}
