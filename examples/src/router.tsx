@@ -13,6 +13,7 @@ import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
+import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SelectionGridExample from "./SelectionGridExample";
 import UsersGridExample from "./UsersGridExample";
@@ -276,11 +277,18 @@ const compatDefaultPropsRoute = createRoute({
   component: DefaultPropsCompatPage,
 });
 
+const compatFilteredRowsCountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/filtered-rows-count",
+  component: FilteredRowsCountCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
+  compatFilteredRowsCountRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,

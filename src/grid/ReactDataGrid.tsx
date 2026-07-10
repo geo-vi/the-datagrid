@@ -297,6 +297,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
     style,
   } = props;
 
+  const filteredRowsCountRef = React.useRef(filteredRowsCount);
+  React.useLayoutEffect(() => {
+    filteredRowsCountRef.current = filteredRowsCount;
+
+    return () => {
+      filteredRowsCountRef.current = undefined;
+    };
+  }, [filteredRowsCount]);
+  const notifyFilteredRowsCount = React.useCallback((count: number) => {
+    filteredRowsCountRef.current?.(count);
+  }, []);
+
   const themeName = normalizeThemeName(theme);
   const isMobileViewport = useMediaQuery("(max-width: 1024px)");
   const mobileTransformActive = allowMobileTransform && isMobileViewport;
@@ -614,7 +626,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       setRows(sliced);
       setCount(totalCount);
-      filteredRowsCount?.(totalCount);
+      notifyFilteredRowsCount(totalCount);
       return;
     }
 
@@ -657,7 +669,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
         setRows(nextRows);
         setCount(totalCount);
-        filteredRowsCount?.(totalCount);
+        notifyFilteredRowsCount(totalCount);
       } else if (Array.isArray(result)) {
         const totalCount = result.length;
         const nextRows = sliceLocally
@@ -666,11 +678,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
         setRows(nextRows);
         setCount(totalCount);
-        filteredRowsCount?.(totalCount);
+        notifyFilteredRowsCount(totalCount);
       } else {
         setRows([]);
         setCount(0);
-        filteredRowsCount?.(0);
+        notifyFilteredRowsCount(0);
       }
     } finally {
       setInternalLoading(false);
@@ -680,7 +692,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     effectiveEnableFiltering,
     computedFilterForFetch,
     computedSortForFetch,
-    filteredRowsCount,
+    notifyFilteredRowsCount,
     idProperty,
     limit,
     orderedColumns,
@@ -2709,7 +2721,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 onSortInfoChange={setSortInfoAndResetPage}
-                onFilteredRowsCountChange={filteredRowsCount}
+                onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, event) =>
                   handleRowClick(id, data, event)
                 }
