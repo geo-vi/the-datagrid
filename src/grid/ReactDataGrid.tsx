@@ -1818,6 +1818,62 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const getEditStartArgsRef = React.useRef(getEditStartArgs);
   getEditStartArgsRef.current = getEditStartArgs;
 
+  // Inovua anchors an active edit session to its visible coordinates. If a
+  // controlled row or column model changes, preserve the session and draft
+  // while resolving identity and callback metadata from the new occupant.
+  // Model reconciliation itself must not emit edit lifecycle callbacks.
+  const reconcileEditingCellToCoordinate = React.useCallback(
+    (cell: GridEditingCell | null): GridEditingCell | null => {
+      if (!cell) return null;
+
+      const args = getEditStartArgsRef.current(cell.rowIndex, cell.columnIndex);
+      if (!args) return cell;
+
+      const targetChanged =
+        String(cell.rowId) !== String(args.rowId) ||
+        cell.columnId !== args.columnId;
+
+      return {
+        ...cell,
+        rowId: args.rowId,
+        rowIndex: args.rowIndex,
+        columnId: args.columnId,
+        columnIndex: args.columnIndex,
+        originalValue: targetChanged ? args.value : cell.originalValue,
+        data: args.data,
+        column: args.column,
+        cellProps: {
+          ...args.cellProps,
+          editValue: cell.value,
+          inEdit: true,
+        },
+      };
+    },
+    []
+  );
+
+  const getEditingCellAtCurrentCoordinate = React.useCallback(() => {
+    const current = editingCellRef.current;
+    const reconciled = reconcileEditingCellToCoordinate(current);
+
+    if (current && reconciled && current.sessionId === reconciled.sessionId) {
+      editingCellRef.current = reconciled;
+    }
+
+    return reconciled;
+  }, [reconcileEditingCellToCoordinate]);
+
+  const coordinateEditingCell = reconcileEditingCellToCoordinate(editingCell);
+
+  React.useLayoutEffect(() => {
+    if (
+      coordinateEditingCell &&
+      editingCellRef.current?.sessionId === coordinateEditingCell.sessionId
+    ) {
+      editingCellRef.current = coordinateEditingCell;
+    }
+  }, [coordinateEditingCell]);
+
   const resolveEditRowIndex = React.useCallback(
     (rowIndex?: number, rowId?: string | number): number => {
       if (rowIndex !== undefined) {
@@ -1878,7 +1934,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const args = getEditStartArgsRef.current(rowIndex, columnIndex);
       if (!args) return null;
 
-      const liveEdit = editingCellRef.current;
+      const liveEdit = getEditingCellAtCurrentCoordinate();
       if (
         liveEdit?.rowIndex === rowIndex &&
         liveEdit.columnIndex === columnIndex
@@ -1912,7 +1968,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         cellProps: args.cellProps,
       };
     },
-    [editable]
+    [editable, getEditingCellAtCurrentCoordinate]
   );
 
   const navigateAfterEdit = React.useCallback(
@@ -1987,7 +2043,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const handleEditValueChange = React.useCallback(
     (value: unknown) => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       if (!current || editEndingSessionRef.current != null) return;
 
       const next = {
@@ -2002,7 +2058,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setEditingCell(next);
       onEditValueChange?.(toEditInfo(next, { includeValue: true, value }));
     },
-    [onEditValueChange, setEditingCell, toEditInfo]
+    [
+      getEditingCellAtCurrentCoordinate,
+      onEditValueChange,
+      setEditingCell,
+      toEditInfo,
+    ]
   );
 
   const handleEditComplete = React.useCallback(
@@ -2011,7 +2072,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       value?: unknown,
       targetCell?: GridEditingCell
     ) => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       if (
         !current ||
         editEndingSessionRef.current === current.sessionId ||
@@ -2083,12 +2144,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
         await navigateAfterEdit(completedCell, navigation);
       }
     },
-    [navigateAfterEdit, onEditComplete, onEditStop, setEditingCell, toEditInfo]
+    [
+      getEditingCellAtCurrentCoordinate,
+      navigateAfterEdit,
+      onEditComplete,
+      onEditStop,
+      setEditingCell,
+      toEditInfo,
+    ]
   );
 
   const handleEditStop = React.useCallback(
     async (navigation?: GridEditNavigation, value?: unknown) => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       editAttemptRef.current += 1;
       if (!current || editEndingSessionRef.current != null) return;
 
@@ -2115,13 +2183,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
         surfaceRef.current?.focus();
       }
     },
-    [navigateAfterEdit, onEditStop, setEditingCell, toEditInfo]
+    [
+      getEditingCellAtCurrentCoordinate,
+      navigateAfterEdit,
+      onEditStop,
+      setEditingCell,
+      toEditInfo,
+    ]
   );
 
   const handleEditCancel = React.useCallback(
     (targetCell?: GridEditingCell) => {
       editAttemptRef.current += 1;
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       if (!current || editEndingSessionRef.current != null) return;
 
       const sessionId = current.sessionId;
@@ -2139,7 +2213,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
       surfaceRef.current?.focus();
     },
-    [onEditCancel, onEditStop, setEditingCell, toEditInfo]
+    [
+      getEditingCellAtCurrentCoordinate,
+      onEditCancel,
+      onEditStop,
+      setEditingCell,
+      toEditInfo,
+    ]
   );
 
   const handleCrossTargetEditComplete = React.useCallback(
@@ -2265,7 +2345,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const completeEditCompat = React.useCallback(
     (args?: TypeCompleteEditArgs): void => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       if (!current) return;
 
       let columnIndex = resolveEditColumnIndex(args?.columnId);
@@ -2305,7 +2385,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         );
         if (!target) return;
 
-        const liveEditBeforeFocus = editingCellRef.current;
+        const liveEditBeforeFocus = getEditingCellAtCurrentCoordinate();
         const targetsAnotherCell = Boolean(
           liveEditBeforeFocus &&
           (target.rowIndex !== liveEditBeforeFocus.rowIndex ||
@@ -2321,7 +2401,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           surfaceRef.current?.focus();
         }
 
-        const liveEdit = editingCellRef.current;
+        const liveEdit = getEditingCellAtCurrentCoordinate();
         if (
           !liveEdit ||
           target.rowIndex !== liveEdit.rowIndex ||
@@ -2335,6 +2415,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [
       getRenderedEditingTarget,
+      getEditingCellAtCurrentCoordinate,
       handleCrossTargetEditComplete,
       handleEditComplete,
       resolveEditColumnIndex,
@@ -2346,7 +2427,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const cancelEditCompat = React.useCallback(
     (args?: TypeCancelEditArgs): void => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       if (!current) return;
 
       // Inovua's 5.10.2 truthy column check makes numeric index 0 use the
@@ -2378,6 +2459,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [
       getRenderedEditingTarget,
+      getEditingCellAtCurrentCoordinate,
       handleCrossTargetEditCancel,
       handleEditCancel,
       resolveEditColumnIndex,
@@ -2386,9 +2468,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const getCurrentEditInfoCompat =
     React.useCallback((): TypeEditInfo | null => {
-      const current = editingCellRef.current;
+      const current = getEditingCellAtCurrentCoordinate();
       return current ? toEditInfo(current, { includeValue: true }) : null;
-    }, [toEditInfo]);
+    }, [getEditingCellAtCurrentCoordinate, toEditInfo]);
 
   const virtualItems = virtualized ? rowVirtualizer.getVirtualItems() : [];
   const paddingTop =
@@ -4671,7 +4753,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                       getItemId: (data) => (data as any)?.[idProperty],
                     }}
                     showZebraRows={showZebraRows}
-                    editingCell={editingCell}
+                    editingCell={coordinateEditingCell}
                     cellNodesRef={editCellNodesRef}
                     editStartEvent={editStartEvent}
                     onCellEditStart={tryStartCellEdit}
