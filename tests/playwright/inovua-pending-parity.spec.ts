@@ -880,7 +880,11 @@ test.describe("unsafe implemented-contract edges", () => {
     page,
   }) => {
     const { scope, grid } = await openPendingScenario(page, "zebra-imperative");
+    const firstRow = row(grid, "row-1");
+    const secondRow = row(grid, "row-2");
     await expect(grid).toHaveAttribute("data-show-zebra-rows", "true");
+    await expect(firstRow).toHaveClass(/tdg-row--odd/);
+    await expect(secondRow).toHaveClass(/tdg-row--even/);
 
     await scope.getByTestId("disable-zebra-imperatively").click();
 
@@ -890,6 +894,8 @@ test.describe("unsafe implemented-contract edges", () => {
     await expect(grid).toHaveAttribute("data-show-zebra-rows", "false", {
       timeout: RED_ASSERTION_TIMEOUT,
     });
+    await expect(firstRow).toHaveClass(/tdg-row--no-zebra/);
+    await expect(secondRow).toHaveClass(/tdg-row--no-zebra/);
   });
 });
 

@@ -676,6 +676,9 @@ export type TypeComputedProps = {
   computedShowHeader?: boolean;
   setShowHeader?: (value: React.SetStateAction<boolean>) => void;
 
+  computedShowZebraRows: boolean;
+  setShowZebraRows: (value: React.SetStateAction<boolean>) => void;
+
   showHorizontalCellBorders?: boolean;
   showVerticalCellBorders?: boolean;
   computedShowCellBorders?: TypeShowCellBorders;

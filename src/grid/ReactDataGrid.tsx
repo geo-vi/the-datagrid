@@ -385,9 +385,26 @@ function ReactDataGrid(props: TypeDataGridProps) {
     style,
   } = props;
 
-  const [uncontrolledShowZebraRows] = React.useState(
-    () =>
-      defaultShowZebraRows ?? REACT_DATA_GRID_DEFAULT_PROPS.defaultShowZebraRows
+  const [uncontrolledShowZebraRows, setUncontrolledShowZebraRows] =
+    React.useState(
+      () =>
+        defaultShowZebraRows ??
+        REACT_DATA_GRID_DEFAULT_PROPS.defaultShowZebraRows
+    );
+  const showZebraRowsControlled = controlledShowZebraRows !== undefined;
+  const showZebraRowsControlledRef = React.useRef(showZebraRowsControlled);
+  React.useLayoutEffect(() => {
+    showZebraRowsControlledRef.current = showZebraRowsControlled;
+  }, [showZebraRowsControlled]);
+  const setShowZebraRows = React.useCallback(
+    (nextValue: React.SetStateAction<boolean>) => {
+      if (showZebraRowsControlledRef.current) return;
+
+      setUncontrolledShowZebraRows((current) =>
+        resolveStateAction(nextValue, current)
+      );
+    },
+    []
   );
   const showZebraRows = controlledShowZebraRows ?? uncontrolledShowZebraRows;
 
@@ -4143,6 +4160,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedHasRowNavigation: false,
       computedShowHoverRows: true,
       computedShowZebraRows: showZebraRows,
+      setShowZebraRows,
       computedEditable: editable,
       computedEditStartEvent: editStartEvent,
       computedIsEditing: editingCell != null,
@@ -4305,6 +4323,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSelectedAtCompat,
     setSelectedByIdCompat,
     setSelectedCompat,
+    setShowZebraRows,
     setSortInfoAndResetPage,
     setScrollLeftCompat,
     setScrollTopCompat,

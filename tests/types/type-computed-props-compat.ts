@@ -41,6 +41,7 @@ export function assertComputedPropsCompat(
   api.scrollToCell?.({ rowIndex: 0, columnIndex: 0 });
   api.scrollToColumn?.(0);
   api.setShowHeader?.(false);
+  api.setShowZebraRows((current) => !current);
   api.setEnableFiltering?.(false);
   api.setLoading?.(false);
   api.selectAll?.();
