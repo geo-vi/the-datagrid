@@ -23,6 +23,7 @@ export type TypeBuildEditCellPropsArgs = {
   editStartEvent: string;
   theme: string;
   totalDataCount: number;
+  virtualizeColumns: boolean;
 };
 
 /**
@@ -53,6 +54,7 @@ export function buildEditCellProps({
   editStartEvent,
   theme,
   totalDataCount,
+  virtualizeColumns,
 }: TypeBuildEditCellPropsArgs): CellProps {
   const configuredCellProps =
     column.cellProps && typeof column.cellProps === "object"
@@ -103,7 +105,7 @@ export function buildEditCellProps({
     rtl: false,
     nativeScroll: true,
     editorProps: column.editorProps,
-    virtualizeColumns: false,
+    virtualizeColumns,
     cellProps: {
       ...configuredCellProps,
       column,

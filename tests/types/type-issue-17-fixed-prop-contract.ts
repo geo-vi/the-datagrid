@@ -26,12 +26,13 @@ type Issue17ImplementedProp =
   | "onEditValueChange"
   | "showZebraRows"
   | "defaultShowZebraRows"
-  | "enableSelection";
+  | "enableSelection"
+  | "virtualizeColumnsThreshold"
+  | "virtualizeColumns";
 
 type Issue17UnsupportedProp =
   | "emptyText"
-  | "onColumnFilterValueChange"
-  | "virtualizeColumnsThreshold";
+  | "onColumnFilterValueChange";
 
 type AssertNever<T extends never> = T;
 
@@ -313,6 +314,6 @@ export const issue17EnableSelectionReproduction = acceptGridProps({
 
 export const issue17VirtualizeColumnsThresholdReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Column virtualization thresholds are not public API.
   virtualizeColumnsThreshold: 20,
+  virtualizeColumns: true,
 });

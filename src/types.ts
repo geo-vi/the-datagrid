@@ -310,7 +310,7 @@ export type TypeRowStyleProps = Record<string, unknown> & {
   editValue?: unknown;
   editColumnIndex?: number;
   editColumnId?: string;
-  virtualizeColumns: false;
+  virtualizeColumns: boolean;
   theme: string;
   getItemId: (data: any) => unknown;
 };
@@ -819,6 +819,21 @@ export type TypeDataGridProps = {
   pageSizes?: number[];
 
   virtualized?: boolean;
+
+  /**
+   * Enables horizontal column virtualization when the grid has at least this
+   * many visible columns. The boundary is inclusive and defaults to `15`.
+   * Column virtualization requires a fixed numeric `rowHeight`.
+   */
+  virtualizeColumnsThreshold?: number;
+
+  /**
+   * Explicitly enables or disables horizontal column virtualization,
+   * overriding `virtualizeColumnsThreshold`. A function-valued or natural
+   * `rowHeight` still disables column virtualization because those layouts
+   * cannot safely share a fixed horizontal render window.
+   */
+  virtualizeColumns?: boolean;
 
   /** Transform the grid into a responsive virtual list at widths up to 1024px. */
   allowMobileTransform?: boolean;

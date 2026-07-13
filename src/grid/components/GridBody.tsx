@@ -138,6 +138,14 @@ export type GridBodyProps = {
   showVerticalCellBorders: boolean;
 
   virtualized: boolean;
+  virtualizeColumns: boolean;
+  columnRenderRange: {
+    firstIndex: number;
+    lastIndex: number;
+    beforeWidth: number;
+    afterWidth: number;
+    columnRenderCount: number;
+  };
   virtualItems: any[];
   paddingTop: number;
   paddingBottom: number;
@@ -159,6 +167,9 @@ export type GridBodyProps = {
     totalComputedWidth: number;
     remoteRowOffset: number;
     columns: TypeComputedColumn[];
+    columnRenderCount: number;
+    totalColumnCount: number;
+    virtualizeColumns: boolean;
     columnsMap: TypeComputedColumnsMap;
     dataSourceArray: any[];
     theme: string;
@@ -196,6 +207,8 @@ export function GridBody(props: GridBodyProps) {
     showHorizontalCellBorders,
     showVerticalCellBorders,
     virtualized,
+    virtualizeColumns,
+    columnRenderRange,
     virtualItems,
     paddingTop,
     paddingBottom,
@@ -221,6 +234,11 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
+  const renderedTableColumnCount = virtualizeColumns
+    ? columnRenderRange.columnRenderCount +
+      (columnRenderRange.beforeWidth > 0 ? 1 : 0) +
+      (columnRenderRange.afterWidth > 0 ? 1 : 0)
+    : orderedColumns.length;
 
   function getRowThemeClasses(
     rowIndex: number,
@@ -318,8 +336,8 @@ export function GridBody(props: GridBodyProps) {
               lastNonEmpty: rowIndex === rowModel.length - 1,
               columns: rowStyleMetadata.columns,
               columnsMap: rowStyleMetadata.columnsMap,
-              columnRenderCount: rowStyleMetadata.columns.length,
-              totalColumnCount: rowStyleMetadata.columns.length,
+              columnRenderCount: rowStyleMetadata.columnRenderCount,
+              totalColumnCount: rowStyleMetadata.totalColumnCount,
               firstUnlockedIndex: rowStyleMetadata.columns.length > 0 ? 0 : -1,
               lastUnlockedIndex: rowStyleMetadata.columns.length - 1,
               firstLockedStartIndex: -1,
@@ -363,7 +381,7 @@ export function GridBody(props: GridBodyProps) {
                     editColumnId: editingCell.columnId,
                   }
                 : {}),
-              virtualizeColumns: false,
+              virtualizeColumns: rowStyleMetadata.virtualizeColumns,
               theme: rowStyleMetadata.theme,
               getItemId: rowStyleMetadata.getItemId,
             },
@@ -428,6 +446,7 @@ export function GridBody(props: GridBodyProps) {
       editStartEvent,
       theme: rowStyleMetadata.theme,
       totalDataCount: rowStyleMetadata.dataSourceArray.length,
+      virtualizeColumns,
     });
 
     const toNavigation = (
@@ -578,129 +597,169 @@ export function GridBody(props: GridBodyProps) {
         ? { maxHeight: Math.max(0, contentHeightLimit - 16) }
         : undefined;
 
-    return row.getVisibleCells().map((cell: any, cellIndex: number) => {
-      const columnId = cell.column.id;
-      const column = (cell.column.columnDef as any)?.meta?.__column as
-        | TypeColumn
-        | undefined;
-      const width = columnWidths[columnId];
-      const align = column?.textAlign;
-      const isLastCell = cellIndex === row.getVisibleCells().length - 1;
-      const editor = column
-        ? renderEditor(row, rowIndex, cellIndex, column, columnId)
-        : null;
+    const allCells = row.getVisibleCells();
+    const renderedCells = virtualizeColumns
+      ? allCells.slice(
+          columnRenderRange.firstIndex,
+          columnRenderRange.lastIndex + 1
+        )
+      : allCells;
 
-      const startEdit = () => {
-        if (!column) return;
-        const value = cell.getValue();
-        const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
-        const cellProps = buildEditCellProps({
-          value,
-          data: row.original,
-          rowIndex,
-          remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
-          rowId,
-          rowSelected: Boolean(selectedMap[String(row.id)]),
-          selection: rowStyleMetadata.selection,
-          multiSelect: rowStyleMetadata.multiSelect,
-          naturalRowHeight: rowHeight == null,
-          resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
-          minRowHeight,
-          column,
-          columnId,
-          columnIndex: cellIndex,
-          columnCount: orderedColumns.length,
-          computedWidth: width,
-          editable: rowStyleMetadata.editable,
-          editStartEvent,
-          theme: rowStyleMetadata.theme,
-          totalDataCount: rowStyleMetadata.dataSourceArray.length,
-        });
+    return (
+      <>
+        {columnRenderRange.beforeWidth > 0 && virtualizeColumns ? (
+          <TableCell
+            aria-hidden="true"
+            className="pointer-events-none !p-0"
+            style={{
+              width: columnRenderRange.beforeWidth,
+              minWidth: columnRenderRange.beforeWidth,
+              maxWidth: columnRenderRange.beforeWidth,
+            }}
+          />
+        ) : null}
+        {renderedCells.map((cell: any, renderedIndex: number) => {
+          const cellIndex = virtualizeColumns
+            ? columnRenderRange.firstIndex + renderedIndex
+            : renderedIndex;
+          const columnId = cell.column.id;
+          const column = (cell.column.columnDef as any)?.meta?.__column as
+            | TypeColumn
+            | undefined;
+          const width = columnWidths[columnId];
+          const align = column?.textAlign;
+          const isLastCell = cellIndex === allCells.length - 1;
+          const editor = column
+            ? renderEditor(row, rowIndex, cellIndex, column, columnId)
+            : null;
 
-        onCellEditStart({
-          rowId,
-          rowIndex,
-          columnId,
-          columnIndex: cellIndex,
-          value,
-          data: row.original,
-          column,
-          cellProps,
-        });
-      };
-      const normalizedStartEvent = editStartEvent.toLowerCase();
+          const startEdit = () => {
+            if (!column) return;
+            const value = cell.getValue();
+            const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
+            const cellProps = buildEditCellProps({
+              value,
+              data: row.original,
+              rowIndex,
+              remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
+              rowId,
+              rowSelected: Boolean(selectedMap[String(row.id)]),
+              selection: rowStyleMetadata.selection,
+              multiSelect: rowStyleMetadata.multiSelect,
+              naturalRowHeight: rowHeight == null,
+              resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
+              minRowHeight,
+              column,
+              columnId,
+              columnIndex: cellIndex,
+              columnCount: orderedColumns.length,
+              computedWidth: width,
+              editable: rowStyleMetadata.editable,
+              editStartEvent,
+              theme: rowStyleMetadata.theme,
+              totalDataCount: rowStyleMetadata.dataSourceArray.length,
+              virtualizeColumns,
+            });
 
-      return (
-        <TableCell
-          ref={(node) => {
-            const key = `${String(row.id)}\u0000${columnId}`;
-            if (node) cellNodesRef.current.set(key, node);
-            else cellNodesRef.current.delete(key);
-          }}
-          key={cell.id}
-          data-column-id={columnId}
-          data-column-index={cellIndex}
-          data-editing={editor ? "true" : "false"}
-          className={cn(
-            userSelectClass,
-            "InovuaReactDataGrid__cell",
-            "InovuaReactDataGrid__cell--direction-ltr",
-            showHorizontalCellBorders
-              ? "InovuaReactDataGrid__cell--show-border-bottom"
-              : "",
-            showVerticalCellBorders
-              ? "InovuaReactDataGrid__cell--show-border-right"
-              : "",
-            isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-            hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
-            showHorizontalCellBorders
-              ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
-              : "",
-            showVerticalCellBorders
-              ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
-              : "",
-            align === "right" || align === "end" ? "text-right" : "",
-            column?.className
-          )}
-          style={{
-            width,
-            minWidth: column?.minWidth,
-            maxWidth: column?.maxWidth,
-            ...(typeof column?.style === "object" && column?.style
-              ? column.style
-              : {}),
-          }}
-          onClick={() => {
-            if (
-              normalizedStartEvent === "click" ||
-              normalizedStartEvent === "onclick"
-            ) {
-              startEdit();
-            }
-          }}
-          onDoubleClick={() => {
-            if (
-              normalizedStartEvent === "dblclick" ||
-              normalizedStartEvent === "doubleclick" ||
-              normalizedStartEvent === "ondoubleclick"
-            ) {
-              startEdit();
-            }
-          }}
-          onMouseEnter={() => setHoveredCellId(cell.id)}
-          onMouseLeave={() => {
-            setHoveredCellId((current) =>
-              current === cell.id ? null : current
-            );
-          }}
-        >
-          <div className="tdg-cell-content" style={contentStyle}>
-            {editor ??
-              flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </div>
-        </TableCell>
-      );
-    });
+            onCellEditStart({
+              rowId,
+              rowIndex,
+              columnId,
+              columnIndex: cellIndex,
+              value,
+              data: row.original,
+              column,
+              cellProps,
+            });
+          };
+          const normalizedStartEvent = editStartEvent.toLowerCase();
+
+          return (
+            <TableCell
+              ref={(node) => {
+                const key = `${String(row.id)}\u0000${columnId}`;
+                if (node) cellNodesRef.current.set(key, node);
+                else cellNodesRef.current.delete(key);
+              }}
+              key={cell.id}
+              data-column-id={columnId}
+              data-column-index={cellIndex}
+              data-editing={editor ? "true" : "false"}
+              className={cn(
+                userSelectClass,
+                "InovuaReactDataGrid__cell",
+                "InovuaReactDataGrid__cell--direction-ltr",
+                showHorizontalCellBorders
+                  ? "InovuaReactDataGrid__cell--show-border-bottom"
+                  : "",
+                showVerticalCellBorders
+                  ? "InovuaReactDataGrid__cell--show-border-right"
+                  : "",
+                isLastCell ? "InovuaReactDataGrid__cell--last" : "",
+                hoveredCellId === cell.id
+                  ? "InovuaReactDataGrid__cell--over"
+                  : "",
+                showHorizontalCellBorders
+                  ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                  : "",
+                showVerticalCellBorders
+                  ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
+                  : "",
+                align === "right" || align === "end" ? "text-right" : "",
+                column?.className
+              )}
+              style={{
+                width,
+                minWidth: column?.minWidth,
+                maxWidth: column?.maxWidth,
+                ...(typeof column?.style === "object" && column?.style
+                  ? column.style
+                  : {}),
+              }}
+              onClick={() => {
+                if (
+                  normalizedStartEvent === "click" ||
+                  normalizedStartEvent === "onclick"
+                ) {
+                  startEdit();
+                }
+              }}
+              onDoubleClick={() => {
+                if (
+                  normalizedStartEvent === "dblclick" ||
+                  normalizedStartEvent === "doubleclick" ||
+                  normalizedStartEvent === "ondoubleclick"
+                ) {
+                  startEdit();
+                }
+              }}
+              onMouseEnter={() => setHoveredCellId(cell.id)}
+              onMouseLeave={() => {
+                setHoveredCellId((current) =>
+                  current === cell.id ? null : current
+                );
+              }}
+            >
+              <div className="tdg-cell-content" style={contentStyle}>
+                {editor ??
+                  flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </div>
+            </TableCell>
+          );
+        })}
+        {columnRenderRange.afterWidth > 0 && virtualizeColumns ? (
+          <TableCell
+            aria-hidden="true"
+            className="pointer-events-none !p-0"
+            style={{
+              width: columnRenderRange.afterWidth,
+              minWidth: columnRenderRange.afterWidth,
+              maxWidth: columnRenderRange.afterWidth,
+            }}
+          />
+        ) : null}
+      </>
+    );
   }
 
   if (loading && rowModel.length === 0) {
@@ -709,14 +768,14 @@ export function GridBody(props: GridBodyProps) {
         {stickyHeaderOffset > 0 ? (
           <TableRow aria-hidden="true">
             <TableCell
-              colSpan={orderedColumns.length}
+              colSpan={renderedTableColumnCount}
               style={{ height: stickyHeaderOffset }}
             />
           </TableRow>
         ) : null}
         <TableRow>
           <TableCell
-            colSpan={orderedColumns.length}
+            colSpan={renderedTableColumnCount}
             className={cn(
               "h-24 text-center",
               showHorizontalCellBorders
@@ -737,14 +796,14 @@ export function GridBody(props: GridBodyProps) {
         {stickyHeaderOffset > 0 ? (
           <TableRow aria-hidden="true">
             <TableCell
-              colSpan={orderedColumns.length}
+              colSpan={renderedTableColumnCount}
               style={{ height: stickyHeaderOffset }}
             />
           </TableRow>
         ) : null}
         <TableRow>
           <TableCell
-            colSpan={orderedColumns.length}
+            colSpan={renderedTableColumnCount}
             className={cn(
               "h-24 text-center",
               showHorizontalCellBorders
@@ -766,7 +825,7 @@ export function GridBody(props: GridBodyProps) {
           {paddingTop > 0 && (
             <TableRow>
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: paddingTop }}
               />
             </TableRow>
@@ -808,7 +867,7 @@ export function GridBody(props: GridBodyProps) {
           {paddingBottom > 0 && (
             <TableRow>
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: paddingBottom }}
               />
             </TableRow>
@@ -819,7 +878,7 @@ export function GridBody(props: GridBodyProps) {
           {stickyHeaderOffset > 0 ? (
             <TableRow aria-hidden="true">
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: stickyHeaderOffset }}
               />
             </TableRow>

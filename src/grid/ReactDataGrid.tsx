@@ -103,6 +103,7 @@ type ReactDataGridDefaultPropName =
   | "enableFiltering"
   | "filterTypes"
   | "virtualized"
+  | "virtualizeColumnsThreshold"
   | "allowMobileTransform"
   | "columnUserSelect"
   | "showCellBorders"
@@ -127,6 +128,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
+  virtualizeColumnsThreshold: 15,
   allowMobileTransform: false,
   columnUserSelect: true,
   showCellBorders: true,
@@ -350,6 +352,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     filteredRowsCount,
 
     virtualized = REACT_DATA_GRID_DEFAULT_PROPS.virtualized,
+    virtualizeColumnsThreshold = REACT_DATA_GRID_DEFAULT_PROPS.virtualizeColumnsThreshold,
+    virtualizeColumns,
     allowMobileTransform = REACT_DATA_GRID_DEFAULT_PROPS.allowMobileTransform,
     columnUserSelect = REACT_DATA_GRID_DEFAULT_PROPS.columnUserSelect,
     showCellBorders = REACT_DATA_GRID_DEFAULT_PROPS.showCellBorders,
@@ -1180,6 +1184,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showColumnMenuTool,
   ]);
   const columnWidths = columnWidthAllocation.widths;
+  const normalizedVirtualizeColumnsThreshold =
+    typeof virtualizeColumnsThreshold === "number" &&
+    Number.isFinite(virtualizeColumnsThreshold)
+      ? Math.max(0, Math.floor(virtualizeColumnsThreshold))
+      : REACT_DATA_GRID_DEFAULT_PROPS.virtualizeColumnsThreshold;
+  const hasFixedNumericRowHeight =
+    typeof rowHeight === "number" && Number.isFinite(rowHeight);
+  const computedVirtualizeColumns = Boolean(
+    !mobileTransformActive &&
+    orderedColumns.length > 0 &&
+    hasFixedNumericRowHeight &&
+    (typeof virtualizeColumns === "boolean"
+      ? virtualizeColumns
+      : orderedColumns.length >= normalizedVirtualizeColumnsThreshold)
+  );
 
   /** ---------------- selection helpers ---------------- */
 
@@ -1496,6 +1515,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [columnScrollLeft, setColumnScrollLeft] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+
+    const updateScrollLeft = () => {
+      const nextScrollLeft = Math.max(0, viewport.scrollLeft);
+      setColumnScrollLeft((current) =>
+        Object.is(current, nextScrollLeft) ? current : nextScrollLeft
+      );
+    };
+
+    updateScrollLeft();
+    viewport.addEventListener("scroll", updateScrollLeft, { passive: true });
+    return () => viewport.removeEventListener("scroll", updateScrollLeft);
+  }, [mobileTransformActive]);
   const rowModel = table.getRowModel().rows;
   const headerGroupCount = table.getHeaderGroups().length;
   const stickyHeaderOffset =
@@ -1735,6 +1770,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         editStartEvent,
         theme: themeName,
         totalDataCount: rows.length,
+        virtualizeColumns: computedVirtualizeColumns,
       });
 
       return {
@@ -1751,6 +1787,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [
       columnWidths,
       computedMinRowHeight,
+      computedVirtualizeColumns,
       editStartEvent,
       editable,
       idProperty,
@@ -2403,6 +2440,93 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }),
     [columnWidths, orderedColumns]
   );
+  const columnRenderRange = React.useMemo(() => {
+    const totalColumnCount = columnLayout.length;
+    if (!computedVirtualizeColumns || totalColumnCount === 0) {
+      return {
+        firstIndex: 0,
+        lastIndex: totalColumnCount - 1,
+        beforeWidth: 0,
+        afterWidth: 0,
+        columnRenderCount: totalColumnCount,
+      };
+    }
+
+    const viewportStart = Math.max(0, columnScrollLeft);
+    const viewportEnd = viewportStart + Math.max(1, columnViewportWidth || 1);
+    let runningWidth = 0;
+    let firstVisibleIndex = 0;
+    let lastVisibleIndex = totalColumnCount - 1;
+    let foundFirst = false;
+
+    for (const [index, column] of columnLayout.entries()) {
+      const columnStart = runningWidth;
+      const columnEnd = columnStart + column.width;
+
+      if (!foundFirst && columnEnd > viewportStart) {
+        firstVisibleIndex = index;
+        foundFirst = true;
+      }
+      if (columnStart < viewportEnd) {
+        lastVisibleIndex = index;
+      }
+      runningWidth = columnEnd;
+    }
+
+    // One column of horizontal overscan keeps resize handles, filter menus and
+    // keyboard-driven edit navigation stable at both viewport edges.
+    const firstIndex = Math.max(0, firstVisibleIndex - 1);
+    const lastIndex = Math.min(totalColumnCount - 1, lastVisibleIndex + 1);
+    const beforeWidth = columnLayout
+      .slice(0, firstIndex)
+      .reduce((sum, column) => sum + column.width, 0);
+    const renderedWidth = columnLayout
+      .slice(firstIndex, lastIndex + 1)
+      .reduce((sum, column) => sum + column.width, 0);
+
+    return {
+      firstIndex,
+      lastIndex,
+      beforeWidth,
+      afterWidth: Math.max(0, runningWidth - beforeWidth - renderedWidth),
+      columnRenderCount: lastIndex - firstIndex + 1,
+    };
+  }, [
+    columnLayout,
+    columnScrollLeft,
+    columnViewportWidth,
+    computedVirtualizeColumns,
+  ]);
+  const renderedColumnLayout = React.useMemo(() => {
+    if (!computedVirtualizeColumns) return columnLayout;
+
+    return [
+      ...(columnRenderRange.beforeWidth > 0
+        ? [
+            {
+              id: "__tdg_virtual_columns_before__",
+              width: columnRenderRange.beforeWidth,
+              minWidth: columnRenderRange.beforeWidth,
+              maxWidth: columnRenderRange.beforeWidth,
+            },
+          ]
+        : []),
+      ...columnLayout.slice(
+        columnRenderRange.firstIndex,
+        columnRenderRange.lastIndex + 1
+      ),
+      ...(columnRenderRange.afterWidth > 0
+        ? [
+            {
+              id: "__tdg_virtual_columns_after__",
+              width: columnRenderRange.afterWidth,
+              minWidth: columnRenderRange.afterWidth,
+              maxWidth: columnRenderRange.afterWidth,
+            },
+          ]
+        : []),
+    ];
+  }, [columnLayout, columnRenderRange, computedVirtualizeColumns]);
 
   const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(
     null
@@ -2432,11 +2556,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     const next: Record<string, number> = {};
 
-    for (const [index, column] of orderedColumns.entries()) {
-      const headerCell = headerCells[index];
-      if (!headerCell) continue;
-
-      const columnId = getColumnId(column);
+    for (const headerCell of headerCells) {
+      const columnId = headerCell.dataset.columnId;
+      if (!columnId) continue;
+      const column = orderedColumns.find(
+        (candidate) => getColumnId(candidate) === columnId
+      );
+      if (!column) continue;
       const { minWidth, maxWidth } = getColumnWidthBounds(column);
       next[columnId] = clamp(
         Math.round(headerCell.getBoundingClientRect().width),
@@ -3318,11 +3444,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const setScrollLeftCompat = React.useCallback((nextScrollLeft: number) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollLeft = nextScrollLeft;
+    setColumnScrollLeft(scrollRef.current.scrollLeft);
   }, []);
 
   const incrementScrollLeftCompat = React.useCallback((delta: number) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollLeft += delta;
+    setColumnScrollLeft(scrollRef.current.scrollLeft);
   }, []);
 
   const setScrollTopCompat = React.useCallback((nextScrollTop: number) => {
@@ -3385,31 +3513,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const viewport = scrollRef.current;
       const column = visibleComputedColumns[index];
       if (!viewport || !column) return;
-
-      const headerCell = surfaceRef.current?.querySelector<HTMLElement>(
-        `[data-slot="grid-header-cell"][data-column-id="${getColumnId(column)}"]`
-      );
-      if (!headerCell) return;
-
-      const viewportRect = viewport.getBoundingClientRect();
-      const headerRect = headerCell.getBoundingClientRect();
+      const columnStart =
+        index === 0 ? 0 : (columnWidthPrefixSums[index - 1] ?? 0);
+      const columnEnd = columnWidthPrefixSums[index] ?? columnStart;
       const offset = config?.offset ?? 0;
+      let nextScrollLeft = viewport.scrollLeft;
 
       if (
         config?.direction === "left" ||
-        headerRect.left < viewportRect.left + offset
+        columnStart < viewport.scrollLeft + offset
       ) {
-        viewport.scrollLeft += headerRect.left - viewportRect.left - offset;
+        nextScrollLeft = columnStart - offset;
       } else if (
         config?.direction === "right" ||
-        headerRect.right > viewportRect.right - offset
+        columnEnd > viewport.scrollLeft + viewport.clientWidth - offset
       ) {
-        viewport.scrollLeft += headerRect.right - viewportRect.right + offset;
+        nextScrollLeft = columnEnd - viewport.clientWidth + offset;
       }
+
+      viewport.scrollLeft = Math.max(0, nextScrollLeft);
+      setColumnScrollLeft(viewport.scrollLeft);
 
       callback?.();
     },
-    [visibleComputedColumns]
+    [columnWidthPrefixSums, visibleComputedColumns]
   );
 
   const scrollToCellCompat = React.useCallback(
@@ -4045,7 +4172,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         setReservedViewportWidth(reservedViewportWidthRef.current);
       },
       reservedViewportWidth,
-      virtualizeColumns: false,
+      virtualizeColumns: computedVirtualizeColumns,
       computedShowHeaderBorderRight: showVerticalCellBorders,
       silentSetData: setRows,
       setOriginalData: setRows,
@@ -4086,6 +4213,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnsMap,
     commitColumnPixelResize,
     commitColumnResizeEntries,
+    computedVirtualizeColumns,
     count,
     dataSource,
     editable,
@@ -4247,7 +4375,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                         style={sharedTableStyle}
                       >
                         <colgroup>
-                          {columnLayout.map((column) => (
+                          {renderedColumnLayout.map((column) => (
                             <col
                               key={column.id}
                               style={{
@@ -4294,6 +4422,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           filterTypes={filterTypes}
                           openFilterMenuColId={openFilterMenuColId}
                           setOpenFilterMenuColId={setOpenFilterMenuColId}
+                          virtualizeColumns={computedVirtualizeColumns}
+                          columnRenderRange={columnRenderRange}
                         />
                       </table>
                     </div>
@@ -4304,7 +4434,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                   style={sharedTableStyle}
                 >
                   <colgroup>
-                    {columnLayout.map((column) => (
+                    {renderedColumnLayout.map((column) => (
                       <col
                         key={column.id}
                         style={{
@@ -4323,6 +4453,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     showHorizontalCellBorders={showHorizontalCellBorders}
                     showVerticalCellBorders={showVerticalCellBorders}
                     virtualized={virtualized}
+                    virtualizeColumns={computedVirtualizeColumns}
+                    columnRenderRange={columnRenderRange}
                     virtualItems={virtualItems}
                     paddingTop={paddingTop}
                     paddingBottom={paddingBottom}
@@ -4341,6 +4473,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
                       totalComputedWidth: tableMinWidth ?? 0,
                       remoteRowOffset: loadSkip,
                       columns: visibleComputedColumns,
+                      columnRenderCount: columnRenderRange.columnRenderCount,
+                      totalColumnCount: visibleComputedColumns.length,
+                      virtualizeColumns: computedVirtualizeColumns,
                       columnsMap,
                       dataSourceArray: rows,
                       theme: themeName,
