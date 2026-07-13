@@ -28,11 +28,10 @@ type Issue17ImplementedProp =
   | "defaultShowZebraRows"
   | "enableSelection"
   | "virtualizeColumnsThreshold"
-  | "virtualizeColumns";
-
-type Issue17UnsupportedProp =
-  | "emptyText"
+  | "virtualizeColumns"
   | "onColumnFilterValueChange";
+
+type Issue17UnsupportedProp = "emptyText";
 
 type AssertNever<T extends never> = T;
 
@@ -303,8 +302,18 @@ export const issue17EmptyTextReproduction = acceptGridProps({
 
 export const issue17ColumnFilterCallbackReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error This callback is not part of the approved public surface.
-  onColumnFilterValueChange: () => {},
+  onColumnFilterValueChange: (event) => {
+    const columnId: string = event.columnId;
+    const columnIndex: number = event.columnIndex;
+    const filterName: string = event.filterValue.name;
+    const cellColumnIndex: number | undefined =
+      event.cellProps?.computedVisibleIndex;
+
+    void columnId;
+    void columnIndex;
+    void filterName;
+    void cellColumnIndex;
+  },
 });
 
 export const issue17EnableSelectionReproduction = acceptGridProps({

@@ -3,6 +3,7 @@
 import * as React from "react";
 import type {
   TypeColumn,
+  TypeColumnFilterValueChangeArg,
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
@@ -55,6 +56,7 @@ export type GridHeaderProps = {
   draftFilterValue: TypeFilterValue;
   setFilterValue: (v: TypeFilterValue) => void;
   setDraftFilterValue: React.Dispatch<React.SetStateAction<TypeFilterValue>>;
+  onColumnFilterValueChange?: (event: TypeColumnFilterValueChangeArg) => void;
   filterTypes: TypeFilterTypes;
 
   openFilterMenuColId: string | null;
@@ -117,6 +119,7 @@ export function GridHeader(props: GridHeaderProps) {
     draftFilterValue,
     setFilterValue,
     setDraftFilterValue,
+    onColumnFilterValueChange,
     filterTypes,
     openFilterMenuColId,
     setOpenFilterMenuColId,
@@ -246,6 +249,7 @@ export function GridHeader(props: GridHeaderProps) {
                     draftFilterValue={draftFilterValue}
                     setFilterValue={setFilterValue}
                     setDraftFilterValue={setDraftFilterValue}
+                    onColumnFilterValueChange={onColumnFilterValueChange}
                     setSkip={setSkip}
                     filterTypes={filterTypes}
                     i18n={i18n}

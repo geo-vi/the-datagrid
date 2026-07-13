@@ -5,7 +5,9 @@ import { IconChevronDown } from "@tabler/icons-react";
 import { X } from "lucide-react";
 
 import type {
+  TypeCellProps,
   TypeColumn,
+  TypeColumnFilterValueChangeArg,
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
@@ -72,6 +74,7 @@ export type FilterCellProps = {
   draftFilterValue: TypeFilterValue;
   setFilterValue: (v: TypeFilterValue) => void;
   setDraftFilterValue: React.Dispatch<React.SetStateAction<TypeFilterValue>>;
+  onColumnFilterValueChange?: (event: TypeColumnFilterValueChangeArg) => void;
 
   setSkip: (n: number) => void;
 
@@ -167,6 +170,7 @@ export function FilterCell(props: FilterCellProps) {
     draftFilterValue,
     setFilterValue,
     setDraftFilterValue,
+    onColumnFilterValueChange,
     setSkip,
     filterTypes,
     showHorizontalCellBorders,
@@ -212,6 +216,18 @@ export function FilterCell(props: FilterCellProps) {
 
   const operatorMenuEnabled = enableColumnFilterContextMenu && filterable;
   const filterCellPadding = normalizeFilterCellPadding(col?.filterCellPadding);
+  const filterCellContext = React.useMemo<TypeCellProps>(
+    () => ({
+      rowIndex: -1,
+      columnIndex,
+      computedVisibleIndex: columnIndex,
+      id: colId,
+      name: colId,
+      columnId: colId,
+      column: col,
+    }),
+    [col, colId, columnIndex]
+  );
 
   // Resolve filterEditorProps (supports function form)
   const filterEditorPropsAny = (col as any)?.filterEditorProps;
@@ -230,15 +246,44 @@ export function FilterCell(props: FilterCellProps) {
     }
   }
 
+  function emitColumnFilterValueChange(nextEntry: TypeSingleFilterValue) {
+    onColumnFilterValueChange?.({
+      filterValue: nextEntry,
+      columnId: colId,
+      columnIndex,
+      cellProps: filterCellContext,
+    });
+  }
+
   const onClear = () => {
-    applyFilterNow(clearFilter(filterValue, colId, { filterTypes }));
+    const next = clearFilter(currentFilter, colId, { filterTypes });
+    const clearedEntry = getFilterEntry(next, colId);
+
+    if (entry && clearedEntry) {
+      emitColumnFilterValueChange({
+        ...entry,
+        value: clearedEntry.value,
+        active: entry.active,
+      });
+    }
+
+    applyFilterNow(next);
   };
 
   const onSelectOperator = (nextOp: string) => {
-    const next = setFilterOperator(filterValue, colId, nextOp, {
+    const next = setFilterOperator(currentFilter, colId, nextOp, {
       filterTypes,
       type: filterTypeName,
     });
+    const nextEntry = getFilterEntry(next, colId);
+
+    if (nextEntry) {
+      emitColumnFilterValueChange({
+        ...nextEntry,
+        active: entry?.active,
+      });
+    }
+
     applyFilterNow(next);
   };
 
@@ -253,6 +298,7 @@ export function FilterCell(props: FilterCellProps) {
       active: undefined,
     };
 
+    emitColumnFilterValueChange(nextEntry);
     setSkip(0);
     if (filterControlled) {
       setFilterValue(
@@ -292,13 +338,15 @@ export function FilterCell(props: FilterCellProps) {
           ? "border-r last:border-r-0 [border-right-color:var(--tdg-filter-border-color)]"
           : ""
       )}
-      style={{
-        width,
-        minWidth: col?.minWidth,
-        maxWidth: col?.maxWidth,
-        height: filterRowHeight,
-        "--tdg-filter-cell-padding": filterCellPadding,
-      } as React.CSSProperties}
+      style={
+        {
+          width,
+          minWidth: col?.minWidth,
+          maxWidth: col?.maxWidth,
+          height: filterRowHeight,
+          "--tdg-filter-cell-padding": filterCellPadding,
+        } as React.CSSProperties
+      }
       onContextMenu={(e) => {
         if (!operatorMenuEnabled) return;
         e.preventDefault();

@@ -8,6 +8,7 @@ import type {
   TypeComputedColumn,
   TypeComputedColumnsMap,
   TypeComputedProps,
+  TypeColumnFilterValueChangeArg,
   TypeComputedVirtualList,
   TypeComputedVirtualListRow,
   TypeCompleteEditArgs,
@@ -348,6 +349,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
 
     enableFiltering = REACT_DATA_GRID_DEFAULT_PROPS.enableFiltering,
+    onColumnFilterValueChange,
 
     filteredRowsCount,
 
@@ -3202,6 +3204,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [filterControlled, setDraftFilterValue, setFilterValue, setSkip]
   );
 
+  const computedOnColumnFilterValueChangeCompat = React.useCallback(
+    (event: TypeColumnFilterValueChangeArg) => {
+      onColumnFilterValueChange?.(event);
+      setFilterValueAndResetPage(
+        upsertFilterEntry(filterValue, event.filterValue, { filterTypes })
+      );
+    },
+    [
+      filterTypes,
+      filterValue,
+      onColumnFilterValueChange,
+      setFilterValueAndResetPage,
+    ]
+  );
+
   const setColumnOrderCompat = React.useCallback(
     (next: string[]) => {
       const internalNext = checkboxEnabled
@@ -3325,7 +3342,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
 
   const setColumnFilterValueCompat = React.useCallback(
-    (column: TypeGetColumnByParam, value: unknown) => {
+    (column: TypeGetColumnByParam, value: unknown, operator?: string) => {
       const resolved = getColumnByCompat(column, { initial: true });
       const columnId = resolved
         ? getColumnId(resolved)
@@ -3337,28 +3354,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
         resolved as TypeColumn | undefined,
         existing
       );
-      const operator = resolveDefaultFilterOperator(filterType, existing);
-
-      setFilterValueAndResetPage(
-        upsertFilterEntry(
-          filterValue,
-          {
-            name: columnId,
-            type: filterType,
-            operator,
-            value,
-            active: undefined,
-          },
-          { filterTypes }
-        )
+      const nextOperator =
+        operator ?? resolveDefaultFilterOperator(filterType, existing);
+      const columnIndex = orderedColumns.findIndex(
+        (candidate) => getColumnId(candidate) === columnId
       );
+
+      computedOnColumnFilterValueChangeCompat({
+        columnId,
+        columnIndex,
+        filterValue: {
+          ...(existing ?? {}),
+          name: columnId,
+          type: filterType,
+          operator: nextOperator,
+          value,
+        },
+      });
     },
     [
-      filterTypes,
+      computedOnColumnFilterValueChangeCompat,
       filterValue,
       getColumnByCompat,
       getColumnIdCompat,
-      setFilterValueAndResetPage,
+      orderedColumns,
     ]
   );
 
@@ -3367,11 +3386,39 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const columnId = getColumnIdCompat(column);
       if (!columnId) return;
 
-      setFilterValueAndResetPage(
-        clearFilter(filterValue, columnId, { filterTypes })
+      const existing = getFilterEntry(filterValue, columnId);
+      if (!existing) {
+        setFilterValueAndResetPage(
+          clearFilter(filterValue, columnId, { filterTypes })
+        );
+        return;
+      }
+
+      const next = clearFilter(filterValue, columnId, { filterTypes });
+      const clearedEntry = getFilterEntry(next, columnId);
+      if (!clearedEntry) return;
+
+      const columnIndex = orderedColumns.findIndex(
+        (candidate) => getColumnId(candidate) === columnId
       );
+
+      computedOnColumnFilterValueChangeCompat({
+        columnId,
+        columnIndex,
+        filterValue: {
+          ...existing,
+          value: clearedEntry.value,
+        },
+      });
     },
-    [filterTypes, filterValue, getColumnIdCompat, setFilterValueAndResetPage]
+    [
+      computedOnColumnFilterValueChangeCompat,
+      filterTypes,
+      filterValue,
+      getColumnIdCompat,
+      orderedColumns,
+      setFilterValueAndResetPage,
+    ]
   );
 
   const setSelectedCompat = React.useCallback(
@@ -3892,6 +3939,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       clearColumnFilter: clearColumnFilterCompat,
       getColumnFilterValue: getColumnFilterValueCompat,
       setColumnFilterValue: setColumnFilterValueCompat,
+      computedOnColumnFilterValueChange:
+        computedOnColumnFilterValueChangeCompat,
       isColumnFiltered: (column) => {
         const entry = getColumnFilterValueCompat(column);
         return Boolean(entry && entry.active !== false);
@@ -4214,6 +4263,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     commitColumnPixelResize,
     commitColumnResizeEntries,
     computedVirtualizeColumns,
+    computedOnColumnFilterValueChangeCompat,
     count,
     dataSource,
     editable,
@@ -4419,6 +4469,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           draftFilterValue={draftFilterValue}
                           setFilterValue={setFilterValue}
                           setDraftFilterValue={setDraftFilterValue}
+                          onColumnFilterValueChange={onColumnFilterValueChange}
                           filterTypes={filterTypes}
                           openFilterMenuColId={openFilterMenuColId}
                           setOpenFilterMenuColId={setOpenFilterMenuColId}

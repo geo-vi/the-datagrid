@@ -73,6 +73,45 @@ export type TypeSingleFilterValue = {
 
 export type TypeFilterValue = TypeSingleFilterValue[] | null;
 
+/**
+ * Filter-header cell context supplied by `onColumnFilterValueChange`.
+ *
+ * Inovua types this payload as `TypeCellProps`. Header filter cells do not
+ * represent a data row, so `rowIndex` is reported as `-1` by our runtime while
+ * the column aliases identify the filter that initiated the change.
+ */
+export type TypeCellProps = {
+  rowIndex: number;
+  columnIndex: number;
+  computedVisibleIndex?: number;
+  data?: any;
+  name?: string;
+  header?:
+    | React.ReactNode
+    | string
+    | ((
+        cellProps: TypeCellProps,
+        context: {
+          cellProps: TypeCellProps;
+          column: TypeComputedColumn;
+          contextMenu: any;
+        }
+      ) => React.ReactNode);
+  groupProps?: any;
+  cellSelectable?: boolean;
+  id?: string | number;
+  columnId?: string;
+  column?: TypeComputedColumn | TypeColumn;
+  [key: string]: any;
+};
+
+export type TypeColumnFilterValueChangeArg = {
+  filterValue: TypeSingleFilterValue;
+  columnId: string;
+  columnIndex: number;
+  cellProps?: TypeCellProps;
+};
+
 export type TypeFilterOperator = {
   name: string;
   fn: (args: {
@@ -566,7 +605,14 @@ export type TypeComputedProps = {
   getColumnFilterValue?: (
     column: TypeGetColumnByParam
   ) => TypeSingleFilterValue | undefined;
-  setColumnFilterValue?: (column: TypeGetColumnByParam, value: unknown) => void;
+  setColumnFilterValue?: (
+    column: TypeGetColumnByParam,
+    value: unknown,
+    operator?: string
+  ) => void;
+  computedOnColumnFilterValueChange?: (
+    columnFilterValue: TypeColumnFilterValueChangeArg
+  ) => void;
   isColumnFiltered?: (column: TypeGetColumnByParam) => boolean;
 
   computedEditable?: boolean;
@@ -798,6 +844,9 @@ export type TypeDataGridProps = {
   filterValue?: TypeFilterValue;
   defaultFilterValue?: TypeFilterValue;
   onFilterValueChange?: (filterValue: TypeFilterValue) => void;
+  onColumnFilterValueChange?: (
+    columnFilterValue: TypeColumnFilterValueChangeArg
+  ) => void;
 
   filterTypes?: TypeFilterTypes;
 
