@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDirectory, "..");
 const sourceDirectory = path.join(repoRoot, "tests", "published-types");
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 if (!fs.existsSync(path.join(repoRoot, "dist", "main.d.ts"))) {
   console.error("Missing dist declarations. Run the library build first.");
@@ -30,16 +31,51 @@ const tscPath = require.resolve("typescript/bin/tsc");
 const configurations = ["tsconfig.json", "tsconfig.node10.json"];
 
 try {
+  const packResult = spawnSync(
+    npmCommand,
+    ["pack", "--json", "--pack-destination", fixtureDirectory],
+    { cwd: repoRoot, encoding: "utf8" }
+  );
+
+  if (packResult.stderr) process.stderr.write(packResult.stderr);
+  if (packResult.status !== 0) {
+    if (packResult.stdout) process.stdout.write(packResult.stdout);
+    throw new Error(`npm pack failed (exit ${packResult.status ?? 1}).`);
+  }
+
+  let packEntries;
+  try {
+    packEntries = JSON.parse(packResult.stdout);
+  } catch (error) {
+    throw new Error("Could not parse npm pack output.", { cause: error });
+  }
+
+  const archiveFilename = packEntries?.[0]?.filename;
+  if (typeof archiveFilename !== "string") {
+    throw new Error("npm pack did not report a package archive.");
+  }
+
+  const archivePath = path.join(fixtureDirectory, archiveFilename);
   fs.mkdirSync(installedPackageDirectory, { recursive: true });
-  fs.copyFileSync(
-    path.join(repoRoot, "package.json"),
-    path.join(installedPackageDirectory, "package.json")
+  const extractResult = spawnSync(
+    "tar",
+    [
+      "-xzf",
+      archivePath,
+      "-C",
+      installedPackageDirectory,
+      "--strip-components=1",
+    ],
+    { encoding: "utf8" }
   );
-  fs.cpSync(
-    path.join(repoRoot, "dist"),
-    path.join(installedPackageDirectory, "dist"),
-    { recursive: true }
-  );
+
+  if (extractResult.stdout) process.stdout.write(extractResult.stdout);
+  if (extractResult.stderr) process.stderr.write(extractResult.stderr);
+  if (extractResult.status !== 0) {
+    throw new Error(
+      `Could not extract the packed package (exit ${extractResult.status ?? 1}).`
+    );
+  }
 
   fs.writeFileSync(
     path.join(fixtureDirectory, "package.json"),
@@ -80,7 +116,7 @@ try {
       );
     }
 
-    console.log(`Published types resolved with ${configuration}.`);
+    console.log(`Packed root and search types resolved with ${configuration}.`);
   }
 } finally {
   fs.rmSync(fixtureDirectory, { recursive: true, force: true });

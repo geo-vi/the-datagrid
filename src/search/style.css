@@ -6,6 +6,15 @@
 @source "../components/ui/input.tsx";
 @source "../components/ui/button.tsx";
 
+.tdg-search-root,
+.tdg-search-root::before,
+.tdg-search-root::after,
+.tdg-search-root *,
+.tdg-search-root *::before,
+.tdg-search-root *::after {
+  box-sizing: border-box;
+}
+
 .tdg-search-root {
   --tdg-search-background: var(
     --tdg-color-background,
@@ -75,11 +84,19 @@
   color: inherit !important;
 }
 
-@theme inline {
-  --radius-sm: var(--tdg-radius-sm, var(--radius-sm, 0.25rem));
-  --radius-md: var(--tdg-radius-md, var(--radius-md, 0.375rem));
-  --radius-lg: var(--tdg-radius-lg, var(--radius-lg, 0.5rem));
+.tdg-search-root.rounded-md,
+.tdg-search-root .rounded-md {
+  border-radius: var(
+    --tdg-radius-md,
+    var(--radius-md, calc(var(--radius, 0.5rem) - 2px))
+  );
+}
 
+@theme {
+  --radius-*: initial;
+}
+
+@theme inline {
   --color-background: var(--tdg-search-background);
   --color-foreground: var(--tdg-search-foreground);
   --color-accent: var(--tdg-search-accent);

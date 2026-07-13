@@ -172,7 +172,7 @@ export interface IColumn {
   /** Additional exact aliases accepted by column-scoped search queries. */
   searchAliases?: readonly string[];
   /** Supplies the raw row value indexed by optional global search. */
-  searchValue?: (data: any) => unknown;
+  searchValue?: (data: TypeColumnRenderArgs["data"]) => unknown;
 
   textAlign?: "start" | "end" | "left" | "right" | "center";
   headerAlign?: "start" | "end" | "left" | "right" | "center";

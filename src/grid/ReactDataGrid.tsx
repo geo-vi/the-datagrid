@@ -48,6 +48,7 @@ import {
   applyLocalFilter,
   clearFilter,
   getFilterEntry,
+  hasActiveLocalFilter,
   normalizeFilterValue,
   upsertFilterEntry,
 } from "../filters/utils";
@@ -814,10 +815,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
         // static Promise cannot receive args, so treat its resolved payload as
         // a local snapshot before count and pagination are derived.
         const resultData = transformStaticPromiseRows(result.data);
-        const staticPromiseChangedRowCount =
-          !dsIsFn && resultData.length !== result.data.length;
+        const staticPromiseHasLocalPredicate =
+          !dsIsFn &&
+          (searchActive ||
+            (effectiveEnableFiltering &&
+              hasActiveLocalFilter(computedFilterForFetch, filterTypes)));
         const reportedCount = Number(
-          staticPromiseChangedRowCount
+          staticPromiseHasLocalPredicate
             ? resultData.length
             : (result.count ?? resultData.length)
         );
@@ -2988,6 +2992,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 searchEnabled={!searchConnected}
+                authoritativeResultCount={searchConnected ? count : undefined}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, event) =>

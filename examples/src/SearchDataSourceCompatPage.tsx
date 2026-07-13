@@ -60,31 +60,34 @@ const promisedRows = Promise.resolve([
   },
 ]);
 
+const composedRows = [
+  {
+    id: "composed-1",
+    name: "Alpha Candidate",
+    city: "London",
+  },
+  {
+    id: "composed-2",
+    name: "Beta Candidate",
+    city: "London",
+  },
+  {
+    id: "composed-3",
+    name: "Gamma Candidate",
+    city: "Paris",
+  },
+  {
+    id: "composed-4",
+    name: "Delta Engineer",
+    city: "London",
+  },
+];
+
 const composedPromisedRows = Promise.resolve({
-  data: [
-    {
-      id: "composed-1",
-      name: "Alpha Candidate",
-      city: "London",
-    },
-    {
-      id: "composed-2",
-      name: "Beta Candidate",
-      city: "London",
-    },
-    {
-      id: "composed-3",
-      name: "Gamma Candidate",
-      city: "Paris",
-    },
-    {
-      id: "composed-4",
-      name: "Delta Engineer",
-      city: "London",
-    },
-  ],
+  data: composedRows,
   count: 40,
 });
+const composedPromisedArrayRows = Promise.resolve(composedRows);
 
 type RemoteCall = {
   keys: string[];
@@ -99,6 +102,10 @@ export default function SearchDataSourceCompatPage() {
   const [promiseFilteredCount, setPromiseFilteredCount] = React.useState(0);
   const [composedPromiseFilteredCount, setComposedPromiseFilteredCount] =
     React.useState(0);
+  const [
+    composedPromiseArrayFilteredCount,
+    setComposedPromiseArrayFilteredCount,
+  ] = React.useState(0);
   const [privateBridgeExposed, setPrivateBridgeExposed] = React.useState<
     boolean | null
   >(null);
@@ -300,6 +307,13 @@ export default function SearchDataSourceCompatPage() {
                 pageSizes={[1]}
                 defaultFilterValue={[
                   {
+                    name: "name",
+                    operator: "contains",
+                    type: "string",
+                    value: "a",
+                    active: true,
+                  },
+                  {
                     name: "city",
                     operator: "contains",
                     type: "string",
@@ -309,6 +323,48 @@ export default function SearchDataSourceCompatPage() {
                 ]}
                 defaultSortInfo={{ name: "name", dir: -1 }}
                 filteredRowsCount={setComposedPromiseFilteredCount}
+                virtualized={false}
+                enableFiltering
+              />
+            </RDGSearchTarget>
+          </div>
+        </RDGSearchProvider>
+      </section>
+
+      <section
+        className="flex h-[520px] min-h-0 flex-col gap-3 rounded-lg border bg-background p-4"
+        data-testid="composed-promise-array-search-scope"
+      >
+        <div className="text-xs text-muted-foreground">
+          Filtered:{" "}
+          <output data-testid="search-composed-promise-array-filtered-count">
+            {composedPromiseArrayFilteredCount}
+          </output>
+        </div>
+
+        <RDGSearchProvider>
+          <RDGSearchBar debounceMs={0} />
+          <div className="min-h-0 flex-1">
+            <RDGSearchTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={columns}
+                dataSource={composedPromisedArrayRows}
+                columnOrder={columnOrder}
+                pagination="local"
+                defaultLimit={1}
+                pageSizes={[1]}
+                defaultFilterValue={[
+                  {
+                    name: "city",
+                    operator: "contains",
+                    type: "string",
+                    value: "London",
+                    active: true,
+                  },
+                ]}
+                defaultSortInfo={{ name: "name", dir: -1 }}
+                filteredRowsCount={setComposedPromiseArrayFilteredCount}
                 virtualized={false}
                 enableFiltering
               />

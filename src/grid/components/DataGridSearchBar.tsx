@@ -21,6 +21,9 @@ import {
   parseDataGridSearchQuery,
 } from "../utils/search";
 
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
+
 export type DataGridSearchBarChange = {
   commit: boolean;
   immediate: boolean;
@@ -77,6 +80,8 @@ function DataGridSearchBarControl(props: DataGridSearchBarProps) {
   const themeBase = useDatagridThemeBase();
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const prefixSlotRef = React.useRef<HTMLSpanElement | null>(null);
+  const prefixTextRef = React.useRef<HTMLElement | null>(null);
   const [isComposing, setIsComposing] = React.useState(false);
   const [scrollLeft, setScrollLeft] = React.useState(0);
   const searchColumns = React.useMemo(
@@ -88,6 +93,46 @@ function DataGridSearchBarControl(props: DataGridSearchBarProps) {
     [searchColumns, value]
   );
   const highlightPrefix = parsedQuery.prefixEnd !== null && !isComposing;
+  const prefixValue =
+    highlightPrefix && parsedQuery.prefixEnd !== null
+      ? value.slice(0, parsedQuery.prefixEnd)
+      : "";
+
+  useIsomorphicLayoutEffect(() => {
+    const slot = prefixSlotRef.current;
+    const text = prefixTextRef.current;
+    if (!slot || !text || !prefixValue) return;
+
+    let cancelled = false;
+    const fitPrefix = () => {
+      if (cancelled) return;
+
+      text.style.setProperty("--tdg-search-prefix-scale", "1");
+      const slotWidth = slot.getBoundingClientRect().width;
+      const textWidth = text.getBoundingClientRect().width;
+      if (slotWidth <= 0 || textWidth <= 0) return;
+
+      text.style.setProperty(
+        "--tdg-search-prefix-scale",
+        String(Math.min(1, slotWidth / textWidth))
+      );
+    };
+
+    fitPrefix();
+
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(fitPrefix);
+    observer?.observe(slot);
+    observer?.observe(text);
+    void document.fonts?.ready.then(fitPrefix);
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
+  }, [prefixValue, themeName]);
 
   React.useEffect(() => {
     const nextScrollLeft = inputRef.current?.scrollLeft ?? 0;
@@ -112,6 +157,7 @@ function DataGridSearchBarControl(props: DataGridSearchBarProps) {
         standalone && themeBase === "dark" ? "dark" : ""
       )}
       role="search"
+      aria-label={ariaLabel}
       data-slot="rdg-search-bar"
       data-theme={standalone ? themeName : undefined}
       data-theme-base={standalone ? themeBase : undefined}
@@ -176,7 +222,7 @@ function DataGridSearchBarControl(props: DataGridSearchBarProps) {
       />
       {highlightPrefix && parsedQuery.prefixEnd !== null ? (
         <div
-          className="pointer-events-none absolute inset-y-0 left-7 right-9 z-0 flex items-center overflow-hidden text-base text-[var(--tdg-input-color,var(--foreground))] md:text-sm"
+          className="pointer-events-none absolute inset-y-0 left-[calc(1px+var(--spacing)*7)] right-[calc(1px+var(--spacing)*9)] z-0 flex items-center overflow-hidden text-base text-[var(--tdg-input-color,var(--foreground))] md:text-sm"
           data-slot="rdg-search-query-highlight"
           aria-hidden="true"
         >
@@ -184,15 +230,24 @@ function DataGridSearchBarControl(props: DataGridSearchBarProps) {
             className="inline-flex min-w-max whitespace-pre font-normal"
             style={{ transform: `translateX(${-scrollLeft}px)` }}
           >
-            <span className="relative inline-block">
+            <span
+              ref={prefixSlotRef}
+              className="relative inline-block overflow-hidden whitespace-pre"
+              data-slot="rdg-search-column-prefix-slot"
+            >
               <span className="invisible">
                 {value.slice(0, parsedQuery.prefixEnd)}
               </span>
               <strong
-                className="absolute inset-0 whitespace-pre font-bold"
+                ref={prefixTextRef}
+                className="absolute left-0 top-0 w-max origin-left whitespace-pre font-bold"
                 data-slot="rdg-search-column-prefix"
+                style={{
+                  transform: "scaleX(var(--tdg-search-prefix-scale, 0.8))",
+                  transformOrigin: "left center",
+                }}
               >
-                {value.slice(0, parsedQuery.prefixEnd)}
+                {prefixValue}
               </strong>
             </span>
             <span className="font-normal" data-slot="rdg-search-query-value">

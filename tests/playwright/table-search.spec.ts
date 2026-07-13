@@ -272,6 +272,7 @@ test.describe("optional table search", () => {
     const grid = scope.locator(".InovuaReactDataGrid.tdg-root");
     const searchBar = scope.locator('[data-slot="rdg-search-bar"]');
     const search = scope.getByRole("searchbox", { name: "Search all fields" });
+    const mobileResultCount = grid.locator('output[aria-live="polite"]');
 
     await expect(page.locator("html")).toHaveAttribute(
       "data-site-theme",
@@ -322,11 +323,13 @@ test.describe("optional table search", () => {
     await expect(page.getByTestId("search-remote-filtered-count")).toHaveText(
       "18"
     );
+    await expect(mobileResultCount).toHaveText("18 results");
 
     await search.fill("target");
     await expect(page.getByTestId("search-remote-filtered-count")).toHaveText(
       "3"
     );
+    await expect(mobileResultCount).toHaveText("3 results");
     await expect(search).toHaveCount(1);
   });
 });

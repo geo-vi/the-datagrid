@@ -45,6 +45,7 @@ type MobileGridListProps = {
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
   searchEnabled?: boolean;
+  authoritativeResultCount?: number;
   onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
   onRowClick: (
@@ -74,6 +75,7 @@ export function MobileGridList({
   sortInfo,
   defaultSortDirection,
   searchEnabled = true,
+  authoritativeResultCount,
   onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
@@ -126,6 +128,10 @@ export function MobileGridList({
     if (!searchEnabled || !searchIndex) return rows;
     return filterDataGridSearchIndex(searchIndex, deferredQuery);
   }, [deferredQuery, rows, searchEnabled, searchIndex]);
+  const displayedResultCount =
+    !searchEnabled && authoritativeResultCount != null
+      ? authoritativeResultCount
+      : filteredRows.length;
   React.useEffect(() => {
     if (searchEnabled) {
       onFilteredRowsCountChange?.(filteredRows.length);
@@ -392,8 +398,8 @@ export function MobileGridList({
         </div>
         <div className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-muted-foreground">
           <output className="shrink-0 tabular-nums" aria-live="polite">
-            {filteredRows.length}{" "}
-            {filteredRows.length === 1 ? "result" : "results"}
+            {displayedResultCount}{" "}
+            {displayedResultCount === 1 ? "result" : "results"}
           </output>
           {activeSortSummary ? (
             <span className="min-w-0 truncate text-right">

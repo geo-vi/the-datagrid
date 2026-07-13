@@ -1,7 +1,7 @@
-import type {
-  TypeColumns,
-  TypeDataGridProps,
-  TypeDataSourceArgs,
+import ReactDataGrid, {
+  type TypeColumns,
+  type TypeDataGridProps,
+  type TypeDataSourceArgs,
 } from "@geovi/the-datagrid";
 import {
   RDGSearchBar,
@@ -29,6 +29,7 @@ export const remoteArgs: TypeDataSourceArgs = {
 };
 
 export type PublishedSearchBarProps = ComponentProps<typeof RDGSearchBar>;
+export type PublishedDataGridProps = ComponentProps<typeof ReactDataGrid>;
 export type PublishedSearchProviderProps = ComponentProps<
   typeof RDGSearchProvider
 >;
