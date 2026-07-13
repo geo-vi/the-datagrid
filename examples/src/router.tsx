@@ -14,6 +14,8 @@ import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
+import InovuaParityCompatPage from "./InovuaParityCompatPage";
+import InovuaParityExamplePage from "./InovuaParityExamplePage";
 import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
@@ -24,6 +26,10 @@ import DocsIndexPage from "./docs/DocsIndexPage";
 import DocsLayout from "./docs/DocsLayout";
 import DocsPageScreen from "./docs/DocsPageScreen";
 import { getExampleMeta } from "./exampleMeta";
+
+function InovuaParityFixturePage() {
+  return <InovuaParityCompatPage compactFixture />;
+}
 
 function BasicExamplePage() {
   const example = getExampleMeta("basic");
@@ -198,6 +204,12 @@ const exampleActionsRoute = createRoute({
   component: ActionsExamplePage,
 });
 
+const exampleInovuaParityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/inovua-parity",
+  component: InovuaParityExamplePage,
+});
+
 const exampleSelectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "examples/selection",
@@ -232,6 +244,12 @@ const legacyActionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "actions",
   component: ActionsExamplePage,
+});
+
+const legacyInovuaParityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "inovua-parity",
+  component: InovuaParityExamplePage,
 });
 
 const legacySelectionRoute = createRoute({
@@ -291,6 +309,12 @@ const compatMemorySafetyRoute = createRoute({
   component: MemorySafetyCompatPage,
 });
 
+const compatInovuaParityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/inovua-parity",
+  component: InovuaParityFixturePage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -303,18 +327,21 @@ const routeTree = rootRoute.addChildren([
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
   compatFilteredRowsCountRoute,
+  compatInovuaParityRoute,
   compatMemorySafetyRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,
   exampleColumnsRoute,
+  exampleInovuaParityRoute,
   exampleSelectionRoute,
   exampleUsersRoute,
   exampleMobileTransformRoute,
   legacyActionsRoute,
   legacyBasicRoute,
   legacyColumnsRoute,
+  legacyInovuaParityRoute,
   legacySelectionRoute,
   legacyUsersRoute,
   ...removedIssueExampleRedirectRoutes,

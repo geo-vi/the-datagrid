@@ -1,4 +1,5 @@
-import { DocsRouteLink, docsNavGroups } from "./docsContent";
+import { DocsRouteLink } from "./docsContent";
+import { docsNavigationSections } from "./docsNavigation";
 
 export default function DocsIndexPage() {
   return (
@@ -12,33 +13,33 @@ export default function DocsIndexPage() {
             Browse the documentation by topic.
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            The docs are grouped into getting started pages, practical guides,
-            reference pages, and migration notes.
+            Start with a task, explore the feature area, then use the API and
+            compatibility references when you need exact behavior.
           </p>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {docsNavGroups.map((group) => (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {docsNavigationSections.map((section) => (
           <section
-            key={group.key}
+            key={section.id}
             className="rounded-3xl border bg-background/95 p-5 shadow-sm"
           >
             <div className="space-y-2">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                {group.label}
+                {section.label}
               </p>
               <div className="space-y-3">
-                {group.pages.map((page) => (
+                {section.items.map((item) => (
                   <DocsRouteLink
-                    key={page.slug}
-                    group={page.group}
-                    slug={page.slug}
+                    key={`${item.group}/${item.slug}`}
+                    group={item.group}
+                    slug={item.slug}
                     className="block rounded-2xl border bg-card/70 px-4 py-3 transition-colors hover:bg-muted/30"
                   >
-                    <div className="text-sm font-semibold">{page.title}</div>
+                    <div className="text-sm font-semibold">{item.label}</div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {page.summary}
+                      {item.page.summary}
                     </p>
                   </DocsRouteLink>
                 ))}

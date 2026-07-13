@@ -75,7 +75,7 @@ export default function ExampleDetailPage(props: ExampleDetailPageProps) {
 
         <section
           data-testid="example-source-panel"
-          className="flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-3xl border bg-card/80 shadow-sm"
+          className="flex h-[720px] max-h-[80vh] min-h-[560px] min-w-0 flex-col overflow-hidden rounded-3xl border bg-card/80 shadow-sm"
         >
           <div className="border-b bg-muted/30 px-4 py-3">
             <div className="text-sm font-semibold">Source code</div>
@@ -84,7 +84,7 @@ export default function ExampleDetailPage(props: ExampleDetailPageProps) {
             </div>
           </div>
 
-          <ScrollArea className="flex-1" viewportClassName="min-h-[720px]">
+          <ScrollArea className="min-h-0 flex-1">
             <CopyableCodeBlock
               code={sourceCode}
               language={sourceLanguage}

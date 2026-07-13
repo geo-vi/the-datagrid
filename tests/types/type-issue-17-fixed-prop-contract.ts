@@ -1,12 +1,33 @@
-import type { TypeColumns, TypeDataGridProps, TypeI18n } from "../../src/main";
+import * as React from "react";
 
-type Issue17RequestedProp =
+import type {
+  CellProps,
+  TypeColumnEditorCell,
+  TypeColumnEditorProps,
+  TypeColumns,
+  TypeComputedProps,
+  TypeDataGridProps,
+  TypeEditInfo,
+  TypeI18n,
+} from "../../src/main";
+
+type Issue17ImplementedProp =
+  | "rowHeight"
   | "minRowHeight"
+  | "maxRowHeight"
   | "rowStyle"
   | "onColumnResize"
   | "editable"
   | "editStartEvent"
+  | "onEditStart"
+  | "onEditStop"
+  | "onEditComplete"
+  | "onEditCancel"
+  | "onEditValueChange"
   | "showZebraRows"
+  | "defaultShowZebraRows";
+
+type Issue17UnsupportedProp =
   | "emptyText"
   | "onColumnFilterValueChange"
   | "enableSelection"
@@ -14,8 +35,12 @@ type Issue17RequestedProp =
 
 type AssertNever<T extends never> = T;
 
-export type Issue17RequestedPropsRemainOutsideTypeDataGridProps = AssertNever<
-  Extract<Issue17RequestedProp, keyof TypeDataGridProps>
+export type Issue17ImplementedPropsArePublic = AssertNever<
+  Exclude<Issue17ImplementedProp, keyof TypeDataGridProps>
+>;
+
+export type Issue17UnsupportedPropsRemainOutsideTypeDataGridProps = AssertNever<
+  Extract<Issue17UnsupportedProp, keyof TypeDataGridProps>
 >;
 
 const issue17Rows = [
@@ -27,6 +52,52 @@ const issue17Rows = [
   },
 ];
 
+function Issue17Editor(props: TypeColumnEditorProps): React.ReactNode {
+  void props.editorProps;
+  void props.nativeScroll;
+  void props.theme;
+  void props.rtl;
+  void props.cell.getProps();
+  void props.cell.getDOMNode();
+  void props.gotoNext;
+  void props.gotoPrev;
+  void props.onClick;
+
+  return React.createElement("input", {
+    autoFocus: props.autoFocus,
+    value: String(props.value ?? ""),
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+      props.onChange(event.target.value),
+    onBlur: () => props.onComplete(),
+    onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") props.onCancel();
+    },
+  });
+}
+
+type Issue17ConfiguredEditorProps = TypeColumnEditorProps & {
+  placeholder: string;
+};
+
+function Issue17ConfiguredEditor(
+  props: Issue17ConfiguredEditorProps
+): React.ReactNode {
+  return React.createElement("input", {
+    placeholder: props.placeholder,
+    value: String(props.value ?? ""),
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+      props.onChange(event),
+    onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        props.onEnterNavigation(true, event.shiftKey ? -1 : 1, event);
+      }
+      if (event.key === "Tab") {
+        props.onTabNavigation(true, event.shiftKey ? -1 : 1, event);
+      }
+    },
+  });
+}
+
 export const issue17Columns: TypeColumns = [
   {
     name: "request",
@@ -35,6 +106,7 @@ export const issue17Columns: TypeColumns = [
     minWidth: 140,
     maxWidth: 260,
     filterable: true,
+    editable: false,
   },
   {
     name: "supportedPath",
@@ -42,6 +114,9 @@ export const issue17Columns: TypeColumns = [
     defaultWidth: 220,
     minWidth: 180,
     maxWidth: 320,
+    editable: async (editValue) => String(editValue).length > 0,
+    editor: Issue17ConfiguredEditor,
+    editorProps: { placeholder: "Edit supported path" },
     render: (value: unknown) => String(value),
   },
   {
@@ -50,6 +125,17 @@ export const issue17Columns: TypeColumns = [
     defaultWidth: 120,
     textAlign: "end",
     headerAlign: "end",
+    editable: true,
+    renderEditor: (
+      editorProps: TypeColumnEditorProps,
+      cellProps: CellProps,
+      cell: TypeColumnEditorCell
+    ) => {
+      void editorProps.editorProps;
+      void cellProps.computedVisibleIndex;
+      void cell.getCurrentEditValue();
+      return Issue17Editor(editorProps);
+    },
     style: { fontVariantNumeric: "tabular-nums" },
   },
   {
@@ -86,62 +172,148 @@ function acceptGridProps(props: TypeDataGridProps): TypeDataGridProps {
   return props;
 }
 
-export const issue17MinRowHeightReproduction = acceptGridProps({
+export const issue17NaturalHeightProps = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: minRowHeight is not in the fixed public prop contract.
+  rowHeight: null,
   minRowHeight: 28,
+  maxRowHeight: 160,
 });
 
-export const issue17RowStyleReproduction = acceptGridProps({
+export const issue17FunctionalHeightProps = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: rowStyle is not in the fixed public prop contract.
-  rowStyle: { minHeight: 28 },
+  rowHeight: (rowIndex) => (rowIndex === 0 ? 72 : 44),
+  minRowHeight: 32,
+  maxRowHeight: 120,
 });
 
-export const issue17OnColumnResizeReproduction = acceptGridProps({
+export const issue17RowAppearanceProps = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: onColumnResize is not in the fixed public prop contract.
-  onColumnResize: () => {},
+  showZebraRows: false,
+  rowStyle: ({ data, props, style }) => {
+    void props.realIndex;
+    void props.remoteRowIndex;
+    void props.columns[0]?.computedWidth;
+    void props.totalComputedWidth;
+    void props.naturalRowHeight;
+    style["--issue-17-row-impact"] = data.impact;
+
+    return {
+      ...style,
+      "--issue-17-row-state": data.impact === 0 ? "empty" : "active",
+      opacity: data.impact === 0 ? 0.6 : 1,
+    };
+  },
 });
 
-export const issue17EditableReproduction = acceptGridProps({
+export const issue17EditingAndResizeProps = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: editable is not in the fixed public prop contract.
   editable: true,
-});
-
-export const issue17EditStartEventReproduction = acceptGridProps({
-  ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: editStartEvent is not in the fixed public prop contract.
   editStartEvent: "click",
+  onEditStart: (info) => void info.rowId,
+  onEditValueChange: (info) => void info.value,
+  onEditStop: (info) => void info.columnId,
+  onEditComplete: async (info) => void info.value,
+  onEditCancel: (info) => void info.rowIndex,
+  onColumnResize: (info, context) => {
+    void info.column;
+    void info.width;
+    void info.flex;
+    void context.reservedViewportWidth;
+  },
 });
 
-export const issue17ShowZebraRowsReproduction = acceptGridProps({
+export const issue17StaticRowStyleProps = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: showZebraRows is not in the fixed public prop contract.
-  showZebraRows: true,
+  rowStyle: {
+    "--issue-17-static-row": "supported",
+    minHeight: 28,
+  },
+  defaultShowZebraRows: true,
 });
+
+type Issue17OptionalEditingApi = Pick<
+  TypeComputedProps,
+  | "isInEdit"
+  | "getCurrentEditInfo"
+  | "startEdit"
+  | "tryStartEdit"
+  | "completeEdit"
+  | "cancelEdit"
+  | "currentEditCompletePromise"
+>;
+
+export const issue17OptionalEditingApi: Issue17OptionalEditingApi = {};
+
+export const issue17NumericEditInfo = {
+  rowIndex: 0,
+  columnIndex: 1,
+  rowId: 103,
+  columnId: "supportedPath",
+} satisfies TypeEditInfo;
+
+export function exerciseIssue17EditInfoRowIdCompatibility(
+  info: TypeEditInfo
+): void {
+  // The published upstream declaration says string, while its runtime keeps
+  // numeric IDs numeric. The compatibility type must support both consumers.
+  const declaredStringConsumer: string = info.rowId;
+  const observedNumericConsumer: number = info.rowId;
+  void declaredStringConsumer;
+  void observedNumericConsumer;
+}
+
+export async function exerciseIssue17EditingApi(
+  api: TypeComputedProps
+): Promise<void> {
+  const startedValue = await api.startEdit?.({
+    rowIndex: 0,
+    columnId: "supportedPath",
+    value: "programmatic value",
+  });
+  void startedValue;
+
+  const triedValue = await api.tryStartEdit?.({
+    rowId: "row-1",
+    columnId: "request",
+    dir: 1,
+  });
+  void triedValue;
+
+  void api.getCurrentEditInfo?.()?.columnId;
+  void api.isInEdit?.current;
+  void api.currentEditCompletePromise?.current;
+
+  api.completeEdit?.({
+    rowIndex: 0,
+    columnId: "supportedPath",
+    dir: 1,
+    value: "completed value",
+  });
+  api.cancelEdit?.({ rowIndex: 0, columnId: "supportedPath" });
+  api.completeEdit?.();
+  api.cancelEdit?.();
+}
 
 export const issue17EmptyTextReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17: use i18n.noRecords instead of an emptyText root prop.
+  // @ts-expect-error Use i18n.noRecords instead of an emptyText root prop.
   emptyText: "No issue #17 rows match the current view",
 });
 
 export const issue17ColumnFilterCallbackReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17 follow-up: this callback is outside the fixed root contract.
+  // @ts-expect-error This callback is not part of the approved public surface.
   onColumnFilterValueChange: () => {},
 });
 
 export const issue17EnableSelectionReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17 follow-up: enableSelection is outside the fixed root contract.
+  // @ts-expect-error Selection is configured through the supported selection props.
   enableSelection: true,
 });
 
 export const issue17VirtualizeColumnsThresholdReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error issue #17 follow-up: column virtualization is internally managed.
+  // @ts-expect-error Column virtualization thresholds are not public API.
   virtualizeColumnsThreshold: 20,
 });

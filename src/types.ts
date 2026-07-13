@@ -119,6 +119,18 @@ export type TypeColumnRenderArgs = {
 export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
+  /** Inovua-compatible column identifier aliases used by custom editors. */
+  id?: string | number;
+  name?: string;
+  columnIndex?: number;
+  computedVisibleIndex?: number;
+  editValue?: any;
+  inEdit?: boolean;
+  theme?: string;
+  rtl?: boolean;
+  nativeScroll?: boolean;
+  editorProps?: Record<string, unknown>;
+  [key: string]: any;
 };
 
 export type TypeColumnRenderCellProps = CellProps;
@@ -126,6 +138,200 @@ export type TypeColumnRenderCellProps = CellProps;
 export type TypeColumnRenderFn =
   | ((cellProps: CellProps) => React.ReactNode)
   | ((value: any, args: TypeColumnRenderArgs) => React.ReactNode);
+
+export type TypeEditInfo = {
+  rowIndex: number;
+  columnIndex: number;
+  /**
+   * Inovua 5.10.2 declares this as `string` but emits the raw numeric ID at
+   * runtime. `any` deliberately preserves source compatibility with handlers
+   * written against that declaration while accurately permitting numeric IDs.
+   */
+  rowId: any;
+  columnId: string;
+  value?: any;
+  data?: any;
+  column?: TypeColumn;
+  cellProps?: CellProps;
+};
+
+export type TypeStartEditArgs = {
+  columnId: string | number;
+  rowIndex?: number;
+  rowId?: string | number;
+  value?: any;
+};
+
+export type TypeTryStartEditArgs = {
+  columnId: string | number;
+  rowIndex?: number;
+  rowId?: string | number;
+  dir?: number;
+};
+
+export type TypeCompleteEditArgs = {
+  rowId?: string | number;
+  rowIndex?: number;
+  dir?: number;
+  columnId?: string | number;
+  value?: any;
+};
+
+export type TypeCancelEditArgs = {
+  rowIndex?: number;
+  columnId?: string | number;
+};
+
+export type TypeColumnEditorCell = {
+  getProps: () => CellProps;
+  getDOMNode: () => HTMLElement | null;
+  isInEdit: () => boolean;
+  getEditable: (editValue?: any, cellProps?: CellProps) => Promise<boolean>;
+  startEdit: (
+    editValue?: any,
+    errBack?: (...args: any[]) => any
+  ) => Promise<any>;
+  stopEdit: (value?: any) => void;
+  cancelEdit: () => void;
+  completeEdit: (value?: any) => void;
+  getCurrentEditValue: () => any;
+  gotoNextEditor: () => unknown;
+  gotoPrevEditor: () => unknown;
+  onEditorEnterNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  onEditorTabNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  onEditorClick: (event: { stopPropagation: () => void }) => void;
+  domRef: HTMLElement | null;
+  props: CellProps;
+  [key: string]: any;
+};
+
+export type TypeColumnEditorProps = {
+  [key: string]: any;
+
+  value: any;
+  autoFocus: boolean;
+  cellProps: CellProps;
+  column: IColumn;
+  editorProps?: Record<string, unknown>;
+  nativeScroll?: boolean;
+  cell: TypeColumnEditorCell;
+  theme?: string;
+  rtl?: boolean;
+  onChange: (value: any, event?: unknown) => void;
+  onComplete: (valueOrEvent?: any) => void;
+  onCancel: (event?: unknown) => void;
+  onEnterNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  onTabNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  gotoNext: () => unknown;
+  gotoPrev: () => unknown;
+  onClick: (event: { stopPropagation: () => void }) => void;
+};
+
+export type TypeColumnResizeInfo = {
+  column: TypeColumn;
+  width?: number;
+  flex?: number;
+};
+
+export type TypeColumnResizeContext = {
+  reservedViewportWidth: number;
+};
+
+export type TypeRowStyleProps = Record<string, unknown> & {
+  data: any;
+  dataSourceArray: any[];
+  id: string | number;
+  /** Page-local row index, matching Inovua's `realIndex`. */
+  rowIndex: number;
+  realIndex: number;
+  /** Absolute index when `skip`/pagination is active. */
+  remoteRowIndex: number;
+  /** Legacy alias retained from the first the-datagrid implementation. */
+  index: number;
+  selected: boolean;
+  selection: TypeRowSelection;
+  multiSelect: boolean;
+  even: boolean;
+  odd: boolean;
+  last: boolean;
+  lastNonEmpty: boolean;
+  columns: TypeComputedColumn[];
+  columnsMap: TypeComputedColumnsMap;
+  columnRenderCount: number;
+  totalColumnCount: number;
+  firstUnlockedIndex: number;
+  lastUnlockedIndex: number;
+  firstLockedStartIndex: -1;
+  lastLockedStartIndex: -1;
+  firstLockedEndIndex: -1;
+  lastLockedEndIndex: -1;
+  hasLockedStart: false;
+  hasLockedEnd: false;
+  availableWidth: number;
+  width: number;
+  minWidth: number;
+  totalComputedWidth: number;
+  totalUnlockedWidth: number;
+  totalLockedStartWidth: 0;
+  totalLockedEndWidth: 0;
+  totalDataCount: number;
+  maxVisibleRows: number;
+  rowHeight: number;
+  defaultRowHeight: number;
+  initialRowHeight: number;
+  /** `null` only for naturally measured rows; kept for existing consumers. */
+  height: number | null;
+  minRowHeight: number;
+  maxRowHeight?: number;
+  naturalRowHeight: boolean;
+  computedShowZebraRows: boolean;
+  computedShowCellBorders: TypeShowCellBorders;
+  showHorizontalCellBorders: boolean;
+  showVerticalCellBorders: boolean;
+  editable: boolean;
+  editing: boolean;
+  editStartEvent: string;
+  editValue?: unknown;
+  editColumnIndex?: number;
+  editColumnId?: string;
+  virtualizeColumns: false;
+  theme: string;
+  getItemId: (data: any) => unknown;
+};
+
+type TypeOpenRowStyleObject = React.CSSProperties & {
+  [property: string]: string | number | undefined;
+};
+
+type TypeRowStyleObject =
+  | React.CSSProperties
+  | { [property: string]: string | number | undefined };
+
+export type TypeRowStyleArgs = {
+  data: any;
+  props: TypeRowStyleProps;
+  style: TypeOpenRowStyleObject;
+};
+
+export type TypeRowStyle =
+  | TypeRowStyleObject
+  | ((args: TypeRowStyleArgs) => TypeRowStyleObject | undefined);
 
 export interface IColumn {
   name?: string;
@@ -142,6 +348,20 @@ export interface IColumn {
    *  - render(value, argsObject) (legacy/internal)
    */
   render?: TypeColumnRenderFn;
+
+  editable?:
+    | boolean
+    | ((
+        editValue: any,
+        cellProps: CellProps
+      ) => boolean | void | Promise<boolean | void>);
+  editor?: React.ElementType<any> | React.ReactElement<any>;
+  editorProps?: Record<string, unknown>;
+  renderEditor?: (
+    editorProps: TypeColumnEditorProps,
+    cellProps: CellProps,
+    cell: TypeColumnEditorCell
+  ) => React.ReactNode;
 
   width?: number;
   defaultWidth?: number;
@@ -348,6 +568,17 @@ export type TypeComputedProps = {
   ) => TypeSingleFilterValue | undefined;
   setColumnFilterValue?: (column: TypeGetColumnByParam, value: unknown) => void;
   isColumnFiltered?: (column: TypeGetColumnByParam) => boolean;
+
+  computedEditable?: boolean;
+  computedEditStartEvent?: string;
+  computedIsEditing?: boolean;
+  isInEdit?: React.MutableRefObject<boolean>;
+  getCurrentEditInfo?: () => TypeEditInfo | null;
+  startEdit?: (args: TypeStartEditArgs) => Promise<any>;
+  tryStartEdit?: (args: TypeTryStartEditArgs) => Promise<any>;
+  completeEdit?: (args?: TypeCompleteEditArgs) => void;
+  cancelEdit?: (args?: TypeCancelEditArgs) => void;
+  currentEditCompletePromise?: React.MutableRefObject<Promise<unknown>>;
 
   computedColumnOrder?: string[] | undefined;
   getColumnOrder: () => string[];
@@ -603,7 +834,25 @@ export type TypeDataGridProps = {
 
   showColumnMenuTool?: boolean;
 
-  rowHeight?: number;
+  rowHeight?: number | ((rowIndex: number) => number) | null;
+  minRowHeight?: number;
+  maxRowHeight?: number;
+  rowStyle?: TypeRowStyle;
+  showZebraRows?: boolean;
+  defaultShowZebraRows?: boolean;
+
+  editable?: boolean;
+  editStartEvent?: string;
+  onEditStart?: (editInfo: TypeEditInfo) => void;
+  onEditStop?: (editInfo: TypeEditInfo) => void;
+  onEditComplete?: (editInfo: TypeEditInfo) => void | Promise<unknown>;
+  onEditCancel?: (editInfo: TypeEditInfo) => void;
+  onEditValueChange?: (editInfo: TypeEditInfo) => void;
+
+  onColumnResize?: (
+    info: TypeColumnResizeInfo,
+    context: TypeColumnResizeContext
+  ) => void;
   headerHeight?: number;
   filterRowHeight?: number;
 
