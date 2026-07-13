@@ -82,6 +82,7 @@ import {
   type GridEditNavigation,
 } from "./components/GridBody";
 import { buildEditCellProps } from "./utils/editing";
+import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
 import { allocateColumnWidths } from "./utils/columnSizing";
@@ -1553,21 +1554,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       ? maxRowHeight
       : undefined;
   const resolveRowHeight = React.useCallback(
-    (rowIndex: number) => {
-      if (rowHeight == null) return computedMinRowHeight;
-
-      const requestedHeight =
-        typeof rowHeight === "function" ? rowHeight(rowIndex) : rowHeight;
-      const finiteHeight =
-        typeof requestedHeight === "number" && Number.isFinite(requestedHeight)
-          ? requestedHeight
-          : computedMinRowHeight;
-
-      return Math.min(
-        Math.max(finiteHeight, computedMinRowHeight),
-        computedMaxRowHeight ?? Number.POSITIVE_INFINITY
-      );
-    },
+    (rowIndex: number) =>
+      resolveConfiguredRowHeight({
+        rowHeight,
+        rowIndex,
+        minRowHeight: computedMinRowHeight,
+        maxRowHeight: computedMaxRowHeight,
+      }),
     [computedMaxRowHeight, computedMinRowHeight, rowHeight]
   );
   const initialRowHeight = resolveRowHeight(0);

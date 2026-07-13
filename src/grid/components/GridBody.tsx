@@ -19,6 +19,7 @@ import type {
 import { cn } from "../../lib/utils";
 import { buildEditCellProps } from "../utils/editing";
 import { resolveEmptyText } from "../utils/emptyText";
+import { resolveConfiguredRowHeight } from "../utils/rowHeight";
 
 import { Input } from "../../components/ui/input";
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
@@ -280,17 +281,12 @@ export function GridBody(props: GridBodyProps) {
   function getResolvedRowHeight(rowIndex: number): number | null {
     if (rowHeight == null) return null;
 
-    const requestedHeight =
-      typeof rowHeight === "function" ? rowHeight(rowIndex) : rowHeight;
-    const finiteHeight = Number.isFinite(requestedHeight)
-      ? requestedHeight
-      : minRowHeight;
-    const upperBound =
-      typeof maxRowHeight === "number" && Number.isFinite(maxRowHeight)
-        ? Math.max(minRowHeight, maxRowHeight)
-        : Number.POSITIVE_INFINITY;
-
-    return Math.min(Math.max(finiteHeight, minRowHeight), upperBound);
+    return resolveConfiguredRowHeight({
+      rowHeight,
+      rowIndex,
+      minRowHeight,
+      maxRowHeight,
+    });
   }
 
   function getRowStyle(
@@ -312,7 +308,9 @@ export function GridBody(props: GridBodyProps) {
       width: rowStyleMetadata.totalComputedWidth,
       minWidth: rowStyleMetadata.totalComputedWidth,
       direction: "ltr",
-      ...(typeof maxRowHeight === "number" && Number.isFinite(maxRowHeight)
+      ...(typeof rowHeight !== "number" &&
+      typeof maxRowHeight === "number" &&
+      Number.isFinite(maxRowHeight)
         ? { maxHeight: maxRowHeight }
         : {}),
       ...getRowThemeStyle(rowIsSelected),
