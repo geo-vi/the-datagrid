@@ -6,6 +6,10 @@ const PACKAGE_CSS = readFileSync(
   resolve(process.cwd(), "dist/index.css"),
   "utf8"
 );
+const SEARCH_PACKAGE_CSS = readFileSync(
+  resolve(process.cwd(), "dist/search.css"),
+  "utf8"
+);
 
 test.describe("issue #16 package CSS scope", () => {
   test("does not leak datagrid Tailwind utilities onto host shadcn classes", async ({
@@ -253,5 +257,163 @@ test.describe("issue #16 package CSS scope", () => {
       fontSans: '"Host Sans", sans-serif',
       trackingTight: "0em",
     });
+  });
+});
+
+test.describe("optional search package CSS", () => {
+  test("styles the search scope without changing matching host utilities", async ({
+    page,
+  }) => {
+    await page.setContent(`
+      <style>
+        :root {
+          --background: rgb(250 251 252);
+          --foreground: rgb(20 24 28);
+          --input: rgb(90 100 110);
+          --ring: rgb(30 100 220);
+        }
+
+        #host-search-probe {
+          display: block;
+          width: 180px;
+          height: 23px;
+          padding: 1px;
+          border: 0;
+          border-radius: 2px;
+          background: rgb(210 220 230);
+        }
+      </style>
+
+      <input
+        id="host-search-probe"
+        class="h-10 rounded-md border border-input bg-background pl-9 pr-10"
+      />
+
+      <div
+        id="packaged-search-scope"
+        class="tdg-search-root tdg-search-bar relative min-w-0 flex-1 w-full rounded-md bg-[var(--tdg-input-bg,var(--background))]"
+      >
+        <div
+          id="packaged-search-control"
+          class="flex h-10 w-full items-center rounded-md border bg-[var(--tdg-input-bg,var(--background))] pl-7 pr-9 py-1 text-[var(--tdg-input-color,var(--foreground))] shadow-sm [border-color:var(--tdg-input-border-color,var(--input))]"
+        >
+          <input
+            id="packaged-search-input"
+            class="inovua-react-toolkit-text-input__input m-0 min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-base text-[var(--tdg-input-color,var(--foreground))] shadow-none outline-none [font:inherit] [line-height:inherit]"
+          />
+        </div>
+      </div>
+    `);
+
+    await page.addStyleTag({ content: SEARCH_PACKAGE_CSS });
+
+    const hostStyles = await page
+      .locator("#host-search-probe")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          borderRadius: style.borderRadius,
+          height: style.height,
+          paddingLeft: style.paddingLeft,
+        };
+      });
+
+    expect(hostStyles).toEqual({
+      backgroundColor: "rgb(210, 220, 230)",
+      borderRadius: "2px",
+      height: "23px",
+      paddingLeft: "1px",
+    });
+
+    const packagedStyles = await page
+      .locator("#packaged-search-control")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          borderLeftWidth: style.borderLeftWidth,
+          borderRadius: style.borderRadius,
+          height: style.height,
+          paddingLeft: style.paddingLeft,
+          paddingRight: style.paddingRight,
+        };
+      });
+
+    expect(packagedStyles).toEqual({
+      backgroundColor: "rgb(250, 251, 252)",
+      borderLeftWidth: "1px",
+      borderRadius: "6px",
+      height: "40px",
+      paddingLeft: "28px",
+      paddingRight: "36px",
+    });
+
+    const packagedInputStyles = await page
+      .locator("#packaged-search-input")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          appearance: style.appearance,
+          borderLeftWidth: style.borderLeftWidth,
+          marginLeft: style.marginLeft,
+          paddingLeft: style.paddingLeft,
+        };
+      });
+
+    expect(packagedInputStyles).toEqual({
+      appearance: "none",
+      borderLeftWidth: "0px",
+      marginLeft: "0px",
+      paddingLeft: "0px",
+    });
+  });
+
+  test("uses standalone fallback tokens without a host reset or theme", async ({
+    page,
+  }) => {
+    await page.setContent(`
+      <div
+        id="standalone-search"
+        class="tdg-search-root tdg-search-bar relative w-full shrink-0 rounded-md bg-[var(--tdg-input-bg,var(--background))]"
+      >
+        <div
+          id="standalone-control"
+          class="inovua-react-toolkit-text-input flex h-10 w-full items-center rounded-md border bg-[var(--tdg-input-bg,var(--background))] px-3 py-1 text-[var(--tdg-input-color,var(--foreground))] shadow-sm [border-color:var(--tdg-input-border-color,var(--input))]"
+        >
+          <input
+            id="standalone-input"
+            class="inovua-react-toolkit-text-input__input m-0 min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-base text-[var(--tdg-input-color,var(--foreground))] shadow-none outline-none [font:inherit] [line-height:inherit]"
+          />
+        </div>
+      </div>
+    `);
+
+    await page.addStyleTag({ content: SEARCH_PACKAGE_CSS });
+
+    const fallbackStyles = await page
+      .locator("#standalone-search")
+      .evaluate((root) => {
+        const control = root.querySelector<HTMLElement>("#standalone-control");
+        const input = root.querySelector<HTMLInputElement>("#standalone-input");
+        if (!control || !input) return null;
+
+        const controlStyle = getComputedStyle(control);
+        const inputStyle = getComputedStyle(input);
+        return {
+          appearance: inputStyle.appearance,
+          backgroundColor: controlStyle.backgroundColor,
+          borderColor: controlStyle.borderLeftColor,
+          inputBorderWidth: inputStyle.borderLeftWidth,
+          inputColor: inputStyle.color,
+        };
+      });
+
+    expect(fallbackStyles).not.toBeNull();
+    expect(fallbackStyles?.appearance).toBe("none");
+    expect(fallbackStyles?.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(fallbackStyles?.borderColor).not.toBe("rgb(0, 0, 0)");
+    expect(fallbackStyles?.inputBorderWidth).toBe("0px");
+    expect(fallbackStyles?.inputColor).not.toBe("rgb(0, 0, 0)");
   });
 });

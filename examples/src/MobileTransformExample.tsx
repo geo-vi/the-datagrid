@@ -36,7 +36,12 @@ export default function MobileTransformExample() {
   );
   const columns = useMemo<TypeColumns>(
     () => [
-      { name: "id", header: "Account ID", width: 120 },
+      {
+        name: "id",
+        header: "Account ID",
+        searchAliases: ["account-key"],
+        width: 120,
+      },
       { name: "account", header: "Account", minWidth: 220 },
       {
         name: "status",
@@ -56,6 +61,7 @@ export default function MobileTransformExample() {
         name: "revenue",
         header: "Revenue",
         textAlign: "end",
+        searchValue: (row) => [row.revenue, `ledger-${row.id}`],
         render: ({ value }: CellProps) => (
           <span className="inline-flex items-center gap-1 tabular-nums">
             <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
@@ -64,7 +70,12 @@ export default function MobileTransformExample() {
         ),
       },
       { name: "owner", header: "Owner" },
-      { name: "note", header: "Notes", minWidth: 300 },
+      {
+        name: "note",
+        header: "Notes",
+        minWidth: 300,
+        searchable: false,
+      },
       {
         name: "actions",
         header: "Customer account actions",

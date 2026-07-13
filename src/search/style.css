@@ -1,0 +1,107 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@source "./**/*.{ts,tsx}";
+@source "../grid/components/DataGridSearchBar.tsx";
+@source "../components/ui/input.tsx";
+@source "../components/ui/button.tsx";
+
+.tdg-search-root,
+.tdg-search-root::before,
+.tdg-search-root::after,
+.tdg-search-root *,
+.tdg-search-root *::before,
+.tdg-search-root *::after {
+  box-sizing: border-box;
+}
+
+.tdg-search-root {
+  --tdg-search-background: var(
+    --tdg-color-background,
+    var(--background, oklch(1 0 0))
+  );
+  --tdg-search-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.145 0 0))
+  );
+  --tdg-search-accent: var(--tdg-color-accent, var(--accent, oklch(0.97 0 0)));
+  --tdg-search-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.205 0 0))
+  );
+  --tdg-search-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.556 0 0))
+  );
+  --tdg-search-input: var(--tdg-color-input, var(--input, oklch(0.922 0 0)));
+  --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.708 0 0)));
+  --tdg-input-bg: var(--tdg-search-background);
+  --tdg-input-color: var(--tdg-search-foreground);
+  --tdg-input-border-color: var(--tdg-search-input);
+  --tdg-input-border-color-hover: var(--tdg-search-ring);
+  --tdg-input-border-color-focus: var(--tdg-search-ring);
+  color-scheme: light;
+  color: var(--tdg-search-foreground);
+}
+
+.tdg-search-root[data-theme-base="dark"] {
+  color-scheme: dark;
+}
+
+.dark .tdg-search-root[data-theme="default"][data-theme-base="default"],
+.tdg-search-root[data-theme-base="dark"] {
+  --tdg-search-background: var(
+    --tdg-color-background,
+    var(--background, oklch(0.145 0 0))
+  );
+  --tdg-search-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.985 0 0))
+  );
+  --tdg-search-accent: var(--tdg-color-accent, var(--accent, oklch(0.269 0 0)));
+  --tdg-search-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.985 0 0))
+  );
+  --tdg-search-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.708 0 0))
+  );
+  --tdg-search-input: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%)));
+  --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.556 0 0)));
+}
+
+.tdg-search-root
+  .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input {
+  border-color: var(--tdg-input-border-color) !important;
+  background: var(--tdg-input-bg) !important;
+  color: var(--tdg-input-color) !important;
+}
+
+.tdg-search-root .inovua-react-toolkit-text-input__input {
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.tdg-search-root.rounded-md,
+.tdg-search-root .rounded-md {
+  border-radius: var(
+    --tdg-radius-md,
+    var(--radius-md, calc(var(--radius, 0.5rem) - 2px))
+  );
+}
+
+@theme {
+  --radius-*: initial;
+}
+
+@theme inline {
+  --color-background: var(--tdg-search-background);
+  --color-foreground: var(--tdg-search-foreground);
+  --color-accent: var(--tdg-search-accent);
+  --color-accent-foreground: var(--tdg-search-accent-foreground);
+  --color-muted-foreground: var(--tdg-search-muted-foreground);
+  --color-input: var(--tdg-search-input);
+  --color-ring: var(--tdg-search-ring);
+}

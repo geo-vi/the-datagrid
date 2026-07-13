@@ -549,6 +549,34 @@ function getOperatorDef(
   return typeDef.operators.find((o) => o.name === operatorName);
 }
 
+function isRunnableFilterEntry(
+  filter: TypeSingleFilterValue,
+  allTypes: TypeFilterTypes
+): boolean {
+  const typeDef = allTypes[filter.type] ?? allTypes.string!;
+  const opDef = getOperatorDef(typeDef, filter.operator);
+  const canRunWithoutValue =
+    Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
+  const active =
+    filter.active !== undefined
+      ? filter.active
+      : canRunWithoutValue
+        ? true
+        : !isEmptyLike(filter.value);
+
+  return active && (canRunWithoutValue || !isEmptyLike(filter.value));
+}
+
+export function hasActiveLocalFilter(
+  filterValue: TypeFilterValue,
+  customFilterTypes?: TypeFilterTypes
+): boolean {
+  if (!filterValue?.length) return false;
+
+  const allTypes = { ...DEFAULT_FILTER_TYPES, ...(customFilterTypes ?? {}) };
+  return filterValue.some((filter) => isRunnableFilterEntry(filter, allTypes));
+}
+
 /**
  * Upsert WITHOUT removing entry on empty.
  * We keep the entry but mark it inactive when it’s empty (Inovua-like behavior).
@@ -669,19 +697,7 @@ export function applyLocalFilter(
       const typeDef = allTypes[f.type] ?? allTypes.string!;
       const opDef = getOperatorDef(typeDef, f.operator);
 
-      const canRunWithoutValue =
-        Boolean(opDef?.filterOnEmptyValue) ||
-        Boolean(opDef?.disableFilterEditor);
-      const active =
-        f.active !== undefined
-          ? f.active
-          : canRunWithoutValue
-            ? true
-            : !isEmptyLike(f.value);
-
-      if (!active) return true;
-
-      if (!canRunWithoutValue && isEmptyLike(f.value)) return true;
+      if (!isRunnableFilterEntry(f, allTypes)) return true;
 
       const raw = (row as any)?.[f.name];
 

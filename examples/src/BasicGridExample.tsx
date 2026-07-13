@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
+import { RDGSearchBar, RDGSearchProvider } from "../../src/search";
 import { useExamplesUi } from "./App";
 
 export default function BasicGridExample() {
@@ -58,30 +59,39 @@ export default function BasicGridExample() {
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Filtered rows: <span className="font-mono">{filteredCount}</span>
+        Filtered rows:{" "}
+        <span className="font-mono" data-testid="basic-filtered-count">
+          {filteredCount}
+        </span>
       </div>
 
-      <div className="h-[480px] min-h-0" data-testid="basic-grid-shell">
-        <ReactDataGrid
-          theme={gridTheme}
-          idProperty="cldomnr"
-          columns={columns}
-          dataSource={rows}
-          columnOrder={columnOrder}
-          enableColumnFilterContextMenu
-          enableColumnAutosize
-          skipHeaderOnAutoSize={false}
-          resizable={resizable}
-          enableFiltering
-          defaultFilterValue={null}
-          filteredRowsCount={setFilteredCount}
-          onColumnOrderChange={setColumnOrder}
-          virtualized
-          columnUserSelect
-          showCellBorders={showCellBorders}
-          i18n={i18n}
-          showColumnMenuTool={false}
-        />
+      <div
+        className="flex h-[480px] min-h-0 flex-col gap-3"
+        data-testid="basic-grid-shell"
+      >
+        <RDGSearchProvider>
+          <RDGSearchBar />
+          <ReactDataGrid
+            theme={gridTheme}
+            idProperty="cldomnr"
+            columns={columns}
+            dataSource={rows}
+            columnOrder={columnOrder}
+            enableColumnFilterContextMenu
+            enableColumnAutosize
+            skipHeaderOnAutoSize={false}
+            resizable={resizable}
+            enableFiltering
+            defaultFilterValue={null}
+            filteredRowsCount={setFilteredCount}
+            onColumnOrderChange={setColumnOrder}
+            virtualized
+            columnUserSelect
+            showCellBorders={showCellBorders}
+            i18n={i18n}
+            showColumnMenuTool={false}
+          />
+        </RDGSearchProvider>
       </div>
     </section>
   );

@@ -40,9 +40,9 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
     title: "Basic example",
     summary: "The compact baseline grid used by the visual regression suite.",
     details:
-      "Covers the default grid surface: local data, sorting, filtering, virtualization, column menus, and theme switching.",
+      "Shows the optional RDGSearchBar and RDGSearchProvider entry alongside local data, sorting, filtering, virtualization, column menus, and theme switching.",
     sourcePath: "examples/src/BasicGridExample.tsx",
-    tags: ["Smoke", "Filtering", "Virtualized"],
+    tags: ["Smoke", "Search", "Filtering", "Virtualized"],
   },
   {
     id: "columns",

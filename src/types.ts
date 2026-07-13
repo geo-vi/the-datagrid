@@ -7,13 +7,35 @@
 
 import type * as React from "react";
 
+/**
+ * Stable state passed to function-backed data sources.
+ *
+ * `searchValue` is present only when the grid is connected to the optional
+ * search package. Keeping it optional lets the core data-source contract stay
+ * backwards compatible for consumers that do not install a search target.
+ */
+export type TypeDataSourceArgs = {
+  sortInfo: TypeSortInfo;
+  filterValue: TypeFilterValue;
+  columnOrder: string[];
+  columns: TypeColumns;
+  idProperty: string;
+  theme: string;
+  skip?: number;
+  limit?: number;
+  searchValue?: string;
+};
+
 export type TypeDataSource =
   | unknown[]
   | Promise<unknown[]>
   | Promise<{ data: unknown[]; count: number }>
-  | ((props: unknown) => unknown[])
-  | ((props: unknown) => Promise<unknown[]>)
-  | ((props: unknown) => Promise<{ data: unknown[]; count: number }>);
+  | ((
+      props: TypeDataSourceArgs
+    ) =>
+      | unknown[]
+      | Promise<unknown[]>
+      | Promise<{ data: unknown[]; count: number }>);
 
 export type SortDirection = 1 | -1 | 0;
 
@@ -144,6 +166,13 @@ export interface IColumn {
   filterEditor?: React.ComponentType<Record<string, unknown>>;
   filterEditorProps?: unknown;
   filterCellPadding?: React.CSSProperties["padding"];
+
+  /** Excludes this column from optional global search when false. */
+  searchable?: boolean;
+  /** Additional exact aliases accepted by column-scoped search queries. */
+  searchAliases?: readonly string[];
+  /** Supplies the raw row value indexed by optional global search. */
+  searchValue?: (data: TypeColumnRenderArgs["data"]) => unknown;
 
   textAlign?: "start" | "end" | "left" | "right" | "center";
   headerAlign?: "start" | "end" | "left" | "right" | "center";

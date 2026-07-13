@@ -9,6 +9,7 @@ Documentation and live examples: https://geo-vi.github.io/the-datagrid/
 - Virtualized rendering for large datasets
 - Sorting (single + multi-column)
 - Filtering with a built-in filter row and operators
+- Opt-in global table search through a separate, tree-shakeable entry
 - Column management (reorder, resize, auto-size)
 - Pagination (local + remote)
 - Row selection (checkbox column)
@@ -135,6 +136,127 @@ export default function App() {
   );
 }
 ```
+
+## Optional table search
+
+Global search is intentionally separate from the main component entry. A plain
+`ReactDataGrid` does not render a search control, subscribe to search context,
+or load the optional provider, store, or search stylesheet. The optional entry
+reuses the same core search field and search engine already used by the mobile
+layout, so search-enabled screens do not ship a second implementation. Import
+the provider and bar only on screens that need them:
+
+```tsx
+import ReactDataGrid from "@geovi/the-datagrid";
+import { RDGSearchBar, RDGSearchProvider } from "@geovi/the-datagrid/search";
+
+export function SearchableAccountsGrid() {
+  return (
+    <RDGSearchProvider>
+      <RDGSearchBar />
+      <ReactDataGrid
+        idProperty="id"
+        columns={columns}
+        dataSource={rows}
+        virtualized
+      />
+    </RDGSearchProvider>
+  );
+}
+```
+
+The provider automatically connects marked `ReactDataGrid` elements that are
+its direct children. If layout markup needs to sit between the provider and the
+grid, mark the grid explicitly:
+
+```tsx
+import {
+  RDGSearchBar,
+  RDGSearchProvider,
+  RDGSearchTarget,
+} from "@geovi/the-datagrid/search";
+
+<RDGSearchProvider>
+  <RDGSearchBar />
+  <section className="min-h-0 flex-1">
+    <RDGSearchTarget>
+      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+    </RDGSearchTarget>
+  </section>
+</RDGSearchProvider>;
+```
+
+The normal-table bar and transformed-mobile search are two placements of the
+same internal component. They use the same shadcn-style Input and Button,
+column-prefix highlighting, IME handling, Escape behavior, and clear/refocus
+interaction. Local arrays and static Promise snapshots also use the same
+normalization and matching engine. Function data sources receive the committed
+`searchValue` and remain responsible for remote matching. When
+`allowMobileTransform` is active under `RDGSearchProvider`, the external
+placement remains the single search control; the mobile list suppresses only
+its duplicate placement while keeping its sort and column tools.
+
+`RDGSearchBar` uses the accessible label `Search all fields`, the placeholder
+`Search all fields`, and a 150 ms provider commit debounce by default. Set
+`debounceMs={0}` for an immediate remote/local commit or pass another delay.
+The input interaction itself is shared with mobile. Terms are matched with AND
+semantics after case, whitespace, and diacritic normalization. Prefix a query
+with a column id, name, string header, or configured alias to scope it, for
+example `city:paris`.
+
+Column-level search configuration stays on `TypeColumn` rather than adding new
+`ReactDataGrid` props. Configured columns remain searchable when hidden; use
+`searchable: false` for an explicit exclusion:
+
+```tsx
+const columns: TypeColumns = [
+  {
+    name: "city",
+    header: "Office city",
+    searchAliases: ["location", "office"],
+  },
+  {
+    name: "customer",
+    searchValue: (row) => [row.customer.name, row.customer.reference],
+  },
+  { name: "internalNote", searchable: false },
+];
+```
+
+For local data, the normalized search index is built lazily on the first
+committed query and reused while the row and column arrays keep the same
+identity. Update rows and column configuration immutably so changed searchable
+content naturally invalidates that cache.
+
+The optional entry loads its own scoped stylesheet. If your environment does
+not process package CSS imports, add
+`import "@geovi/the-datagrid/search/style.css"` beside the manual grid
+stylesheet import.
+
+For local arrays, search is combined with column filters before local
+pagination and `filteredRowsCount` reports the combined result count. A static
+`Promise` data source is resolved as a locally searchable snapshot. A function
+data source remains remote and receives `searchValue` alongside its existing
+args; when remote pagination is active, a new search resets `skip` to `0`.
+
+```tsx
+import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
+
+const dataSource = async ({ searchValue, ...gridArgs }: TypeDataSourceArgs) => {
+  const response = await fetch("/api/accounts/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...gridArgs, searchValue }),
+  });
+
+  return response.json();
+};
+```
+
+Remote functions own the search operation. The grid does not post-filter one
+remote page and present it as a server-wide result. If the backend does not yet
+support global search, keep that search state application-owned until its
+request contract is defined.
 
 ## Advanced usage
 
@@ -295,14 +417,14 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Misc
 
-| Prop        | Type                       | Default | Description                              |
-| ----------- | -------------------------- | ------- | ---------------------------------------- |
-| `i18n`      | `TypeI18n`                 | -       | Text overrides (labels, operators, etc.) |
-| `loading`   | `boolean`                  | -       | Loading state                            |
+| Prop        | Type                       | Default | Description                                         |
+| ----------- | -------------------------- | ------- | --------------------------------------------------- |
+| `i18n`      | `TypeI18n`                 | -       | Text overrides (labels, operators, etc.)            |
+| `loading`   | `boolean`                  | -       | Loading state                                       |
 | `onReady`   | `(ref: RefObject) => void` | -       | Called with an Inovua-compatible computed-props ref |
-| `handle`    | `(ref: RefObject) => void` | -       | Alias for `onReady`                      |
-| `className` | `string`                   | -       | Extra CSS classes                        |
-| `style`     | `CSSProperties`            | -       | Inline styles                            |
+| `handle`    | `(ref: RefObject) => void` | -       | Alias for `onReady`                                 |
+| `className` | `string`                   | -       | Extra CSS classes                                   |
+| `style`     | `CSSProperties`            | -       | Inline styles                                       |
 
 ## TypeScript
 
@@ -314,6 +436,7 @@ import type {
   TypeColumns,
   TypeColumn,
   TypeDataGridProps,
+  TypeDataSourceArgs,
   TypeRowSelection,
   TypeOnSelectionChangeArg,
   TypeFilterValue,

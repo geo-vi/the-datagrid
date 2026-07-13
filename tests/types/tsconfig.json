@@ -4,7 +4,8 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@geovi/the-datagrid": ["./src/main.ts"]
+      "@geovi/the-datagrid": ["./src/main.ts"],
+      "@geovi/the-datagrid/search": ["./src/search/index.ts"]
     }
   },
   "include": ["./**/*.ts"],
