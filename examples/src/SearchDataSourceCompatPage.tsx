@@ -60,6 +60,32 @@ const promisedRows = Promise.resolve([
   },
 ]);
 
+const composedPromisedRows = Promise.resolve({
+  data: [
+    {
+      id: "composed-1",
+      name: "Alpha Candidate",
+      city: "London",
+    },
+    {
+      id: "composed-2",
+      name: "Beta Candidate",
+      city: "London",
+    },
+    {
+      id: "composed-3",
+      name: "Gamma Candidate",
+      city: "Paris",
+    },
+    {
+      id: "composed-4",
+      name: "Delta Engineer",
+      city: "London",
+    },
+  ],
+  count: 40,
+});
+
 type RemoteCall = {
   keys: string[];
   limit: number | null;
@@ -71,6 +97,8 @@ export default function SearchDataSourceCompatPage() {
   const [remoteCalls, setRemoteCalls] = React.useState<RemoteCall[]>([]);
   const [remoteFilteredCount, setRemoteFilteredCount] = React.useState(0);
   const [promiseFilteredCount, setPromiseFilteredCount] = React.useState(0);
+  const [composedPromiseFilteredCount, setComposedPromiseFilteredCount] =
+    React.useState(0);
   const [privateBridgeExposed, setPrivateBridgeExposed] = React.useState<
     boolean | null
   >(null);
@@ -187,6 +215,7 @@ export default function SearchDataSourceCompatPage() {
         <RDGSearchProvider>
           <RDGSearchBar />
           <ReactDataGrid
+            theme="dark"
             idProperty="id"
             columns={columns}
             dataSource={remoteDataSource}
@@ -240,6 +269,48 @@ export default function SearchDataSourceCompatPage() {
                 handle={inspectPromiseApi}
                 virtualized={false}
                 enableFiltering={false}
+              />
+            </RDGSearchTarget>
+          </div>
+        </RDGSearchProvider>
+      </section>
+
+      <section
+        className="flex h-[520px] min-h-0 flex-col gap-3 rounded-lg border bg-background p-4"
+        data-testid="composed-promise-search-scope"
+      >
+        <div className="text-xs text-muted-foreground">
+          Filtered:{" "}
+          <output data-testid="search-composed-promise-filtered-count">
+            {composedPromiseFilteredCount}
+          </output>
+        </div>
+
+        <RDGSearchProvider>
+          <RDGSearchBar debounceMs={0} />
+          <div className="min-h-0 flex-1">
+            <RDGSearchTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={columns}
+                dataSource={composedPromisedRows}
+                columnOrder={columnOrder}
+                pagination="local"
+                defaultLimit={1}
+                pageSizes={[1]}
+                defaultFilterValue={[
+                  {
+                    name: "city",
+                    operator: "contains",
+                    type: "string",
+                    value: "London",
+                    active: true,
+                  },
+                ]}
+                defaultSortInfo={{ name: "name", dir: -1 }}
+                filteredRowsCount={setComposedPromiseFilteredCount}
+                virtualized={false}
+                enableFiltering
               />
             </RDGSearchTarget>
           </div>

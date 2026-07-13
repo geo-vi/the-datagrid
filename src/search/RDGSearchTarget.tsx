@@ -48,9 +48,10 @@ export function RDGSearchTarget(props: RDGSearchTargetProps) {
   }
 
   const targetColumns = children.props.columns;
+  const targetTheme = children.props.theme;
   React.useEffect(
-    () => store.registerColumns(targetColumns),
-    [store, targetColumns]
+    () => store.registerTarget(targetColumns, targetTheme),
+    [store, targetColumns, targetTheme]
   );
 
   const controller = React.useMemo<SearchController>(

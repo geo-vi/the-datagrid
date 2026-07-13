@@ -6,6 +6,7 @@ import {
   useRDGSearchColumnsSnapshot,
   useRDGSearchDraftSnapshot,
   useRDGSearchStore,
+  useRDGSearchThemeSnapshot,
 } from "./store";
 import { getCoreSearchRuntime } from "./runtime";
 
@@ -30,6 +31,7 @@ export function RDGSearchBar(props: RDGSearchBarProps) {
   const store = useRDGSearchStore();
   const draftValue = useRDGSearchDraftSnapshot();
   const columns = useRDGSearchColumnsSnapshot();
+  const theme = useRDGSearchThemeSnapshot();
   const setSearchValue = React.useCallback(
     (nextValue: string, change: DataGridSearchBarChange) => {
       if (change.immediate) {
@@ -51,6 +53,7 @@ export function RDGSearchBar(props: RDGSearchBarProps) {
       clearLabel={clearLabel}
       placeholder={placeholder}
       standalone
+      theme={theme}
       onValueChange={setSearchValue}
     />
   );

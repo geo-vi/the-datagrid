@@ -788,16 +788,36 @@ function ReactDataGrid(props: TypeDataGridProps) {
         return;
       }
 
+      const transformStaticPromiseRows = <Row,>(snapshot: Row[]): Row[] => {
+        if (dsIsFn) return snapshot;
+
+        let data = snapshot;
+
+        if (searchActive && searchFilterRows) {
+          data = searchFilterRows(data, inputColumns);
+        }
+        if (effectiveEnableFiltering && computedFilterForFetch) {
+          data = applyLocalFilter(data, computedFilterForFetch, {
+            filterTypes,
+            columns: orderedColumns,
+          });
+        }
+        if (computedSortForFetch) {
+          data = applyLocalSort(data, computedSortForFetch, orderedColumns);
+        }
+
+        return data;
+      };
+
       if (result && typeof result === "object" && Array.isArray(result.data)) {
         // Functions own remote search and return an authoritative count. A
-        // static Promise cannot receive args, so search its resolved payload as
+        // static Promise cannot receive args, so treat its resolved payload as
         // a local snapshot before count and pagination are derived.
-        const resultData =
-          !dsIsFn && searchActive && searchFilterRows
-            ? searchFilterRows(result.data, inputColumns)
-            : result.data;
+        const resultData = transformStaticPromiseRows(result.data);
+        const staticPromiseChangedRowCount =
+          !dsIsFn && resultData.length !== result.data.length;
         const reportedCount = Number(
-          !dsIsFn && searchActive
+          staticPromiseChangedRowCount
             ? resultData.length
             : (result.count ?? resultData.length)
         );
@@ -812,10 +832,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         setCount(totalCount);
         notifyFilteredRowsCount(totalCount);
       } else if (Array.isArray(result)) {
-        const resultData =
-          !dsIsFn && searchActive && searchFilterRows
-            ? searchFilterRows(result, inputColumns)
-            : result;
+        const resultData = transformStaticPromiseRows(result);
         const totalCount = resultData.length;
         const nextRows = sliceLocally
           ? resultData.slice(loadSkip, loadSkip + limit)

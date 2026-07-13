@@ -62,6 +62,13 @@ test.describe("optional table search", () => {
     await search.fill("Row 999 Paris");
     await page.waitForTimeout(225);
     await expect(filteredCount).toHaveText("1000");
+    await search.dispatchEvent("keydown", {
+      key: "Escape",
+      code: "Escape",
+      isComposing: false,
+    });
+    await expect(search).toHaveValue("Row 999 Paris");
+    await expect(filteredCount).toHaveText("1000");
     await search.dispatchEvent("compositionend");
     await expect(filteredCount).toHaveText("1");
     await page.getByRole("button", { name: "Clear search" }).click();
@@ -256,15 +263,62 @@ test.describe("optional table search", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("tdg-site-theme", "light");
+    });
     await page.goto("/compat/search-data-source");
 
     const scope = page.getByTestId("remote-search-scope");
     const grid = scope.locator(".InovuaReactDataGrid.tdg-root");
+    const searchBar = scope.locator('[data-slot="rdg-search-bar"]');
     const search = scope.getByRole("searchbox", { name: "Search all fields" });
 
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-site-theme",
+      "light"
+    );
     await expect(grid).toHaveAttribute("data-layout", "mobile-list");
+    await expect(grid).toHaveAttribute("data-theme", "dark");
     await expect(search).toHaveCount(1);
-    await expect(scope.locator('[data-slot="rdg-search-bar"]')).toHaveCount(1);
+    await expect(searchBar).toHaveCount(1);
+    await expect(searchBar).toHaveAttribute("data-theme", "dark");
+    await expect(searchBar).toHaveAttribute("data-theme-base", "dark");
+    await expect(searchBar).toHaveClass(/\bdark\b/);
+    await expect(
+      searchBar.locator(".inovua-react-toolkit-text-input")
+    ).toHaveClass(/inovua-react-toolkit-text-input--theme-dark/);
+    const [searchStyles, hostStyles] = await Promise.all([
+      searchBar.evaluate((element) => {
+        const control = element.querySelector<HTMLElement>(
+          ".inovua-react-toolkit-text-input"
+        );
+        const rootStyle = getComputedStyle(element);
+        const controlStyle = control ? getComputedStyle(control) : null;
+
+        return {
+          backgroundColor: rootStyle.backgroundColor,
+          color: rootStyle.color,
+          colorScheme: rootStyle.colorScheme,
+          controlBackgroundColor: controlStyle?.backgroundColor ?? null,
+          controlColor: controlStyle?.color ?? null,
+        };
+      }),
+      scope.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+          colorScheme: style.colorScheme,
+        };
+      }),
+    ]);
+    expect(searchStyles.colorScheme).toBe("dark");
+    expect(searchStyles.backgroundColor).toBe(
+      searchStyles.controlBackgroundColor
+    );
+    expect(searchStyles.color).toBe(searchStyles.controlColor);
+    expect(searchStyles.backgroundColor).not.toBe(hostStyles.backgroundColor);
+    expect(searchStyles.color).not.toBe(hostStyles.color);
     await expect(page.getByTestId("search-remote-filtered-count")).toHaveText(
       "18"
     );

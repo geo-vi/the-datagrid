@@ -2,6 +2,12 @@ import * as React from "react";
 import type { TypeColumn } from "../types";
 
 const EMPTY_COLUMNS: readonly TypeColumn[] = [];
+const DEFAULT_THEME = "default";
+
+type RDGSearchTargetRegistration = {
+  columns: readonly TypeColumn[];
+  theme: string;
+};
 
 export type RDGSearchStore = {
   dispose: () => void;
@@ -9,25 +15,33 @@ export type RDGSearchStore = {
   getDraftSnapshot: () => string;
   getColumnsServerSnapshot: () => readonly TypeColumn[];
   getColumnsSnapshot: () => readonly TypeColumn[];
+  getThemeServerSnapshot: () => string;
+  getThemeSnapshot: () => string;
   getSnapshot: () => string;
   getServerSnapshot: () => string;
-  registerColumns: (columns: readonly TypeColumn[]) => () => void;
+  registerTarget: (
+    columns: readonly TypeColumn[],
+    theme: string | null | undefined
+  ) => () => void;
   setDraftValue: (value: string, debounceMs: number | null) => void;
   setValue: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
   subscribeColumns: (listener: () => void) => () => void;
   subscribeDraft: (listener: () => void) => () => void;
+  subscribeTheme: (listener: () => void) => () => void;
 };
 
 export function createRDGSearchStore(initialValue: string): RDGSearchStore {
   let value = initialValue;
   let draftValue = initialValue;
   let columnsSnapshot = EMPTY_COLUMNS;
+  let themeSnapshot = DEFAULT_THEME;
   let pendingCommit: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
   const draftListeners = new Set<() => void>();
   const columnsListeners = new Set<() => void>();
-  const columnRegistrations = new Map<symbol, readonly TypeColumn[]>();
+  const themeListeners = new Set<() => void>();
+  const targetRegistrations = new Map<symbol, RDGSearchTargetRegistration>();
 
   const cancelPendingCommit = () => {
     if (pendingCommit == null) return;
@@ -43,23 +57,29 @@ export function createRDGSearchStore(initialValue: string): RDGSearchStore {
     listeners.forEach((listener) => listener());
   };
 
-  const updateColumnsSnapshot = () => {
+  const updateTargetSnapshots = () => {
     const seen = new Set<TypeColumn>();
-    const nextColumns = Array.from(columnRegistrations.values()).flatMap(
-      (columns) =>
-        columns.filter((column) => {
-          if (seen.has(column)) return false;
-          seen.add(column);
-          return true;
-        })
+    const registrations = Array.from(targetRegistrations.values());
+    const nextColumns = registrations.flatMap((registration) =>
+      registration.columns.filter((column) => {
+        if (seen.has(column)) return false;
+        seen.add(column);
+        return true;
+      })
     );
     const unchanged =
       nextColumns.length === columnsSnapshot.length &&
       nextColumns.every((column, index) => column === columnsSnapshot[index]);
-    if (unchanged) return;
+    if (!unchanged) {
+      columnsSnapshot = nextColumns;
+      columnsListeners.forEach((listener) => listener());
+    }
 
-    columnsSnapshot = nextColumns;
-    columnsListeners.forEach((listener) => listener());
+    const nextTheme = registrations[0]?.theme ?? DEFAULT_THEME;
+    if (!Object.is(themeSnapshot, nextTheme)) {
+      themeSnapshot = nextTheme;
+      themeListeners.forEach((listener) => listener());
+    }
   };
 
   return {
@@ -68,22 +88,28 @@ export function createRDGSearchStore(initialValue: string): RDGSearchStore {
       listeners.clear();
       draftListeners.clear();
       columnsListeners.clear();
-      columnRegistrations.clear();
+      themeListeners.clear();
+      targetRegistrations.clear();
     },
     getColumnsSnapshot: () => columnsSnapshot,
     getColumnsServerSnapshot: () => EMPTY_COLUMNS,
     getDraftSnapshot: () => draftValue,
     getDraftServerSnapshot: () => initialValue,
+    getThemeSnapshot: () => themeSnapshot,
+    getThemeServerSnapshot: () => DEFAULT_THEME,
     getSnapshot: () => value,
     getServerSnapshot: () => initialValue,
-    registerColumns(columns) {
+    registerTarget(columns, theme) {
       const registration = Symbol();
-      columnRegistrations.set(registration, columns);
-      updateColumnsSnapshot();
+      targetRegistrations.set(registration, {
+        columns,
+        theme: String(theme ?? DEFAULT_THEME),
+      });
+      updateTargetSnapshots();
 
       return () => {
-        if (!columnRegistrations.delete(registration)) return;
-        updateColumnsSnapshot();
+        if (!targetRegistrations.delete(registration)) return;
+        updateTargetSnapshots();
       };
     },
     setDraftValue(nextValue, debounceMs) {
@@ -123,6 +149,10 @@ export function createRDGSearchStore(initialValue: string): RDGSearchStore {
     subscribeDraft(listener) {
       draftListeners.add(listener);
       return () => draftListeners.delete(listener);
+    },
+    subscribeTheme(listener) {
+      themeListeners.add(listener);
+      return () => themeListeners.delete(listener);
     },
   };
 }
@@ -167,5 +197,14 @@ export function useRDGSearchColumnsSnapshot(): readonly TypeColumn[] {
     store.subscribeColumns,
     store.getColumnsSnapshot,
     store.getColumnsServerSnapshot
+  );
+}
+
+export function useRDGSearchThemeSnapshot(): string {
+  const store = useRDGSearchStore();
+  return React.useSyncExternalStore(
+    store.subscribeTheme,
+    store.getThemeSnapshot,
+    store.getThemeServerSnapshot
   );
 }

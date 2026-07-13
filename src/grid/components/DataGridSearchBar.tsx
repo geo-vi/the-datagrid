@@ -8,6 +8,15 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { cn } from "../../lib/utils";
 import {
+  DatagridThemeProvider,
+  normalizeThemeName,
+  resolveThemeBase,
+  toThemeClassSuffix,
+  useDatagridPortalContainer,
+  useDatagridThemeBase,
+  useDatagridThemeName,
+} from "../../theme/context";
+import {
   createDataGridSearchColumns,
   parseDataGridSearchQuery,
 } from "../utils/search";
@@ -24,11 +33,36 @@ export type DataGridSearchBarProps = {
   columns: readonly TypeColumn[];
   placeholder?: string;
   standalone?: boolean;
+  theme?: string;
   value: string;
   onValueChange: (value: string, change: DataGridSearchBarChange) => void;
 };
 
 export function DataGridSearchBar(props: DataGridSearchBarProps) {
+  const inheritedThemeName = useDatagridThemeName();
+  const inheritedThemeBase = useDatagridThemeBase();
+  const portalContainer = useDatagridPortalContainer();
+  const themeName =
+    props.theme === undefined
+      ? inheritedThemeName
+      : normalizeThemeName(props.theme);
+  const themeBase =
+    props.theme === undefined
+      ? inheritedThemeBase
+      : resolveThemeBase(themeName);
+
+  return (
+    <DatagridThemeProvider
+      theme={themeName}
+      themeBase={themeBase}
+      portalContainer={portalContainer}
+    >
+      <DataGridSearchBarControl {...props} />
+    </DatagridThemeProvider>
+  );
+}
+
+function DataGridSearchBarControl(props: DataGridSearchBarProps) {
   const {
     ariaLabel = "Search all fields",
     autoFocus = false,
@@ -39,6 +73,9 @@ export function DataGridSearchBar(props: DataGridSearchBarProps) {
     value,
     onValueChange,
   } = props;
+  const themeName = useDatagridThemeName();
+  const themeBase = useDatagridThemeBase();
+  const themeClassSuffix = toThemeClassSuffix(themeName);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [isComposing, setIsComposing] = React.useState(false);
   const [scrollLeft, setScrollLeft] = React.useState(0);
@@ -70,10 +107,14 @@ export function DataGridSearchBar(props: DataGridSearchBarProps) {
     <div
       className={cn(
         "tdg-search-bar relative rounded-md bg-[var(--tdg-input-bg,var(--background))]",
-        standalone ? "tdg-search-root w-full shrink-0" : "min-w-0 flex-1"
+        standalone ? "tdg-search-root w-full shrink-0" : "min-w-0 flex-1",
+        standalone ? `tdg-search-root--theme-${themeClassSuffix}` : "",
+        standalone && themeBase === "dark" ? "dark" : ""
       )}
       role="search"
       data-slot="rdg-search-bar"
+      data-theme={standalone ? themeName : undefined}
+      data-theme-base={standalone ? themeBase : undefined}
     >
       <Search
         className="pointer-events-none absolute left-3 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -120,6 +161,7 @@ export function DataGridSearchBar(props: DataGridSearchBarProps) {
         onKeyDown={(event) => {
           if (
             event.key === "Escape" &&
+            !isComposing &&
             !event.nativeEvent.isComposing &&
             value
           ) {

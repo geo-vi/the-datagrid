@@ -31,11 +31,16 @@
   --tdg-input-border-color: var(--tdg-search-input);
   --tdg-input-border-color-hover: var(--tdg-search-ring);
   --tdg-input-border-color-focus: var(--tdg-search-ring);
+  color-scheme: light;
   color: var(--tdg-search-foreground);
 }
 
-.dark .tdg-search-root,
-.tdg-search-root.dark {
+.tdg-search-root[data-theme-base="dark"] {
+  color-scheme: dark;
+}
+
+.dark .tdg-search-root[data-theme="default"][data-theme-base="default"],
+.tdg-search-root[data-theme-base="dark"] {
   --tdg-search-background: var(
     --tdg-color-background,
     var(--background, oklch(0.145 0 0))
@@ -55,6 +60,19 @@
   );
   --tdg-search-input: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%)));
   --tdg-search-ring: var(--tdg-color-ring, var(--ring, oklch(0.556 0 0)));
+}
+
+.tdg-search-root
+  .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input {
+  border-color: var(--tdg-input-border-color) !important;
+  background: var(--tdg-input-bg) !important;
+  color: var(--tdg-input-color) !important;
+}
+
+.tdg-search-root .inovua-react-toolkit-text-input__input {
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
 }
 
 @theme inline {

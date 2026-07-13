@@ -6,6 +6,13 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/main.d.ts",
+  "typesVersions": {
+    "*": {
+      "search": [
+        "./dist/search/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/main.d.ts",
@@ -45,11 +52,11 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && node scripts/fix-dts-specifiers.mjs && tsc -p ./tests/published-types/tsconfig.json --noEmit && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs",
+    "build": "tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
-    "test:published-types": "tsc -p ./tests/published-types/tsconfig.json --noEmit",
+    "test:published-types": "node scripts/test-published-types.mjs",
     "test:compat": "yarn test:types && playwright test tests/playwright/computed-props-compat.spec.ts",
     "test:css-scope": "node scripts/assert-css-scope.mjs",
     "test:e2e:prepare": "yarn build",

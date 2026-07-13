@@ -2309,6 +2309,8 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
   expect(shell?.heightDelta ?? 1).toBeLessThanOrEqual(0.5);
 
   const filterInput = page
+    .locator(".InovuaReactDataGrid.tdg-root")
+    .first()
     .locator(
       ".inovua-react-toolkit-text-input.inovua-react-toolkit-text-input--theme-ikarus-dark"
     )
