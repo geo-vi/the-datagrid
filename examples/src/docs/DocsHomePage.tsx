@@ -3,10 +3,10 @@ import { Link } from "@tanstack/react-router";
 import CopyableCodeBlock from "./CopyableCodeBlock";
 import {
   DocsRouteLink,
-  docsNavGroups,
   getDocsHomeCards,
   getDocsLinkTarget,
 } from "./docsContent";
+import { docsNavigationSections } from "./docsNavigation";
 
 const installCommands = [
   { label: "npm", code: "npm install @geovi/the-datagrid" },
@@ -31,9 +31,10 @@ export default function DocsHomePage() {
                 Documentation and examples for the React data grid library.
               </h1>
               <p className="max-w-3xl text-base text-muted-foreground md:text-lg">
-                A shadcn-aligned grid with Inovua-style naming, practical
-                compatibility, and a smaller runtime surface. Use the docs for
-                the API contract and the examples for live behavior.
+                A shadcn-aligned grid targeting 100% backwards compatibility
+                with Inovua Community's public contract. Use the compatibility
+                ledger to distinguish that product commitment from the current
+                implementation status.
               </p>
             </div>
 
@@ -50,6 +51,20 @@ export default function DocsHomePage() {
               >
                 Browse examples
               </Link>
+              <DocsRouteLink
+                group="reference"
+                slug="implemented-surface"
+                className="inline-flex rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted/50"
+              >
+                See what works today
+              </DocsRouteLink>
+              <DocsRouteLink
+                group="migration"
+                slug="inovua-status"
+                className="inline-flex rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted/50"
+              >
+                Check Inovua parity
+              </DocsRouteLink>
             </div>
           </div>
 
@@ -69,7 +84,7 @@ export default function DocsHomePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {docsCards.map((card) =>
           card.kind === "docs" ? (
             <DocsRouteLink
@@ -112,28 +127,28 @@ export default function DocsHomePage() {
               Everything is organized around real integration tasks.
             </h2>
             <p className="text-sm text-muted-foreground">
-              Start with installation and quickstart, then move into guides for
-              local or remote data. The reference section is structured for
-              direct lookups while you build.
+              Start with installation and quickstart, then follow the task area
+              you need: data sources, core features, styling, API details, or
+              migration compatibility.
             </p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {docsNavGroups.map((group) => (
+            {docsNavigationSections.map((section) => (
               <div
-                key={group.key}
+                key={section.id}
                 className="rounded-2xl border bg-card/70 p-4"
               >
-                <div className="text-sm font-semibold">{group.label}</div>
+                <div className="text-sm font-semibold">{section.label}</div>
                 <div className="mt-3 space-y-2">
-                  {group.pages.map((page) => (
+                  {section.items.map((item) => (
                     <DocsRouteLink
-                      key={page.slug}
-                      group={page.group}
-                      slug={page.slug}
+                      key={`${item.group}/${item.slug}`}
+                      group={item.group}
+                      slug={item.slug}
                       className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      {page.title}
+                      {item.label}
                     </DocsRouteLink>
                   ))}
                 </div>

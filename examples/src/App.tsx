@@ -356,6 +356,9 @@ function AppHeader(props: {
 }
 
 export default function App() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
   const [gridTheme, setGridTheme] = useState<GridTheme>("default");
   const [siteTheme, setSiteTheme] = useState<SiteTheme>(getInitialSiteTheme);
   const [showCellBorders, setShowCellBorders] =
@@ -402,21 +405,36 @@ export default function App() {
     }),
     [gridTheme, i18n, resizable, showCellBorders]
   );
+  const isDocsRoute = pathname === "/docs" || pathname.startsWith("/docs/");
 
   return (
     <ExamplesUiContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-background text-foreground transition-colors flex flex-col gap-4 p-4">
-        <AppHeader
-          gridTheme={gridTheme}
-          setGridTheme={setGridTheme}
-          siteTheme={siteTheme}
-          setSiteTheme={setSiteTheme}
-          showCellBorders={showCellBorders}
-          setShowCellBorders={setShowCellBorders}
-          resizable={resizable}
-          setResizable={setResizable}
-        />
-        <Outlet />
+      <div
+        className={
+          isDocsRoute
+            ? "flex h-dvh flex-col gap-4 overflow-hidden bg-background p-4 text-foreground transition-colors"
+            : "flex min-h-screen flex-col gap-4 bg-background p-4 text-foreground transition-colors"
+        }
+      >
+        <div className={isDocsRoute ? "shrink-0" : undefined}>
+          <AppHeader
+            gridTheme={gridTheme}
+            setGridTheme={setGridTheme}
+            siteTheme={siteTheme}
+            setSiteTheme={setSiteTheme}
+            showCellBorders={showCellBorders}
+            setShowCellBorders={setShowCellBorders}
+            resizable={resizable}
+            setResizable={setResizable}
+          />
+        </div>
+        {isDocsRoute ? (
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <Outlet />
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </div>
     </ExamplesUiContext.Provider>
   );

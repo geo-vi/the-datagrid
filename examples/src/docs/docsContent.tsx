@@ -20,6 +20,21 @@ type ReferenceSection = {
   body?: ReactNode;
 };
 
+type CompatibilityStatus =
+  | "compatible"
+  | "known-gap"
+  | "outside-public-baseline"
+  | "verifying";
+
+type CompatibilityRow = {
+  id: string;
+  feature: string;
+  upstreamContract: ReactNode;
+  currentBehavior: ReactNode;
+  requiredOutcome: ReactNode;
+  status: CompatibilityStatus;
+};
+
 export type DocsNavGroupKey =
   | "getting-started"
   | "guides"
@@ -292,6 +307,95 @@ function ReferenceTable(props: { rows: ReferenceRow[] }) {
   );
 }
 
+const compatibilityStatusPresentation: Record<
+  CompatibilityStatus,
+  { label: string; className: string }
+> = {
+  compatible: {
+    label: "Compatible",
+    className:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200",
+  },
+  "known-gap": {
+    label: "Known gap",
+    className:
+      "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100",
+  },
+  "outside-public-baseline": {
+    label: "Outside public baseline",
+    className: "border-border bg-muted/60 text-muted-foreground",
+  },
+  verifying: {
+    label: "Verifying",
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-100",
+  },
+};
+
+function CompatibilityTable(props: { rows: CompatibilityRow[] }) {
+  const { rows } = props;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border">
+      <div className="overflow-x-auto">
+        <table className="min-w-[1120px] border-collapse text-sm">
+          <thead className="bg-muted/40 text-left">
+            <tr>
+              <th className="border-b px-4 py-3 font-semibold">Area</th>
+              <th className="border-b px-4 py-3 font-semibold">
+                Inovua Community 5.10.2 contract
+              </th>
+              <th className="border-b px-4 py-3 font-semibold">
+                Current the-datagrid behavior
+              </th>
+              <th className="border-b px-4 py-3 font-semibold">
+                Parity requirement
+              </th>
+              <th className="border-b px-4 py-3 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const status = compatibilityStatusPresentation[row.status];
+
+              return (
+                <tr
+                  key={row.id}
+                  className="align-top"
+                  data-compat-feature={row.id}
+                  data-compat-status={row.status}
+                >
+                  <th
+                    scope="row"
+                    className="border-b px-4 py-3 text-left font-semibold text-foreground"
+                  >
+                    {row.feature}
+                  </th>
+                  <td className="border-b px-4 py-3 text-muted-foreground">
+                    {row.upstreamContract}
+                  </td>
+                  <td className="border-b px-4 py-3 text-muted-foreground">
+                    {row.currentBehavior}
+                  </td>
+                  <td className="border-b px-4 py-3 text-muted-foreground">
+                    {row.requiredOutcome}
+                  </td>
+                  <td className="border-b px-4 py-3">
+                    <span
+                      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}
+                    >
+                      {status.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function SectionBody(props: { section: ReferenceSection }) {
   const { section } = props;
 
@@ -387,6 +491,43 @@ export function DocsPageArticle(props: { page: DocsPage }) {
 
 const reactDataGridPropSections: ReferenceSection[] = [
   {
+    id: "compatibility-status",
+    title: "Compatibility status",
+    body: (
+      <Callout
+        title="Current exports are not the completed Inovua surface"
+        tone="warning"
+      >
+        <p>
+          This table documents props shipped by the current package. The product
+          target is 100% backwards compatibility with the documented public{" "}
+          <code>@inovua/reactdatagrid-community@5.10.2</code> contract, but
+          feasible props that are not implemented yet remain known gaps and are
+          not listed here as if they worked.
+        </p>
+        <p>
+          Read the{" "}
+          <DocsRouteLink
+            group="migration"
+            slug="inovua-compat"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            compatibility contract
+          </DocsRouteLink>{" "}
+          and the{" "}
+          <DocsRouteLink
+            group="migration"
+            slug="inovua-status"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            current parity status
+          </DocsRouteLink>{" "}
+          before treating this package as a drop-in runtime replacement.
+        </p>
+      </Callout>
+    ),
+  },
+  {
     id: "core-props",
     title: "Core props",
     rows: [
@@ -422,14 +563,15 @@ const reactDataGridPropSections: ReferenceSection[] = [
         name: "columnOrder",
         type: "string[]",
         defaultValue: "derived from columns",
-        description: "Controlled rendered order of the visible columns.",
+        description:
+          "Rendered order by resolved column id/name. Unknown ids are removed and current columns omitted from the array are appended.",
       },
       {
         name: "onColumnOrderChange",
         type: "(columnOrder: string[]) => void",
         defaultValue: "-",
         description:
-          "Receives the next column order after a user reorder. Reordering should be considered opt-in and controlled through this callback.",
+          "Receives the next user-column order after a drag. Dragging is disabled without this callback, and the synthetic checkbox id is never emitted.",
       },
     ],
   },
@@ -448,33 +590,43 @@ const reactDataGridPropSections: ReferenceSection[] = [
         name: "resizable",
         type: "boolean",
         defaultValue: "true",
-        description: "Turns header drag-resize handles on or off.",
+        description:
+          "Turns header drag-resize handles on or off. Controlled column.width stays authoritative; uncontrolled defaultWidth can retain a drag result.",
+      },
+      {
+        name: "onColumnResize",
+        type: "(info, context) => void",
+        defaultValue: "-",
+        description:
+          "Reports resize proposals as { column, width, flex } plus { reservedViewportWidth }. Controlled consumers persist the proposed width by returning it through columns.",
       },
       {
         name: "enableColumnAutosize",
         type: "boolean",
         defaultValue: "true",
         description:
-          "Applies the built-in width heuristic when no explicit width/defaultWidth is present.",
+          "Uses a deterministic first-25-row text heuristic when width/defaultWidth is absent. Double-clicking a resize handle autosizes only that column.",
       },
       {
         name: "skipHeaderOnAutoSize",
         type: "boolean",
         defaultValue: "false",
-        description: "Removes header text from autosize estimation when true.",
+        description:
+          "Removes header text from estimation. Values are estimated at about 8px per character plus padding, bounded to 90-520px before column min/max clamps.",
       },
       {
         name: "virtualized",
         type: "boolean",
         defaultValue: "true",
-        description: "Enables row virtualization via TanStack Virtual.",
+        description:
+          "Enables TanStack row virtualization with overscan of 10. Numeric and functional heights are deterministic; natural rows are measured and remeasured when content or column widths change.",
       },
       {
         name: "allowMobileTransform",
         type: "boolean",
         defaultValue: "false",
         description:
-          "At widths up to 1024px, replaces the table with searchable and sortable virtual row cards while preserving cell renderers and actions.",
+          "At widths up to 1024px, replaces the table with measured virtual cards, current-page search, single-sort tools, and a card-only hideable-column picker while preserving renderers, actions, and selection.",
       },
       {
         name: "columnUserSelect",
@@ -492,9 +644,45 @@ const reactDataGridPropSections: ReferenceSection[] = [
       },
       {
         name: "rowHeight",
-        type: "number",
+        type: "number | ((rowIndex: number) => number) | null",
         defaultValue: "44",
-        description: "Body row height in pixels.",
+        description:
+          "Sets one fixed height, computes a height per row, or enables content-driven measured height with null.",
+      },
+      {
+        name: "minRowHeight",
+        type: "number",
+        defaultValue: "20",
+        description:
+          "Minimum row height and the initial estimate used before a natural row is measured.",
+      },
+      {
+        name: "maxRowHeight",
+        type: "number",
+        defaultValue: "-",
+        description:
+          "Optional upper clamp for functional and naturally measured row heights.",
+      },
+      {
+        name: "rowStyle",
+        type: "CSSProperties | ({ data, props, style }) => CSSProperties",
+        defaultValue: "-",
+        description:
+          "Merges a static or data-dependent style onto the rendered row. TypeColumn.style remains the separate cell-level hook.",
+      },
+      {
+        name: "showZebraRows",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Shows visible odd/even row backgrounds. Set false per grid to use one row background while retaining selection and hover states.",
+      },
+      {
+        name: "defaultShowZebraRows",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Initial uncontrolled zebra setting. A supplied showZebraRows value remains controlled and authoritative.",
       },
       {
         name: "headerHeight",
@@ -518,7 +706,8 @@ const reactDataGridPropSections: ReferenceSection[] = [
         name: "style",
         type: "React.CSSProperties",
         defaultValue: "-",
-        description: "Inline styles for the grid root.",
+        description:
+          "Inline styles for the inner grid surface; use rowStyle for row-level presentation.",
       },
     ],
   },
@@ -569,7 +758,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(count: number) => void",
         defaultValue: "-",
         description:
-          "Reports changes to the post-filter row count so host UIs can display totals.",
+          "Reports post-search/post-filter count before local pagination and deduplicates equal counts. Exception: standalone mobile-card search reports its displayed, already-loaded row count and may therefore be page-scoped.",
       },
     ],
   },
@@ -695,7 +884,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(config: TypeOnSelectionChangeArg) => void",
         defaultValue: "-",
         description:
-          "Called with selected, data, unselected, and originalData. Direct React setter wiring is supported.",
+          "Always emits selected and originalData; UI actions also include the relevant row(s) in data. unselected is optional and built-in toggles do not currently populate it. Direct React setter wiring is supported.",
       },
       {
         name: "multiSelect",
@@ -716,6 +905,60 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "false",
         description:
           "Allows shift-range selection through the checkbox column.",
+      },
+    ],
+  },
+  {
+    id: "editing-props",
+    title: "Inline editing",
+    rows: [
+      {
+        name: "editable",
+        type: "boolean",
+        defaultValue: "false",
+        description:
+          "Enables default editing for columns without an explicit editable override. column.editable=false always opts out.",
+      },
+      {
+        name: "editStartEvent",
+        type: "string",
+        defaultValue: '"dblclick"',
+        description:
+          "Selects double-click or compatible click activation. Supported aliases follow the Inovua click/double-click forms.",
+      },
+      {
+        name: "onEditStart",
+        type: "(info: TypeEditInfo) => void",
+        defaultValue: "-",
+        description:
+          "Runs after editability resolves and reports the initial value plus stable row/column identity.",
+      },
+      {
+        name: "onEditValueChange",
+        type: "(info: TypeEditInfo) => void",
+        defaultValue: "-",
+        description: "Reports draft values while the editor remains active.",
+      },
+      {
+        name: "onEditStop",
+        type: "(info: TypeEditInfo) => void",
+        defaultValue: "-",
+        description:
+          "Runs before either completion or cancellation with the current draft value.",
+      },
+      {
+        name: "onEditComplete",
+        type: "(info: TypeEditInfo) => void | Promise<unknown>",
+        defaultValue: "-",
+        description:
+          "Runs after the editor stops and reports the accepted value. Navigation waits for fulfillment and is suppressed on rejection; the application remains responsible for persisting data.",
+      },
+      {
+        name: "onEditCancel",
+        type: "(info: TypeEditInfo) => void",
+        defaultValue: "-",
+        description:
+          "Reports Escape cancellation after onEditStop without committing the draft.",
       },
     ],
   },
@@ -748,19 +991,545 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(apiRef) => void",
         defaultValue: "-",
         description:
-          "Receives the Inovua-compatible computed-props ref after mount.",
+          "Receives one stable MutableRefObject after mount; its TypeComputedProps target is refreshed in place as grid state changes.",
       },
       {
         name: "handle",
         type: "(apiRef) => void",
         defaultValue: "-",
-        description: "Compatibility alias for onReady.",
+        description:
+          "Compatibility alias for onReady with the same stable-ref lifecycle.",
       },
     ],
   },
+  {
+    id: "runtime-defaults",
+    title: "ReactDataGrid.defaultProps",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          The component exposes its runtime defaults through the static{" "}
+          <code>ReactDataGrid.defaultProps</code> compatibility object. It
+          includes the defaults documented above for theme, filtering,
+          autosizing, resizing, virtualization, mobile transform, selection,
+          borders, column menu visibility, and row/header/filter heights.
+        </p>
+        <p>
+          <code>defaultProps.filterTypes</code> is the built-in registry, so
+          existing integrations can extend it with an object spread or{" "}
+          <code>Object.assign</code>. Treat the object as a source of defaults;
+          pass overrides through component props instead of mutating the shared
+          registry in place.
+        </p>
+      </div>
+    ),
+  },
 ];
 
+function createInovuaStatusPage(): DocsPage {
+  return {
+    group: "migration",
+    slug: "inovua-status",
+    title: "Inovua implementation status",
+    summary:
+      "A living, evidence-backed ledger of verified compatibility, remaining gaps, and behavior still being audited.",
+    description:
+      "The status page is deliberately scoped: Issue 17 behaviors proven by executable tests are marked compatible, while the remaining Community surface is still audited independently.",
+    tags: ["Migration", "Inovua", "Parity status"],
+    sections: [
+      {
+        id: "current-status",
+        title: "How to read this status",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <Callout
+              title="Known gaps are not approved differences"
+              tone="warning"
+            >
+              <p>
+                The product contract requires full public Community
+                compatibility. “Known gap” means the behavior is currently
+                different and must be implemented; it does not mean consumers
+                should accept the difference as permanent.
+              </p>
+            </Callout>
+            <p>
+              This ledger covers the differences audited from Issue 17 and the
+              linked compatibility analysis. It is not exhaustive. The remaining
+              public Community surface is still being verified, and absence from
+              this table is not proof of compatibility.
+            </p>
+            <p>
+              The matching{" "}
+              <a
+                href="https://github.com/geo-vi/the-datagrid/blob/main/tests/playwright/inovua-parity.spec.ts"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                executable parity specifications
+              </a>{" "}
+              become permanent green regression coverage as each behavior is
+              implemented. The Issue 17 rows marked compatible below are backed
+              by that focused suite.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "implemented-today",
+        title: "Implemented today",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The current package already ships local, Promise, and function
+              data sources; composed search/filter/sort/pagination; column
+              rendering, ordering, controlled/uncontrolled and flex sizing,
+              resize reporting, selection, fixed/functional/natural row
+              virtualization, zebra rows, whole-row styling, inline editing,
+              transformed-mobile cards, optional table search, theme/i18n
+              support, and a substantial imperative API subset.
+            </p>
+            <p>
+              The source-backed{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="implemented-surface"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                implemented-surface reference
+              </DocsRouteLink>{" "}
+              records exact exports, defaults, timing, transform order,
+              interaction rules, and method allowlists. It is deliberately
+              separate from this gap ledger so “works today” is never confused
+              with “verified as Inovua-compatible.”
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "known-gaps",
+        title: "Audited compatibility ledger",
+        body: <CompatibilityTable rows={inovuaCompatibilityRows} />,
+      },
+      {
+        id: "dynamic-row-height",
+        title: "Dynamic and natural row height",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">Upstream contract.</strong>{" "}
+              <code>rowHeight</code> accepts a number, a per-row function, or{" "}
+              <code>null</code>. <code>{"rowHeight={null}"}</code> enables
+              content-driven height; <code>minRowHeight</code> supplies a
+              minimum and a virtualization estimate. Rendered heights are
+              measured and offsets are updated.
+            </p>
+            <p>
+              <strong className="text-foreground">Current behavior.</strong>{" "}
+              the-datagrid now accepts numeric, functional, and{" "}
+              <code>null</code> row heights. Natural rows are registered for
+              element measurement;
+              <code>minRowHeight</code> supplies the floor/estimate and
+              <code>maxRowHeight</code> can bound the result.
+            </p>
+            <p>
+              <strong className="text-foreground">Verified behavior.</strong>{" "}
+              The parity suite checks natural DOM height against the virtual row
+              model, deterministic per-row function heights, minimum bounds, and
+              automatic offset repair after a column-width change rewraps text.
+            </p>
+            <p>
+              <strong className="text-foreground">Scope.</strong> This verifies
+              the Community row-height forms exercised by Issue 17. It is not a
+              blanket claim about unrelated row-detail, grouping, or Enterprise
+              layout features.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "column-sizing-and-resize",
+        title: "Column sizing and resize lifecycle",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">Resize callback.</strong>{" "}
+              Inovua reports{" "}
+              <code>
+                onColumnResize({"{ column, width, flex }"},{" "}
+                {"{ reservedViewportWidth }"})
+              </code>
+              . The callback is the persistence path for controlled widths and
+              can also notify consumers that wrapped content changed. The grid
+              now emits the callback when a drag is committed on pointer
+              release, and when autosize or the computed resize API commits a
+              size, with both arguments.
+            </p>
+            <p>
+              <strong className="text-foreground">Controlled semantics.</strong>{" "}
+              Inovua treats <code>width</code>/<code>flex</code> as controlled
+              and <code>defaultWidth</code>/<code>defaultFlex</code> as
+              uncontrolled initial values. Dragging a controlled width must have
+              no lasting effect until the consumer returns a new width through
+              props, and later prop changes must render immediately. The current
+              controlled path keeps <code>column.width</code> authoritative;
+              <code>defaultWidth</code> owns the uncontrolled starting value.
+              The default Inovua no-share behavior converts a resized{" "}
+              <code>defaultFlex</code> column to a fixed width; any remaining
+              flex columns are reported with flex payloads in the same commit.
+            </p>
+            <p>
+              <strong className="text-foreground">Flex allocation.</strong>{" "}
+              Inovua uses <code>flex</code> and <code>defaultFlex</code> to
+              distribute remaining viewport width by weight: subject to min/max
+              clamps, a flex-2 column receives about twice the space of flex-1.
+              the-datagrid now performs that weighted allocation for controlled
+              <code>flex</code> and uncontrolled <code>defaultFlex</code>. The
+              implicit minimum is the upstream 40px; an explicit{" "}
+              <code>{"minWidth={0}"}</code> remains zero, and the absent maximum
+              remains unbounded.
+            </p>
+            <p>
+              <strong className="text-foreground">Verified behavior.</strong>{" "}
+              Focused tests cover the resize payload, controlled-width
+              authority, proportional flex allocation, and natural-row
+              remeasurement after width changes.
+            </p>
+            <p>
+              Controlled applications must still update their column definition
+              from <code>onColumnResize</code> when they want the proposed width
+              to persist; the grid deliberately does not mutate consumer state.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "zebra-rows",
+        title: "Zebra row defaults and toggle",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Inovua visibly stripes alternating rows by default and supports{" "}
+              <code>{"showZebraRows={false}"}</code> per grid. the-datagrid now
+              provides the same visible default and per-grid toggle while
+              retaining odd/even classes and theme tokens.
+            </p>
+            <p>
+              Custom themes can assign different values to{" "}
+              <code>--tdg-row-odd-bg</code> and <code>--tdg-row-even-bg</code>.
+              Giving them the same value suppresses visible stripes for that
+              theme; the prop remains the semantic per-grid control.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "inline-editing",
+        title: "Inline editing lifecycle",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Inovua Community editing is a complete interaction subsystem: root{" "}
+              <code>editable</code> and <code>editStartEvent</code>; column{" "}
+              <code>editable</code>, <code>editor</code>, and{" "}
+              <code>renderEditor</code>; and <code>onEditStart</code>,{" "}
+              <code>onEditValueChange</code>, <code>onEditStop</code>,{" "}
+              <code>onEditComplete</code>, and <code>onEditCancel</code>. The
+              default start gesture is double-click, with click available by{" "}
+              <code>editStartEvent</code>. <code>column.editable=false</code>
+              blocks editing, and column editability may resolve synchronously
+              or asynchronously.
+            </p>
+            <p>
+              The observable lifecycle is start, zero or more value changes,
+              stop, then complete or cancel. Callback payloads identify at least{" "}
+              <code>rowId</code>, <code>rowIndex</code>, <code>columnId</code>,{" "}
+              <code>columnIndex</code>, and <code>value</code>. Enter completes
+              and restores/navigates focus; Escape restores the original value
+              without completion; Tab and Shift+Tab complete and move between
+              editable cells.
+            </p>
+            <p>
+              the-datagrid now implements that cell-editing state machine,
+              including default and custom editors, click/double-click
+              activation, sync/async column editability, ordered lifecycle
+              callbacks, cancellation, focus restoration, and keyboard
+              traversal. A falsy or rejected async editability result refuses
+              the edit, and a late result from an older attempt cannot open or
+              replace a newer editor.
+            </p>
+            <p>
+              Completion reports the draft but does not mutate application data;
+              persist it in <code>onEditComplete</code>. The editor stops before
+              that callback runs. Navigation waits for fulfillment, while a
+              rejection leaves the editor stopped and suppresses navigation.
+              Session identity prevents an older pending completion from
+              clearing or navigating a newer edit. In the published 5.10.2
+              types, root <code>editable</code> is boolean; conditional or async
+              decisions belong on <code>column.editable</code>.
+            </p>
+            <p>
+              Custom editors receive column <code>editorProps</code> both at the
+              top level and in a nested <code>editorProps</code> object, plus{" "}
+              <code>nativeScroll</code>, <code>cell</code>,{" "}
+              <code>cellProps</code>, value/theme/focus metadata, completion and
+              cancellation handlers, and next/previous navigation helpers.{" "}
+              <code>renderEditor</code> is called as{" "}
+              <code>(editorProps, cellProps, cell)</code>. The navigation
+              handlers accept <code>(complete, direction)</code>;{" "}
+              <code>complete=false</code> means stop and navigate without
+              complete or cancel.
+            </p>
+            <p>
+              Pointer and imperative edit starts evaluate{" "}
+              <code>column.editable</code> with the same Inovua-shaped{" "}
+              <code>CellProps</code>. The object includes the raw string or
+              numeric row ID, local/render/remote row indices, column aliases
+              and computed indices/width, selection and row-height metadata,
+              theme, native-scroll state, and nested cell props.
+            </p>
+            <p>
+              Programmatic <code>startEdit</code>/<code>tryStartEdit</code>{" "}
+              replace an active editor without completing, cancelling, or
+              stopping the former cell. Their deferred dispatch resolves the
+              live row, column, value, and cell metadata rather than a stale
+              call-time snapshot. The built-in editor derives an accessible name
+              from the primitive column header, then its name/ID.
+            </p>
+            <p>
+              The published 5.10.2 <code>TypeEditInfo</code> declaration labels
+              <code>rowId</code> as <code>string</code>, even though the runtime
+              preserves numeric IDs. Our compatibility declaration deliberately
+              uses <code>any</code>: existing handlers written against the
+              declared string contract continue to type-check, while numeric-ID
+              applications also match the observable runtime.
+            </p>
+            <p>
+              The stable <code>TypeComputedProps</code> ref also implements{" "}
+              <code>startEdit</code>, <code>tryStartEdit</code>,{" "}
+              <code>completeEdit</code>, <code>cancelEdit</code>,{" "}
+              <code>getCurrentEditInfo</code>, <code>isInEdit</code>, and{" "}
+              <code>currentEditCompletePromise</code>. The mobile card transform
+              is disabled when either root or visible column-level editing is
+              enabled so it cannot replace the editable table surface.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "row-style",
+        title: "Data-dependent whole-row styling",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Inovua <code>rowStyle</code> accepts either an object or a
+              function shaped like{" "}
+              <code>{"({ data, props, style }) => style"}</code>, then merges
+              the result onto the row. This supports styling based on row data
+              and state.
+            </p>
+            <p>
+              the-datagrid now evaluates the object or function once per row and
+              merges the result onto the row element. <code>props</code>{" "}
+              includes the available Inovua row metadata: local/remote indexes,
+              selection and parity state, computed columns and widths,
+              row-height state, totals, editing state, and theme. Unsupported
+              grouping data is not fabricated; unsupported locking is reported
+              through the stable unlocked sentinels (<code>-1</code>,{" "}
+              <code>false</code>, and <code>0</code>) used by the compatibility
+              surface. <code>TypeColumn.style</code> remains a separate
+              cell-level API.
+            </p>
+            <p>
+              The callback receives the live base style with Inovua-shaped{" "}
+              <code>height</code>, <code>width</code>, <code>minWidth</code>,
+              and <code>direction</code>. It may mutate that object and return{" "}
+              <code>undefined</code>, or return an object to merge. Row IDs keep
+              their original string/number type, and <code>remoteRowIndex</code>{" "}
+              includes the current pagination offset while <code>rowIndex</code>{" "}
+              remains page-local.
+            </p>
+            <p>
+              Focused coverage verifies that two rows can receive different
+              data-dependent styles and that the style is present on the row,
+              not repeated as a cell substitute.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "text-input-boundary",
+        title: "TextInput boundary",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Inovua's default cell editor is internally backed by a TextInput.
+              The observable editor behavior belongs to the compatibility
+              baseline; the internal component choice does not.
+            </p>
+            <p>
+              Standalone <code>TextInput</code> was not documented as a
+              top-level Community grid API. It is therefore outside the public
+              baseline, not an approved technical-impossibility exception. A
+              compatible standalone export would become required only if this
+              project explicitly adopts support for Inovua toolkit deep imports.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "source-baseline",
+        title: "Primary behavior sources",
+        body: (
+          <ul className="list-disc space-y-3 pl-5 text-sm text-muted-foreground">
+            <li>
+              <a
+                href="https://www.npmjs.com/package/@inovua/reactdatagrid-community/v/5.10.2"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Published Community package 5.10.2
+              </a>{" "}
+              — package baseline and feature list.
+            </li>
+            <li>
+              <a
+                href="https://web.archive.org/web/20230321010140/https://reactdatagrid.io/docs/performance-and-virtualization"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Archived performance and virtualization documentation
+              </a>{" "}
+              — natural/dynamic row-height behavior.
+            </li>
+            <li>
+              <a
+                href="https://web.archive.org/web/20230527235917/https://reactdatagrid.io/docs/customizing-cells-rows-headers"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Archived cell, row, and header customization documentation
+              </a>{" "}
+              — zebra defaults and rowStyle.
+            </li>
+            <li>
+              <a
+                href="https://web.archive.org/web/20230528010546/https://reactdatagrid.io/docs/inline-edit"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Archived inline-editing documentation
+              </a>{" "}
+              — activation, editors, lifecycle callbacks, and keyboard behavior.
+            </li>
+            <li>
+              <a
+                href="https://web.archive.org/web/20230928052216/https://reactdatagrid.io/docs/#defining-columns"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Archived defining-columns and sizing documentation
+              </a>{" "}
+              — width/defaultWidth and flex/defaultFlex semantics.
+            </li>
+            <li>
+              <a
+                href="https://github.com/geo-vi/the-datagrid/issues/17#issuecomment-4958673318"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Issue 17 compatibility analysis
+              </a>{" "}
+              — the technical audit behind this ledger.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "decision-history",
+        title: "Decision history",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              An earlier implementation in{" "}
+              <a
+                href="https://github.com/geo-vi/the-datagrid/commit/ef4cbd9bc5b19f6a6b21109fc13aec614eb69708"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                commit ef4cbd9
+              </a>{" "}
+              mapped <code>rowStyle</code> to column styles,{" "}
+              <code>onColumnResize</code> to width fields,{" "}
+              <code>showZebraRows</code> to theme tokens, and{" "}
+              <code>minRowHeight</code> to fixed <code>rowHeight</code>.
+            </p>
+            <p>
+              The policy correctly recorded those mappings as non-equivalent.
+              This compatibility batch replaces the substitutions with the
+              actual public props and observable behavior.
+            </p>
+            <p>
+              The associated Issue 17 example and E2E coverage were later
+              removed in{" "}
+              <a
+                href="https://github.com/geo-vi/the-datagrid/commit/ff54963894c8a832975214c48ebab91a7d5ee233"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                commit ff54963
+              </a>
+              . The restored parity specifications now act as green regression
+              coverage for this implemented batch.
+            </p>
+          </div>
+        ),
+      },
+    ],
+  };
+}
+
 const columnSections: ReferenceSection[] = [
+  {
+    id: "compatibility-status",
+    title: "Compatibility status",
+    body: (
+      <Callout
+        title="Accepted fields are not automatically behaviorally compatible"
+        tone="warning"
+      >
+        <p>
+          This page describes the current <code>IColumn</code> type and its
+          implemented behavior. Controlled <code>width</code>/<code>flex</code>,
+          uncontrolled <code>defaultWidth</code>/<code>defaultFlex</code>, and
+          column editing fields are active runtime contracts, not reserved
+          names.
+        </p>
+        <p>
+          <code>TypeColumn.style</code> intentionally remains cell-level; use
+          the separate root <code>rowStyle</code> prop for whole-row
+          presentation. See the{" "}
+          <DocsRouteLink
+            group="migration"
+            slug="inovua-status"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Inovua parity ledger
+          </DocsRouteLink>{" "}
+          for the broader compatibility audit and remaining unverified areas.
+        </p>
+      </Callout>
+    ),
+  },
   {
     id: "identity-fields",
     title: "Identity and rendering",
@@ -796,7 +1565,55 @@ const columnSections: ReferenceSection[] = [
         type: "((cellProps) => ReactNode) | ((value, args) => ReactNode)",
         defaultValue: "-",
         description:
-          "Cell renderer. Supports both Inovua-style render({ value, data, ... }) and the legacy render(value, args) shape.",
+          "Cell renderer. The one-argument form receives { value, data, rowIndex, column, columnId, cellProps }; the legacy two-argument render(value, args) form is also supported.",
+      },
+      {
+        name: "cellProps (runtime field)",
+        type: "Record<string, unknown>",
+        defaultValue: "-",
+        description:
+          "Merged into the cellProps object passed to the one-argument renderer. The runtime recognizes this through IColumn's open index signature, but it is not yet an explicit named IColumn field.",
+      },
+      {
+        name: "dateFormat (runtime field)",
+        type: "string",
+        defaultValue: "-",
+        description:
+          "Passed through cellProps and used while parsing date/time filters. It currently relies on IColumn's open index signature rather than an explicit named field.",
+      },
+    ],
+  },
+  {
+    id: "editing-fields",
+    title: "Editing",
+    rows: [
+      {
+        name: "editable",
+        type: "boolean | ((value, cellProps) => boolean | Promise<boolean>)",
+        defaultValue: "root editable",
+        description:
+          "Overrides root editing for this column. false always blocks editing; a function may make a synchronous or asynchronous decision.",
+      },
+      {
+        name: "editor",
+        type: "ElementType<TypeColumnEditorProps> | ReactElement",
+        defaultValue: "default text editor",
+        description:
+          "Custom component type or element receiving value, theme/focus metadata, cell/cellProps, custom props, and change/complete/cancel/navigation callbacks.",
+      },
+      {
+        name: "editorProps",
+        type: "Record<string, unknown>",
+        defaultValue: "-",
+        description:
+          "Additional props exposed both at the custom editor's top level and through its nested editorProps object. Grid-owned lifecycle values override conflicting top-level entries.",
+      },
+      {
+        name: "renderEditor",
+        type: "(editorProps, cellProps, cell) => ReactNode",
+        defaultValue: "-",
+        description:
+          "Render-function alternative receiving the complete editor props, cell props, and compatibility cell instance. The editor field takes precedence when both are supplied.",
       },
     ],
   },
@@ -808,39 +1625,43 @@ const columnSections: ReferenceSection[] = [
         name: "width",
         type: "number",
         defaultValue: "-",
-        description: "Fixed rendered width.",
+        description:
+          "Controlled consumer width. Dragging proposes a new value through onColumnResize; it persists only when the consumer returns it.",
       },
       {
         name: "defaultWidth",
         type: "number",
         defaultValue: "-",
-        description: "Starting width for uncontrolled sizing.",
+        description:
+          "Starting width for uncontrolled sizing; the grid may retain later drag changes internally.",
       },
       {
         name: "minWidth",
         type: "number",
-        defaultValue: "60",
-        description: "Lower clamp for autosize and manual resize.",
+        defaultValue: "40",
+        description:
+          "Lower clamp for autosize and manual resize. An explicit minWidth, including 0, remains authoritative.",
       },
       {
         name: "maxWidth",
         type: "number",
-        defaultValue: "9999",
-        description: "Upper clamp for autosize and manual resize.",
+        defaultValue: "unbounded",
+        description:
+          "Optional upper clamp for autosize and manual resize; no implicit maximum is applied.",
       },
       {
         name: "flex",
         type: "number | null",
         defaultValue: "-",
         description:
-          "Reserved for compatibility. The current implementation is width-first.",
+          "Controlled weight for proportional remaining-space allocation, subject to min/max clamps.",
       },
       {
         name: "defaultFlex",
         type: "number | null",
         defaultValue: "-",
         description:
-          "Reserved compatibility field for callers that already shape column configs this way.",
+          "Uncontrolled initial flex weight used when a controlled flex value is absent.",
       },
     ],
   },
@@ -858,19 +1679,22 @@ const columnSections: ReferenceSection[] = [
         name: "defaultVisible",
         type: "boolean",
         defaultValue: "-",
-        description: "Compatibility field for initial visibility.",
+        description:
+          "Accepted by the public type but not currently applied by the runtime. Use visible; initial-visibility semantics remain an implementation gap.",
       },
       {
         name: "defaultHidden",
         type: "boolean",
         defaultValue: "-",
-        description: "Compatibility field for initial hidden state.",
+        description:
+          "Accepted by the public type but not currently applied by the runtime. Use visible; initial-hidden semantics remain an implementation gap.",
       },
       {
         name: "hideable",
         type: "boolean",
         defaultValue: "true",
-        description: "Marks whether column-visibility UIs may hide the column.",
+        description:
+          "Prevents hiding from the transformed-mobile column picker. The current desktop UI has no equivalent visibility picker.",
       },
       {
         name: "draggable",
@@ -901,13 +1725,14 @@ const columnSections: ReferenceSection[] = [
         type: "string",
         defaultValue: "-",
         description:
-          "Compatibility field for a remote sort key that differs from name/id.",
+          "Alternate key stored in sortInfo and sent remotely. Local sorting maps it back to this column's resolved data field.",
       },
       {
         name: "filterable",
         type: "boolean",
-        defaultValue: "false unless enableFiltering is true and you opt in",
-        description: "Turns filter editor rendering on for the column.",
+        defaultValue: "inferred",
+        description:
+          "With filtering enabled, a cell renders for filterable: true, an existing filter entry, or filterEditor. filterable: false always opts out.",
       },
       {
         name: "filterType",
@@ -919,8 +1744,9 @@ const columnSections: ReferenceSection[] = [
       {
         name: "filterName",
         type: "string",
-        defaultValue: "column name/id",
-        description: "Remote filter field name override.",
+        defaultValue: "-",
+        description:
+          "Accepted by the public type but not currently read by the runtime. Filter entries and remote args still use the resolved column id/name.",
       },
       {
         name: "filterEditor",
@@ -930,9 +1756,10 @@ const columnSections: ReferenceSection[] = [
       },
       {
         name: "filterEditorProps",
-        type: "unknown",
+        type: "object | ((columnContext, indexContext) => object)",
         defaultValue: "-",
-        description: "Props forwarded to the active filter editor.",
+        description:
+          "Object props, or a function called as ({ column, columnId }, { index: 0 }). They are spread last and may override the supplied filterValue, value, onChange, column, columnId, or disabled props.",
       },
       {
         name: "filterCellPadding",
@@ -990,7 +1817,8 @@ const columnSections: ReferenceSection[] = [
         name: "style",
         type: "unknown",
         defaultValue: "-",
-        description: "Inline style object applied to cells.",
+        description:
+          "Inline style object applied to cells. Use the root rowStyle object/function for whole-row styling.",
       },
       {
         name: "headerProps",
@@ -999,6 +1827,114 @@ const columnSections: ReferenceSection[] = [
         description: "Extra header-level class and style overrides.",
       },
     ],
+  },
+];
+
+const computedPropsRows: ReferenceRow[] = [
+  {
+    name: "Lifecycle",
+    type: "onReady / handle",
+    defaultValue: "once after mount",
+    description:
+      "Both callbacks receive the same stable MutableRefObject<TypeComputedProps | null>. Its target refreshes in place and exposes initialProps/publicAPI; retain the ref rather than a state snapshot.",
+  },
+  {
+    name: "Data and loading",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "reload, getData, getCount, isLoading, and setLoading, plus data, originalData, count, and dataCountAfterFilter. An explicit loading prop still wins over the imperative override.",
+  },
+  {
+    name: "Pagination",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "getSkip, setSkip, getLimit, setLimit, computedSkip, and computedLimit. setLimit resets skip; loadNextPage exists only while another page is available.",
+  },
+  {
+    name: "Sorting",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "getSortInfo, setSortInfo, toggleColumnSort, setColumnSortInfo, unsortColumn, and computedSortInfo. Imperative sort changes reset skip to zero.",
+  },
+  {
+    name: "Filtering",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "get/setFilterValue, clearAllFilters, clear/get/setColumnFilter, isColumnFiltered, computedFilterValue, and computedFilterValueMap. Setters reset skip to zero.",
+  },
+  {
+    name: "Columns and visibility",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "get/setColumnOrder, getColumnsInOrder, getColumnBy, is/setColumnVisible, columns maps, all/visible columns, visibility map, computed widths, and aggregate layout fields.",
+  },
+  {
+    name: "DOM and UI state",
+    type: "methods and refs",
+    defaultValue: "implemented",
+    description:
+      "getDOMNode, getMenuPortalContainer, getScrollingElement, getDOMNodeForRowIndex, getRows, getHeader, focus, blur, setEnableFiltering, setShowHeader, domRef, and bodyRef.",
+  },
+  {
+    name: "Mode, border, and layout fields",
+    type: "computed fields",
+    defaultValue: "implemented readout",
+    description:
+      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array source flags also classify static Promises as remote even though their rows compose locally.",
+  },
+  {
+    name: "Row lookup",
+    type: "methods",
+    defaultValue: "implemented",
+    description:
+      "getItemId, getItemAt, getItemIdAt, getItemIndex, getRowIndexById, and getItemIndexById. The default lookup source is the currently loaded row set/page.",
+  },
+  {
+    name: "Selection",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "getSelectedMap, setSelected, selectAll, deselectAll, isRowSelected, getSelectedCount, setSelectedById, setSelectedAt, setRowSelected, and computed selected/count fields. Index/all operations use loaded rows.",
+  },
+  {
+    name: "Scrolling and render range",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "Horizontal/vertical get, set, and increment methods; scrollToIndex/Id/Cell/Column; scrollToIndexIfNeeded; first-visible/rendered/fully-visible checks; getRenderRange; and scrollbar flags. duration/force options are accepted but not acted on.",
+  },
+  {
+    name: "Virtual-list adapter",
+    type: "getVirtualList()",
+    defaultValue: "implemented subset",
+    description:
+      "getVirtualList exposes getContainerNode/getScrollerNode/getScrollingElement, height/scroll/client-size reads, getRows/forEachRow/getRowAt, visible count/range, setRowIndex, scrollToIndex/smoothScrollTo, refresh/update, visibility/rendered-index checks, and max render count. Ranges include overscan and measured natural rows report their current sizes.",
+  },
+  {
+    name: "Editing",
+    type: "fields and methods",
+    defaultValue: "implemented",
+    description:
+      "computedEditable, computedEditStartEvent, computedIsEditing, isInEdit.current, getCurrentEditInfo, startEdit, tryStartEdit, completeEdit, cancelEdit, and currentEditCompletePromise reflect or control the active cell editor. Start methods return Promises and async completion is session-safe.",
+  },
+  {
+    name: "Localization and filter menu",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "i18n(key, fallback), showColumnFilterContextMenu(column), hideColumnFilterContextMenu, and columnFilterContextMenuProps. Coordinate bundles are not used by the show method.",
+  },
+  {
+    name: "Additional compatibility methods",
+    type: "open-index methods",
+    defaultValue: "limited",
+    description:
+      "computedOnColumnResize proposes a clamped width and emits onColumnResize while respecting controlled ownership; onBatchColumnResize applies finite uncontrolled width entries. silentSetData and setOriginalData both replace current rows only and are not a durable original-data store.",
   },
 ];
 
@@ -1038,6 +1974,29 @@ type TypeDataSource =
           language="ts"
         />
         <CodeBlock code={remoteDataSnippet} language="tsx" />
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            Local arrays and static Promise snapshots compose optional search,
+            local filtering, sorting, count, and optional local pagination in
+            that order.
+          </li>
+          <li>
+            Function sources receive the stable args object and own remote
+            transforms; returned <code>{"{ data, count }"}</code> counts are
+            authoritative.
+          </li>
+          <li>
+            pagination=true/remote sends skip/limit without local reslicing;
+            pagination=local omits them and slices the result locally. columns
+            contains visible ordered user columns and excludes the synthetic
+            checkbox column.
+          </li>
+          <li>
+            Only the latest async request may commit. Rejections preserve the
+            last rows and clear automatic loading because there is no public
+            error callback or AbortSignal/cancellation hook.
+          </li>
+        </ul>
       </div>
     ),
   },
@@ -1058,12 +2017,26 @@ type TypeDataSource =
   operator: string;
   value: unknown;
   emptyValue?: unknown;
+  fn?: (arg: unknown) => unknown;
+  getFilterValue?: (...args: unknown[]) => unknown;
   active?: boolean;
 };
 
 type TypeFilterValue = TypeSingleFilterValue[] | null;`}
           language="ts"
         />
+        <Callout
+          title="Typed compatibility hooks that are not executed"
+          tone="warning"
+        >
+          <p>
+            <code>TypeSingleFilterValue.fn</code> and{" "}
+            <code>getFilterValue</code> are accepted by the exported type, but
+            the current local filter pipeline does not call them. Use a
+            registered <code>TypeFilterOperator.fn</code> for executable custom
+            local behavior.
+          </p>
+        </Callout>
       </div>
     ),
   },
@@ -1092,8 +2065,142 @@ type TypeSingleSortInfo = {
 type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;`}
           language="ts"
         />
+        <Callout title="Custom comparator status" tone="warning">
+          <p>
+            <code>TypeSingleSortInfo.fn</code> is present for type compatibility
+            but is not called by the current local sort implementation. Local
+            sorting compares the resolved column/sortName value using the
+            built-in comparator.
+          </p>
+        </Callout>
       </div>
     ),
+  },
+  {
+    id: "filter-registry-types",
+    title: "Filter registry types",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <CodeBlock
+          code={`type TypeFilterOperator = {
+  name: string;
+  fn: (args: {
+    value: unknown;
+    filterValue: unknown;
+    emptyValue?: unknown;
+    data?: unknown;
+    _data?: unknown;
+    column?: unknown;
+  }) => boolean;
+  filterOnEmptyValue?: boolean;
+  valueOnOperatorSelect?: unknown;
+  disableFilterEditor?: boolean;
+};
+
+type TypeFilterType = {
+  type: string;
+  emptyValue: unknown;
+  operators: TypeFilterOperator[];
+};
+
+type TypeFilterTypes = Record<string, TypeFilterType>;`}
+          language="ts"
+        />
+        <p>
+          Custom registries shallow-merge by type key. Replacing a key replaces
+          that complete type definition, including its operator array.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "typecomputedprops",
+    title: "TypeComputedProps imperative API",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <Callout
+          title="Use this allowlist for feature detection"
+          tone="warning"
+        >
+          <p>
+            <code>TypeComputedProps</code> is intentionally open, and its Proxy
+            returns a no-op function for many unknown method-like names. As a
+            result,{" "}
+            <code>typeof api.someLegacyMethod === &quot;function&quot;</code>
+            is not valid feature detection. Only the methods documented below
+            are supported.
+          </p>
+          <p>
+            Column/row context-menu methods, flex and column-size setters,
+            active-row/navigation setters, and reserved-viewport setters are
+            explicit no-ops or fixed placeholders. Only the filter operator
+            context-menu pair is functional.
+          </p>
+          <p>
+            Other fixed compatibility fields include no locked columns, no
+            column virtualization/live pagination, and empty unselected
+            tracking. <code>computedShowZebraRows</code> now reflects the
+            per-grid prop, while <code>columnFlexes</code> and column sizes
+            report the implemented allocation; their imperative setter methods
+            remain outside the supported allowlist.
+          </p>
+        </Callout>
+        <div className="space-y-2">
+          <h3 className="font-semibold text-foreground">Editing methods</h3>
+          <p>
+            <code>startEdit({"{ columnId, rowIndex?, rowId?, value? }"})</code>{" "}
+            starts the requested editable cell. <code>tryStartEdit</code>{" "}
+            accepts <code>{"{ columnId, rowIndex?, rowId?, dir? }"}</code> and
+            searches in that direction for a cell that can edit. Both return
+            Promises; invalid row/no-match cases reject with <code>null</code>,
+            while an unknown column rejects with an Error. Either method
+            replaces an active editor without firing stop, complete, or cancel
+            for the former cell, and resolves live target metadata after its
+            deferred dispatch.
+          </p>
+          <p>
+            <code>completeEdit(args?)</code> and <code>cancelEdit(args?)</code>{" "}
+            are synchronous triggers. For exact 5.10.2 compatibility, calling{" "}
+            <code>completeEdit()</code> with no object completes with an empty
+            string; passing a current-target object without <code>value</code>{" "}
+            preserves the draft, while a different target has no active edit
+            value and reports <code>undefined</code>. Read live state with{" "}
+            <code>getCurrentEditInfo()</code>, <code>isInEdit.current</code>,
+            and <code>currentEditCompletePromise.current</code>.
+          </p>
+          <p>
+            Completion scrolls first, then dispatches after the compatibility
+            delay to an actually rendered, editable cell; an omitted
+            current-target value reads the live draft at that moment. Cancel is
+            immediate and does not scroll. Consequently, non-editable targets
+            are ignored by both methods, and an offscreen cancellation target is
+            a no-op.
+          </p>
+          <p>
+            String column IDs resolve by ID; numeric values resolve by visible
+            column index. A valid complete target uses its supplied row index or
+            row ID, while a missing/invalid column falls back both coordinates
+            to the current edit. Cancel uses a supplied valid column and row
+            index immediately; a valid column without a row is a no-op, while a
+            missing/invalid column falls back to the current edit. Numeric row
+            IDs stay numeric, and lookup accepts equivalent numeric strings.
+          </p>
+          <p>
+            Exact cross-target behavior is intentionally retained: completing or
+            cancelling a different valid cell reports that target without a
+            target <code>onEditStop</code>, keeps the current editor/edit info,
+            and sets the upstream lifecycle edit flag false.
+          </p>
+          <p>
+            The editor is stopped before <code>onEditComplete</code> runs. A
+            fulfilled Promise allows requested keyboard navigation, a rejected
+            Promise suppresses it, and an older Promise settling cannot clear or
+            navigate a newer editor session.
+          </p>
+        </div>
+      </div>
+    ),
+    rows: computedPropsRows,
   },
   {
     id: "typei18n",
@@ -1121,6 +2228,86 @@ type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;`}
             internationalization reference
           </DocsRouteLink>
           .
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "selection-and-layout-types",
+    title: "Selection, checkbox, and layout types",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <CodeBlock
+          code={`type TypeRowSelection =
+  | string | number | boolean
+  | { [key: string]: any }
+  | null;
+
+type TypeOnSelectionChangeArg = {
+  selected: TypeRowSelection;
+  data?: unknown;
+  unselected?: TypeRowSelection;
+  originalData?: TypeDataSource;
+};
+
+type TypeCheckboxColumn =
+  | boolean
+  | (IColumn & {
+      renderCheckbox?: (
+        checkboxProps: TypeCheckboxProps,
+        cellProps: { headerCell: boolean; data: unknown; rowIndex?: number }
+      ) => React.ReactNode;
+    });
+
+type TypeCheckboxProps = {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean, event?: unknown) => void;
+  onClick?: (event: unknown) => void;
+  [key: string]: unknown;
+};
+
+type TypePaginationMode = true | false | "remote" | "local";
+type TypeShowCellBorders = true | false | "vertical" | "horizontal";
+type TypeSize = { width: number; height: number };`}
+          language="ts"
+        />
+        <p>
+          Selection callbacks always include <code>selected</code> and{" "}
+          <code>originalData</code>; built-in interactions normally include the
+          affected row(s) in <code>data</code>, while <code>unselected</code>
+          remains optional.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "column-lookup-types",
+    title: "Computed column and lookup types",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <CodeBlock
+          code={`type TypeGetColumnByParam =
+  | string | number | TypeColumn
+  | { id: string | number; name?: string | number }
+  | { name: string | number; id?: string | number };
+
+type TypeComputedColumn = TypeColumn & {
+  computedWidth?: number;
+  computedVisibleIndex?: number;
+  index?: number;
+};
+
+type TypeComputedColumnsMap = Record<string, TypeComputedColumn>;`}
+          language="ts"
+        />
+        <p>
+          <code>CellProps</code> is the one-argument cell-renderer payload:
+          value, data, row identity/indices, column aliases and computed
+          metadata, selection and row-height state, theme/native-scroll state,
+          and a nested cellProps object. Pointer editability predicates and
+          programmatic edit starts receive this same compatibility shape.
         </p>
       </div>
     ),
@@ -1500,6 +2687,884 @@ const checkboxRows: ReferenceRow[] = [
   },
 ];
 
+const inovuaCompatibilityRows: CompatibilityRow[] = [
+  {
+    id: "natural-row-height",
+    feature: "Natural and dynamic row height",
+    upstreamContract: (
+      <>
+        <code>{"rowHeight={null}"}</code> uses content-driven height, a{" "}
+        <code>rowHeight</code> function can size each row, and{" "}
+        <code>minRowHeight</code> supplies the floor and virtualization
+        estimate.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Number, function, and <code>null</code> are supported. Natural rows are
+        measured and honor <code>minRowHeight</code>/<code>maxRowHeight</code>.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Support number, function, and <code>null</code>; honor{" "}
+        <code>minRowHeight</code>; measure rendered rows and keep offsets
+        correct.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "row-height-remeasurement",
+    feature: "Row-height remeasurement",
+    upstreamContract: (
+      <>
+        Rendered or wrapped content is measured, and row offsets are refreshed
+        when column widths change.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Natural desktop rows are registered for measurement, and width/content
+        changes update virtual sizes and offsets.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Use automatic element measurement and remeasure after content or width
+        changes without requiring an application callback.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "column-resize-callback",
+    feature: "Column resize callback",
+    upstreamContract: (
+      <>
+        <code>
+          onColumnResize({"{ column, width, flex }"},{" "}
+          {"{ reservedViewportWidth }"})
+        </code>{" "}
+        reports resize proposals.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Dragging emits on pointer release; autosize and computed resize emit
+        when committed. All paths use the original two-argument callback shape
+        with the resolved width/flex and reserved viewport width.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Emit the original callback shape and timing, including the second
+        viewport metadata argument.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "controlled-column-widths",
+    feature: "Controlled and uncontrolled widths",
+    upstreamContract: (
+      <>
+        <code>width</code> and <code>flex</code> are controlled;{" "}
+        <code>defaultWidth</code> and <code>defaultFlex</code> are uncontrolled
+        initial values.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Controlled width/flex values remain authoritative; defaultWidth and
+        defaultFlex initialize grid-owned state.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Dragging cannot change a controlled column unless the consumer supplies
+        the next width through the callback; later prop updates render
+        immediately. Default values initialize only uncontrolled state.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "flex-column-sizing",
+    feature: "Flex column sizing",
+    upstreamContract: (
+      <>
+        <code>flex</code> and <code>defaultFlex</code> allocate remaining
+        viewport width proportionally using controlled and uncontrolled
+        semantics. Subject to clamps, flex 2 receives about twice flex 1.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Remaining width is allocated by flex weight with min/max constraints;
+        controlled and uncontrolled inputs retain distinct ownership. The
+        implicit minimum is 40px, explicit <code>{"minWidth={0}"}</code> is
+        preserved, and the absent maximum remains unbounded.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Implement weighted remaining-space allocation plus the original min/max
+        constraint behavior.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "zebra-rows",
+    feature: "Zebra rows",
+    upstreamContract: (
+      <>
+        Alternating rows are visibly striped by default;{" "}
+        <code>{"showZebraRows={false}"}</code> disables stripes per grid.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Built-in themes visibly stripe by default and{" "}
+        <code>showZebraRows=false</code> disables the per-grid alternation.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Restore visible default stripes and the per-grid true/false toggle while
+        retaining theme-token customization.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "inline-editing",
+    feature: "Inline editing",
+    upstreamContract: (
+      <>
+        Root <code>editable</code> and <code>editStartEvent</code>; column{" "}
+        <code>editable</code>, <code>editor</code>, and{" "}
+        <code>renderEditor</code>; lifecycle callbacks including{" "}
+        <code>onEditStart</code>, <code>onEditValueChange</code>,{" "}
+        <code>onEditStop</code>, <code>onEditComplete</code>, and{" "}
+        <code>onEditCancel</code>; Enter, Escape, Tab, and Shift navigation.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The grid provides default/custom editors, activation and editability
+        controls, the Inovua-shaped custom-editor/cell arguments, imperative
+        start/try/complete/cancel methods, ordered async callbacks, session-safe
+        completion, cancellation, focus restoration, and keyboard navigation
+        without mutating consumer data.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Implement default double-click and configurable click activation, sync
+        or async column editability (including <code>editable=false</code>),
+        default/custom editors and arguments, imperative editing methods,
+        ordered lifecycle callbacks, payload identity, async race/rejection
+        handling, cancellation, focus restoration, and keyboard traversal.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "row-style",
+    feature: "Data-dependent row styling",
+    upstreamContract: (
+      <>
+        <code>rowStyle</code> accepts an object or a{" "}
+        <code>{"({ data, props, style }) => style"}</code> function and merges
+        the result onto the row.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The root rowStyle object/function is evaluated and merged on each row.
+        Functions receive a mutable base style with height/width/minWidth/LTR
+        direction, typed IDs, page-local and remote indexes, and fixed unlocked
+        sentinels; returning undefined preserves in-place mutations.{" "}
+        <code>TypeColumn.style</code> remains independently cell-scoped.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Restore row-level object/function evaluation, base-style mutation and
+        merge semantics, identity/index metadata, and unlocked sentinel values
+        on the rendered row.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "text-input-export",
+    feature: "Standalone TextInput export",
+    upstreamContract: (
+      <>
+        Inovua uses TextInput internally for its default editor, but does not
+        document it as a top-level Community grid export.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        the-datagrid does not promise an Inovua-compatible standalone{" "}
+        <code>TextInput</code> or toolkit deep import.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Match the observable default-editor behavior; no separate public export
+        is required unless deep-import compatibility is explicitly adopted.
+      </>
+    ),
+    status: "outside-public-baseline",
+  },
+  {
+    id: "typed-column-fields",
+    feature: "Typed column defaults and filter aliases",
+    upstreamContract: (
+      <>
+        <code>defaultVisible</code>/<code>defaultHidden</code> initialize
+        visibility and <code>filterName</code> redirects the filter field when
+        supplied.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        All three fields type-check, but the runtime reads only{" "}
+        <code>visible</code> and uses the resolved column id/name for filter
+        entries and remote args.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Implement their original initialization/alias semantics or remove any
+        claim that accepting the fields provides behavioral compatibility.
+      </>
+    ),
+    status: "known-gap",
+  },
+  {
+    id: "imperative-placeholders",
+    feature: "Imperative API placeholders",
+    upstreamContract: (
+      <>
+        Public computed-props methods have observable effects and can be used as
+        an imperative integration contract.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        A substantial documented subset works, but column/row context menus,
+        flex/size setters, and active-row/navigation entries are no-ops or fixed
+        placeholders. The Proxy also fabricates no-op functions for many unknown
+        method-like names.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep the implemented allowlist explicit, add every public baseline
+        method with its real behavior, and never treat function presence as
+        proof of compatibility.
+      </>
+    ),
+    status: "known-gap",
+  },
+  {
+    id: "remaining-community-api",
+    feature: "Remaining public Community API",
+    upstreamContract: (
+      <>
+        Every documented public Community 5.10.2 behavior belongs to the
+        compatibility baseline.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The rows above are the audited Issue 17 differences, not a certificate
+        that every other API has already been verified.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Complete a surface-by-surface audit; record each newly discovered
+        mismatch as a known gap with executable coverage.
+      </>
+    ),
+    status: "verifying",
+  },
+];
+
+const implementedSurfaceSections: ReferenceSection[] = [
+  {
+    id: "scope",
+    title: "What this inventory means",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <Callout title="Implemented does not mean verified Inovua parity">
+          <p>
+            This page is the positive inventory of behavior shipped by the
+            current package. It answers “what works today.” The separate{" "}
+            <DocsRouteLink
+              group="migration"
+              slug="inovua-status"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              compatibility ledger
+            </DocsRouteLink>{" "}
+            answers “where does that behavior still differ from Inovua Community
+            5.10.2.” A feature listed here is not automatically a parity claim.
+          </p>
+        </Callout>
+        <p>
+          For signatures and every currently exported component prop/column
+          field, use the{" "}
+          <DocsRouteLink
+            group="reference"
+            slug="reactdatagrid"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            ReactDataGrid props
+          </DocsRouteLink>{" "}
+          and{" "}
+          <DocsRouteLink
+            group="reference"
+            slug="icolumn"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            IColumn
+          </DocsRouteLink>{" "}
+          references. The inventory below records the operational semantics
+          behind those declarations.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "package-exports",
+    title: "Package entry points and exports",
+    rows: [
+      {
+        name: "@geovi/the-datagrid",
+        type: "value exports",
+        defaultValue: "main entry",
+        description:
+          "Default and named ReactDataGrid, the readonly empty plugins compatibility list, DateFilter, NumberFilter, SelectFilter, CheckBox, DEFAULT_FILTER_TYPES, and filterTypes (the same registry object).",
+      },
+      {
+        name: "Root type exports",
+        type: "TypeScript",
+        defaultValue: "main entry",
+        description:
+          "CellProps, IColumn, SortDirection, TypeColumn, TypeColumns, TypeColumnEditorProps/Cell, TypeColumnResizeInfo/Context, TypeComputedColumn, TypeComputedColumnsMap, TypeComputedProps, TypeDataGridProps, TypeDataSourceArgs, TypeDataSource, TypeEditInfo, TypeStartEditArgs, TypeTryStartEditArgs, TypeCompleteEditArgs, TypeCancelEditArgs, TypeFilterOperator, TypeFilterType, TypeFilterTypes, TypeFilterValue, TypeGetColumnByParam, TypeI18n, TypeOnSelectionChangeArg, TypePaginationMode, TypeRowStyle/Args/Props, TypeShowCellBorders, TypeRowSelection, TypeSize, TypeSingleFilterValue, TypeSingleSortInfo, TypeSortInfo, TypeCheckboxColumn, and TypeCheckboxProps.",
+      },
+      {
+        name: "@geovi/the-datagrid/search",
+        type: "optional entry",
+        defaultValue: "opt in",
+        description:
+          "RDGSearchProvider, RDGSearchBar, RDGSearchTarget, and their three prop types. Importing this entry also loads its isolated search stylesheet.",
+      },
+      {
+        name: "CSS subpaths",
+        type: "./style.css / ./search/style.css",
+        defaultValue: "public",
+        description:
+          "Both JavaScript entries import their own compiled CSS automatically; the explicit stylesheet subpaths remain available for build systems that require manual CSS imports.",
+      },
+    ],
+  },
+  {
+    id: "defaults",
+    title: "Runtime defaults",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          <code>ReactDataGrid.defaultProps</code> is an enumerable compatibility
+          object and exposes this exact subset:
+        </p>
+        <CodeBlock
+          code={`ReactDataGrid.defaultProps = {
+  theme: "default",
+  enableColumnFilterContextMenu: false,
+  enableColumnAutosize: true,
+  skipHeaderOnAutoSize: false,
+  resizable: true,
+  enableFiltering: true,
+  filterTypes: DEFAULT_FILTER_TYPES,
+  virtualized: true,
+  allowMobileTransform: false,
+  columnUserSelect: true,
+  showCellBorders: true,
+  showColumnMenuTool: false,
+  rowHeight: 44,
+  minRowHeight: 20,
+  defaultShowZebraRows: true,
+  editStartEvent: "dblclick",
+  headerHeight: 40,
+  filterRowHeight: 44,
+};`}
+          language="ts"
+        />
+        <p>
+          Other real fallbacks—such as <code>reorderColumns=true</code>,{" "}
+          <code>allowUnsort=true</code>, ascending first sort, pagination off,
+          page sizes, and selection defaults—are runtime behavior but are not
+          properties of that static object.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "data-sources",
+    title: "Data sources and transform pipeline",
+    rows: [
+      {
+        name: "Local arrays",
+        type: "unknown[]",
+        defaultValue: "client-owned rows",
+        description:
+          "Optional global search runs first, then active column filters, local sorting, count calculation, and finally local pagination slicing. Count is therefore pre-slice.",
+      },
+      {
+        name: "Static promises",
+        type: "Promise<rows | { data, count }>",
+        defaultValue: "local snapshot",
+        description:
+          "After resolution, rows are a local snapshot and receive search/filter/sort/page composition. Array count is the transformed length; { data, count } preserves count unless active local search/filter requires a post-predicate count.",
+      },
+      {
+        name: "Function sources",
+        type: "(args) => rows | Promise<rows | { data, count }>",
+        defaultValue: "remote transforms",
+        description:
+          "Receives sortInfo, filterValue, normalized user order and visible ordered columns, idProperty, theme, optional skip/limit, and optional external searchValue. It owns remote transforms/count and may return rows synchronously or Promise<rows | { data, count }>.",
+      },
+      {
+        name: "Function pagination modes",
+        type: "true / remote / local / false",
+        defaultValue: "false",
+        description:
+          "true or remote sends skip/limit and does not reslice returned rows; local omits skip/limit and slices the resolved rows locally; false sends neither and renders the returned rows.",
+      },
+      {
+        name: "Async request safety",
+        type: "latest request wins",
+        defaultValue: "automatic",
+        description:
+          "Latest-request and unmount guards ignore stale results. Rejections preserve committed rows and only the matching request clears auto-loading. There is no AbortSignal/cancellation or public error callback; explicit loading overrides display state.",
+      },
+      {
+        name: "Invalid async payloads",
+        type: "runtime containment",
+        defaultValue: "empty rows",
+        description:
+          "Unsupported resolved shapes commit an empty result. A non-finite { data, count } count falls back to data.length.",
+      },
+      {
+        name: "filteredRowsCount",
+        type: "count callback",
+        defaultValue: "deduplicated",
+        description:
+          "Reports pre-slice post-search/filter count and only calls when the number changes; function { data, count } is authoritative. Standalone mobile search is the exception and reports displayed loaded/page rows.",
+      },
+    ],
+  },
+  {
+    id: "columns-and-layout",
+    title: "Columns, ordering, rendering, and sizing",
+    rows: [
+      {
+        name: "Column identity",
+        type: "id or name",
+        defaultValue: "required",
+        description:
+          "Every column resolves a stable string id from name/id; a column with neither is rejected. That id drives access, order, filtering, search, sorting, visibility, and imperative lookup.",
+      },
+      {
+        name: "Headers and cells",
+        type: "renderers",
+        defaultValue: "value rendering",
+        description:
+          "Headers support renderHeader/header/name/id fallback and headerAlign. Cells support textAlign plus one-argument Inovua cellProps or the legacy two-argument renderer; nullish values render empty.",
+      },
+      {
+        name: "Visibility",
+        type: "column.visible",
+        defaultValue: "visible",
+        description:
+          "visible=false removes a column. defaultVisible/defaultHidden are currently ignored, and hideable is enforced only by the transformed-mobile column picker.",
+      },
+      {
+        name: "Order normalization",
+        type: "columnOrder",
+        defaultValue: "column declaration order",
+        description:
+          "Unknown ids are removed and omitted current ids are appended in declaration order; duplicate supplied ids are not deduplicated. Dragging requires a callback, reorderColumns !== false, and draggable !== false on source and target.",
+      },
+      {
+        name: "Controlled order",
+        type: "columnOrder + callback",
+        defaultValue: "declaration order",
+        description:
+          "A controlled parent must feed the proposed order back. If columnOrder is omitted but onColumnOrderChange exists, the grid retains its internal order and still emits proposals; no consumer array is mutated.",
+      },
+      {
+        name: "Checkbox column ordering",
+        type: "synthetic fixed column",
+        defaultValue: "44px",
+        description:
+          "The injected checkbox column is pinned from user drag, excluded from onColumnOrderChange, and removed from function-source columns/columnOrder args.",
+      },
+      {
+        name: "Autosizing",
+        type: "deterministic estimate",
+        defaultValue: "enabled",
+        description:
+          "When numeric width/defaultWidth is absent, samples at most 25 available raw row[columnId] strings (not rendered DOM) plus a string header/name/id unless skipped; estimates 8px/character + 32px, bounds 90-520px, then min/max clamps.",
+      },
+      {
+        name: "Resize interaction",
+        type: "drag / double-click",
+        defaultValue: "enabled",
+        description:
+          "Enabled handles clamp drag widths and report completion through onColumnResize. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
+      },
+      {
+        name: "Header column menu",
+        type: "showColumnMenuTool",
+        defaultValue: "false",
+        description:
+          "Shows an accessible dropdown with ascending, descending, and unsort actions; each action resets skip. The current menu can set sort state even when sortable=false, while direct header toggling correctly opts out.",
+      },
+      {
+        name: "Layout controls",
+        type: "props",
+        defaultValue: "documented defaults",
+        description:
+          "headerHeight, filterRowHeight, fixed/functional/natural rowHeight, min/max row bounds, rowStyle, showZebraRows, showCellBorders, columnUserSelect, root className, and inner-surface style are implemented. Inline styles are used for computed numeric layout.",
+      },
+    ],
+  },
+  {
+    id: "filtering",
+    title: "Filtering and filter registry",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <ReferenceTable
+          rows={[
+            {
+              name: "string",
+              type: "operators",
+              defaultValue: "contains",
+              description:
+                "contains, notContains, containsOr, eq, neq, empty, notEmpty, startsWith, endsWith.",
+            },
+            {
+              name: "select",
+              type: "operators",
+              defaultValue: "eq",
+              description: "inlist, notinlist, eq, neq.",
+            },
+            {
+              name: "bool / boolean",
+              type: "operators",
+              defaultValue: "seed eq or neq",
+              description:
+                "eq and neq. Current unseeded resolution falls back to contains, which this registry does not define, so initialize an eq/neq entry until that gap is corrected.",
+            },
+            {
+              name: "number",
+              type: "operators",
+              defaultValue: "gte",
+              description:
+                "gt, gte, lt, lte, eq, neq, inrange, notinrange; ranges accept tuples or { start, end } with open endpoints.",
+            },
+            {
+              name: "date / time",
+              type: "operators",
+              defaultValue: "afterOrOn",
+              description:
+                "after, afterOrOn, before, beforeOrOn, eq, neq, inrange, notinrange. dateFormat and an available global moment are used before native Date.parse fallback.",
+            },
+          ]}
+        />
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <code>containsOr</code> is project-specific and matches when any
+            whitespace/comma/semicolon-delimited token occurs.
+          </li>
+          <li>
+            Custom <code>filterTypes</code> shallow-merge by type key over the
+            default registry. Replacing <code>string</code> replaces its full
+            definition, so spread the original operators when extending them.{" "}
+            <code>filterTypes</code> and <code>DEFAULT_FILTER_TYPES</code> are
+            the same exported object.
+          </li>
+          <li>
+            Empty and inactive entries remain in the state model but are skipped
+            locally. <code>empty</code>/<code>notEmpty</code> remain active with
+            no input editor.
+          </li>
+          <li>
+            Uncontrolled editor typing commits after 300ms; controlled changes
+            call onFilterValueChange immediately but render the supplied prop
+            until the parent updates it. Operator selection and clear are
+            immediate. Every edit requests skip 0; controlled pagination must
+            honor onSkipChange(0).
+          </li>
+          <li>
+            The filter-cell context menu switches operators. Object/function{" "}
+            <code>filterEditorProps</code> and custom editors are supported as
+            described in IColumn; resolved props spread last. Without a custom
+            editor, only select + filterEditorProps.options renders a select;
+            other types use generic text input. Use exported DateFilter,
+            NumberFilter, or SelectFilter explicitly when needed.
+          </li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    id: "sorting-pagination-selection",
+    title: "Sorting, pagination, and selection",
+    rows: [
+      {
+        name: "Sorting",
+        type: "controlled or uncontrolled",
+        defaultValue: "asc → desc → unsort",
+        description:
+          "Sortable-by-default headers toggle by click, Enter, or Space; Shift with any gesture preserves multi-sort. Cycle is initial direction, opposite, then removal when allowed. Normal toggles replace other descriptors.",
+      },
+      {
+        name: "Sort priority and values",
+        type: "local and remote",
+        defaultValue: "descriptor order",
+        description:
+          "Retoggling in multi-sort removes then appends a descriptor, so array order is priority. sortName is stored/sent remotely and maps back locally; values compare numerically when both are finite, otherwise by case-insensitive locale comparison.",
+      },
+      {
+        name: "Sort reset and alternate UI",
+        type: "pagination/menu/mobile",
+        defaultValue: "skip 0",
+        description:
+          "Header menu and transformed-mobile sorting set one descriptor. Each sort requests skip 0; controlled pagination must apply onSkipChange(0). sortable=false blocks direct header gestures.",
+      },
+      {
+        name: "Pagination",
+        type: "false | true | local | remote",
+        defaultValue: "false",
+        description:
+          "Controlled/uncontrolled skip and limit are supported. Defaults are skip 0, pageSizes [10, 50, 100, 1000], and the first valid page size as limit. The toolbar exposes first/previous/next/last navigation.",
+      },
+      {
+        name: "Checkbox selection",
+        type: "controlled or uncontrolled",
+        defaultValue: "off",
+        description:
+          "checkboxColumn injects the fixed selection column and accepts width/renderCheckbox customization. Header select-all affects the current loaded page and exposes checked/indeterminate/disabled metadata.",
+      },
+      {
+        name: "Selection behavior",
+        type: "row-id map",
+        defaultValue: "depends on checkboxColumn",
+        description:
+          "Without checkboxColumn, onSelectionChange enables single row-click selection. With it, multiSelect/checkboxOnlyRowSelect default true. Interactive descendants are ignored and the emitted wrapper can pass back to selected.",
+      },
+      {
+        name: "Selection ranges and payload",
+        type: "current loaded rows/page",
+        defaultValue: "shift range off",
+        description:
+          "When enabled, Shift check/uncheck applies the inclusive last-anchor range. Header select-all preserves off-page map entries. Emissions always include selected/originalData, usually data, while unselected is optional and not populated by built-ins.",
+      },
+    ],
+  },
+  {
+    id: "row-appearance-and-editing",
+    title: "Row appearance and inline editing",
+    rows: [
+      {
+        name: "Zebra rows",
+        type: "showZebraRows",
+        defaultValue: "true",
+        description:
+          "Built-in themes visibly alternate rows. false removes per-grid alternation while odd/even hooks remain available to themes.",
+      },
+      {
+        name: "Whole-row styling",
+        type: "rowStyle",
+        defaultValue: "-",
+        description:
+          "A CSS object or ({ data, props, style }) callback is merged onto each row. The callback may mutate the Inovua-shaped base style and return undefined; IDs retain their type and remoteRowIndex includes the page offset. column.style stays cell-scoped.",
+      },
+      {
+        name: "Editing activation",
+        type: "editable + editStartEvent",
+        defaultValue: "off / dblclick",
+        description:
+          "Root editing is opt in. Columns can opt in/out or resolve editability; click and double-click aliases select the start gesture.",
+      },
+      {
+        name: "Editors and lifecycle",
+        type: "default / editor / renderEditor",
+        defaultValue: "text editor",
+        description:
+          "Editors receive Inovua-shaped props/cell helpers and emit start/value/stop plus complete or cancel payloads. Enter/Shift+Enter traverse rows, Tab/Shift+Tab traverse editable cells, and Escape cancels. Async completion is session-safe and never mutates consumer data.",
+      },
+      {
+        name: "Imperative editing",
+        type: "TypeComputedProps",
+        defaultValue: "implemented",
+        description:
+          "startEdit/tryStartEdit return Promises; completeEdit/cancelEdit honor supplied row/column targets with the 5.10.2 current-edit fallback and cross-target lifecycle behavior; getCurrentEditInfo, isInEdit, and currentEditCompletePromise expose live state.",
+      },
+    ],
+  },
+  {
+    id: "virtualization-mobile-search",
+    title: "Virtualization, mobile transform, and optional search",
+    rows: [
+      {
+        name: "Desktop virtualization",
+        type: "TanStack Virtual",
+        defaultValue: "enabled",
+        description:
+          "Uses fixed or functional estimates, or measures natural rows with min/max bounds and overscan 10. Resize/content changes repair measured offsets. Disabling virtualization renders all desktop rows; header and filter rows remain intact.",
+      },
+      {
+        name: "Mobile transform",
+        type: "<= 1024px",
+        defaultValue: "opt in",
+        description:
+          "Replaces the table with measured virtual cards, loaded-row search, one-descriptor sort, and a card-only picker honoring hideable=false/cannot-hide-last without changing desktop visibility/order. Renderers, actions, and selection persist. Root or visible column-level editing disables this transform so the editable table remains available.",
+      },
+      {
+        name: "Standalone mobile search",
+        type: "card-local filter",
+        defaultValue: "immediate draft + deferred render",
+        description:
+          "Filters only the already-loaded row model/page. It does not send searchValue or reset outer pagination, so its result count can be page-scoped; it is not server-wide global search.",
+      },
+      {
+        name: "External search connection",
+        type: "provider/target",
+        defaultValue: "opt in",
+        description:
+          "A direct provider child connects automatically; RDGSearchTarget marks a nested grid. In mobile mode it suppresses only the duplicate field, not sort/column tools. Its bar—not standalone mobile search—defaults to 150ms debounce.",
+      },
+      {
+        name: "Search matching",
+        type: "local index or remote arg",
+        defaultValue: "150ms UI debounce",
+        description:
+          "External local/static search normalizes case/whitespace/diacritics, uses AND terms and exact id/name/header/alias prefixes, raw/searchValue fields, and hidden columns unless opted out. Function sources receive the trimmed query; commit resets skip.",
+      },
+      {
+        name: "External search input behavior",
+        type: "RDGSearchBar",
+        defaultValue: "150ms",
+        description:
+          "IME composition is safe; Escape and clear commit immediately. The identity-cached local index is reused until row/column array identity changes, and remote pages are never post-filtered as server-wide results.",
+      },
+    ],
+  },
+  {
+    id: "themes-ui-i18n",
+    title: "Themes, UI behavior, and i18n",
+    rows: [
+      {
+        name: "Theme model",
+        type: "default / light / dark / custom",
+        defaultValue: "default",
+        description:
+          "default follows a .dark ancestor; light/dark force a base; custom names become data-theme/class hooks and may inherit a suffix-based base. Tailwind/shadcn tokens drive the packaged UI.",
+      },
+      {
+        name: "Legacy theme bridge",
+        type: "automatic for custom names",
+        defaultValue: "browser-only",
+        description:
+          "For custom names, the browser scans already-loaded readable legacy grid/header/filter/cell/zebra and toolkit input/combo/list/menu rules into scoped --tdg-* colors/borders/backgrounds, while emitting normalized legacy hooks.",
+      },
+      {
+        name: "Legacy bridge limits",
+        type: "migration aid",
+        defaultValue: "not full CSS parity",
+        description:
+          "Cross-origin/inaccessible sheets are skipped, late-loaded sheets are not observed automatically, and SSR cannot scan. Switching to a built-in removes bridge-written vars; direct --tdg-* tokens are deterministic.",
+      },
+      {
+        name: "Menus and focus",
+        type: "Radix/shadcn-style",
+        defaultValue: "keyboard operable",
+        description:
+          "Filter/operator, column, select, and mobile menus use accessible focus, keyboard, Escape, and outside-interaction patterns; sortable headers expose tab focus and aria-sort.",
+      },
+      {
+        name: "Internationalization",
+        type: "partial TypeI18n map",
+        defaultValue: "English fallbacks",
+        description:
+          "Known grid, filter, sort, pagination, selection, column-menu, and mobile labels can be overridden individually. Custom operator names are also looked up by key.",
+      },
+    ],
+  },
+  {
+    id: "imperative-api",
+    title: "Imperative API",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          The implemented API covers data reload/readout, loading, pagination,
+          sorting, filtering, column order/visibility, DOM/focus access, item
+          lookup, selection, editing, scrolling/render ranges, localization, the
+          filter operator menu, and a virtual-list compatibility adapter.
+        </p>
+        <p>
+          The exact supported-method allowlist—and the warning about proxy-made
+          no-op methods—is in the{" "}
+          <DocsRouteLink
+            group="reference"
+            slug="types"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            TypeComputedProps reference
+          </DocsRouteLink>
+          .
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "known-partials",
+    title: "Typed or visible surfaces that remain partial",
+    body: (
+      <Callout
+        title="Keep the status ledger beside this inventory"
+        tone="warning"
+      >
+        <p>
+          Current partials include ignored defaultVisible/defaultHidden and
+          filterName fields, the bool/boolean unseeded filter-operator mismatch,
+          and broad imperative placeholder methods. See the{" "}
+          <DocsRouteLink
+            group="migration"
+            slug="inovua-status"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            living parity ledger
+          </DocsRouteLink>{" "}
+          before treating a typed field as implemented behavior.
+        </p>
+      </Callout>
+    ),
+  },
+];
+
 const docsPages: DocsPage[] = [
   {
     group: "getting-started",
@@ -1627,7 +3692,8 @@ pnpm add @geovi/the-datagrid`}
                 ReactDataGrid reference
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                See every prop, its type, and its default behavior.
+                See every currently shipped prop, its type, and its current
+                default behavior.
               </p>
             </Link>
             <Link
@@ -1710,6 +3776,52 @@ pnpm add @geovi/the-datagrid`}
           </div>
         ),
       },
+      {
+        id: "packaged-css",
+        title: "Packaged CSS and manual fallbacks",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Importing <code>@geovi/the-datagrid</code> loads the compiled core
+              stylesheet. Importing <code>@geovi/the-datagrid/search</code>
+              loads the isolated optional-search stylesheet. The public{" "}
+              <code>@geovi/the-datagrid/style.css</code> and{" "}
+              <code>@geovi/the-datagrid/search/style.css</code> subpaths are
+              available when a bundler requires explicit CSS imports.
+            </p>
+            <p>
+              Main grid styling is scoped to grid-owned roots, and search styles
+              are scoped to the search bar. This avoids leaking generic shadcn
+              token aliases into the host application.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "legacy-theme-bridge",
+        title: "Legacy Inovua theme bridge",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              For a non-built-in theme name, the browser bridge reads accessible
+              same-origin legacy Inovua grid, TextInput, combo/select, and menu
+              rules and maps their observable backgrounds, colors, and borders
+              into the grid&apos;s <code>--tdg-*</code> tokens. The rendered
+              grid also exposes compatibility class hooks for existing
+              selectors.
+            </p>
+            <p>
+              The bridge safely ignores cross-origin stylesheets that the
+              browser does not allow JavaScript to inspect. It is browser-only,
+              scans already-loaded rules rather than observing late stylesheet
+              loads, and maps colors/borders/backgrounds rather than legacy
+              layout CSS. Native <code>--tdg-*</code> variables remain the
+              deterministic, SSR-friendly path; switching to a built-in theme
+              removes bridge-written inline variables.
+            </p>
+          </div>
+        ),
+      },
     ],
   },
   {
@@ -1736,7 +3848,9 @@ pnpm add @geovi/the-datagrid`}
             </li>
             <li>
               filteredRowsCount receives the combined post-search, post-filter
-              row count.
+              row count before local slicing. Standalone mobile-card search is
+              the exception: it filters already-loaded rows and may report a
+              page-scoped displayed count.
             </li>
             <li>
               Pagination slices the filtered/sorted array when enabled locally.
@@ -2014,29 +4128,55 @@ pnpm add @geovi/the-datagrid`}
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              Remote data sources always receive sortInfo and filterValue.
+              Function data sources always receive sortInfo and filterValue.
             </li>
             <li>
               A grid connected to RDGSearchProvider also sends the committed
-              query as searchValue. The remote function owns search and its
+              trimmed query as searchValue. The function owns search and its
               authoritative count.
             </li>
             <li>
-              When pagination is remote, skip and limit are included in the
-              args; a new search starts again at skip 0.
+              pagination=true or remote sends skip/limit and does not reslice
+              returned rows. local omits those args and slices locally. A new
+              external search requests skip 0.
             </li>
             <li>
               columns and columnOrder are passed so the server can understand
-              the current user-facing grid shape.
+              the current user-facing grid shape: columns are visible/ordered
+              and order is normalized. The synthetic checkbox column is removed
+              from both values.
             </li>
             <li>
               Promise data sources are different from functions: the resolved
               Promise payload is treated as a complete, locally searchable
-              snapshot.
+              snapshot. Promise arrays derive count from transformed length;
+              Promise objects preserve count unless active local search/filter
+              requires a post-predicate count.
             </li>
             <li>
-              Return either an array or a {`{ data, count }`} object when the
-              total count differs from the current slice.
+              A function may return rows synchronously, or a Promise of rows or
+              a {`{ data, count }`} object when total count differs from the
+              current slice. The public type does not include a synchronous
+              object return.
+            </li>
+            <li>
+              Requests are sequenced: only the latest async result may commit,
+              so a slower stale response cannot overwrite newer state.
+            </li>
+            <li>
+              Rejected functions and Promises are contained because there is no
+              public error callback. The last committed rows remain visible and
+              the matching automatic loading state is cleared. There is no
+              AbortSignal/cancellation hook; an explicit loading prop overrides
+              the displayed automatic state.
+            </li>
+            <li>
+              filteredRowsCount is deduplicated. It reports again only when the
+              numeric post-filter count changes.
+            </li>
+            <li>
+              Invalid resolved shapes become empty rows. Non-finite object
+              counts fall back to data.length.
             </li>
           </ul>
         ),
@@ -2085,7 +4225,9 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              Use <code>sortable</code> to opt columns into header sorting.
+              Columns are sortable by default; use{" "}
+              <code>{"sortable={false}"}</code> to opt a column out of direct
+              header sorting.
             </li>
             <li>
               Use <code>filterable</code>, <code>filterType</code>, and{" "}
@@ -2096,6 +4238,88 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               operator switcher UI.
             </li>
           </ul>
+        ),
+      },
+      {
+        id: "filter-commit-semantics",
+        title: "Filter commit semantics",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              Uncontrolled text/editor changes update the draft immediately and
+              commit after 300ms. Controlled changes call onFilterValueChange
+              immediately, while the rendered value stays on the supplied prop
+              until the parent updates it.
+            </li>
+            <li>
+              Operator changes and clear actions commit immediately. Every edit
+              requests skip 0; controlled pagination resets only when the host
+              applies onSkipChange(0).
+            </li>
+            <li>
+              Clearing keeps an inactive/empty entry where the type contract
+              requires it rather than treating array removal as the only clear
+              representation. Inactive and empty ordinary entries are skipped by
+              local filtering.
+            </li>
+            <li>
+              empty and notEmpty stay active without an input. Custom
+              filterEditor components receive descriptor/value/change, column
+              identity, disabled state, and resolved filterEditorProps (spread
+              last). Without one, only select + options gets a select UI; use
+              exported DateFilter/NumberFilter/SelectFilter explicitly.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "sort-interactions",
+        title: "Sort interactions",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              Click, Enter, and Space use the same deterministic toggle. The
+              default cycle is ascending, descending, then unsorted when
+              allowUnsort is true.
+            </li>
+            <li>
+              Shift with click, Enter, or Space retains existing descriptors and
+              builds multi-sort; without Shift the gesture replaces the previous
+              sort. Retoggling removes then appends, so descriptor order is
+              priority.
+            </li>
+            <li>
+              defaultSortingDirection chooses the first direction, sortName can
+              redirect the field key, and every sort requests skip 0. Controlled
+              pagination must honor onSkipChange(0).
+            </li>
+            <li>
+              Local values compare numerically when both coerce to finite
+              numbers; otherwise they use case-insensitive locale comparison.
+              Header-menu and mobile sort controls set one descriptor.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "built-in-filter-types",
+        title: "Built-in filter types",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The complete operator registry, default-operator behavior,
+              custom-registry merge rules, and the current bool/boolean default
+              caveat are catalogued in the{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="implemented-surface"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                implemented-surface filtering section
+              </DocsRouteLink>
+              .
+            </p>
+          </div>
         ),
       },
     ],
@@ -2132,6 +4356,45 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         ),
       },
       {
+        id: "selection-interactions",
+        title: "Interaction rules",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              With checkboxColumn enabled, multiSelect and checkboxOnlyRowSelect
+              default to true; without it, both default false unless explicitly
+              enabled. Without a checkbox column, providing onSelectionChange
+              enables single-selection row clicks.
+            </li>
+            <li>
+              checkboxSelectEnableShiftKey enables contiguous range selection
+              from the most recent checkbox anchor through the current row,
+              inclusive, in the currently loaded row model/page.
+            </li>
+            <li>
+              Header select-all and imperative selectAll operate on the current
+              loaded page while preserving off-page map entries. The header
+              reports checked, indeterminate, and disabled state to a custom
+              renderCheckbox.
+            </li>
+            <li>
+              Buttons, links, inputs, and other interactive descendants do not
+              accidentally trigger the row-click selection handler.
+            </li>
+            <li>
+              renderCheckbox receives normalized checkbox props plus
+              headerCell/data/rowIndex metadata so a custom visual can preserve
+              the built-in selection behavior.
+            </li>
+            <li>
+              onSelectionChange always includes selected and originalData; UI
+              actions normally include the affected row(s) in data. unselected
+              is optional and built-in toggles do not populate it.
+            </li>
+          </ul>
+        ),
+      },
+      {
         id: "selection-example",
         title: "Selection example",
         body: (
@@ -2158,7 +4421,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
     summary:
       "Reusable prompt instructions for Codex, Claude, and other AI assistants so they generate correct the-datagrid integrations.",
     description:
-      "These skill files encode the real grid contract, the remote-data model, and the Inovua compatibility boundaries so AI agents do not invent unsupported props or behavior.",
+      "These skill files encode the current exported surface, the remote-data model, and the distinction between the full Inovua compatibility target and today's implementation status.",
     tags: ["Guide", "AI", "Skills"],
     sections: [
       {
@@ -2187,7 +4450,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   type: "skills/the-datagrid-inovua-migration/SKILL.md",
                   defaultValue: "-",
                   description:
-                    "Migration guidance for Inovua-shaped code without claiming unsupported parity.",
+                    "Migration guidance that preserves the full-compatibility target while checking current gaps before generating code.",
                 },
               ]}
             />
@@ -2232,7 +4495,14 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
             </Callout>
             <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
               <li>Do not invent props that are not in TypeDataGridProps.</li>
-              <li>Do not claim full Inovua parity for unsupported features.</li>
+              <li>
+                State the 100% Inovua Community compatibility target, but do not
+                claim that current parity is complete while known gaps remain.
+              </li>
+              <li>
+                Treat feasible unsupported Community behavior as a gap, never as
+                an intentional simplification or silent exception.
+              </li>
               <li>
                 Do not tell consumers to install Tailwind or shadcn just to use
                 the package.
@@ -2249,9 +4519,21 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
   },
   {
     group: "reference",
+    slug: "implemented-surface",
+    title: "Implemented surface",
+    summary:
+      "A source-backed inventory of package exports, defaults, data flow, interactions, responsive behavior, styling, and imperative methods that work today.",
+    description:
+      "Use this page as the positive current-capability reference, then consult the Inovua status ledger for behavior that is partial, different, or still being verified.",
+    tags: ["Reference", "Implemented", "Capabilities"],
+    sections: implementedSurfaceSections,
+  },
+  {
+    group: "reference",
     slug: "reactdatagrid",
     title: "ReactDataGrid prop reference",
-    summary: "Complete prop-by-prop reference for the main grid component.",
+    summary:
+      "Prop-by-prop reference for the main grid component's currently exported surface.",
     description:
       "This page documents the currently exported TypeDataGridProps surface, including the stable core props and the compatibility-oriented props that are present in the package today.",
     tags: ["Reference", "Props", "ReactDataGrid"],
@@ -2357,87 +4639,258 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
   {
     group: "migration",
     slug: "inovua-compat",
-    title: "Inovua compatibility",
+    title: "Inovua compatibility contract",
     summary:
-      "How the-datagrid mirrors the Inovua mental model, and where you should expect a leaner implementation.",
+      "The public commitment to 100% backwards compatibility with Inovua Community, how compatibility is judged, and how exceptions are governed.",
     description:
-      "The package intentionally keeps Inovua-inspired names and callback shapes for migration ergonomics, while narrowing the runtime to the core grid surface used by this project.",
-    tags: ["Migration", "Inovua", "Compatibility"],
+      "This is the normative product contract. It defines the destination without pretending that every behavior is already implemented; the separate status ledger records the current evidence and known gaps.",
+    tags: ["Migration", "Inovua", "Compatibility contract"],
     sections: [
       {
-        id: "what-maps-cleanly",
-        title: "What maps cleanly",
-        body: (
-          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-            <li>
-              Type names such as IColumn, TypeDataSource, TypeFilterValue, and
-              TypeSortInfo.
-            </li>
-            <li>Numeric sort directions and filter operator modeling.</li>
-            <li>
-              Checkbox column behavior and the onSelectionChange wrapper shape.
-            </li>
-            <li>
-              Column render ergonomics, including render(
-              {`{ value, data, ... }`}).
-            </li>
-          </ul>
-        ),
-      },
-      {
-        id: "intentional-differences",
-        title: "Intentional differences",
+        id: "compatibility-promise",
+        title: "Compatibility promise",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              the-datagrid focuses on a smaller, maintainable feature set. The
-              public docs and examples center on core table features: columns,
-              sorting, filtering, selection, virtualization, i18n, and theming.
+              <strong className="text-foreground">
+                the-datagrid targets 100% backwards compatibility
+              </strong>{" "}
+              with the documented public API and observable behavior of{" "}
+              <code>@inovua/reactdatagrid-community@5.10.2</code>, except only
+              for an individually documented behavior that is demonstrated to be
+              technically impossible.
             </p>
-            <Callout title="Document the supported surface" tone="warning">
+            <p>
+              The implementation may be lighter and may use TanStack, Tailwind,
+              shadcn-style patterns, or different internal code. Those
+              implementation choices do not permit a different public result. A
+              consumer should be able to change the package dependency and
+              import specifier without rewriting application business logic that
+              uses the public Community contract.
+            </p>
+            <Callout title="A target is not a completion claim" tone="warning">
               <p>
-                If your app depends on advanced Inovua systems such as grouping,
-                pivoting, tree data, or larger plugin ecosystems, treat this
-                library as a focused compatibility layer rather than a drop-in
-                replacement for every Inovua feature.
+                This commitment is normative. The current release has known
+                parity gaps, so it must not yet be described as completely
+                drop-in compatible at runtime.
               </p>
               <p>
-                The same caution applies to advanced systems such as clipboard
-                tooling, row reorder, richer generated-column pipelines, or
-                cell-selection flows that are outside the current documented
-                promise.
+                A feasible unimplemented behavior is a defect or backlog item,
+                not an intentional difference and not an exception.
               </p>
             </Callout>
           </div>
         ),
       },
       {
+        id: "baseline-and-scope",
+        title: "Baseline and scope",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The canonical baseline is the public Community package at version{" "}
+              <a
+                href="https://www.npmjs.com/package/@inovua/reactdatagrid-community/v/5.10.2"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                @inovua/reactdatagrid-community@5.10.2
+              </a>
+              . We use its published documentation, top-level TypeScript
+              declarations, and observable runtime together. When archived prose
+              and the published package disagree, the executable package
+              contract wins; for example, the 5.10.2 root <code>editable</code>{" "}
+              prop is boolean, while conditional or async editability belongs on{" "}
+              <code>column.editable</code>.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                Included: documented Community component props, column fields,
+                exported public types, defaults, callbacks, methods, and
+                observable interactions.
+              </li>
+              <li>
+                Included: default visual behavior with semantic meaning, such as
+                visible zebra rows, plus keyboard, focus, and accessibility
+                behavior.
+              </li>
+              <li>
+                Not part of this baseline: Enterprise-only APIs, private
+                implementation modules, undocumented toolkit deep imports, and
+                pixel-identical internal DOM or CSS.
+              </li>
+              <li>
+                A public behavior does not leave the baseline merely because it
+                is large, difficult, expensive, or absent from the current
+                implementation.
+              </li>
+            </ul>
+          </div>
+        ),
+      },
+      {
+        id: "what-compatibility-means",
+        title: "What 100% compatibility means",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              The same public prop and column names accept the same value shapes
+              and preserve their documented defaults.
+            </li>
+            <li>
+              Exported types preserve Inovua vocabulary, unions, callback
+              payloads, and controlled versus uncontrolled semantics.
+            </li>
+            <li>
+              State changes, callback timing, local and remote data flow, and
+              imperative methods produce equivalent observable results.
+            </li>
+            <li>
+              Mouse, touch, keyboard, focus, cancellation, navigation, and
+              accessibility behavior remain migration-safe.
+            </li>
+            <li>
+              Layout contracts—including defaults, row measurement, controlled
+              column sizing, flex allocation, and resize reporting—are business
+              logic, not cosmetic implementation details.
+            </li>
+            <li>
+              Compatible means behavior, not simply declaring a similarly named
+              optional TypeScript field and ignoring it at runtime.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "current-status",
+        title: "Target versus current status",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The living{" "}
+              <DocsRouteLink
+                group="migration"
+                slug="inovua-status"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Inovua implementation status
+              </DocsRouteLink>{" "}
+              separates verified behavior, known gaps, areas still being
+              audited, and anything outside the public baseline.
+            </p>
+            <p>
+              The Issue 17 batch now verifies natural and functional row
+              heights, resize remeasurement and <code>onColumnResize</code>,
+              controlled/default widths and flex, zebra behavior, inline
+              editing, and data-dependent <code>rowStyle</code>. Other ledger
+              entries remain gaps or under verification, and the inventory is
+              not exhaustive until the remaining Community API has been audited
+              surface by surface.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "exception-policy",
+        title: "Technical exception policy",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <Callout title="No approved exceptions">
+              <p>
+                No compatibility exceptions are currently approved. Every
+                feasible missing behavior is tracked as a known gap.
+              </p>
+            </Callout>
+            <p>
+              An exception can be approved only after technical impossibility is
+              demonstrated. Cost, bundle size, schedule, implementation effort,
+              architectural preference, or a desire for fewer props do not
+              qualify.
+            </p>
+            <p>Every proposed exception must publish:</p>
+            <ol className="list-decimal space-y-2 pl-5">
+              <li>
+                the exact upstream behavior and a primary source proving it;
+              </li>
+              <li>
+                technical evidence explaining why equivalent behavior cannot be
+                implemented;
+              </li>
+              <li>
+                affected consumers, observable impact, and the closest safe
+                migration path;
+              </li>
+              <li>
+                an explicit decision record, version boundary, documentation,
+                and executable test for the chosen behavior.
+              </li>
+            </ol>
+            <p>
+              An unimplemented behavior remains a gap while a proposal is being
+              considered. It cannot be silently renamed as a substitute or
+              hidden behind a general “leaner implementation” disclaimer.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "release-discipline",
+        title: "Release and regression discipline",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              Every discovered mismatch receives a public status entry and an
+              executable parity specification.
+            </li>
+            <li>
+              A deliberately red parity test describes the upstream contract; it
+              becomes a permanent green regression test when implemented.
+            </li>
+            <li>
+              A behavior is marked compatible only when types, runtime,
+              callbacks, default state, and relevant interactions are verified.
+            </li>
+            <li>
+              Regressing a compatible Community behavior is a compatibility bug
+              and must be handled as a semver-sensitive public API regression.
+            </li>
+            <li>
+              A future Inovua version does not silently move the baseline; any
+              baseline upgrade is an explicit, documented product decision.
+            </li>
+          </ul>
+        ),
+      },
+      {
         id: "migration-checklist",
-        title: "Migration checklist",
+        title: "Migration checklist today",
         body: (
           <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-            <li>Start with the same column names and idProperty values.</li>
             <li>
-              Port local or remote dataSource functions without changing the
-              remote args contract.
+              Change the dependency and import specifier, then preserve the
+              existing public Inovua-shaped configuration first.
             </li>
             <li>
-              Verify render callbacks. Both Inovua-style and legacy two-arg
-              renderers are supported.
+              Check every used prop and column field against both the current
+              reference and the parity status ledger.
             </li>
             <li>
-              Move selection screens to checkboxColumn plus
-              selected/onSelectionChange, and prefer map-based selected state.
+              Run focused application tests for defaults, callback payloads,
+              controlled state, keyboard interaction, and layout—not only a
+              successful TypeScript build.
             </li>
             <li>
-              Use the live examples to validate styling, selection, and
-              filtering behavior screen by screen.
+              If a mismatch is absent from the ledger, report it as a new gap
+              rather than building application business logic around an
+              undocumented substitution.
             </li>
           </ol>
         ),
       },
     ],
   },
+  createInovuaStatusPage(),
 ];
 
 export const docsNavGroups: DocsNavGroup[] = [
@@ -2482,12 +4935,20 @@ export function getDocsHomeCards() {
       slug: "installation",
     },
     {
-      title: "Reference",
+      title: "Implemented today",
       summary:
-        "Read the prop-by-prop ReactDataGrid and IColumn references, plus the public component pages.",
+        "Inspect the source-backed inventory of exports, defaults, data flow, interactions, responsive behavior, and imperative methods.",
       kind: "docs" as const,
       group: "reference" as const,
-      slug: "reactdatagrid",
+      slug: "implemented-surface",
+    },
+    {
+      title: "Inovua compatibility",
+      summary:
+        "Read the 100% backwards-compatibility contract and inspect verified behavior, remaining gaps, and work still being audited.",
+      kind: "docs" as const,
+      group: "migration" as const,
+      slug: "inovua-status",
     },
     {
       title: "Examples",

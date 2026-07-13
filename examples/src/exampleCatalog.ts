@@ -2,6 +2,7 @@ export type ExampleId =
   | "actions"
   | "basic"
   | "columns"
+  | "inovua-parity"
   | "mobile-transform"
   | "selection"
   | "users";
@@ -56,6 +57,19 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
       "Combines typed renderers, filter metadata, bounded widths, numeric alignment, hidden fields, controlled reordering, and virtualization.",
     sourcePath: "examples/src/ColumnsGridExample.tsx",
     tags: ["Columns", "Rendering", "Filtering", "Virtualized"],
+  },
+  {
+    id: "inovua-parity",
+    to: "/examples/inovua-parity",
+    legacyTo: "/inovua-parity",
+    label: "Compatibility lab",
+    title: "Inovua backwards-compatibility lab",
+    summary:
+      "An interactive checklist for the row sizing, column sizing, appearance, and editing contracts carried forward from Inovua Community 5.10.2.",
+    details:
+      "Switch between focused, isolated checkpoints, follow the manual test prompt, inspect callback payloads and virtual measurements, and share a direct URL for any scenario.",
+    sourcePath: "examples/src/InovuaParityCompatPage.tsx",
+    tags: ["Inovua", "Compatibility", "Editing", "Sizing"],
   },
   {
     id: "mobile-transform",

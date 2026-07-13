@@ -15,7 +15,191 @@ Documentation and live examples: https://geo-vi.github.io/the-datagrid/
 - Row selection (checkbox column)
 - Modern shadcn-aligned look-and-feel with packaged styles
 - Fully typed TypeScript API
-- Migration-friendly API inspired by Inovua ReactDataGrid
+- Public product target of 100% backwards compatibility with Inovua Community
+
+## Inovua compatibility
+
+the-datagrid targets **100% backwards compatibility** with the documented
+public API and observable behavior of
+[`@inovua/reactdatagrid-community@5.10.2`](https://www.npmjs.com/package/@inovua/reactdatagrid-community/v/5.10.2).
+After changing the package dependency and import specifier, public
+Inovua-shaped application business logic should not require a rewrite.
+
+That statement is the product contract, **not a claim that the current release
+has already completed parity**. Compatibility covers more than similarly named
+TypeScript fields: it includes defaults, runtime behavior, callback payloads
+and timing, controlled/uncontrolled state, local and remote data flow, layout,
+keyboard and focus interaction, and accessibility behavior.
+
+The Issue 17 compatibility batch now implements and regression-tests:
+
+- natural and per-row height (`rowHeight={null}`, a `rowHeight` function,
+  `minRowHeight`/`maxRowHeight`, and width-change remeasurement);
+- `onColumnResize`, controlled `width`, and uncontrolled `defaultWidth`;
+- weighted `flex`/`defaultFlex` remaining-space allocation;
+- visible zebra rows by default and the per-grid `showZebraRows` toggle;
+- inline editing (`editable`, `editStartEvent`, column editors, lifecycle
+  callbacks, cancellation, focus, and keyboard navigation);
+- object- or function-valued whole-row `rowStyle`.
+
+This closes those audited differences; it does not certify the entire Inovua
+Community API as complete. Remaining mismatches stay in the public status
+ledger until their types and observable behavior have executable evidence. No
+technical-impossibility exceptions are currently approved. Any future exception
+must identify the exact upstream contract, prove why equivalent behavior is
+technically impossible, document consumer impact and a safe migration path, and
+carry executable coverage. Cost, bundle size, schedule, or architectural
+preference alone do not qualify.
+
+Inovua's internal default editor uses `TextInput`, but a standalone `TextInput`
+was not a documented top-level Community grid API. Matching the observable
+default-editor behavior is in scope; supporting undocumented toolkit deep
+imports is not part of the current public baseline.
+
+Read the public
+[compatibility contract](https://geo-vi.github.io/the-datagrid/docs/migration/inovua-compat)
+and the
+[living implementation-status ledger](https://geo-vi.github.io/the-datagrid/docs/migration/inovua-status)
+before treating the current package as a drop-in runtime replacement.
+
+## Implemented today
+
+The following inventory describes behavior that ships in the current package.
+It is a statement of current capability, not a declaration that the wider
+Inovua compatibility audit is complete. The public docs contain the full
+[source-backed implemented-surface reference](https://geo-vi.github.io/the-datagrid/docs/reference/implemented-surface),
+including exact defaults, timing, transform order, exports, and imperative
+method allowlists.
+
+- **Data loading:** local arrays, static Promise snapshots, and function-backed
+  sources returning either an array or `{ data, count }`. Function sources
+  receive `sortInfo`, `filterValue`, `columnOrder`, `columns`, `idProperty`, and
+  `theme`, plus `skip`/`limit` when remote pagination is active and the optional
+  `searchValue` when connected to the search entry. Stale async responses are
+  ignored; rejected requests preserve the last committed rows and clear their
+  automatic loading state. `loading` can also be controlled by the application.
+- **Local and remote data flow:** local arrays and static Promise snapshots can
+  be searched, filtered, sorted, counted, and paged in the browser. Function
+  sources own their remote transforms and authoritative count.
+  `filteredRowsCount` reports the post-search, post-filter count before local
+  page slicing.
+- **Columns and cells:** stable `id`/`name` identity, controlled rendered order,
+  callback-driven drag reordering, explicit visibility, custom headers and cell
+  renderers, per-column sorting/filtering/search configuration, alignment, cell
+  classes/styles, and header props.
+- **Column and row sizing:** controlled `width`/`flex`, uncontrolled
+  `defaultWidth`/`defaultFlex`, `minWidth`/`maxWidth` clamps, proportional flex
+  allocation, the upstream 40px implicit column minimum (while preserving an
+  explicit `minWidth={0}`), deterministic autosizing from a bounded row sample,
+  mouse drag resizing with `onColumnResize`, and double-click autosizing. Rows
+  support numeric, functional, and natural measured heights with
+  minimum/maximum bounds and width-change remeasurement.
+- **Filtering and sorting:** controlled and uncontrolled state, local operators,
+  custom filter registries and editors, filter operator menus, single sorting,
+  Shift-assisted multi-sorting, configurable initial direction, and optional
+  unsorting. Filter and sort changes reset pagination to the first page.
+- **Pagination:** controlled or uncontrolled `skip` and `limit`, local and remote
+  modes, configurable page sizes, and a built-in accessible pager.
+- **Selection:** single or multi-row selection, a configurable checkbox column,
+  controlled or uncontrolled selection maps, checkbox-only row selection,
+  Shift-range checkbox selection, and custom checkbox rendering.
+- **Rendering modes:** fixed, per-row, or natural measured desktop row
+  virtualization, a non-virtual table path, sticky header and filter rows, and
+  an opt-in responsive virtual card layout at viewport widths up to 1024px. The
+  mobile layout retains cell renderers and selection while providing search,
+  sorting, and a hideable-column picker.
+- **Row appearance and editing:** visible default zebra striping with a per-grid
+  toggle, data-dependent row styling, default/custom inline editors, click or
+  double-click activation, sync/async column editability, session-safe async
+  completion, cancellation, and keyboard traversal. Custom editors receive the
+  Inovua-shaped editor/cell contract, and the imperative API can start, inspect,
+  complete, or cancel an edit. Completing an edit reports the value;
+  applications remain responsible for persisting it to their data source. The
+  mobile card transform stays disabled whenever root or column-level editing is
+  enabled so the editing surface is never silently replaced.
+- **Optional global search:** a separate tree-shakeable provider/bar/target
+  entry, normalized AND matching, column-scoped queries and aliases, nested or
+  derived search values, hidden-column search, a lazy cached local index, static
+  Promise search, and `searchValue` forwarding for remote functions.
+- **Themes and UI:** packaged CSS, shadcn-aligned controls, `default`, `light`,
+  and `dark` token bases, custom `data-theme` hooks, grid-scoped menu portals,
+  cell-border modes, i18n overrides, and compatibility class hooks for existing
+  Inovua-oriented theme styles.
+- **Imperative compatibility API:** `onReady` and `handle` expose a stable
+  `TypeComputedProps` ref with implemented data, pagination, filtering, sorting,
+  column lookup/order/visibility, selection, DOM lookup, scrolling, loading,
+  header/filter visibility, localization, editing, and virtual-list helpers.
+  The editing subset includes `startEdit`, `tryStartEdit`, `completeEdit`,
+  `cancelEdit`, `getCurrentEditInfo`, `isInEdit`, and
+  `currentEditCompletePromise`. This is an implemented subset;
+  compatibility-shaped placeholder methods are not a claim of working
+  behavior.
+
+### Public package entries and exports
+
+The main entry, `@geovi/the-datagrid`, exports:
+
+- default and named `ReactDataGrid`, plus the compatibility-shaped `plugins`
+  empty list;
+- `DateFilter`, `NumberFilter`, `SelectFilter`, and `CheckBox`;
+- `DEFAULT_FILTER_TYPES` and its `filterTypes` alias;
+- the public types `CellProps`, `IColumn`, `SortDirection`, `TypeColumn`,
+  `TypeColumns`, `TypeColumnEditorProps`, `TypeColumnResizeContext`,
+  `TypeColumnResizeInfo`, `TypeColumnEditorCell`, `TypeComputedColumn`,
+  `TypeComputedColumnsMap`, `TypeComputedProps`, `TypeDataGridProps`,
+  `TypeDataSourceArgs`, `TypeDataSource`, `TypeEditInfo`, `TypeStartEditArgs`,
+  `TypeTryStartEditArgs`, `TypeCompleteEditArgs`, `TypeCancelEditArgs`,
+  `TypeFilterOperator`, `TypeFilterType`, `TypeFilterTypes`, `TypeFilterValue`,
+  `TypeGetColumnByParam`, `TypeI18n`, `TypeOnSelectionChangeArg`,
+  `TypePaginationMode`, `TypeRowSelection`, `TypeRowStyle`, `TypeRowStyleArgs`,
+  `TypeRowStyleProps`, `TypeShowCellBorders`, `TypeSize`, `TypeSingleFilterValue`,
+  `TypeSingleSortInfo`, `TypeSortInfo`, `TypeCheckboxColumn`, and
+  `TypeCheckboxProps`.
+
+The optional `@geovi/the-datagrid/search` entry exports `RDGSearchProvider`,
+`RDGSearchBar`, `RDGSearchTarget`, and their prop types. The explicit stylesheet
+fallbacks are `@geovi/the-datagrid/style.css` and
+`@geovi/the-datagrid/search/style.css`.
+
+### Runtime defaults and filter registry
+
+Both the default and named grid exports expose `ReactDataGrid.defaultProps` for
+Inovua-shaped integrations that inspect or extend runtime defaults. It contains
+the shipped theme, filtering, autosize, resize, virtualization, mobile,
+selection-text, border, menu, and row/header/filter-height defaults, including
+the default filter registry.
+
+That registry ships string operators (`contains`, `notContains`, `containsOr`,
+`eq`, `neq`, `empty`, `notEmpty`, `startsWith`, and `endsWith`), select
+operators (`inlist`, `notinlist`, `eq`, and `neq`), boolean equality operators,
+number comparison/range operators, and date/time comparison/range operators.
+Operator definitions can opt into empty-value filtering, initialize a value
+when selected, or disable the editor for value-free operations.
+
+Current caveat: an unseeded `bool`/`boolean` filter resolves through the generic
+`contains` fallback even though those registries expose only `eq`/`neq`. Seed an
+`eq` or `neq` filter entry until that implementation gap is corrected.
+
+Custom filter types are shallow-merged by registry key with the built-ins:
+
+```tsx
+import ReactDataGrid, { type TypeFilterTypes } from "@geovi/the-datagrid";
+
+const filterTypes: TypeFilterTypes = {
+  ...ReactDataGrid.defaultProps.filterTypes,
+  status: {
+    type: "status",
+    emptyValue: null,
+    operators: [
+      {
+        name: "eq",
+        fn: ({ value, filterValue }) =>
+          filterValue == null || value === filterValue,
+      },
+    ],
+  },
+};
+```
 
 ## Installation
 
@@ -58,6 +242,14 @@ Built-in theme behavior:
 - `theme="light"` forces the light token set
 - `theme="dark"` forces the dark token set
 - `theme="<custom-name>"` activates a named custom theme on the grid root via `data-theme="<custom-name>"`
+
+For non-built-in theme names, the grid also keeps Inovua-compatible root and
+element class hooks. When a readable legacy Inovua stylesheet for that theme is
+already loaded, the runtime maps its grid, text-input, combo-box, and menu
+colors into the corresponding `--tdg-*` tokens. This bridge helps existing
+themes migrate incrementally; it is browser-only, ignores unreadable or
+late-loaded stylesheets, and does not reproduce legacy layout CSS. Defining the
+grid tokens directly remains the deterministic long-term path.
 
 If your environment does **not** process CSS imported from package entries, use the exported fallback once in your app:
 
@@ -104,6 +296,11 @@ Named themes are configured with CSS variables on the grid root selector. For ex
 ```
 
 This lets you keep using a migration-friendly theme name such as `hf-dark` while mapping it to the grid’s internal theme tokens.
+
+The example assigns identical odd/even row colors, which intentionally
+suppresses visible striping for that custom theme. Built-in themes show zebra
+rows by default; `showZebraRows={false}` disables them for one grid, while
+`--tdg-row-odd-bg` and `--tdg-row-even-bg` customize their theme colors.
 
 ---
 
@@ -351,37 +548,52 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Display
 
-| Prop                   | Type                                    | Default     | Description                                                       |
-| ---------------------- | --------------------------------------- | ----------- | ----------------------------------------------------------------- |
-| `theme`                | `string`                                | `"default"` | Theme name                                                        |
-| `rowHeight`            | `number`                                | `44`        | Row height in pixels                                              |
-| `headerHeight`         | `number`                                | `40`        | Header height in pixels                                           |
-| `filterRowHeight`      | `number`                                | `44`        | Filter row height in pixels                                       |
-| `virtualized`          | `boolean`                               | `true`      | Enable virtual scrolling                                          |
-| `allowMobileTransform` | `boolean`                               | `false`     | Use searchable, sortable virtual cards at widths up to 1024px     |
-| `columnUserSelect`     | `boolean \| "text" \| "none"`           | `true`      | Column text selection behavior                                    |
-| `showCellBorders`      | `boolean \| "vertical" \| "horizontal"` | `true`      | Cell separator mode; use `"horizontal"` to disable vertical lines |
+| Prop                   | Type                                             | Default     | Description                                                       |
+| ---------------------- | ------------------------------------------------ | ----------- | ----------------------------------------------------------------- |
+| `theme`                | `string`                                         | `"default"` | Theme name                                                        |
+| `rowHeight`            | `number \| ((rowIndex) => number) \| null`       | `44`        | Fixed, per-row, or naturally measured row height                  |
+| `minRowHeight`         | `number`                                         | `20`        | Minimum natural row height and virtualizer estimate               |
+| `maxRowHeight`         | `number`                                         | -           | Optional upper bound for measured or functional row heights       |
+| `rowStyle`             | `CSSProperties \| ({ data, props, style }) => …` | -           | Static or data-dependent style merged onto each row               |
+| `showZebraRows`        | `boolean`                                        | `true`      | Show visible alternating row backgrounds                          |
+| `headerHeight`         | `number`                                         | `40`        | Header height in pixels                                           |
+| `filterRowHeight`      | `number`                                         | `44`        | Filter row height in pixels                                       |
+| `virtualized`          | `boolean`                                        | `true`      | Enable virtual scrolling, including measured natural rows         |
+| `allowMobileTransform` | `boolean`                                        | `false`     | Use searchable, sortable virtual cards at widths up to 1024px     |
+| `columnUserSelect`     | `boolean \| "text" \| "none"`                    | `true`      | Column text selection behavior                                    |
+| `showCellBorders`      | `boolean \| "vertical" \| "horizontal"`          | `true`      | Cell separator mode; use `"horizontal"` to disable vertical lines |
+
+A `rowStyle` callback receives the live Inovua-shaped base style, including
+`height`, `width`, `minWidth`, and LTR `direction`. It may mutate that object
+and return `undefined`, or return a style object to merge. `props.id` preserves
+numeric IDs, `rowIndex` is page-local, and `remoteRowIndex` includes the current
+pagination offset. Unsupported locking is represented by fixed unlocked
+sentinels (`-1`, `false`, and `0`).
 
 ### Columns
 
-| Prop                   | Type                        | Default | Description                       |
-| ---------------------- | --------------------------- | ------- | --------------------------------- |
-| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names |
-| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes   |
-| `enableColumnAutosize` | `boolean`                   | `true`  | Auto-calc column widths           |
-| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header when auto-sizing      |
-| `showColumnMenuTool`   | `boolean`                   | `false` | Show column menu tool in header   |
+| Prop                   | Type                        | Default | Description                                                                 |
+| ---------------------- | --------------------------- | ------- | --------------------------------------------------------------------------- |
+| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names                                           |
+| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes; drag reordering requires this callback     |
+| `reorderColumns`       | `boolean`                   | `true`  | Disable user drag reordering while continuing to render `columnOrder`       |
+| `resizable`            | `boolean`                   | `true`  | Enable header resize handles                                                |
+| `onColumnResize`       | `(info, context) => void`   | -       | Reports proposed width/flex and reserved viewport width                     |
+| `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied |
+| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                         |
+| `showColumnMenuTool`   | `boolean`                   | `false` | Show the header menu tool                                                   |
 
 ### Filtering
 
-| Prop                            | Type                               | Default | Description                       |
-| ------------------------------- | ---------------------------------- | ------- | --------------------------------- |
-| `enableFiltering`               | `boolean`                          | `true`  | Enable filter row                 |
-| `filterValue`                   | `TypeFilterValue`                  | -       | Controlled filter value           |
-| `defaultFilterValue`            | `TypeFilterValue`                  | -       | Uncontrolled initial filter value |
-| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -       | Fired on filter change            |
-| `enableColumnFilterContextMenu` | `boolean`                          | `false` | Context menu for filter operators |
-| `filteredRowsCount`             | `(count: number) => void`          | -       | Reports filtered row count        |
+| Prop                            | Type                               | Default           | Description                                   |
+| ------------------------------- | ---------------------------------- | ----------------- | --------------------------------------------- |
+| `enableFiltering`               | `boolean`                          | `true`            | Enable filter row                             |
+| `filterValue`                   | `TypeFilterValue`                  | -                 | Controlled filter value                       |
+| `defaultFilterValue`            | `TypeFilterValue`                  | -                 | Uncontrolled initial filter value             |
+| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -                 | Fired on filter change                        |
+| `filterTypes`                   | `TypeFilterTypes`                  | built-in registry | Extend or override filter types and operators |
+| `enableColumnFilterContextMenu` | `boolean`                          | `false`           | Context menu for filter operators             |
+| `filteredRowsCount`             | `(count: number) => void`          | -                 | Reports filtered row count                    |
 
 ### Sorting
 
@@ -395,25 +607,79 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Selection
 
-| Prop                | Type                                         | Default | Description                    |
-| ------------------- | -------------------------------------------- | ------- | ------------------------------ |
-| `checkboxColumn`    | `boolean \| IColumn`                         | `false` | Enable checkbox column         |
-| `selected`          | `TypeRowSelection`                           | -       | Controlled selection           |
-| `defaultSelected`   | `TypeRowSelection`                           | -       | Uncontrolled initial selection |
-| `onSelectionChange` | `(config: TypeOnSelectionChangeArg) => void` | -       | Fired on selection changes     |
+| Prop                           | Type                                         | Default                          | Description                                              |
+| ------------------------------ | -------------------------------------------- | -------------------------------- | -------------------------------------------------------- |
+| `checkboxColumn`               | `boolean \| IColumn`                         | `false`                          | Enable or customize the checkbox column                  |
+| `selected`                     | `TypeRowSelection`                           | -                                | Controlled selection                                     |
+| `defaultSelected`              | `TypeRowSelection`                           | `{}` for multi-select, else null | Uncontrolled initial selection                           |
+| `onSelectionChange`            | `(config: TypeOnSelectionChangeArg) => void` | -                                | Fired with the next selection and row metadata           |
+| `multiSelect`                  | `boolean`                                    | `true` with `checkboxColumn`     | Enable multi-row selection semantics                     |
+| `checkboxOnlyRowSelect`        | `boolean`                                    | `true` with `checkboxColumn`     | Require the checkbox instead of a plain row click        |
+| `checkboxSelectEnableShiftKey` | `boolean`                                    | `false`                          | Enable Shift-range selection through the checkbox column |
+
+### Editing
+
+| Prop                | Type                           | Default      | Description                                                                                  |
+| ------------------- | ------------------------------ | ------------ | -------------------------------------------------------------------------------------------- |
+| `editable`          | `boolean`                      | `false`      | Enable default editing for columns that do not opt out                                       |
+| `editStartEvent`    | `string`                       | `"dblclick"` | Use double-click or compatible click activation                                              |
+| `onEditStart`       | `(info: TypeEditInfo) => void` | -            | Reports the original value and stable row/column identity                                    |
+| `onEditValueChange` | `(info: TypeEditInfo) => void` | -            | Reports each draft value change                                                              |
+| `onEditStop`        | `(info: TypeEditInfo) => void` | -            | Runs before completion or cancellation                                                       |
+| `onEditComplete`    | `(info) => void \| Promise`    | -            | Runs after the editor stops; navigation waits for fulfillment and is suppressed on rejection |
+| `onEditCancel`      | `(info: TypeEditInfo) => void` | -            | Reports Escape cancellation without persisting the draft                                     |
+
+Column-level `editable` may be a boolean or a synchronous/asynchronous
+predicate. Pointer and imperative starts pass it the same Inovua-shaped
+`CellProps`, including raw string/number row identity, row/render/remote
+indices, column aliases and computed indices/width, selection and row-height
+metadata, theme, and native-scroll state. A falsy result or rejection refuses
+the edit. `editor` accepts a component type or React element, while
+`renderEditor(editorProps, cellProps, cell)` receives the compatibility
+contract. Values from `editorProps` are
+available both as top-level editor props and through the nested `editorProps`
+object. Navigation callbacks use `(complete, direction)`: passing
+`complete=false` stops the editor and navigates without firing
+`onEditComplete` or `onEditCancel`. The built-in editor exposes a stable
+accessible name from the column header/name/ID.
+
+The stable `TypeComputedProps` ref exposes these editing methods and fields:
+
+| Member                                                | Behavior                                                                                                                                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `startEdit({ columnId, rowIndex?, rowId?, value? })`  | Starts the requested editable cell after scroll/deferred dispatch and resolves to its start value. It replaces an active editor without ending the former edit. Invalid columns reject with an error; invalid rows reject with `null`. |
+| `tryStartEdit({ columnId, rowIndex?, rowId?, dir? })` | Searches in `dir` order after deferred dispatch and resolves to the first editable value, replacing an active editor without end callbacks. It rejects with `null` if none can start. Numeric columns are visible-column indices.      |
+| `completeEdit(args?)`                                 | Scrolls, waits for the rendered/editable target, and reads live cell metadata/draft at dispatch. An invalid/missing column falls back both coordinates to current. No object uses `""`; an omitted cross-target value is `undefined`.  |
+| `cancelEdit(args?)`                                   | Immediately targets only a rendered/editable cell and never scrolls. An invalid/missing column falls back to current; a valid column without a row, a non-editable target, or an offscreen target is a no-op.                          |
+| `getCurrentEditInfo()`                                | Returns the live edit identity/value or `null`.                                                                                                                                                                                        |
+| `isInEdit.current`                                    | Exposes the upstream lifecycle edit flag.                                                                                                                                                                                              |
+| `currentEditCompletePromise.current`                  | Tracks the current completion callback promise.                                                                                                                                                                                        |
+
+Completion is session-safe: an older async completion settling cannot clear or
+navigate a newer edit. The editor is already stopped when `onEditComplete`
+runs; rejecting its Promise leaves it stopped and suppresses keyboard
+navigation. Exact 5.10.2 cross-target behavior is preserved: dispatching
+complete/cancel to a different valid cell reports that target without emitting
+`onEditStop` for it and leaves the current editor/edit info in place; the
+upstream lifecycle flag becomes false. Numeric row IDs remain numeric in all
+lifecycle payloads, and numeric row lookup accepts equivalent numeric strings.
+The published upstream `TypeEditInfo` declaration nevertheless labels
+`rowId` as `string`; the compatibility type intentionally uses `any` so both
+existing string-typed handlers and the observed numeric runtime contract remain
+source-compatible.
 
 ### Pagination
 
-| Prop            | Type                                   | Default                | Description                  |
-| --------------- | -------------------------------------- | ---------------------- | ---------------------------- |
-| `pagination`    | `true \| false \| "remote" \| "local"` | `true`                 | Pagination mode              |
-| `skip`          | `number`                               | -                      | Controlled offset            |
-| `defaultSkip`   | `number`                               | `0`                    | Initial offset               |
-| `limit`         | `number`                               | -                      | Controlled page size         |
-| `defaultLimit`  | `number`                               | `10`                   | Initial page size            |
-| `onSkipChange`  | `(skip: number) => void`               | -                      | Fired when offset changes    |
-| `onLimitChange` | `(limit: number) => void`              | -                      | Fired when page size changes |
-| `pageSizes`     | `number[]`                             | `[10, 20, 30, 40, 50]` | Allowed page sizes           |
+| Prop            | Type                                   | Default                 | Description                  |
+| --------------- | -------------------------------------- | ----------------------- | ---------------------------- |
+| `pagination`    | `true \| false \| "remote" \| "local"` | `false`                 | Pagination mode              |
+| `skip`          | `number`                               | -                       | Controlled offset            |
+| `defaultSkip`   | `number`                               | `0`                     | Initial offset               |
+| `limit`         | `number`                               | -                       | Controlled page size         |
+| `defaultLimit`  | `number`                               | first page size or `10` | Initial page size            |
+| `onSkipChange`  | `(skip: number) => void`               | -                       | Fired when offset changes    |
+| `onLimitChange` | `(limit: number) => void`              | -                       | Fired when page size changes |
+| `pageSizes`     | `number[]`                             | `[10, 50, 100, 1000]`   | Allowed page sizes           |
 
 ### Misc
 

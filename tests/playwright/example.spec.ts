@@ -1822,6 +1822,7 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
     .first()
     .evaluate((root) => {
       const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
+      const evenRow = root.querySelector(".InovuaReactDataGrid__row--even");
       const inputShell = root.querySelector(".inovua-react-toolkit-text-input");
       const rootStyle = getComputedStyle(root);
 
@@ -1837,6 +1838,9 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
         oddRowBackgroundColor: oddRow
           ? getComputedStyle(oddRow).backgroundColor
           : null,
+        evenRowBackgroundColor: evenRow
+          ? getComputedStyle(evenRow).backgroundColor
+          : null,
         inputBackgroundColor: inputShell
           ? getComputedStyle(inputShell).backgroundColor
           : null,
@@ -1846,7 +1850,8 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   expect(builtInDarkTheme?.theme).toBe("dark");
   expect(builtInDarkTheme?.themeBase).toBe("dark");
   expect(builtInDarkTheme?.rowOddVar).toBe("oklch(0.145 0 0)");
-  expect(builtInDarkTheme?.rowEvenVar).toBe("oklch(0.145 0 0)");
+  expect(builtInDarkTheme?.rowEvenVar).toContain("color-mix(");
+  expect(builtInDarkTheme?.rowEvenVar).not.toBe(builtInDarkTheme?.rowOddVar);
   expect(builtInDarkTheme?.inputBgVar).toBe("oklch(0.145 0 0)");
   expect(builtInDarkTheme?.dropdownBorderVar).toBe("oklch(1 0 0 / 10%)");
   expect(builtInDarkTheme?.inputBackgroundColor).not.toBe("rgb(255, 255, 255)");
@@ -1859,6 +1864,9 @@ test("survives a global @inovua/reactdatagrid-community/index.css import", async
   );
   expect(builtInDarkTheme?.oddRowBackgroundColor).not.toBe(
     "rgba(255, 255, 255, 1)"
+  );
+  expect(builtInDarkTheme?.evenRowBackgroundColor).not.toBe(
+    builtInDarkTheme?.oddRowBackgroundColor
   );
 
   await page.getByRole("button", { name: "Filter" }).first().click();
@@ -1929,6 +1937,7 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   const getRowSnapshot = async () => {
     return grid.evaluate((root) => {
       const oddRow = root.querySelector(".InovuaReactDataGrid__row--odd");
+      const evenRow = root.querySelector(".InovuaReactDataGrid__row--even");
       const rootStyle = getComputedStyle(root);
 
       return {
@@ -1940,6 +1949,9 @@ test("restores built-in row tokens after switching away from legacy themes", asy
         oddRowBackgroundColor: oddRow
           ? getComputedStyle(oddRow).backgroundColor
           : null,
+        evenRowBackgroundColor: evenRow
+          ? getComputedStyle(evenRow).backgroundColor
+          : null,
       };
     });
   };
@@ -1947,6 +1959,10 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   const initialDefault = await getRowSnapshot();
   expect(initialDefault.theme).toBe("default");
   expect(initialDefault.rowOddVar).toBe("oklch(1 0 0)");
+  expect(initialDefault.rowEvenVar).toContain("color-mix(");
+  expect(initialDefault.evenRowBackgroundColor).not.toBe(
+    initialDefault.oddRowBackgroundColor
+  );
 
   for (const legacyTheme of [
     "HF Dark",
@@ -1964,7 +1980,10 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   expect(builtInDark.themeBase).toBe("dark");
   expect(builtInDark.inlineStyle).not.toContain("--tdg-row-odd-bg");
   expect(builtInDark.rowOddVar).toBe("oklch(0.145 0 0)");
-  expect(builtInDark.rowEvenVar).toBe("oklch(0.145 0 0)");
+  expect(builtInDark.rowEvenVar).toContain("color-mix(");
+  expect(builtInDark.evenRowBackgroundColor).not.toBe(
+    builtInDark.oddRowBackgroundColor
+  );
   expect(builtInDark.oddRowBackgroundColor).not.toBe("oklch(1 0 0)");
   expect(builtInDark.oddRowBackgroundColor).not.toBe("rgb(255, 255, 255)");
   expect(builtInDark.oddRowBackgroundColor).not.toBe("rgba(255, 255, 255, 1)");
@@ -1977,6 +1996,9 @@ test("restores built-in row tokens after switching away from legacy themes", asy
   expect(restoredDefault.inlineStyle).not.toContain("--tdg-row-odd-bg");
   expect(restoredDefault.rowOddVar).toBe(initialDefault.rowOddVar);
   expect(restoredDefault.rowEvenVar).toBe(initialDefault.rowEvenVar);
+  await expect
+    .poll(async () => (await getRowSnapshot()).evenRowBackgroundColor)
+    .toBe(initialDefault.evenRowBackgroundColor);
   expect(restoredDefault.oddRowBackgroundColor).not.toBe(
     builtInDark.oddRowBackgroundColor
   );

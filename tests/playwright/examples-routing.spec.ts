@@ -248,6 +248,132 @@ test("docs home quick install snippets are one-click copy targets", async ({
     .toBe("pnpm add @geovi/the-datagrid");
 });
 
+test("keeps the compatibility lab source bounded and internally scrollable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto("/examples/inovua-parity");
+
+  const sourcePanel = page.getByTestId("example-source-panel");
+  const sourceViewport = sourcePanel.locator(
+    '[data-slot="scroll-area-viewport"]'
+  );
+  const scenarioButtons = page
+    .getByRole("region", { name: "Choose a compatibility checkpoint" })
+    .getByRole("button");
+
+  await expect(sourcePanel).toBeVisible();
+  await expect(scenarioButtons).toHaveCount(20);
+  await expect
+    .poll(async () => sourcePanel.evaluate((element) => element.clientHeight))
+    .toBeLessThanOrEqual(640);
+  await expect
+    .poll(async () =>
+      sourceViewport.evaluate(
+        (element) => element.scrollHeight > element.clientHeight
+      )
+    )
+    .toBe(true);
+  await expect
+    .poll(async () =>
+      page.evaluate(() => document.documentElement.scrollHeight)
+    )
+    .toBeLessThan(5000);
+
+  await scenarioButtons.filter({ hasText: "Custom editor contract" }).click();
+  await expect(page).toHaveURL(/scenario=editing-custom/);
+  await expect(
+    scenarioButtons.filter({ hasText: "Custom editor contract" })
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("keeps desktop docs navigation and content independently scrollable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/docs/reference/reactdatagrid");
+
+  const sidebar = page.getByTestId("docs-sidebar");
+  const sidebarViewport = sidebar
+    .getByTestId("docs-sidebar-scroll")
+    .locator('[data-slot="scroll-area-viewport"]');
+  const content = page.getByTestId("docs-content");
+
+  await expect(sidebar).toBeVisible();
+  await expect
+    .poll(async () =>
+      content.evaluate((element) => element.scrollHeight > element.clientHeight)
+    )
+    .toBe(true);
+
+  const initialSidebarTop = await sidebar.evaluate(
+    (element) => element.getBoundingClientRect().top
+  );
+  await content.evaluate((element) => {
+    element.scrollTop = 600;
+  });
+  await expect
+    .poll(async () => content.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => sidebarViewport.evaluate((element) => element.scrollTop))
+    .toBe(0);
+
+  const collapsedSections = sidebar.locator('button[aria-expanded="false"]');
+  while ((await collapsedSections.count()) > 0) {
+    await collapsedSections.first().click();
+  }
+  await expect
+    .poll(async () =>
+      sidebarViewport.evaluate(
+        (element) => element.scrollHeight > element.clientHeight
+      )
+    )
+    .toBe(true);
+
+  const contentScrollTop = await content.evaluate(
+    (element) => element.scrollTop
+  );
+  await sidebarViewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(async () => sidebarViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await content.evaluate((element) => element.scrollTop)).toBe(
+    contentScrollTop
+  );
+  expect(
+    await sidebar.evaluate((element) => element.getBoundingClientRect().top)
+  ).toBeCloseTo(initialSidebarTop, 1);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("navigates from the mobile docs drawer and closes it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/docs/getting-started/installation");
+
+  await expect(page.getByTestId("docs-sidebar")).toBeHidden();
+  await page
+    .getByRole("button", { name: "Open documentation navigation" })
+    .click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "Documentation navigation",
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Core features" }).click();
+  await dialog.getByRole("link", { name: "Selection", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/docs\/guides\/selection$/);
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Open documentation navigation" })
+  ).toContainText("Selection");
+});
+
 test("toggles the site theme from the header", async ({ page }) => {
   await page.goto("/");
 

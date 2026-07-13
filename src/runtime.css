@@ -362,7 +362,11 @@
   --tdg-row-index-bg: var(--tdg-color-muted);
 
   --tdg-row-odd-bg: var(--tdg-color-background);
-  --tdg-row-even-bg: var(--tdg-color-background);
+  --tdg-row-even-bg: color-mix(
+    in oklab,
+    var(--tdg-color-muted) 28%,
+    var(--tdg-color-background)
+  );
   --tdg-row-odd-hover-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 40%,

@@ -1,6 +1,7 @@
 import actionsExampleSource from "./ActionsGridExample.tsx?raw";
 import basicExampleSource from "./BasicGridExample.tsx?raw";
 import columnsExampleSource from "./ColumnsGridExample.tsx?raw";
+import inovuaParityExampleSource from "./InovuaParityCompatPage.tsx?raw";
 import mobileTransformExampleSource from "./MobileTransformExample.tsx?raw";
 import {
   exampleCatalog,
@@ -18,6 +19,7 @@ const sourceById: Record<ExampleId, string> = {
   actions: actionsExampleSource,
   basic: basicExampleSource,
   columns: columnsExampleSource,
+  "inovua-parity": inovuaParityExampleSource,
   "mobile-transform": mobileTransformExampleSource,
   selection: selectionExampleSource,
   users: usersExampleSource,

@@ -10,12 +10,17 @@ import type {
   TypeComputedProps,
   TypeComputedVirtualList,
   TypeComputedVirtualListRow,
+  TypeCompleteEditArgs,
+  TypeCancelEditArgs,
   TypeDataGridProps,
+  TypeEditInfo,
   TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
   TypeRowSelection,
+  TypeStartEditArgs,
   TypeSortInfo,
+  TypeTryStartEditArgs,
 } from "../types";
 
 import type { ColumnDef } from "@tanstack/react-table";
@@ -69,9 +74,16 @@ import {
 } from "./utils/gridUtils";
 
 import { GridHeader } from "./components/GridHeader";
-import { GridBody } from "./components/GridBody";
+import {
+  GridBody,
+  type GridCellEditStartArgs,
+  type GridEditingCell,
+  type GridEditNavigation,
+} from "./components/GridBody";
+import { buildEditCellProps } from "./utils/editing";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
+import { allocateColumnWidths } from "./utils/columnSizing";
 import {
   DATA_GRID_SEARCH_RUNTIME_SYMBOL,
   getDataGridSearchRuntime,
@@ -96,6 +108,9 @@ type ReactDataGridDefaultPropName =
   | "showCellBorders"
   | "showColumnMenuTool"
   | "rowHeight"
+  | "minRowHeight"
+  | "defaultShowZebraRows"
+  | "editStartEvent"
   | "headerHeight"
   | "filterRowHeight";
 
@@ -117,6 +132,9 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   showCellBorders: true,
   showColumnMenuTool: false,
   rowHeight: 44,
+  minRowHeight: 20,
+  defaultShowZebraRows: true,
+  editStartEvent: "dblclick",
   headerHeight: 40,
   filterRowHeight: 44,
 };
@@ -229,15 +247,15 @@ function getColumnWidthBounds(column: TypeColumn): {
   const minWidth =
     typeof column.minWidth === "number" &&
     Number.isFinite(column.minWidth) &&
-    column.minWidth > 0
+    column.minWidth >= 0
       ? column.minWidth
-      : 60;
+      : 40;
   const maxWidth =
     typeof column.maxWidth === "number" &&
     Number.isFinite(column.maxWidth) &&
     column.maxWidth >= minWidth
       ? column.maxWidth
-      : 9999;
+      : Number.MAX_SAFE_INTEGER;
 
   return { minWidth, maxWidth };
 }
@@ -340,12 +358,31 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showColumnMenuTool = REACT_DATA_GRID_DEFAULT_PROPS.showColumnMenuTool,
 
     rowHeight = REACT_DATA_GRID_DEFAULT_PROPS.rowHeight,
+    minRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.minRowHeight,
+    maxRowHeight,
+    rowStyle,
+    showZebraRows: controlledShowZebraRows,
+    defaultShowZebraRows,
+    editable = false,
+    editStartEvent = REACT_DATA_GRID_DEFAULT_PROPS.editStartEvent,
+    onEditStart,
+    onEditStop,
+    onEditComplete,
+    onEditCancel,
+    onEditValueChange,
+    onColumnResize,
     headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
     filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
 
     className,
     style,
   } = props;
+
+  const [uncontrolledShowZebraRows] = React.useState(
+    () =>
+      defaultShowZebraRows ?? REACT_DATA_GRID_DEFAULT_PROPS.defaultShowZebraRows
+  );
+  const showZebraRows = controlledShowZebraRows ?? uncontrolledShowZebraRows;
 
   const filteredRowsCountRef = React.useRef(filteredRowsCount);
   const lastObservedFilteredRowsCountRef = React.useRef<number | undefined>(
@@ -371,7 +408,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const themeName = normalizeThemeName(theme);
   const isMobileViewport = useMediaQuery("(max-width: 1024px)");
-  const mobileTransformActive = allowMobileTransform && isMobileViewport;
+  const hasColumnEditing = inputColumns.some(
+    (column) => Boolean(column.editable) && isColumnVisible(column)
+  );
+  const mobileTransformActive =
+    allowMobileTransform && isMobileViewport && !editable && !hasColumnEditing;
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
   const shouldUseLegacyThemeBridge =
@@ -387,6 +428,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setPortalContainer(node);
   }, []);
   const surfaceRef = React.useRef<HTMLDivElement | null>(null);
+  const [columnViewportWidth, setColumnViewportWidth] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+
+    const updateWidth = () => {
+      const nextWidth = Math.max(0, Math.round(surface.clientWidth));
+      setColumnViewportWidth((current) =>
+        current === nextWidth ? current : nextWidth
+      );
+    };
+
+    updateWidth();
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(surface);
+    return () => observer.disconnect();
+  }, [mobileTransformActive]);
   const [showHeader, setShowHeader] = React.useState(true);
   const [enableFilteringState, setEnableFilteringState] =
     React.useState(enableFiltering);
@@ -487,6 +547,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       name: checkboxColId,
       sortable: false,
       filterable: false,
+      editable: false,
       draggable: false,
       hideable: false,
       width,
@@ -938,10 +999,35 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- column widths ---------------- */
 
+  const defaultColumnSizingRef = React.useRef(
+    new Map<string, { defaultWidth?: number; defaultFlex?: number | null }>()
+  );
+  const sizingColumns = React.useMemo(
+    () =>
+      orderedColumns.map((column) => {
+        const columnId = getColumnId(column);
+        let defaults = defaultColumnSizingRef.current.get(columnId);
+        if (!defaults) {
+          defaults = {
+            defaultWidth: column.defaultWidth,
+            defaultFlex: column.defaultFlex,
+          };
+          defaultColumnSizingRef.current.set(columnId, defaults);
+        }
+
+        return {
+          ...column,
+          defaultWidth: defaults.defaultWidth,
+          defaultFlex: defaults.defaultFlex,
+        };
+      }),
+    [orderedColumns]
+  );
+
   const autosizedWidths = React.useMemo(() => {
     const next: Record<string, number> = {};
 
-    for (const column of orderedColumns) {
+    for (const column of sizingColumns) {
       const columnId = getColumnId(column);
       next[columnId] = resolveBaseColumnWidth({
         column,
@@ -955,13 +1041,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [
     autosizeSample,
     enableColumnAutosize,
-    orderedColumns,
+    sizingColumns,
     skipHeaderOnAutoSize,
   ]);
 
   const [manualColumnWidths, setManualColumnWidths] = React.useState<
     Record<string, number>
   >({});
+  const [manualColumnFlexes, setManualColumnFlexes] = React.useState<
+    Record<string, number | null>
+  >({});
+  const [reservedViewportWidth, setReservedViewportWidth] = React.useState(0);
+  const reservedViewportWidthRef = React.useRef(0);
   const hasManualColumnWidths = React.useMemo(
     () => Object.keys(manualColumnWidths).length > 0,
     [manualColumnWidths]
@@ -995,27 +1086,83 @@ function ReactDataGrid(props: TypeDataGridProps) {
     });
   }, [orderedColumns]);
 
-  const columnWidths = React.useMemo(() => {
-    const next: Record<string, number> = {};
-    const lastColumnIndex = orderedColumns.length - 1;
+  React.useEffect(() => {
+    setManualColumnFlexes((current) => {
+      const nextEntries = orderedColumns.flatMap((column) => {
+        const columnId = getColumnId(column);
+        if (!Object.prototype.hasOwnProperty.call(current, columnId)) {
+          return [];
+        }
 
-    for (const [index, column] of orderedColumns.entries()) {
-      const columnId = getColumnId(column);
-      const baseWidth =
-        manualColumnWidths[columnId] ?? autosizedWidths[columnId];
+        const value = current[columnId];
+        if (
+          value !== null &&
+          (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+        ) {
+          return [];
+        }
 
-      next[columnId] =
-        index === lastColumnIndex
-          ? ensureLastColumnHeaderFits({
-              column,
-              baseWidth,
-              showColumnMenuTool,
-            })
-          : baseWidth;
+        return [[columnId, value] as const];
+      });
+
+      if (
+        nextEntries.length === Object.keys(current).length &&
+        nextEntries.every(([columnId, value]) => current[columnId] === value)
+      ) {
+        return current;
+      }
+
+      return Object.fromEntries(nextEntries);
+    });
+  }, [orderedColumns]);
+
+  const columnWidthAllocation = React.useMemo(() => {
+    const allocation = allocateColumnWidths({
+      columns: sizingColumns,
+      availableWidth: Math.max(0, columnViewportWidth - reservedViewportWidth),
+      preferredWidths: Object.fromEntries(
+        orderedColumns.map((column) => {
+          const columnId = getColumnId(column);
+          return [
+            columnId,
+            manualColumnWidths[columnId] ?? autosizedWidths[columnId],
+          ];
+        })
+      ),
+      preferredFlexes: manualColumnFlexes,
+    });
+    const next = { ...allocation.widths };
+    const lastColumn = orderedColumns[orderedColumns.length - 1];
+
+    if (lastColumn) {
+      const lastColumnId = getColumnId(lastColumn);
+      const hasControlledWidth =
+        typeof lastColumn.width === "number" &&
+        Number.isFinite(lastColumn.width) &&
+        lastColumn.width > 0;
+      const hasFlex = Boolean(allocation.flexWeights[lastColumnId]);
+
+      if (!hasControlledWidth && !hasFlex) {
+        next[lastColumnId] = ensureLastColumnHeaderFits({
+          column: lastColumn,
+          baseWidth: next[lastColumnId] ?? autosizedWidths[lastColumnId] ?? 120,
+          showColumnMenuTool,
+        });
+      }
     }
 
-    return next;
-  }, [autosizedWidths, manualColumnWidths, orderedColumns, showColumnMenuTool]);
+    return { ...allocation, widths: next };
+  }, [
+    autosizedWidths,
+    columnViewportWidth,
+    manualColumnFlexes,
+    manualColumnWidths,
+    orderedColumns,
+    reservedViewportWidth,
+    sizingColumns,
+    showColumnMenuTool,
+  ]);
+  const columnWidths = columnWidthAllocation.widths;
 
   /** ---------------- selection helpers ---------------- */
 
@@ -1339,18 +1486,843 @@ function ReactDataGrid(props: TypeDataGridProps) {
     (showHeader && effectiveEnableFiltering
       ? headerGroupCount * filterRowHeight
       : 0);
+  const computedMinRowHeight =
+    typeof minRowHeight === "number" &&
+    Number.isFinite(minRowHeight) &&
+    minRowHeight > 0
+      ? minRowHeight
+      : REACT_DATA_GRID_DEFAULT_PROPS.minRowHeight;
+  const computedMaxRowHeight =
+    typeof maxRowHeight === "number" &&
+    Number.isFinite(maxRowHeight) &&
+    maxRowHeight >= computedMinRowHeight
+      ? maxRowHeight
+      : undefined;
+  const resolveRowHeight = React.useCallback(
+    (rowIndex: number) => {
+      if (rowHeight == null) return computedMinRowHeight;
+
+      const requestedHeight =
+        typeof rowHeight === "function" ? rowHeight(rowIndex) : rowHeight;
+      const finiteHeight =
+        typeof requestedHeight === "number" && Number.isFinite(requestedHeight)
+          ? requestedHeight
+          : computedMinRowHeight;
+
+      return Math.min(
+        Math.max(finiteHeight, computedMinRowHeight),
+        computedMaxRowHeight ?? Number.POSITIVE_INFINITY
+      );
+    },
+    [computedMaxRowHeight, computedMinRowHeight, rowHeight]
+  );
+  const initialRowHeight = resolveRowHeight(0);
 
   const rowVirtualizer = useVirtualizer({
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
+    estimateSize: (rowIndex) => resolveRowHeight(rowIndex),
     overscan: 10,
     scrollMargin: stickyHeaderOffset,
     // Seed a usable range before the desktop viewport observer reports its
     // size, including when returning from the unmounted mobile branch.
-    initialRect: { width: 0, height: rowHeight * 10 },
+    initialRect: { width: 0, height: initialRowHeight * 10 },
     enabled: virtualized && !mobileTransformActive,
   });
+
+  const columnWidthMeasurementKey = React.useMemo(
+    () =>
+      orderedColumns
+        .map(
+          (column) =>
+            `${getColumnId(column)}:${columnWidths[getColumnId(column)]}`
+        )
+        .join("|"),
+    [columnWidths, orderedColumns]
+  );
+  React.useLayoutEffect(() => {
+    if (virtualized && rowHeight == null && !mobileTransformActive) {
+      rowVirtualizer.measure();
+    }
+  }, [
+    columnWidthMeasurementKey,
+    mobileTransformActive,
+    rowHeight,
+    rowVirtualizer,
+    virtualized,
+  ]);
+
+  /** ---------------- cell editing ---------------- */
+
+  const editCellNodesRef = React.useRef(
+    new Map<string, HTMLTableCellElement>()
+  );
+  const [editingCell, setEditingCellState] =
+    React.useState<GridEditingCell | null>(null);
+  const editingCellRef = React.useRef<GridEditingCell | null>(null);
+  const editingRowsRef = React.useRef(rowModel);
+  const editingColumnsRef = React.useRef(orderedColumns);
+  editingRowsRef.current = rowModel;
+  editingColumnsRef.current = orderedColumns;
+
+  const editAttemptRef = React.useRef(0);
+  const editSessionIdRef = React.useRef(0);
+  const editEndingSessionRef = React.useRef<number | null>(null);
+  const isInEditRef = React.useRef(false);
+  const currentEditCompletePromiseRef = React.useRef<Promise<unknown>>(
+    Promise.resolve(true)
+  );
+
+  const setEditingCell = React.useCallback((next: GridEditingCell | null) => {
+    editingCellRef.current = next;
+    isInEditRef.current = next != null;
+    setEditingCellState(next);
+  }, []);
+
+  const toEditInfo = React.useCallback(
+    (
+      cell: GridEditingCell,
+      options: { includeValue: boolean; value?: unknown }
+    ): TypeEditInfo => ({
+      rowId: cell.rowId,
+      rowIndex: cell.rowIndex,
+      columnId: cell.columnId,
+      columnIndex: cell.columnIndex,
+      ...(options.includeValue
+        ? { value: options.value === undefined ? cell.value : options.value }
+        : {}),
+      data: cell.data,
+      column: cell.column,
+      cellProps: cell.cellProps,
+    }),
+    []
+  );
+
+  const tryStartCellEdit = React.useCallback(
+    async (
+      args: GridCellEditStartArgs,
+      options?: { replaceActive?: boolean }
+    ): Promise<boolean> => {
+      const attempt = ++editAttemptRef.current;
+      const replaceActive = options?.replaceActive === true;
+
+      const current = editingCellRef.current;
+      if (
+        !replaceActive &&
+        current &&
+        String(current.rowId) === String(args.rowId) &&
+        current.columnId === args.columnId
+      ) {
+        return true;
+      }
+      if (current && !replaceActive) return false;
+
+      const configuredEditable =
+        args.column.editable === undefined ? editable : args.column.editable;
+      if (!configuredEditable) return false;
+
+      if (typeof configuredEditable === "function") {
+        let allowed: boolean | void;
+        try {
+          allowed = await Promise.resolve(
+            configuredEditable(args.value, args.cellProps)
+          );
+        } catch {
+          return false;
+        }
+
+        if (attempt !== editAttemptRef.current || !allowed) {
+          return false;
+        }
+      }
+
+      const latestRow = editingRowsRef.current[args.rowIndex];
+      const latestColumn = editingColumnsRef.current[args.columnIndex];
+      if (
+        attempt !== editAttemptRef.current ||
+        String(latestRow?.id) !== String(args.rowId) ||
+        !latestColumn ||
+        getColumnId(latestColumn) !== args.columnId
+      ) {
+        return false;
+      }
+
+      const next: GridEditingCell = {
+        sessionId: ++editSessionIdRef.current,
+        rowId: args.rowId,
+        rowIndex: args.rowIndex,
+        columnId: args.columnId,
+        columnIndex: args.columnIndex,
+        originalValue: args.value,
+        value: args.value,
+        data: args.data,
+        column: args.column,
+        cellProps: {
+          ...args.cellProps,
+          editValue: args.value,
+          inEdit: true,
+        },
+      };
+
+      editEndingSessionRef.current = null;
+      currentEditCompletePromiseRef.current = Promise.resolve(true);
+      setEditingCell(next);
+      onEditStart?.(
+        toEditInfo(
+          { ...next, cellProps: args.cellProps },
+          { includeValue: true, value: args.value }
+        )
+      );
+      return true;
+    },
+    [editable, onEditStart, setEditingCell, toEditInfo]
+  );
+
+  const getEditStartArgs = React.useCallback(
+    (
+      rowIndex: number,
+      columnIndex: number,
+      editValue?: unknown
+    ): GridCellEditStartArgs | null => {
+      const row = rowModel[rowIndex];
+      const column = orderedColumns[columnIndex];
+      const cell = row?.getVisibleCells()[columnIndex];
+      if (!row || !column || !cell) return null;
+
+      const columnId = getColumnId(column);
+      const value = cell.getValue();
+      const initialEditValue = editValue === undefined ? value : editValue;
+      const itemId = (row.original as any)?.[idProperty];
+      const rowId =
+        typeof itemId === "string" || typeof itemId === "number"
+          ? itemId
+          : row.id;
+      const cellProps = buildEditCellProps({
+        value,
+        data: row.original,
+        rowIndex,
+        remoteRowIndex: loadSkip + rowIndex,
+        rowId,
+        rowSelected: Boolean(selectedMap[String(row.id)]),
+        selection: selected,
+        multiSelect: Boolean(multiSelect),
+        naturalRowHeight: rowHeight == null,
+        resolvedRowHeight: resolveRowHeight(rowIndex),
+        minRowHeight: computedMinRowHeight,
+        column,
+        columnId,
+        columnIndex,
+        columnCount: orderedColumns.length,
+        computedWidth: columnWidths[columnId],
+        editable,
+        editStartEvent,
+        theme: themeName,
+        totalDataCount: rows.length,
+      });
+
+      return {
+        rowId,
+        rowIndex,
+        columnId,
+        columnIndex,
+        value: initialEditValue,
+        data: row.original,
+        column,
+        cellProps,
+      };
+    },
+    [
+      columnWidths,
+      computedMinRowHeight,
+      editStartEvent,
+      editable,
+      idProperty,
+      loadSkip,
+      multiSelect,
+      orderedColumns,
+      resolveRowHeight,
+      rowModel,
+      rowHeight,
+      rows.length,
+      selected,
+      selectedMap,
+      themeName,
+    ]
+  );
+  const getEditStartArgsRef = React.useRef(getEditStartArgs);
+  getEditStartArgsRef.current = getEditStartArgs;
+
+  const resolveEditRowIndex = React.useCallback(
+    (rowIndex?: number, rowId?: string | number): number => {
+      if (rowIndex !== undefined) {
+        return typeof rowIndex === "number" &&
+          Number.isInteger(rowIndex) &&
+          rowIndex >= 0 &&
+          rowIndex < rowModel.length
+          ? rowIndex
+          : -1;
+      }
+
+      if (rowId === undefined) return -1;
+      return rowModel.findIndex((row) => {
+        const itemId = (row.original as any)?.[idProperty];
+        const parsedRowId = typeof itemId === "number" ? Number(rowId) : rowId;
+        return itemId === parsedRowId;
+      });
+    },
+    [idProperty, rowModel]
+  );
+
+  const resolveEditColumnIndex = React.useCallback(
+    (columnId: string | number | undefined): number => {
+      if (columnId === undefined) return -1;
+      if (typeof columnId === "number") {
+        return Number.isInteger(columnId) &&
+          columnId >= 0 &&
+          columnId < orderedColumns.length
+          ? columnId
+          : -1;
+      }
+      const normalizedColumnId = String(columnId);
+      return orderedColumns.findIndex(
+        (column) => getColumnId(column) === normalizedColumnId
+      );
+    },
+    [orderedColumns]
+  );
+
+  const getRenderedEditingTarget = React.useCallback(
+    (
+      rowIndex: number,
+      columnIndex: number,
+      sessionId: number
+    ): GridEditingCell | null => {
+      const row = editingRowsRef.current[rowIndex];
+      const column = editingColumnsRef.current[columnIndex];
+      if (!row || !column) return null;
+
+      const configuredEditable =
+        column.editable === undefined ? editable : column.editable;
+      if (!configuredEditable) return null;
+
+      const columnId = getColumnId(column);
+      const cellKey = `${String(row.id)}\u0000${columnId}`;
+      if (!editCellNodesRef.current.has(cellKey)) return null;
+
+      const args = getEditStartArgsRef.current(rowIndex, columnIndex);
+      if (!args) return null;
+
+      const liveEdit = editingCellRef.current;
+      if (
+        liveEdit?.rowIndex === rowIndex &&
+        liveEdit.columnIndex === columnIndex
+      ) {
+        return {
+          ...liveEdit,
+          rowId: args.rowId,
+          rowIndex: args.rowIndex,
+          columnId: args.columnId,
+          columnIndex: args.columnIndex,
+          data: args.data,
+          column: args.column,
+          cellProps: {
+            ...args.cellProps,
+            editValue: liveEdit.value,
+            inEdit: true,
+          },
+        };
+      }
+
+      return {
+        sessionId,
+        rowId: args.rowId,
+        rowIndex: args.rowIndex,
+        columnId: args.columnId,
+        columnIndex: args.columnIndex,
+        originalValue: args.value,
+        value: undefined,
+        data: args.data,
+        column: args.column,
+        cellProps: args.cellProps,
+      };
+    },
+    [editable]
+  );
+
+  const navigateAfterEdit = React.useCallback(
+    async (cell: GridEditingCell, navigation: GridEditNavigation) => {
+      const candidates: Array<{ rowIndex: number; columnIndex: number }> = [];
+
+      if (navigation.type === "enter") {
+        for (
+          let rowIndex = cell.rowIndex + navigation.direction;
+          rowIndex >= 0 && rowIndex < rowModel.length;
+          rowIndex += navigation.direction
+        ) {
+          for (
+            let columnIndex = cell.columnIndex;
+            columnIndex >= 0 && columnIndex < orderedColumns.length;
+            columnIndex += navigation.direction
+          ) {
+            const column = orderedColumns[columnIndex];
+            if (
+              column &&
+              (Boolean(column.editable) ||
+                (editable && column.editable !== false))
+            ) {
+              candidates.push({ rowIndex, columnIndex });
+              // Enter uses the first statically eligible column on each row.
+              // If its async predicate rejects, Inovua advances to the next
+              // row instead of trying another column on this row.
+              break;
+            }
+          }
+        }
+      } else {
+        const columnCount = orderedColumns.length;
+        const cellCount = rowModel.length * columnCount;
+        let linearIndex =
+          cell.rowIndex * columnCount + cell.columnIndex + navigation.direction;
+
+        while (linearIndex >= 0 && linearIndex < cellCount) {
+          candidates.push({
+            rowIndex: Math.floor(linearIndex / columnCount),
+            columnIndex: linearIndex % columnCount,
+          });
+          linearIndex += navigation.direction;
+        }
+      }
+
+      for (const candidate of candidates) {
+        const args = getEditStartArgs(
+          candidate.rowIndex,
+          candidate.columnIndex
+        );
+        if (!args) continue;
+
+        if (virtualized) {
+          rowVirtualizer.scrollToIndex(candidate.rowIndex, { align: "auto" });
+        }
+        if (await tryStartCellEdit(args)) return;
+      }
+
+      surfaceRef.current?.focus();
+    },
+    [
+      getEditStartArgs,
+      editable,
+      orderedColumns,
+      rowModel.length,
+      rowVirtualizer,
+      tryStartCellEdit,
+      virtualized,
+    ]
+  );
+
+  const handleEditValueChange = React.useCallback(
+    (value: unknown) => {
+      const current = editingCellRef.current;
+      if (!current || editEndingSessionRef.current != null) return;
+
+      const next = {
+        ...current,
+        value,
+        cellProps: {
+          ...current.cellProps,
+          editValue: value,
+          inEdit: true,
+        },
+      };
+      setEditingCell(next);
+      onEditValueChange?.(toEditInfo(next, { includeValue: true, value }));
+    },
+    [onEditValueChange, setEditingCell, toEditInfo]
+  );
+
+  const handleEditComplete = React.useCallback(
+    async (
+      navigation?: GridEditNavigation,
+      value?: unknown,
+      targetCell?: GridEditingCell
+    ) => {
+      const current = editingCellRef.current;
+      if (
+        !current ||
+        editEndingSessionRef.current === current.sessionId ||
+        editEndingSessionRef.current != null
+      ) {
+        return;
+      }
+
+      editAttemptRef.current += 1;
+      const sessionId = current.sessionId;
+      editEndingSessionRef.current = sessionId;
+      const completedCell = {
+        ...(targetCell ?? current),
+        sessionId,
+        value: value === undefined ? (targetCell ?? current).value : value,
+      };
+      const info = toEditInfo(completedCell, { includeValue: true });
+      let resolveCompletion!: (value: unknown) => void;
+      let rejectCompletion!: (reason?: unknown) => void;
+      const completionPromise = new Promise<unknown>((resolve, reject) => {
+        resolveCompletion = resolve;
+        rejectCompletion = reject;
+      });
+      currentEditCompletePromiseRef.current = completionPromise;
+
+      let stopError: unknown;
+      try {
+        onEditStop?.(info);
+      } catch (error) {
+        stopError = error;
+      }
+
+      if (editingCellRef.current?.sessionId === sessionId) {
+        setEditingCell(null);
+      }
+      surfaceRef.current?.focus();
+
+      if (stopError !== undefined) {
+        rejectCompletion(stopError);
+      } else {
+        try {
+          Promise.resolve(onEditComplete?.(info)).then(
+            resolveCompletion,
+            rejectCompletion
+          );
+        } catch (error) {
+          rejectCompletion(error);
+        }
+      }
+
+      let completed = false;
+      try {
+        await completionPromise;
+        completed = true;
+      } catch {
+        completed = false;
+      } finally {
+        if (editEndingSessionRef.current === sessionId) {
+          editEndingSessionRef.current = null;
+        }
+      }
+
+      if (
+        completed &&
+        navigation &&
+        editSessionIdRef.current === sessionId &&
+        editingCellRef.current == null
+      ) {
+        await navigateAfterEdit(completedCell, navigation);
+      }
+    },
+    [navigateAfterEdit, onEditComplete, onEditStop, setEditingCell, toEditInfo]
+  );
+
+  const handleEditStop = React.useCallback(
+    async (navigation?: GridEditNavigation, value?: unknown) => {
+      const current = editingCellRef.current;
+      editAttemptRef.current += 1;
+      if (!current || editEndingSessionRef.current != null) return;
+
+      const sessionId = current.sessionId;
+      editEndingSessionRef.current = sessionId;
+      const stoppedCell = {
+        ...current,
+        value: value === undefined ? current.value : value,
+      };
+
+      try {
+        onEditStop?.(toEditInfo(stoppedCell, { includeValue: true }));
+      } finally {
+        if (editingCellRef.current?.sessionId === sessionId) {
+          setEditingCell(null);
+        }
+        editEndingSessionRef.current = null;
+        currentEditCompletePromiseRef.current = Promise.resolve(true);
+      }
+
+      if (navigation) {
+        await navigateAfterEdit(stoppedCell, navigation);
+      } else {
+        surfaceRef.current?.focus();
+      }
+    },
+    [navigateAfterEdit, onEditStop, setEditingCell, toEditInfo]
+  );
+
+  const handleEditCancel = React.useCallback(
+    (targetCell?: GridEditingCell) => {
+      editAttemptRef.current += 1;
+      const current = editingCellRef.current;
+      if (!current || editEndingSessionRef.current != null) return;
+
+      const sessionId = current.sessionId;
+      const cancelledCell = targetCell ?? current;
+      editEndingSessionRef.current = sessionId;
+      try {
+        onEditStop?.(toEditInfo(cancelledCell, { includeValue: true }));
+        onEditCancel?.(toEditInfo(cancelledCell, { includeValue: false }));
+      } finally {
+        if (editingCellRef.current?.sessionId === sessionId) {
+          setEditingCell(null);
+        }
+        editEndingSessionRef.current = null;
+        currentEditCompletePromiseRef.current = Promise.resolve(true);
+      }
+      surfaceRef.current?.focus();
+    },
+    [onEditCancel, onEditStop, setEditingCell, toEditInfo]
+  );
+
+  const handleCrossTargetEditComplete = React.useCallback(
+    (targetCell: GridEditingCell, value?: unknown) => {
+      const completedCell = {
+        ...targetCell,
+        value: value === undefined ? targetCell.value : value,
+      };
+      isInEditRef.current = false;
+
+      try {
+        currentEditCompletePromiseRef.current = Promise.resolve(
+          onEditComplete?.(toEditInfo(completedCell, { includeValue: true }))
+        );
+      } catch (error) {
+        const rejectedPromise = Promise.reject(error);
+        currentEditCompletePromiseRef.current = rejectedPromise;
+        void rejectedPromise.catch(() => undefined);
+      }
+    },
+    [onEditComplete, toEditInfo]
+  );
+
+  const handleCrossTargetEditCancel = React.useCallback(
+    (targetCell: GridEditingCell) => {
+      onEditCancel?.(toEditInfo(targetCell, { includeValue: false }));
+      window.setTimeout(() => {
+        if (editingCellRef.current) isInEditRef.current = false;
+      }, 50);
+    },
+    [onEditCancel, toEditInfo]
+  );
+
+  const startEditCompat = React.useCallback(
+    async (args: TypeStartEditArgs): Promise<any> => {
+      const columnIndex = resolveEditColumnIndex(args?.columnId);
+      if (columnIndex < 0) {
+        throw new Error(
+          `No column found for columnId: ${String(args?.columnId)}`
+        );
+      }
+
+      const rowIndex = resolveEditRowIndex(args?.rowIndex, args?.rowId);
+      if (rowIndex < 0) throw null;
+
+      if (virtualized) {
+        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+
+      const liveStartArgs = getEditStartArgsRef.current(
+        rowIndex,
+        columnIndex,
+        args?.value
+      );
+      if (!liveStartArgs) throw null;
+
+      return (await tryStartCellEdit(liveStartArgs, { replaceActive: true }))
+        ? liveStartArgs.value
+        : undefined;
+    },
+    [
+      resolveEditColumnIndex,
+      resolveEditRowIndex,
+      rowVirtualizer,
+      tryStartCellEdit,
+      virtualized,
+    ]
+  );
+
+  const tryStartEditCompat = React.useCallback(
+    async (args: TypeTryStartEditArgs): Promise<any> => {
+      const columnIndex = resolveEditColumnIndex(args?.columnId);
+      if (columnIndex < 0) {
+        throw new Error(
+          `No column found for columnId: ${String(args?.columnId)}`
+        );
+      }
+
+      const rowIndex = resolveEditRowIndex(args?.rowIndex, args?.rowId);
+      if (rowIndex < 0) throw null;
+
+      const direction = args?.dir === 1 || !args?.dir ? 1 : -1;
+      if (virtualized) {
+        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+
+      const columnCount = editingColumnsRef.current.length;
+      const cellCount = editingRowsRef.current.length * columnCount;
+      let linearIndex = rowIndex * columnCount + columnIndex;
+
+      while (linearIndex >= 0 && linearIndex < cellCount) {
+        const candidateRowIndex = Math.floor(linearIndex / columnCount);
+        const candidateColumnIndex = linearIndex % columnCount;
+        const startArgs = getEditStartArgsRef.current(
+          candidateRowIndex,
+          candidateColumnIndex
+        );
+
+        if (startArgs) {
+          if (virtualized) {
+            rowVirtualizer.scrollToIndex(candidateRowIndex, { align: "auto" });
+          }
+          if (await tryStartCellEdit(startArgs, { replaceActive: true })) {
+            return startArgs.value;
+          }
+        }
+
+        linearIndex += direction;
+      }
+
+      throw null;
+    },
+    [
+      resolveEditColumnIndex,
+      resolveEditRowIndex,
+      rowVirtualizer,
+      tryStartCellEdit,
+      virtualized,
+    ]
+  );
+
+  const completeEditCompat = React.useCallback(
+    (args?: TypeCompleteEditArgs): void => {
+      const current = editingCellRef.current;
+      if (!current) return;
+
+      let columnIndex = resolveEditColumnIndex(args?.columnId);
+      let rowIndex: number | undefined;
+      if (columnIndex < 0) {
+        columnIndex = current.columnIndex;
+        rowIndex = current.rowIndex;
+      } else if (args?.rowIndex !== undefined) {
+        rowIndex = args.rowIndex;
+      } else {
+        const resolvedRowIndex = resolveEditRowIndex(undefined, args?.rowId);
+        rowIndex = resolvedRowIndex < 0 ? undefined : resolvedRowIndex;
+      }
+
+      if (
+        rowIndex === undefined ||
+        rowIndex < 0 ||
+        rowIndex >= editingRowsRef.current.length
+      ) {
+        return;
+      }
+
+      // 5.10.2 accepts `dir` but does not use it. Calling with no object uses
+      // its historical empty-string completion value; omitting only `value`
+      // from an object preserves the current editor value.
+      const value = args === undefined ? "" : args.value;
+
+      if (virtualized) {
+        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
+      }
+
+      window.setTimeout(() => {
+        const target = getRenderedEditingTarget(
+          rowIndex,
+          columnIndex,
+          current.sessionId
+        );
+        if (!target) return;
+
+        const liveEditBeforeFocus = editingCellRef.current;
+        const targetsAnotherCell = Boolean(
+          liveEditBeforeFocus &&
+          (target.rowIndex !== liveEditBeforeFocus.rowIndex ||
+            target.columnIndex !== liveEditBeforeFocus.columnIndex)
+        );
+
+        // Inovua focuses the grid before dispatching a completion to another
+        // valid cell. Its default text editor completes itself on blur, so
+        // this focus produces the current cell's stop + complete lifecycle
+        // before the requested target completion. Custom editors without
+        // blur completion merely lose focus and remain mounted.
+        if (targetsAnotherCell) {
+          surfaceRef.current?.focus();
+        }
+
+        const liveEdit = editingCellRef.current;
+        if (
+          !liveEdit ||
+          target.rowIndex !== liveEdit.rowIndex ||
+          target.columnIndex !== liveEdit.columnIndex
+        ) {
+          handleCrossTargetEditComplete(target, value);
+          return;
+        }
+        void handleEditComplete(undefined, value, target);
+      }, 50);
+    },
+    [
+      getRenderedEditingTarget,
+      handleCrossTargetEditComplete,
+      handleEditComplete,
+      resolveEditColumnIndex,
+      resolveEditRowIndex,
+      rowVirtualizer,
+      virtualized,
+    ]
+  );
+
+  const cancelEditCompat = React.useCallback(
+    (args?: TypeCancelEditArgs): void => {
+      const current = editingCellRef.current;
+      if (!current) return;
+
+      // Inovua's 5.10.2 truthy column check makes numeric index 0 use the
+      // current-edit fallback. Other numbers are visible-column indices.
+      let columnIndex = args?.columnId
+        ? resolveEditColumnIndex(args.columnId)
+        : -1;
+      let rowIndex = args?.rowIndex;
+      if (columnIndex < 0) {
+        columnIndex = current.columnIndex;
+        rowIndex = current.rowIndex;
+      }
+
+      if (rowIndex === undefined) return;
+      const target = getRenderedEditingTarget(
+        rowIndex,
+        columnIndex,
+        current.sessionId
+      );
+      if (!target) return;
+      if (
+        target.rowIndex !== current.rowIndex ||
+        target.columnIndex !== current.columnIndex
+      ) {
+        handleCrossTargetEditCancel(target);
+        return;
+      }
+      handleEditCancel(target);
+    },
+    [
+      getRenderedEditingTarget,
+      handleCrossTargetEditCancel,
+      handleEditCancel,
+      resolveEditColumnIndex,
+    ]
+  );
+
+  const getCurrentEditInfoCompat =
+    React.useCallback((): TypeEditInfo | null => {
+      const current = editingCellRef.current;
+      return current ? toEditInfo(current, { includeValue: true }) : null;
+    }, [toEditInfo]);
 
   const virtualItems = virtualized ? rowVirtualizer.getVirtualItems() : [];
   const paddingTop =
@@ -1423,8 +2395,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
   const resizeSessionRef = React.useRef<{
     columnId: string;
+    column: TypeColumn;
     startX: number;
     startWidth: number;
+    nextWidth: number;
     columnLeft: number;
     minWidth: number;
     maxWidth: number;
@@ -1474,20 +2448,198 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return measuredWidths;
   }, [captureRenderedColumnWidths, hasManualColumnWidths]);
 
-  const setManualColumnWidth = React.useCallback(
-    (columnId: string, nextWidth: number) => {
+  const commitColumnResizeEntries = React.useCallback(
+    (
+      entries: {
+        column: TypeColumn;
+        width?: number;
+        flex?: number;
+      }[],
+      nextReservedViewportWidth = reservedViewportWidthRef.current
+    ) => {
+      const normalizedReservedViewportWidth = Number.isFinite(
+        nextReservedViewportWidth
+      )
+        ? Math.round(nextReservedViewportWidth)
+        : reservedViewportWidthRef.current;
+
+      if (
+        normalizedReservedViewportWidth !== reservedViewportWidthRef.current
+      ) {
+        reservedViewportWidthRef.current = normalizedReservedViewportWidth;
+        setReservedViewportWidth(normalizedReservedViewportWidth);
+      }
+
       setManualColumnWidths((current) => {
-        if (current[columnId] === nextWidth) {
-          return current;
+        let changed = false;
+        const next = { ...current };
+
+        for (const entry of entries) {
+          const columnId = getColumnId(entry.column);
+          const controlledWidth =
+            typeof entry.column.width === "number" &&
+            Number.isFinite(entry.column.width) &&
+            entry.column.width > 0;
+          const controlledFlex =
+            !controlledWidth &&
+            typeof entry.column.flex === "number" &&
+            Number.isFinite(entry.column.flex) &&
+            entry.column.flex > 0;
+
+          if (
+            typeof entry.flex === "number" &&
+            Number.isFinite(entry.flex) &&
+            entry.flex > 0
+          ) {
+            if (!controlledWidth && !controlledFlex && columnId in next) {
+              delete next[columnId];
+              changed = true;
+            }
+            continue;
+          }
+
+          if (
+            typeof entry.width === "number" &&
+            Number.isFinite(entry.width) &&
+            !controlledWidth &&
+            !controlledFlex &&
+            next[columnId] !== entry.width
+          ) {
+            next[columnId] = entry.width;
+            changed = true;
+          }
         }
 
-        return {
-          ...current,
-          [columnId]: nextWidth,
-        };
+        return changed ? next : current;
       });
+
+      setManualColumnFlexes((current) => {
+        let changed = false;
+        const next = { ...current };
+
+        for (const entry of entries) {
+          const columnId = getColumnId(entry.column);
+          const controlledWidth =
+            typeof entry.column.width === "number" &&
+            Number.isFinite(entry.column.width) &&
+            entry.column.width > 0;
+          const controlledFlex =
+            !controlledWidth && entry.column.flex !== undefined;
+
+          if (controlledWidth || controlledFlex) continue;
+
+          if (
+            typeof entry.flex === "number" &&
+            Number.isFinite(entry.flex) &&
+            entry.flex > 0
+          ) {
+            if (next[columnId] !== entry.flex) {
+              next[columnId] = entry.flex;
+              changed = true;
+            }
+          } else if (
+            typeof entry.width === "number" &&
+            Number.isFinite(entry.width) &&
+            next[columnId] !== null
+          ) {
+            // Inovua's default no-share resize converts a flex/defaultFlex
+            // column to a fixed width unless `keepFlex` is requested. We do
+            // not expose keepFlex yet, so a width proposal explicitly turns
+            // off the grid-owned defaultFlex value.
+            next[columnId] = null;
+            changed = true;
+          }
+        }
+
+        return changed ? next : current;
+      });
+
+      for (const entry of entries) {
+        onColumnResize?.(entry, {
+          reservedViewportWidth: normalizedReservedViewportWidth,
+        });
+      }
     },
-    []
+    [onColumnResize]
+  );
+
+  const commitColumnPixelResize = React.useCallback(
+    (column: TypeColumn, requestedWidth: number) => {
+      const columnId = getColumnId(column);
+      const { minWidth, maxWidth } = getColumnWidthBounds(column);
+      const nextWidth = clamp(requestedWidth, minWidth, maxWidth);
+      const currentWidth = columnWidths[columnId] ?? nextWidth;
+      const controlledWidth =
+        typeof column.width === "number" &&
+        Number.isFinite(column.width) &&
+        column.width > 0;
+      const controlledFlex =
+        !controlledWidth &&
+        typeof column.flex === "number" &&
+        Number.isFinite(column.flex) &&
+        column.flex > 0;
+      const effectiveFlex = Boolean(
+        columnWidthAllocation.flexWeights[columnId]
+      );
+      const resizeIsGridOwned = !controlledWidth && !controlledFlex;
+      const flexColumnCount = Object.keys(
+        columnWidthAllocation.flexWeights
+      ).length;
+      const diff = nextWidth - currentWidth;
+      const adjustsAvailableWidth =
+        resizeIsGridOwned &&
+        diff !== 0 &&
+        ((!effectiveFlex && flexColumnCount > 0) ||
+          (effectiveFlex && flexColumnCount > 1));
+      const nextReservedViewportWidth = adjustsAvailableWidth
+        ? reservedViewportWidthRef.current - diff
+        : reservedViewportWidthRef.current;
+      const resizeEntries: {
+        column: TypeColumn;
+        width?: number;
+        flex?: number;
+      }[] = [{ column, width: nextWidth, flex: undefined }];
+
+      if (
+        resizeIsGridOwned &&
+        flexColumnCount > 0 &&
+        (!effectiveFlex || flexColumnCount > 1)
+      ) {
+        for (const flexColumn of orderedColumns) {
+          const flexColumnId = getColumnId(flexColumn);
+          if (
+            flexColumnId === columnId ||
+            !columnWidthAllocation.flexWeights[flexColumnId]
+          ) {
+            continue;
+          }
+
+          const currentFlexWidth = columnWidths[flexColumnId];
+          if (
+            typeof currentFlexWidth === "number" &&
+            Number.isFinite(currentFlexWidth) &&
+            currentFlexWidth > 0
+          ) {
+            resizeEntries.push({
+              column: flexColumn,
+              width: undefined,
+              flex: currentFlexWidth,
+            });
+          }
+        }
+      }
+
+      // A pixel drag/autosize uses Inovua's default no-share behavior: an
+      // uncontrolled defaultFlex column becomes fixed. A controlled width or
+      // flex remains prop-owned, so only the proposal is emitted.
+      commitColumnResizeEntries(resizeEntries, nextReservedViewportWidth);
+    },
+    [
+      columnWidthAllocation.flexWeights,
+      columnWidths,
+      commitColumnResizeEntries,
+      orderedColumns,
+    ]
   );
 
   const autosizeColumn = React.useCallback(
@@ -1514,19 +2666,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           1
       );
 
-      setManualColumnWidths((current) => {
-        const base =
-          Object.keys(current).length > 0 ? current : (seededWidths ?? current);
-
-        if (base[columnId] === nextWidth) {
-          return base;
-        }
-
-        return {
-          ...base,
-          [columnId]: nextWidth,
-        };
-      });
+      if (seededWidths) {
+        setManualColumnWidths((current) =>
+          Object.keys(current).length > 0 ? current : seededWidths
+        );
+      }
+      commitColumnPixelResize(column, nextWidth);
 
       if (restoreTrailingEdge && bodyViewport) {
         window.requestAnimationFrame(() => {
@@ -1536,6 +2681,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [
       autosizeSample,
+      commitColumnPixelResize,
       orderedColumns,
       seedManualColumnWidthsFromDom,
       skipHeaderOnAutoSize,
@@ -1601,8 +2747,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       resizeSessionRef.current = {
         columnId,
+        column,
         startX: event.clientX,
         startWidth,
+        nextWidth: startWidth,
         columnLeft,
         minWidth,
         maxWidth,
@@ -1625,11 +2773,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
           activeSession.maxWidth
         );
 
-        setManualColumnWidth(activeSession.columnId, nextWidth);
+        activeSession.nextWidth = nextWidth;
         setResizeProxyLeft(activeSession.columnLeft + nextWidth);
       };
 
       const handleMouseUp = () => {
+        const completedSession = resizeSessionRef.current;
+        if (
+          completedSession &&
+          completedSession.nextWidth !== completedSession.startWidth
+        ) {
+          commitColumnPixelResize(
+            completedSession.column,
+            completedSession.nextWidth
+          );
+        }
         stopColumnResize();
 
         if (restoreTrailingEdge && bodyViewport) {
@@ -1658,9 +2816,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setResizeProxyLeft(columnLeft + startWidth);
     },
     [
+      commitColumnPixelResize,
       orderedColumns,
       seedManualColumnWidthsFromDom,
-      setManualColumnWidth,
       showColumnMenuTool,
       stopColumnResize,
     ]
@@ -1863,13 +3021,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return sums;
   }, [columnLayout]);
   const columnFlexes = React.useMemo<Record<string, number>>(() => {
-    return Object.fromEntries(
-      orderedColumns.map((column) => [
-        getColumnId(column),
-        Number(column.flex ?? column.defaultFlex ?? 0),
-      ])
-    );
-  }, [orderedColumns]);
+    return { ...columnWidthAllocation.flexWeights };
+  }, [columnWidthAllocation.flexWeights]);
   const columnSizes = React.useMemo<Record<string, number>>(() => {
     return Object.fromEntries(
       orderedColumns.map((column) => [
@@ -2308,16 +3461,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
     );
   }, []);
 
+  const resolvedRowHeightLayout = React.useMemo(() => {
+    let start = 0;
+    return rowModel.map((_, index) => {
+      const size = resolveRowHeight(index);
+      const item = { index, start, end: start + size, size };
+      start += size;
+      return item;
+    });
+  }, [resolveRowHeight, rowModel]);
+
   const getVirtualListRowsCompat =
     React.useCallback((): TypeComputedVirtualListRow[] => {
       const virtualRows = virtualized
         ? rowVirtualizer.getVirtualItems()
-        : rowModel.map((_, index) => ({
-            index,
-            start: index * rowHeight,
-            end: (index + 1) * rowHeight,
-            size: rowHeight,
-          }));
+        : resolvedRowHeightLayout;
 
       return virtualRows.map((virtualRow) => {
         const row = rowModel[virtualRow.index];
@@ -2333,13 +3491,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
           end: virtualRow.end,
         };
       });
-    }, [rowHeight, rowModel, rowVirtualizer, virtualized]);
+    }, [resolvedRowHeightLayout, rowModel, rowVirtualizer, virtualized]);
 
   const getTotalRowHeightCompat = React.useCallback(() => {
     return virtualized
       ? rowVirtualizer.getTotalSize()
-      : rowModel.length * rowHeight;
-  }, [rowHeight, rowModel.length, rowVirtualizer, virtualized]);
+      : (resolvedRowHeightLayout[resolvedRowHeightLayout.length - 1]?.end ?? 0);
+  }, [resolvedRowHeightLayout, rowVirtualizer, virtualized]);
 
   const getScrollHeightCompat = React.useCallback(() => {
     return Math.max(
@@ -2403,9 +3561,33 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const targetIndex = clamp(index, 0, maxIndex);
       const alignEnd = config?.direction === "bottom" || config?.top === false;
       const offset = config?.offset ?? 0;
+
+      if (virtualized) {
+        const offsetInfo = rowVirtualizer.getOffsetForIndex(
+          targetIndex,
+          alignEnd ? "end" : "start"
+        );
+
+        if (offsetInfo) {
+          viewport.scrollTo({
+            top: Math.max(0, offsetInfo[0] + offset),
+            behavior: "smooth",
+          });
+          callback?.();
+          return;
+        }
+
+        scrollToIndexCompat(targetIndex, config, callback);
+        return;
+      }
+
+      const targetRow = resolvedRowHeightLayout[targetIndex] ?? {
+        start: 0,
+        end: 0,
+      };
       const top = alignEnd
-        ? targetIndex * rowHeight + rowHeight - viewport.clientHeight + offset
-        : targetIndex * rowHeight + offset;
+        ? targetRow.end - viewport.clientHeight + offset
+        : targetRow.start + offset;
 
       viewport.scrollTo({
         top: Math.max(0, top),
@@ -2413,7 +3595,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       });
       callback?.();
     },
-    [rowHeight, rowModel.length, scrollToIndexCompat]
+    [
+      resolvedRowHeightLayout,
+      rowModel.length,
+      rowVirtualizer,
+      scrollToIndexCompat,
+      virtualized,
+    ]
   );
 
   const refreshVirtualListLayoutCompat = React.useCallback(() => {
@@ -2527,24 +3715,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         flex?: number;
       }[]
     ) => {
-      setManualColumnWidths((current) => {
-        let changed = false;
-        const next = { ...current };
-
-        for (const entry of info) {
-          const columnId = getColumnId(entry.column);
-          if (
-            typeof entry.width === "number" &&
-            Number.isFinite(entry.width) &&
-            next[columnId] !== entry.width
-          ) {
-            next[columnId] = entry.width;
-            changed = true;
-          }
-        }
-
-        return changed ? next : current;
-      });
+      commitColumnResizeEntries(info);
     };
 
     const baseApi: TypeComputedProps = {
@@ -2781,7 +3952,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getActiveItem: () => null,
       computedHasRowNavigation: false,
       computedShowHoverRows: true,
-      computedShowZebraRows: true,
+      computedShowZebraRows: showZebraRows,
+      computedEditable: editable,
+      computedEditStartEvent: editStartEvent,
+      computedIsEditing: editingCell != null,
+      isInEdit: isInEditRef,
+      getCurrentEditInfo: getCurrentEditInfoCompat,
+      startEdit: startEditCompat,
+      tryStartEdit: tryStartEditCompat,
+      cancelEdit: cancelEditCompat,
+      completeEdit: completeEditCompat,
+      currentEditCompletePromise: currentEditCompletePromiseRef,
       computedShowEmptyRows: false,
       hasLockedStart: false,
       hasLockedEnd: false,
@@ -2799,7 +3980,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         index: number;
         diff: number;
       }) => {
-        const column = visibleComputedColumns[index];
+        const column = orderedColumns[index];
         if (!column) return;
 
         const columnId = getColumnId(column);
@@ -2813,7 +3994,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           maxWidth
         );
 
-        setManualColumnWidth(columnId, nextWidth);
+        commitColumnPixelResize(column, nextWidth);
       },
       onBatchColumnResize: (
         info: {
@@ -2830,8 +4011,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setColumnSizes: () => undefined,
       setActiveIndex: () => undefined,
       incrementActiveIndex: () => undefined,
-      setReservedViewportWidth: () => undefined,
-      reservedViewportWidth: 0,
+      setReservedViewportWidth: (nextValue: React.SetStateAction<number>) => {
+        const nextReservedViewportWidth = resolveStateAction(
+          nextValue,
+          reservedViewportWidthRef.current
+        );
+        if (!Number.isFinite(nextReservedViewportWidth)) return;
+
+        reservedViewportWidthRef.current = Math.round(
+          nextReservedViewportWidth
+        );
+        setReservedViewportWidth(reservedViewportWidthRef.current);
+      },
+      reservedViewportWidth,
       virtualizeColumns: false,
       computedShowHeaderBorderRight: showVerticalCellBorders,
       silentSetData: setRows,
@@ -2871,8 +4063,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnWidthPrefixSums,
     columnWidths,
     columnsMap,
+    commitColumnPixelResize,
+    commitColumnResizeEntries,
     count,
     dataSource,
+    editable,
+    editStartEvent,
+    editingCell,
     effectiveEnableFiltering,
     filterControlled,
     filterValue,
@@ -2883,6 +4080,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getRenderRangeCompat,
     getRowKey,
     getScrollingElement,
+    cancelEditCompat,
+    completeEditCompat,
+    getCurrentEditInfoCompat,
     i18n,
     idProperty,
     isRowFullyVisibleCompat,
@@ -2892,21 +4092,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
     loading,
     loadSkip,
     openFilterMenuColId,
+    orderedColumns,
     originalData,
     pageCount,
     paginationMode,
     publicProps,
+    reservedViewportWidth,
     rowModel.length,
     rows,
     safeLimit,
     selected,
     selectedMap,
+    showZebraRows,
     setColumnFilterValueCompat,
     setColumnOrderCompat,
     setColumnSortInfoCompat,
     setFilterValueAndResetPage,
     setLimitAndResetPage,
-    setManualColumnWidth,
     setSelectedAtCompat,
     setSelectedByIdCompat,
     setSelectedCompat,
@@ -2921,7 +4123,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortInfo,
     stableApi,
     stableApiTarget,
+    startEditCompat,
     toggleColumnSortCompat,
+    tryStartEditCompat,
     scrollToCellCompat,
     scrollToColumnCompat,
     scrollToIndexCompat,
@@ -2955,6 +4159,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-theme-base={themeBase}
       data-column-resizing={resizingColumnId ? "true" : "false"}
       data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
+      data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
     >
       <DatagridThemeProvider
@@ -3104,6 +4309,37 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     i18n={i18n}
                     selectedMap={selectedMap}
                     onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+                    rowHeight={rowHeight}
+                    minRowHeight={computedMinRowHeight}
+                    maxRowHeight={computedMaxRowHeight}
+                    measureElement={rowVirtualizer.measureElement}
+                    rowStyle={rowStyle}
+                    rowStyleMetadata={{
+                      availableWidth: columnViewportWidth,
+                      totalComputedWidth: tableMinWidth ?? 0,
+                      remoteRowOffset: loadSkip,
+                      columns: visibleComputedColumns,
+                      columnsMap,
+                      dataSourceArray: rows,
+                      theme: themeName,
+                      multiSelect: Boolean(multiSelect),
+                      selection: selected,
+                      maxVisibleRows: virtualized
+                        ? virtualItems.length
+                        : rowModel.length,
+                      computedShowCellBorders: showCellBorders,
+                      editable,
+                      getItemId: (data) => (data as any)?.[idProperty],
+                    }}
+                    showZebraRows={showZebraRows}
+                    editingCell={editingCell}
+                    cellNodesRef={editCellNodesRef}
+                    editStartEvent={editStartEvent}
+                    onCellEditStart={tryStartCellEdit}
+                    onEditValueChange={handleEditValueChange}
+                    onEditComplete={handleEditComplete}
+                    onEditStop={handleEditStop}
+                    onEditCancel={handleEditCancel}
                   />
                 </table>
               </ScrollArea>
