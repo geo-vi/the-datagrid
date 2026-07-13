@@ -896,6 +896,15 @@ export type TypeDataGridProps = {
 
   i18n?: TypeI18n;
 
+  /**
+   * Content rendered when the current data view has no rows.
+   *
+   * String values are resolved as i18n keys before falling back to the
+   * supplied string. A function is invoked when the empty state is rendered;
+   * `null`, `false`, and an empty string suppress the empty-state content.
+   */
+  emptyText?: React.ReactNode | (() => React.ReactNode);
+
   showColumnMenuTool?: boolean;
 
   rowHeight?: number | ((rowIndex: number) => number) | null;

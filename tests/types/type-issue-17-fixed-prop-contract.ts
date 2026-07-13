@@ -29,9 +29,10 @@ type Issue17ImplementedProp =
   | "enableSelection"
   | "virtualizeColumnsThreshold"
   | "virtualizeColumns"
-  | "onColumnFilterValueChange";
+  | "onColumnFilterValueChange"
+  | "emptyText";
 
-type Issue17UnsupportedProp = "emptyText";
+type Issue17UnsupportedProp = never;
 
 type AssertNever<T extends never> = T;
 
@@ -296,8 +297,17 @@ export async function exerciseIssue17EditingApi(
 
 export const issue17EmptyTextReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Use i18n.noRecords instead of an emptyText root prop.
   emptyText: "No issue #17 rows match the current view",
+});
+
+export const issue17EmptyTextRendererReproduction = acceptGridProps({
+  ...issue17FixedContractProps,
+  emptyText: () =>
+    React.createElement(
+      "button",
+      { type: "button" },
+      "No issue #17 rows match the current view"
+    ),
 });
 
 export const issue17ColumnFilterCallbackReproduction = acceptGridProps({

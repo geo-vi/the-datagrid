@@ -10,14 +10,15 @@ import type {
   TypeColumnEditorProps,
   TypeComputedColumn,
   TypeComputedColumnsMap,
+  TypeDataGridProps,
   TypeI18n,
   TypeRowSelection,
   TypeRowStyle,
   TypeShowCellBorders,
 } from "../../types";
 import { cn } from "../../lib/utils";
-import { t } from "../../utils/helpers";
 import { buildEditCellProps } from "../utils/editing";
+import { resolveEmptyText } from "../utils/emptyText";
 
 import { Input } from "../../components/ui/input";
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
@@ -153,6 +154,7 @@ export type GridBodyProps = {
 
   loading: boolean;
   i18n?: TypeI18n;
+  emptyText: TypeDataGridProps["emptyText"];
 
   selectedMap: Record<string, any>;
   onRowClick?: (rowId: string, rowData: any, e: React.MouseEvent) => void;
@@ -215,6 +217,7 @@ export function GridBody(props: GridBodyProps) {
     stickyHeaderOffset,
     loading,
     i18n,
+    emptyText,
     selectedMap,
     onRowClick,
     rowHeight,
@@ -791,6 +794,8 @@ export function GridBody(props: GridBodyProps) {
   }
 
   if (rowModel.length === 0) {
+    const emptyContent = resolveEmptyText(emptyText, i18n);
+
     return (
       <TableBody>
         {stickyHeaderOffset > 0 ? (
@@ -801,19 +806,21 @@ export function GridBody(props: GridBodyProps) {
             />
           </TableRow>
         ) : null}
-        <TableRow>
-          <TableCell
-            colSpan={renderedTableColumnCount}
-            className={cn(
-              "h-24 text-center",
-              showHorizontalCellBorders
-                ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
-                : ""
-            )}
-          >
-            {t(i18n, "noRecords", "No records")}
-          </TableCell>
-        </TableRow>
+        {emptyContent == null ? null : (
+          <TableRow>
+            <TableCell
+              colSpan={renderedTableColumnCount}
+              className={cn(
+                "h-24 text-center",
+                showHorizontalCellBorders
+                  ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                  : ""
+              )}
+            >
+              {emptyContent}
+            </TableCell>
+          </TableRow>
+        )}
       </TableBody>
     );
   }

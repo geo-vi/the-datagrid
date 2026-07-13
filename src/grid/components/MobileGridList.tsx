@@ -23,6 +23,7 @@ import {
 import { cn } from "../../lib/utils";
 import { getColumnId, getColumnSortName } from "../../utils/column";
 import { t } from "../../utils/helpers";
+import { resolveEmptyText } from "../utils/emptyText";
 import {
   DataGridSearchBar,
   type DataGridSearchBarChange,
@@ -42,6 +43,7 @@ type MobileGridListProps = {
   loading: boolean;
   selectedMap: Record<string, unknown>;
   i18n: TypeDataGridProps["i18n"];
+  emptyText: TypeDataGridProps["emptyText"];
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
   searchEnabled?: boolean;
@@ -72,6 +74,7 @@ export function MobileGridList({
   loading,
   selectedMap,
   i18n,
+  emptyText,
   sortInfo,
   defaultSortDirection,
   searchEnabled = true,
@@ -314,6 +317,11 @@ export function MobileGridList({
     virtualizer.scrollToOffset(0);
   }, [deferredQuery, virtualizer]);
 
+  const emptyContent =
+    !loading && filteredRows.length === 0
+      ? resolveEmptyText(emptyText, i18n)
+      : null;
+
   return (
     <div
       className="tdg-mobile flex min-h-0 flex-1 flex-col bg-muted/30"
@@ -501,9 +509,11 @@ export function MobileGridList({
             Loading...
           </div>
         ) : filteredRows.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            {t(i18n, "noRecords", "No records")}
-          </div>
+          emptyContent == null ? null : (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              {emptyContent}
+            </div>
+          )
         ) : (
           <div
             className="relative w-full"

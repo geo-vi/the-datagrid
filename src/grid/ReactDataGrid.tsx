@@ -4394,6 +4394,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 loading={loading}
                 selectedMap={selectedMap}
                 i18n={i18n}
+                emptyText={props.emptyText}
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 searchEnabled={!searchConnected}
@@ -4512,6 +4513,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     stickyHeaderOffset={stickyHeaderOffset}
                     loading={loading}
                     i18n={i18n}
+                    emptyText={props.emptyText}
                     selectedMap={selectedMap}
                     onRowClick={(id, data, e) => handleRowClick(id, data, e)}
                     rowHeight={rowHeight}

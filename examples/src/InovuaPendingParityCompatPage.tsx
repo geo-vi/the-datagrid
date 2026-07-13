@@ -90,7 +90,6 @@ type PendingCompatGridProps = TypeDataGridProps & {
   enableSelection?: boolean;
   virtualizeColumnsThreshold?: number;
   virtualizeColumns?: boolean;
-  emptyText?: React.ReactNode | (() => React.ReactNode);
 };
 
 const PendingCompatGrid =
