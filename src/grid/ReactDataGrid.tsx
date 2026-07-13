@@ -2549,6 +2549,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const resizeSessionRef = React.useRef<{
     columnId: string;
     column: TypeColumn;
+    inputType: "mouse" | "pointer";
+    pointerId: number | null;
     startX: number;
     startWidth: number;
     nextWidth: number;
@@ -2844,17 +2846,36 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
 
   const stopColumnResize = React.useCallback(() => {
-    resizeCleanupRef.current?.();
+    const cleanup = resizeCleanupRef.current;
     resizeCleanupRef.current = null;
     resizeSessionRef.current = null;
+    cleanup?.();
     setResizeProxyLeft(null);
     setResizingColumnId(null);
   }, []);
 
   const startColumnResize = React.useCallback(
-    (event: React.MouseEvent<HTMLElement>, columnId: string) => {
+    (
+      event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
+      columnId: string
+    ) => {
       event.preventDefault();
       event.stopPropagation();
+
+      const isPointerEvent = "pointerId" in event;
+      const resizeHandle = event.currentTarget;
+      const pointerId = isPointerEvent ? event.pointerId : null;
+      if (
+        event.button !== 0 ||
+        (isPointerEvent && !event.isPrimary) ||
+        // A real mouse interaction emits pointerdown followed by mousedown.
+        // The pointer session owns that gesture, so the compatibility
+        // mousedown must not register a second set of listeners or commit it
+        // twice.
+        resizeSessionRef.current
+      ) {
+        return;
+      }
 
       const column = orderedColumns.find(
         (candidate) => getColumnId(candidate) === columnId
@@ -2903,6 +2924,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       resizeSessionRef.current = {
         columnId,
         column,
+        inputType: isPointerEvent ? "pointer" : "mouse",
+        pointerId,
         startX: event.clientX,
         startWidth,
         nextWidth: startWidth,
@@ -2918,12 +2941,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const updateResize = (clientX: number) => {
         const activeSession = resizeSessionRef.current;
         if (!activeSession) return;
 
         const nextWidth = clamp(
-          activeSession.startWidth + (moveEvent.clientX - activeSession.startX),
+          activeSession.startWidth + (clientX - activeSession.startX),
           activeSession.minWidth,
           activeSession.maxWidth
         );
@@ -2932,7 +2955,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         setResizeProxyLeft(activeSession.columnLeft + nextWidth);
       };
 
-      const handleMouseUp = () => {
+      const completeResize = () => {
         const completedSession = resizeSessionRef.current;
         if (
           completedSession &&
@@ -2951,21 +2974,112 @@ function ReactDataGrid(props: TypeDataGridProps) {
           });
         }
       };
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (!activeSession || activeSession.inputType !== "mouse") return;
+        updateResize(moveEvent.clientX);
+      };
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "mouse" ||
+          upEvent.button !== 0
+        ) {
+          return;
+        }
+        completeResize();
+      };
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== moveEvent.pointerId
+        ) {
+          return;
+        }
+        moveEvent.preventDefault();
+        updateResize(moveEvent.clientX);
+      };
+      const handlePointerUp = (upEvent: PointerEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== upEvent.pointerId
+        ) {
+          return;
+        }
+        completeResize();
+      };
+      const handlePointerCancel = (cancelEvent: PointerEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== cancelEvent.pointerId
+        ) {
+          return;
+        }
+        stopColumnResize();
+      };
+      const handleLostPointerCapture = (lostEvent: PointerEvent) => {
+        const activeSession = resizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== lostEvent.pointerId
+        ) {
+          return;
+        }
+        stopColumnResize();
+      };
       const handleWindowBlur = () => {
         stopColumnResize();
       };
 
       resizeCleanupRef.current = () => {
+        if (pointerId != null && resizeHandle.hasPointerCapture(pointerId)) {
+          resizeHandle.releasePointerCapture(pointerId);
+        }
         headerCell.draggable = previousDraggable;
         document.body.style.cursor = previousCursor;
         document.body.style.userSelect = previousUserSelect;
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointercancel", handlePointerCancel);
+        resizeHandle.removeEventListener(
+          "lostpointercapture",
+          handleLostPointerCapture
+        );
         window.removeEventListener("blur", handleWindowBlur);
       };
 
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      if (isPointerEvent) {
+        window.addEventListener("pointermove", handlePointerMove, {
+          passive: false,
+        });
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerCancel);
+        resizeHandle.addEventListener(
+          "lostpointercapture",
+          handleLostPointerCapture
+        );
+        // Capturing keeps a touch/pen drag alive when the pointer leaves the
+        // narrow handle. Window listeners remain the fallback for browsers
+        // which reject capture for a synthetic pointer event.
+        try {
+          resizeHandle.setPointerCapture(event.pointerId);
+        } catch {
+          // The gesture can still be tracked by the window listeners.
+        }
+      } else {
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+      }
       window.addEventListener("blur", handleWindowBlur);
       setResizingColumnId(columnId);
       setResizeProxyLeft(columnLeft + startWidth);
@@ -2981,7 +3095,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   React.useLayoutEffect(() => {
     return () => {
-      resizeCleanupRef.current?.();
+      const cleanup = resizeCleanupRef.current;
+      resizeCleanupRef.current = null;
+      resizeSessionRef.current = null;
+      cleanup?.();
     };
   }, []);
 

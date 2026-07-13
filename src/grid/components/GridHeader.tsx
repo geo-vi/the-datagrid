@@ -43,7 +43,7 @@ export type GridHeaderProps = {
   onHeaderDrop: (e: React.DragEvent, targetId: string) => void;
   resizingColumnId: string | null;
   onColumnResizeStart: (
-    event: React.MouseEvent<HTMLElement>,
+    event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
     columnId: string
   ) => void;
   onColumnAutoResize: (columnId: string) => void;

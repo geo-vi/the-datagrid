@@ -111,7 +111,7 @@ export type HeaderCellProps = {
   canResize: boolean;
   isResizing: boolean;
   onResizeStart: (
-    event: React.MouseEvent<HTMLElement>,
+    event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
     columnId: string
   ) => void;
   onAutoResize: (columnId: string) => void;
@@ -325,6 +325,11 @@ export function HeaderCell(props: HeaderCellProps) {
               event.preventDefault();
               event.stopPropagation();
             }}
+            onPointerDown={(event) => onResizeStart(event, colId)}
+            // Pointer events are the primary path for mouse, pen and touch.
+            // Keep a mouse-only fallback for environments/tests which dispatch
+            // legacy mouse events directly; the grid ignores it while the
+            // corresponding pointer session is already active.
             onMouseDown={(event) => onResizeStart(event, colId)}
             onDoubleClick={(event) => {
               event.preventDefault();
