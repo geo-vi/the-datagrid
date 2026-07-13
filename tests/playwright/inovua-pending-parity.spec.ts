@@ -7,11 +7,10 @@ import {
 } from "@playwright/test";
 
 /**
- * Intentionally red compatibility contracts.
+ * Inovua compatibility regression contracts.
  *
  * These tests exercise only the-datagrid's local fixture. They use ordinary
- * assertions and must turn green one behavior at a time as the pending
- * Inovua contracts are implemented or the unsafe behavior is corrected.
+ * assertions and must remain green as the compatibility implementation evolves.
  */
 
 type PendingScenario =
@@ -99,7 +98,7 @@ type EditCoordinateEvent = {
   value: unknown;
 };
 
-const RED_ASSERTION_TIMEOUT = 1_000;
+const CONTRACT_ASSERTION_TIMEOUT = 1_000;
 const baseSelectionRowIds = ["row-1", "row-2", "row-3"] as const;
 
 async function openPendingScenario(page: Page, scenario: PendingScenario) {
@@ -109,7 +108,7 @@ async function openPendingScenario(page: Page, scenario: PendingScenario) {
   await expect(scope).toHaveAttribute("data-scenario", scenario);
   await expect(
     scope.getByRole("heading", {
-      name: `Pending Inovua parity: ${scenario}`,
+      name: `Inovua parity contract: ${scenario}`,
     })
   ).toBeVisible();
 
@@ -169,7 +168,7 @@ async function captureColumnState(
   return readJson<ColumnStateSnapshot>(scope.getByTestId("column-state"));
 }
 
-test.describe("pending Inovua filtering contracts", () => {
+test.describe("Inovua filtering contracts", () => {
   test("onColumnFilterValueChange precedes the aggregate callback for editor changes", async ({
     page,
   }) => {
@@ -290,7 +289,7 @@ test.describe("pending Inovua filtering contracts", () => {
   });
 });
 
-test.describe("pending Inovua selection contracts", () => {
+test.describe("Inovua selection contracts", () => {
   test("enableSelection=true enables uncontrolled single row selection without a checkbox or callback", async ({
     page,
   }) => {
@@ -431,7 +430,7 @@ test.describe("pending Inovua selection contracts", () => {
   });
 });
 
-test.describe("pending Inovua column-virtualization contracts", () => {
+test.describe("Inovua column-virtualization contracts", () => {
   test("uses the default threshold at 15 and leaves 14 visible columns unvirtualized", async ({
     page,
   }) => {
@@ -543,11 +542,13 @@ test.describe("pending Inovua column-virtualization contracts", () => {
     await scope.getByTestId("scroll-last-column").click();
     await expect
       .poll(() => viewport.evaluate((element) => element.scrollLeft), {
-        timeout: RED_ASSERTION_TIMEOUT,
+        timeout: CONTRACT_ASSERTION_TIMEOUT,
       })
       .toBeGreaterThan(0);
-    await expect(lastHeader).toBeVisible({ timeout: RED_ASSERTION_TIMEOUT });
-    await expect(lastCell).toBeVisible({ timeout: RED_ASSERTION_TIMEOUT });
+    await expect(lastHeader).toBeVisible({
+      timeout: CONTRACT_ASSERTION_TIMEOUT,
+    });
+    await expect(lastCell).toBeVisible({ timeout: CONTRACT_ASSERTION_TIMEOUT });
     expect.soft(await firstHeader.count()).toBe(0);
 
     const scrollGeometry = await viewport.evaluate((element) => ({
@@ -621,7 +622,7 @@ test.describe("pending Inovua column-virtualization contracts", () => {
   });
 });
 
-test.describe("pending Inovua emptyText contracts", () => {
+test.describe("Inovua emptyText contracts", () => {
   test("a literal emptyText overrides i18n.noRecords", async ({ page }) => {
     const { grid } = await openPendingScenario(page, "empty-literal");
     const literal = grid.getByText("Literal empty state", { exact: true });
@@ -820,7 +821,7 @@ test.describe("unsafe implemented-contract edges", () => {
           readJson<EditCoordinateEvent[]>(
             scope.getByTestId("editing-coordinate-events")
           ),
-        { timeout: RED_ASSERTION_TIMEOUT }
+        { timeout: CONTRACT_ASSERTION_TIMEOUT }
       )
       .toContainEqual({
         type: "complete",
@@ -864,7 +865,7 @@ test.describe("unsafe implemented-contract edges", () => {
           readJson<EditCoordinateEvent[]>(
             scope.getByTestId("editing-coordinate-events")
           ),
-        { timeout: RED_ASSERTION_TIMEOUT }
+        { timeout: CONTRACT_ASSERTION_TIMEOUT }
       )
       .toContainEqual({
         type: "complete",
@@ -889,10 +890,10 @@ test.describe("unsafe implemented-contract edges", () => {
     await scope.getByTestId("disable-zebra-imperatively").click();
 
     await expect(scope.getByTestId("zebra-setter-present")).toHaveText("true", {
-      timeout: RED_ASSERTION_TIMEOUT,
+      timeout: CONTRACT_ASSERTION_TIMEOUT,
     });
     await expect(grid).toHaveAttribute("data-show-zebra-rows", "false", {
-      timeout: RED_ASSERTION_TIMEOUT,
+      timeout: CONTRACT_ASSERTION_TIMEOUT,
     });
     await expect(firstRow).toHaveClass(/tdg-row--no-zebra/);
     await expect(secondRow).toHaveClass(/tdg-row--no-zebra/);
@@ -947,7 +948,7 @@ test.describe("unsafe touch-resize contract", () => {
 
     await expect(scope.getByTestId("column-resize-event-count")).toHaveText(
       "1",
-      { timeout: RED_ASSERTION_TIMEOUT }
+      { timeout: CONTRACT_ASSERTION_TIMEOUT }
     );
     const event = await readJson<{
       columnId: string;

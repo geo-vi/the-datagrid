@@ -591,14 +591,14 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "true",
         description:
-          "Turns header drag-resize handles on or off. Controlled column.width stays authoritative; uncontrolled defaultWidth can retain a drag result.",
+          "Turns header drag-resize handles on or off. Mouse, pen, and touch use the same pointer lifecycle. Controlled column.width stays authoritative; uncontrolled defaultWidth can retain a drag result.",
       },
       {
         name: "onColumnResize",
         type: "(info, context) => void",
         defaultValue: "-",
         description:
-          "Reports resize proposals as { column, width, flex } plus { reservedViewportWidth }. Controlled consumers persist the proposed width by returning it through columns.",
+          "Reports mouse, pen, or touch resize proposals on gesture completion as { column, width, flex } plus { reservedViewportWidth }. Controlled consumers persist the proposed width by returning it through columns.",
       },
       {
         name: "enableColumnAutosize",
@@ -620,6 +620,20 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "true",
         description:
           "Enables TanStack row virtualization with overscan of 10. Numeric and functional heights are deterministic; natural rows are measured and remeasured when content or column widths change.",
+      },
+      {
+        name: "virtualizeColumnsThreshold",
+        type: "number",
+        defaultValue: "15",
+        description:
+          "Enables horizontal column virtualization at an inclusive visible-column count. It applies only with a finite numeric rowHeight; functional and natural row heights keep every column mounted.",
+      },
+      {
+        name: "virtualizeColumns",
+        type: "boolean",
+        defaultValue: "inferred from threshold",
+        description:
+          "Explicitly overrides the column-count threshold in either direction. A non-numeric rowHeight still disables column virtualization so row measurement and horizontal geometry cannot split.",
       },
       {
         name: "allowMobileTransform",
@@ -647,14 +661,14 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "number | ((rowIndex: number) => number) | null",
         defaultValue: "44",
         description:
-          "Sets one fixed height, computes a height per row, or enables content-driven measured height with null.",
+          "Sets one fixed height, computes a height per row, or enables content-driven measured height with null. A valid numeric height is authoritative and is not raised by minRowHeight or clamped by maxRowHeight.",
       },
       {
         name: "minRowHeight",
         type: "number",
         defaultValue: "20",
         description:
-          "Minimum row height and the initial estimate used before a natural row is measured.",
+          "Minimum and initial estimate for natural rows, and the lower clamp for function-valued heights. It does not override a valid fixed numeric rowHeight.",
       },
       {
         name: "maxRowHeight",
@@ -739,6 +753,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(filterValue: TypeFilterValue) => void",
         defaultValue: "-",
         description: "Receives the next filter state after user edits.",
+      },
+      {
+        name: "onColumnFilterValueChange",
+        type: "(event: TypeColumnFilterValueChangeArg) => void",
+        defaultValue: "-",
+        description:
+          "Runs before onFilterValueChange for editor, operator, and clear changes. The payload contains filterValue, columnId, and visible columnIndex; filter-cell gestures also include cellProps, while imperative API calls intentionally omit it.",
       },
       {
         name: "filterTypes",
@@ -860,6 +881,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
     title: "Selection",
     rows: [
       {
+        name: "enableSelection",
+        type: "boolean",
+        defaultValue: "inferred",
+        description:
+          "Explicitly enables or disables selection. When omitted, selected, defaultSelected, or checkboxColumn enables it; onSelectionChange alone does not. false suppresses controlled visuals and makes row/checkbox/imperative selection actions no-ops.",
+      },
+      {
         name: "checkboxColumn",
         type: "boolean | TypeCheckboxColumn",
         defaultValue: "false",
@@ -884,13 +912,14 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(config: TypeOnSelectionChangeArg) => void",
         defaultValue: "-",
         description:
-          "Always emits selected and originalData; UI actions also include the relevant row(s) in data. unselected is optional and built-in toggles do not currently populate it. Direct React setter wiring is supported.",
+          "Observes enabled selection but does not enable it by itself. Emissions contain selected and originalData; UI actions also include the relevant row(s) in data. unselected is optional and built-in toggles do not currently populate it. Direct React setter wiring is supported.",
       },
       {
         name: "multiSelect",
         type: "boolean",
-        defaultValue: "checkboxColumn ? true : false",
-        description: "Enables multi-row selection semantics.",
+        defaultValue: "inferred",
+        description:
+          "Enables multi-row semantics. When omitted, object/boolean selected or defaultSelected values and an uncontrolled checkboxColumn infer true; otherwise it is false.",
       },
       {
         name: "checkboxOnlyRowSelect",
@@ -951,7 +980,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(info: TypeEditInfo) => void | Promise<unknown>",
         defaultValue: "-",
         description:
-          "Runs after the editor stops and reports the accepted value. Navigation waits for fulfillment and is suppressed on rejection; the application remains responsible for persisting data.",
+          "Runs after the editor stops and reports the accepted value. Active editing is anchored to the visible row/column coordinate, so a controlled row or column reorder updates payload identity without discarding the draft. Navigation waits for fulfillment and is suppressed on rejection; the application remains responsible for persisting data.",
       },
       {
         name: "onEditCancel",
@@ -979,6 +1008,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "built-in fallbacks",
         description:
           "Overrides UI strings such as noRecords, clear, sort labels, and column menu text.",
+      },
+      {
+        name: "emptyText",
+        type: "ReactNode | (() => ReactNode)",
+        defaultValue: '"noRecords"',
+        description:
+          "Renders the empty view after local filtering or remote resolution and in transformed mobile lists. Strings resolve as i18n keys first; nodes and zero-argument functions are preserved. null, false, or an empty string suppresses the content, and loading always hides it.",
       },
       {
         name: "showColumnMenuTool",
@@ -1864,7 +1900,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "methods and fields",
     defaultValue: "implemented",
     description:
-      "get/setFilterValue, clearAllFilters, clear/get/setColumnFilter, isColumnFiltered, computedFilterValue, and computedFilterValueMap. Setters reset skip to zero.",
+      "get/setFilterValue, clearAllFilters, clear/get/setColumnFilter, isColumnFiltered, computedFilterValue/map, and computedOnColumnFilterValueChange. Column setters accept an optional operator, emit the per-column callback before aggregate state, omit filter-cell-only cellProps, and reset skip to zero.",
   },
   {
     name: "Columns and visibility",
@@ -1878,14 +1914,14 @@ const computedPropsRows: ReferenceRow[] = [
     type: "methods and refs",
     defaultValue: "implemented",
     description:
-      "getDOMNode, getMenuPortalContainer, getScrollingElement, getDOMNodeForRowIndex, getRows, getHeader, focus, blur, setEnableFiltering, setShowHeader, domRef, and bodyRef.",
+      "getDOMNode, getMenuPortalContainer, getScrollingElement, getDOMNodeForRowIndex, getRows, getHeader, focus, blur, setEnableFiltering, setShowHeader, computedShowZebraRows, setShowZebraRows, domRef, and bodyRef. The zebra setter accepts values or functional updates for uncontrolled state and does not override a controlled prop.",
   },
   {
     name: "Mode, border, and layout fields",
     type: "computed fields",
     defaultValue: "implemented readout",
     description:
-      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array source flags also classify static Promises as remote even though their rows compose locally.",
+      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, virtualizeColumns, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array source flags also classify static Promises as remote even though their rows compose locally.",
   },
   {
     name: "Row lookup",
@@ -1920,7 +1956,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "fields and methods",
     defaultValue: "implemented",
     description:
-      "computedEditable, computedEditStartEvent, computedIsEditing, isInEdit.current, getCurrentEditInfo, startEdit, tryStartEdit, completeEdit, cancelEdit, and currentEditCompletePromise reflect or control the active cell editor. Start methods return Promises and async completion is session-safe.",
+      "computedEditable, computedEditStartEvent, computedIsEditing, isInEdit.current, getCurrentEditInfo, startEdit, tryStartEdit, completeEdit, cancelEdit, and currentEditCompletePromise reflect or control the active cell editor. Start methods return Promises, async completion is session-safe, and active drafts resolve identity from their current visible coordinate after controlled row/column reorder.",
   },
   {
     name: "Localization and filter menu",
@@ -2689,6 +2725,107 @@ const checkboxRows: ReferenceRow[] = [
 
 const inovuaCompatibilityRows: CompatibilityRow[] = [
   {
+    id: "column-filter-change-callback",
+    feature: "Per-column filter change callback",
+    upstreamContract: (
+      <>
+        <code>onColumnFilterValueChange</code> runs before the aggregate filter
+        callback and reports the descriptor, column identity/index, and optional
+        filter-cell context.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Editor, operator, clear, and imperative set/clear paths use the same
+        ordered callback. UI paths include <code>cellProps</code>; imperative
+        calls omit it.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Preserve callback ordering and payload identity across controlled,
+        uncontrolled, and imperative filter changes.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "selection-enablement",
+    feature: "Selection enablement and precedence",
+    upstreamContract: (
+      <>
+        Explicit <code>enableSelection</code> wins. Otherwise{" "}
+        <code>selected</code>, <code>defaultSelected</code>, or{" "}
+        <code>checkboxColumn</code> enables selection; a callback alone does
+        not.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The same precedence controls row clicks, checkbox/header actions,
+        controlled visuals, and computed selection methods. Explicit false gates
+        every path.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep selection inference deterministic and prevent callbacks or
+        controlled maps from bypassing an explicit false value.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "column-virtualization",
+    feature: "Horizontal column virtualization",
+    upstreamContract: (
+      <>
+        A default inclusive threshold of 15 visible columns enables horizontal
+        virtualization for fixed numeric row heights;{" "}
+        <code>virtualizeColumns</code> overrides the threshold.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Header, filter row, body, scrolling geometry, far-column filtering, and
+        edit metadata share one overscanned render range. Functional/natural row
+        heights and transformed mobile layout disable it.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Preserve total scroll width and header/body alignment while mounting
+        only the active horizontal range and keeping filter/edit APIs usable.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "empty-text",
+    feature: "Empty-state content",
+    upstreamContract: (
+      <>
+        <code>emptyText</code> defaults to the <code>noRecords</code> i18n key,
+        accepts content or a zero-argument function, and can be suppressed with
+        null-like values.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Desktop and transformed-mobile views share that resolver. Empty content
+        appears after local filtering or remote completion and remains hidden
+        while loading.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep literal/key precedence, React-node interactivity, suppression, and
+        loading/remote timing consistent in both layouts.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
     id: "natural-row-height",
     feature: "Natural and dynamic row height",
     upstreamContract: (
@@ -2702,7 +2839,8 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     currentBehavior: (
       <>
         Number, function, and <code>null</code> are supported. Natural rows are
-        measured and honor <code>minRowHeight</code>/<code>maxRowHeight</code>.
+        measured and honor <code>minRowHeight</code>/<code>maxRowHeight</code>;
+        a valid fixed numeric height remains authoritative over those bounds.
       </>
     ),
     requiredOutcome: (
@@ -2751,9 +2889,11 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        Dragging emits on pointer release; autosize and computed resize emit
-        when committed. All paths use the original two-argument callback shape
-        with the resolved width/flex and reserved viewport width.
+        Mouse, pen, and touch dragging emit on pointer release; autosize and
+        computed resize emit when committed. Cancel, blur, responsive changes,
+        and unmount clean up capture/listeners. All paths use the original
+        two-argument callback shape with the resolved width/flex and reserved
+        viewport width.
       </>
     ),
     requiredOutcome: (
@@ -2827,7 +2967,10 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     currentBehavior: (
       <>
         Built-in themes visibly stripe by default and{" "}
-        <code>showZebraRows=false</code> disables the per-grid alternation.
+        <code>showZebraRows=false</code> disables the per-grid alternation. The
+        computed <code>setShowZebraRows</code> method accepts both values and
+        functional updates for uncontrolled grids while controlled props remain
+        authoritative.
       </>
     ),
     requiredOutcome: (
@@ -2857,7 +3000,10 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
         controls, the Inovua-shaped custom-editor/cell arguments, imperative
         start/try/complete/cancel methods, ordered async callbacks, session-safe
         completion, cancellation, focus restoration, and keyboard navigation
-        without mutating consumer data.
+        without mutating consumer data. An active draft remains anchored to its
+        visible coordinate when controlled rows or columns reorder, and later
+        callbacks report the new occupant identity without synthetic lifecycle
+        events during reconciliation.
       </>
     ),
     requiredOutcome: (
@@ -3059,7 +3205,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "TypeScript",
         defaultValue: "main entry",
         description:
-          "CellProps, IColumn, SortDirection, TypeColumn, TypeColumns, TypeColumnEditorProps/Cell, TypeColumnResizeInfo/Context, TypeComputedColumn, TypeComputedColumnsMap, TypeComputedProps, TypeDataGridProps, TypeDataSourceArgs, TypeDataSource, TypeEditInfo, TypeStartEditArgs, TypeTryStartEditArgs, TypeCompleteEditArgs, TypeCancelEditArgs, TypeFilterOperator, TypeFilterType, TypeFilterTypes, TypeFilterValue, TypeGetColumnByParam, TypeI18n, TypeOnSelectionChangeArg, TypePaginationMode, TypeRowStyle/Args/Props, TypeShowCellBorders, TypeRowSelection, TypeSize, TypeSingleFilterValue, TypeSingleSortInfo, TypeSortInfo, TypeCheckboxColumn, and TypeCheckboxProps.",
+          "CellProps, TypeCellProps, IColumn, SortDirection, TypeColumn, TypeColumns, TypeColumnEditorProps/Cell, TypeColumnFilterValueChangeArg, TypeColumnResizeInfo/Context, TypeComputedColumn, TypeComputedColumnsMap, TypeComputedProps, TypeDataGridProps, TypeDataSourceArgs, TypeDataSource, TypeEditInfo, TypeStartEditArgs, TypeTryStartEditArgs, TypeCompleteEditArgs, TypeCancelEditArgs, TypeFilterOperator, TypeFilterType, TypeFilterTypes, TypeFilterValue, TypeGetColumnByParam, TypeI18n, TypeOnSelectionChangeArg, TypePaginationMode, TypeRowStyle/Args/Props, TypeShowCellBorders, TypeRowSelection, TypeSize, TypeSingleFilterValue, TypeSingleSortInfo, TypeSortInfo, TypeCheckboxColumn, and TypeCheckboxProps.",
       },
       {
         name: "@geovi/the-datagrid/search",
@@ -3096,6 +3242,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
+  virtualizeColumnsThreshold: 15,
   allowMobileTransform: false,
   columnUserSelect: true,
   showCellBorders: true,
@@ -3104,6 +3251,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   minRowHeight: 20,
   defaultShowZebraRows: true,
   editStartEvent: "dblclick",
+  emptyText: "noRecords",
   headerHeight: 40,
   filterRowHeight: 44,
 };`}
@@ -3228,10 +3376,10 @@ const implementedSurfaceSections: ReferenceSection[] = [
       },
       {
         name: "Resize interaction",
-        type: "drag / double-click",
+        type: "mouse, pen, touch / double-click",
         defaultValue: "enabled",
         description:
-          "Enabled handles clamp drag widths and report completion through onColumnResize. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
+          "Enabled handles use pointer capture, clamp drag widths, and report completion through onColumnResize for mouse, pen, and touch. Cancel, blur, responsive changes, and unmount clean up the session. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
       },
       {
         name: "Header column menu",
@@ -3245,7 +3393,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "props",
         defaultValue: "documented defaults",
         description:
-          "headerHeight, filterRowHeight, fixed/functional/natural rowHeight, min/max row bounds, rowStyle, showZebraRows, showCellBorders, columnUserSelect, root className, and inner-surface style are implemented. Inline styles are used for computed numeric layout.",
+          "headerHeight, filterRowHeight, fixed/functional/natural rowHeight, min/max row bounds, horizontal column virtualization, rowStyle, showZebraRows, showCellBorders, columnUserSelect, root className, and inner-surface style are implemented. Fixed numeric rowHeight remains authoritative over min/max; inline styles are used for computed numeric layout.",
       },
     ],
   },
@@ -3317,6 +3465,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
             honor onSkipChange(0).
           </li>
           <li>
+            <code>onColumnFilterValueChange</code> runs before the aggregate
+            callback for editor, operator, and clear changes. It reports the
+            descriptor and column identity/index; UI gestures include
+            filter-cell <code>cellProps</code>, while computed API set/clear
+            calls omit that DOM-specific context.
+          </li>
+          <li>
             The filter-cell context menu switches operators. Object/function{" "}
             <code>filterEditorProps</code> and custom editors are supported as
             described in IColumn; resolved props spread last. Without a custom
@@ -3370,9 +3525,9 @@ const implementedSurfaceSections: ReferenceSection[] = [
       {
         name: "Selection behavior",
         type: "row-id map",
-        defaultValue: "depends on checkboxColumn",
+        defaultValue: "inferred unless explicitly enabled/disabled",
         description:
-          "Without checkboxColumn, onSelectionChange enables single row-click selection. With it, multiSelect/checkboxOnlyRowSelect default true. Interactive descendants are ignored and the emitted wrapper can pass back to selected.",
+          "enableSelection has explicit precedence. When omitted, selected, defaultSelected, or checkboxColumn enables selection; onSelectionChange alone does not. Explicit false suppresses controlled visuals and gates row, checkbox, header, and imperative actions. Interactive descendants are ignored and the emitted wrapper can pass back to selected.",
       },
       {
         name: "Selection ranges and payload",
@@ -3392,7 +3547,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "showZebraRows",
         defaultValue: "true",
         description:
-          "Built-in themes visibly alternate rows. false removes per-grid alternation while odd/even hooks remain available to themes.",
+          "Built-in themes visibly alternate rows. false removes per-grid alternation while odd/even hooks remain available to themes. The computed setShowZebraRows method supports boolean and functional updates for uncontrolled grids; controlled showZebraRows stays authoritative.",
       },
       {
         name: "Whole-row styling",
@@ -3413,7 +3568,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "default / editor / renderEditor",
         defaultValue: "text editor",
         description:
-          "Editors receive Inovua-shaped props/cell helpers and emit start/value/stop plus complete or cancel payloads. Enter/Shift+Enter traverse rows, Tab/Shift+Tab traverse editable cells, and Escape cancels. Async completion is session-safe and never mutates consumer data.",
+          "Editors receive Inovua-shaped props/cell helpers and emit start/value/stop plus complete or cancel payloads. Enter/Shift+Enter traverse rows, Tab/Shift+Tab traverse editable cells, and Escape cancels. Active drafts remain anchored to visible coordinates through controlled row/column reorder, with later payloads resolving the new occupant and no synthetic lifecycle events during reconciliation. Async completion is session-safe and never mutates consumer data.",
       },
       {
         name: "Imperative editing",
@@ -3434,6 +3589,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
         defaultValue: "enabled",
         description:
           "Uses fixed or functional estimates, or measures natural rows with min/max bounds and overscan 10. Resize/content changes repair measured offsets. Disabling virtualization renders all desktop rows; header and filter rows remain intact.",
+      },
+      {
+        name: "Column virtualization",
+        type: "horizontal range",
+        defaultValue: "15 visible columns with numeric rowHeight",
+        description:
+          "The inclusive virtualizeColumnsThreshold mounts one overscanned horizontal range shared by header, filter row, and body while preserving total scroll geometry. virtualizeColumns overrides the threshold. Functional/natural row heights and transformed mobile layout keep columns unvirtualized; far columns remain filterable and editable after scrolling.",
       },
       {
         name: "Mobile transform",
@@ -4361,10 +4523,11 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              With checkboxColumn enabled, multiSelect and checkboxOnlyRowSelect
-              default to true; without it, both default false unless explicitly
-              enabled. Without a checkbox column, providing onSelectionChange
-              enables single-selection row clicks.
+              enableSelection has explicit precedence. When omitted, selected,
+              defaultSelected, or checkboxColumn enables selection;
+              onSelectionChange alone does not. With checkboxColumn enabled,
+              multiSelect and checkboxOnlyRowSelect default to true; without it,
+              both default false unless inferred or explicitly enabled.
             </li>
             <li>
               checkboxSelectEnableShiftKey enables contiguous range selection

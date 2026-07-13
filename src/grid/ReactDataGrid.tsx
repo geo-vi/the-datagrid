@@ -114,6 +114,7 @@ type ReactDataGridDefaultPropName =
   | "minRowHeight"
   | "defaultShowZebraRows"
   | "editStartEvent"
+  | "emptyText"
   | "headerHeight"
   | "filterRowHeight";
 
@@ -139,6 +140,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   minRowHeight: 20,
   defaultShowZebraRows: true,
   editStartEvent: "dblclick",
+  emptyText: "noRecords",
   headerHeight: 40,
   filterRowHeight: 44,
 };

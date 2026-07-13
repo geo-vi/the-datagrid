@@ -2,6 +2,7 @@ import * as React from "react";
 
 import ReactDataGrid, {
   type TypeColumns,
+  type TypeColumnFilterValueChangeArg,
   type TypeComputedProps,
   type TypeDataGridProps,
   type TypeEditInfo,
@@ -78,23 +79,6 @@ const scenarios = new Set<PendingScenario>([
   "zebra-imperative",
 ]);
 
-type PendingColumnFilterValueChange = {
-  filterValue: TypeSingleFilterValue;
-  columnId: string;
-  columnIndex: number;
-  cellProps?: Record<string, unknown>;
-};
-
-type PendingCompatGridProps = TypeDataGridProps & {
-  onColumnFilterValueChange?: (event: PendingColumnFilterValueChange) => void;
-  enableSelection?: boolean;
-  virtualizeColumnsThreshold?: number;
-  virtualizeColumns?: boolean;
-};
-
-const PendingCompatGrid =
-  ReactDataGrid as React.ComponentType<PendingCompatGridProps>;
-
 const baseRows = [
   { id: "row-1", name: "Ada Lovelace", team: "Analytics" },
   { id: "row-2", name: "Grace Hopper", team: "Compilers" },
@@ -130,11 +114,11 @@ function FixtureFrame(props: {
   );
 }
 
-function CommonPendingGrid(props: PendingCompatGridProps) {
+function CommonPendingGrid(props: TypeDataGridProps) {
   const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
 
   return (
-    <PendingCompatGrid
+    <ReactDataGrid
       enableColumnFilterContextMenu={false}
       enableColumnAutosize={false}
       skipHeaderOnAutoSize={false}
@@ -191,7 +175,7 @@ type FilterLogEvent =
   | { kind: "aggregate"; filterValue: TypeFilterValue };
 
 function sanitizeColumnFilterEvent(
-  event: PendingColumnFilterValueChange
+  event: TypeColumnFilterValueChangeArg
 ): FilterLogEvent {
   const cellProps = event.cellProps;
   const nestedColumn = cellProps?.column as Record<string, unknown> | undefined;
@@ -312,7 +296,7 @@ type SelectionMode =
 
 function SelectionScenario(props: { mode: SelectionMode }) {
   const [events, setEvents] = React.useState<TypeOnSelectionChangeArg[]>([]);
-  const common: PendingCompatGridProps = {
+  const common: TypeDataGridProps = {
     idProperty: "id",
     columns: baseColumns,
     dataSource: baseRows,
@@ -654,7 +638,7 @@ function EmptyTextScenario(props: { scenario: PendingScenario }) {
   const dataSource = config.remote ? remoteSource : rows;
   const emptyTextProps = {
     emptyText: config.content,
-  } as Pick<PendingCompatGridProps, "emptyText">;
+  } satisfies Pick<TypeDataGridProps, "emptyText">;
 
   return (
     <div className="space-y-3">
@@ -958,7 +942,7 @@ export default function InovuaPendingParityCompatPage() {
       data-scenario={scenario}
     >
       <h1 className="text-xl font-semibold">
-        Pending Inovua parity: {scenario}
+        Inovua parity contract: {scenario}
       </h1>
       <ScenarioContent scenario={scenario} />
     </main>
