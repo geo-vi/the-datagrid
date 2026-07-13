@@ -25,12 +25,12 @@ type Issue17ImplementedProp =
   | "onEditCancel"
   | "onEditValueChange"
   | "showZebraRows"
-  | "defaultShowZebraRows";
+  | "defaultShowZebraRows"
+  | "enableSelection";
 
 type Issue17UnsupportedProp =
   | "emptyText"
   | "onColumnFilterValueChange"
-  | "enableSelection"
   | "virtualizeColumnsThreshold";
 
 type AssertNever<T extends never> = T;
@@ -308,7 +308,6 @@ export const issue17ColumnFilterCallbackReproduction = acceptGridProps({
 
 export const issue17EnableSelectionReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Selection is configured through the supported selection props.
   enableSelection: true,
 });
 

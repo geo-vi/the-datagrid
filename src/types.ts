@@ -863,6 +863,12 @@ export type TypeDataGridProps = {
    */
   checkboxColumn?: TypeCheckboxColumn;
 
+  /**
+   * Explicitly enables or disables row selection. When omitted, selection is
+   * inferred from `selected`, `defaultSelected`, or `checkboxColumn`.
+   */
+  enableSelection?: boolean;
+
   selected?: TypeRowSelection;
   defaultSelected?: TypeRowSelection;
   onSelectionChange?: (config: TypeOnSelectionChangeArg) => void;

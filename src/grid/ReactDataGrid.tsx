@@ -470,6 +470,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const checkboxColumnProp: TypeCheckboxColumn | undefined =
     props.checkboxColumn;
   const checkboxEnabled = Boolean(checkboxColumnProp);
+  const controlledSelected = props.selected !== undefined;
+  const selectionEnabled =
+    props.enableSelection !== undefined
+      ? Boolean(props.enableSelection)
+      : controlledSelected ||
+        props.defaultSelected !== undefined ||
+        checkboxEnabled;
 
   const checkboxColId = React.useMemo(() => {
     if (!checkboxEnabled) return "__checkbox__";
@@ -479,22 +486,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return "__checkbox__";
   }, [checkboxEnabled, checkboxColumnProp]);
 
-  const multiSelect = (props as any).multiSelect ?? checkboxEnabled;
-  const checkboxOnlyRowSelect =
-    (props as any).checkboxOnlyRowSelect ?? checkboxEnabled;
+  const selectionValue = controlledSelected
+    ? props.selected
+    : props.defaultSelected;
+  const multiSelect = selectionEnabled
+    ? (props.multiSelect ??
+      ((typeof selectionValue === "object" && selectionValue !== null) ||
+        typeof selectionValue === "boolean" ||
+        (!controlledSelected && checkboxEnabled)))
+    : false;
+  const checkboxOnlyRowSelect = props.checkboxOnlyRowSelect ?? checkboxEnabled;
   const checkboxSelectEnableShiftKey =
-    (props as any).checkboxSelectEnableShiftKey ?? false;
+    props.checkboxSelectEnableShiftKey ?? false;
 
-  const controlledSelected = props.selected !== undefined;
   const [internalSelected, setInternalSelected] =
     React.useState<TypeRowSelection>(() => {
       if (props.defaultSelected !== undefined) return props.defaultSelected;
       return multiSelect ? {} : null;
     });
 
-  const selected: TypeRowSelection = controlledSelected
-    ? (props.selected as TypeRowSelection)
-    : internalSelected;
+  const selected: TypeRowSelection = selectionEnabled
+    ? controlledSelected
+      ? (props.selected as TypeRowSelection)
+      : internalSelected
+    : null;
   const selectedMap = React.useMemo(() => toSelectionMap(selected), [selected]);
 
   const lastSelectedIndexRef = React.useRef<number | null>(null);
@@ -507,6 +522,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       nextMap: Record<string, any>,
       meta?: { data?: unknown; unselected?: TypeRowSelection }
     ) => {
+      if (!selectionEnabled) return;
+
       const nextSelected: TypeRowSelection = nextMap;
 
       if (!controlledSelected) setInternalSelected(nextSelected);
@@ -518,7 +535,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         originalData: dataSource,
       });
     },
-    [controlledSelected, dataSource, props]
+    [controlledSelected, dataSource, props, selectionEnabled]
   );
 
   /** ---------------- filter types ---------------- */
@@ -1166,8 +1183,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- selection helpers ---------------- */
 
-  const selectionEnabled = checkboxEnabled || Boolean(props.onSelectionChange);
-
   const getRowKey = React.useCallback(
     (row: any, index: number) => {
       const v = row?.[idProperty];
@@ -1240,6 +1255,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const someSelected = selectedOnPage > 0 && !allSelected;
 
             const onChange = (checked: boolean) => {
+              if (!selectionEnabled) return;
+
               if (!multiSelect) {
                 const next: Record<string, any> = {};
                 if (checked && rows[0]) next[getRowKey(rows[0], 0)] = rows[0];
@@ -1263,7 +1280,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const checkboxProps: TypeCheckboxProps = {
               checked: allSelected,
               indeterminate: someSelected,
-              disabled: rows.length === 0,
+              disabled: !selectionEnabled || rows.length === 0,
               onChange,
             };
 
@@ -1344,7 +1361,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
             const checkboxProps: TypeCheckboxProps = {
               checked: isSelected,
-              disabled: false,
+              disabled: !selectionEnabled,
               onChange,
             };
 
@@ -3872,11 +3889,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
         return rowId == null ? false : Boolean(selectedMap[String(rowId)]);
       },
       getSelectedCount: (selectionArg) =>
-        Object.keys(
-          toSelectionMap(
-            unwrapSelectionState(selectionArg ?? selected) as TypeRowSelection
-          )
-        ).length,
+        selectionEnabled
+          ? Object.keys(
+              toSelectionMap(
+                unwrapSelectionState(
+                  selectionArg ?? selected
+                ) as TypeRowSelection
+              )
+            ).length
+          : 0,
       computedSelectedCount: Object.keys(selectedMap).length,
       computedUnselectedCount: 0,
       setSelectedById: setSelectedByIdCompat,
@@ -4103,6 +4124,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     safeLimit,
     selected,
     selectedMap,
+    selectionEnabled,
     showZebraRows,
     setColumnFilterValueCompat,
     setColumnOrderCompat,
