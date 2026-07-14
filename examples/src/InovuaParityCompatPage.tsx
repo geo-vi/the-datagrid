@@ -28,6 +28,7 @@ type ParityScenario =
   | "bounded-row-height"
   | "natural-resize"
   | "resize-callback"
+  | "live-resize"
   | "zebra-default"
   | "zebra-disabled"
   | "editing-default"
@@ -42,7 +43,8 @@ type ParityScenario =
   | "row-style-static"
   | "row-style-contract"
   | "flex"
-  | "controlled-width";
+  | "controlled-width"
+  | "controlled-live-resize";
 
 const scenarios = new Set<ParityScenario>([
   "natural-height",
@@ -50,6 +52,7 @@ const scenarios = new Set<ParityScenario>([
   "bounded-row-height",
   "natural-resize",
   "resize-callback",
+  "live-resize",
   "zebra-default",
   "zebra-disabled",
   "editing-default",
@@ -65,6 +68,7 @@ const scenarios = new Set<ParityScenario>([
   "row-style-contract",
   "flex",
   "controlled-width",
+  "controlled-live-resize",
 ]);
 
 type ScenarioGroupId = "rows" | "columns" | "appearance" | "editing";
@@ -132,6 +136,13 @@ const scenarioGroups: ScenarioGroup[] = [
           "Drag the Description header edge and compare the latest callback width with the rendered header width.",
       },
       {
+        id: "live-resize",
+        label: "Live column resize",
+        summary: "The column follows the pointer without a resize proxy.",
+        instructions:
+          "Drag the Description header edge. Header and body geometry should update together before release, while the completion callback still fires exactly once on drop.",
+      },
+      {
         id: "flex",
         label: "Flex allocation",
         summary: "Remaining width split through flex and defaultFlex.",
@@ -144,6 +155,13 @@ const scenarioGroups: ScenarioGroup[] = [
         summary: "A supplied width remains authoritative during drag.",
         instructions:
           "Drag Controlled to a proposed width and inspect the clamped callback payload—it should render at 180px until the button supplies 300px.",
+      },
+      {
+        id: "controlled-live-resize",
+        label: "Controlled live resize",
+        summary: "A controlled width previews live without losing ownership.",
+        instructions:
+          "Drag Controlled and hold to inspect the live preview. On release it returns to 180px unless the consumer applies the completion proposal.",
       },
     ],
   },
@@ -862,8 +880,25 @@ function sanitizeResizeEvent(
   };
 }
 
-function ResizeCallbackScenario(): React.ReactNode {
+function ResizeCallbackScenario(props: {
+  liveColumnResize?: boolean;
+}): React.ReactNode {
   const [events, setEvents] = React.useState<ResizeEvent[]>([]);
+  const rows = React.useMemo(
+    () =>
+      props.liveColumnResize
+        ? Array.from({ length: 500 }, (_, index) => ({
+            id: `live-resize-${index + 1}`,
+            description: `Interactive resize row ${index + 1}`,
+            filler: `Stable virtualized content ${index + 1}`,
+          }))
+        : baseRows.map((row) => ({
+            ...row,
+            description: `${row.name} description`,
+            filler: row.city,
+          })),
+    [props.liveColumnResize]
+  );
   const columns = React.useMemo<TypeColumns>(
     () => [
       {
@@ -892,14 +927,11 @@ function ResizeCallbackScenario(): React.ReactNode {
         <CommonGrid
           idProperty="id"
           columns={columns}
-          dataSource={baseRows.map((row) => ({
-            ...row,
-            description: `${row.name} description`,
-            filler: row.city,
-          }))}
+          dataSource={rows}
           columnOrder={["description", "filler"]}
-          virtualized={false}
+          virtualized={Boolean(props.liveColumnResize)}
           resizable
+          liveColumnResize={props.liveColumnResize}
           onColumnResize={(info, context) => {
             const event = sanitizeResizeEvent(info, context);
             setEvents((current) => [...current, event]);
@@ -2348,7 +2380,9 @@ function FlexScenario(): React.ReactNode {
   );
 }
 
-function ControlledWidthScenario(): React.ReactNode {
+function ControlledWidthScenario(props: {
+  liveColumnResize?: boolean;
+}): React.ReactNode {
   const [controlledWidth, setControlledWidth] = React.useState(180);
   const [events, setEvents] = React.useState<ResizeEvent[]>([]);
   const columns = React.useMemo<TypeColumns>(
@@ -2399,6 +2433,7 @@ function ControlledWidthScenario(): React.ReactNode {
           columnOrder={["controlled", "filler"]}
           virtualized={false}
           resizable
+          liveColumnResize={props.liveColumnResize}
           onColumnResize={(info, context) => {
             const event = sanitizeResizeEvent(info, context);
             setEvents((current) => [...current, event]);
@@ -2421,6 +2456,8 @@ function ScenarioContent(props: { scenario: ParityScenario }): React.ReactNode {
       return <NaturalResizeScenario />;
     case "resize-callback":
       return <ResizeCallbackScenario />;
+    case "live-resize":
+      return <ResizeCallbackScenario liveColumnResize />;
     case "zebra-default":
       return <ZebraScenario disabled={false} />;
     case "zebra-disabled":
@@ -2451,6 +2488,8 @@ function ScenarioContent(props: { scenario: ParityScenario }): React.ReactNode {
       return <FlexScenario />;
     case "controlled-width":
       return <ControlledWidthScenario />;
+    case "controlled-live-resize":
+      return <ControlledWidthScenario liveColumnResize />;
     default:
       return null;
   }

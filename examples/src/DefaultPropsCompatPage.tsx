@@ -27,6 +27,7 @@ export default function DefaultPropsCompatPage() {
     `virtualized=${String(defaultProps.virtualized)}`,
     `virtualizeColumnsThreshold=${defaultProps.virtualizeColumnsThreshold}`,
     `allowMobileTransform=${String(defaultProps.allowMobileTransform)}`,
+    `liveColumnResize=${String(defaultProps.liveColumnResize)}`,
     `rowHeight=${defaultProps.rowHeight}`,
     `emptyText=${String(defaultProps.emptyText)}`,
   ].join(",");

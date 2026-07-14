@@ -91,8 +91,9 @@ method allowlists.
   `defaultWidth`/`defaultFlex`, `minWidth`/`maxWidth` clamps, proportional flex
   allocation, the upstream 40px implicit column minimum (while preserving an
   explicit `minWidth={0}`), deterministic autosizing from a bounded row sample,
-  mouse drag resizing with `onColumnResize`, and double-click autosizing. Rows
-  support numeric, functional, and natural measured heights with
+  mouse/pen/touch drag resizing with `onColumnResize`, opt-in
+  animation-frame-coalesced `liveColumnResize`, and double-click autosizing.
+  Rows support numeric, functional, and natural measured heights with
   minimum/maximum bounds and width-change remeasurement.
 - **Filtering and sorting:** controlled and uncontrolled state, local operators,
   custom filter registries and editors, filter operator menus, single sorting,
@@ -572,16 +573,17 @@ sentinels (`-1`, `false`, and `0`).
 
 ### Columns
 
-| Prop                   | Type                        | Default | Description                                                                 |
-| ---------------------- | --------------------------- | ------- | --------------------------------------------------------------------------- |
-| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names                                           |
-| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes; drag reordering requires this callback     |
-| `reorderColumns`       | `boolean`                   | `true`  | Disable user drag reordering while continuing to render `columnOrder`       |
-| `resizable`            | `boolean`                   | `true`  | Enable header resize handles                                                |
-| `onColumnResize`       | `(info, context) => void`   | -       | Reports proposed width/flex and reserved viewport width                     |
-| `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied |
-| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                         |
-| `showColumnMenuTool`   | `boolean`                   | `false` | Show the header menu tool                                                   |
+| Prop                   | Type                        | Default | Description                                                                   |
+| ---------------------- | --------------------------- | ------- | ----------------------------------------------------------------------------- |
+| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names                                             |
+| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes; drag reordering requires this callback       |
+| `reorderColumns`       | `boolean`                   | `true`  | Disable user drag reordering while continuing to render `columnOrder`         |
+| `resizable`            | `boolean`                   | `true`  | Enable header resize handles                                                  |
+| `liveColumnResize`     | `boolean`                   | `false` | Resize header and body geometry during drag; callbacks remain completion-only |
+| `onColumnResize`       | `(info, context) => void`   | -       | Reports proposed width/flex and reserved viewport width                       |
+| `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied   |
+| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                           |
+| `showColumnMenuTool`   | `boolean`                   | `false` | Show the header menu tool                                                     |
 
 ### Filtering
 

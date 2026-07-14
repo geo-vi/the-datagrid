@@ -22,11 +22,14 @@ test("defaultProps static is available from the ReactDataGrid default export", a
   await expect(page.getByTestId("default-props-keys")).toContainText(
     "virtualizeColumnsThreshold"
   );
+  await expect(page.getByTestId("default-props-keys")).toContainText(
+    "liveColumnResize"
+  );
   await expect(
     page.getByTestId("default-props-string-operators")
   ).toContainText("contains");
   await expect(page.getByTestId("default-props-values")).toHaveText(
-    "theme=default,virtualized=true,virtualizeColumnsThreshold=15,allowMobileTransform=false,rowHeight=44,emptyText=noRecords"
+    "theme=default,virtualized=true,virtualizeColumnsThreshold=15,allowMobileTransform=false,liveColumnResize=false,rowHeight=44,emptyText=noRecords"
   );
   await expect(page.getByTestId("default-props-filtered-count")).toContainText(
     "3"
