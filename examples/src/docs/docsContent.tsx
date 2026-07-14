@@ -596,6 +596,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Turns header drag-resize handles on or off. Mouse, pen, and touch use the same pointer lifecycle. Controlled column.width stays authoritative; uncontrolled defaultWidth can retain a drag result.",
       },
       {
+        name: "liveColumnResize",
+        type: "boolean",
+        defaultValue: "false",
+        description:
+          "the-datagrid extension that updates header and body column geometry while the resize pointer moves. Pointer events are coalesced to animation frames, and onColumnResize remains a single completion callback. When false, the grid keeps the Inovua-compatible resize proxy until drop.",
+      },
+      {
         name: "onColumnResize",
         type: "(info, context) => void",
         defaultValue: "-",
@@ -1218,6 +1225,20 @@ function createInovuaStatusPage(): DocsPage {
               flex columns are reported with flex payloads in the same commit.
             </p>
             <p>
+              <strong className="text-foreground">
+                Live preview extension.
+              </strong>{" "}
+              Inovua Community uses a resize proxy and commits on release.
+              the-datagrid preserves that behavior by default and adds the
+              opt-in <code>liveColumnResize</code> prop. Live mode updates the
+              matching header/body column and table geometry at most once per
+              animation frame without rerendering the row model for every
+              pointer event. <code>onColumnResize</code> remains
+              completion-only, cancellation restores the original geometry, and
+              a controlled width returns to its prop value unless the consumer
+              applies the proposal.
+            </p>
+            <p>
               <strong className="text-foreground">Flex allocation.</strong>{" "}
               Inovua uses <code>flex</code> and <code>defaultFlex</code> to
               distribute remaining viewport width by weight: subject to min/max
@@ -1231,7 +1252,8 @@ function createInovuaStatusPage(): DocsPage {
             <p>
               <strong className="text-foreground">Verified behavior.</strong>{" "}
               Focused tests cover the resize payload, controlled-width
-              authority, proportional flex allocation, and natural-row
+              authority, live header/body geometry, burst coalescing and
+              cleanup, proportional flex allocation, and natural-row
               remeasurement after width changes.
             </p>
             <p>
@@ -3241,6 +3263,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   enableColumnAutosize: true,
   skipHeaderOnAutoSize: false,
   resizable: true,
+  liveColumnResize: false,
   enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
@@ -3381,7 +3404,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "mouse, pen, touch / double-click",
         defaultValue: "enabled",
         description:
-          "Enabled handles use pointer capture, clamp drag widths, and report completion through onColumnResize for mouse, pen, and touch. Cancel, blur, responsive changes, and unmount clean up the session. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
+          "Enabled handles use pointer capture, clamp drag widths, and report completion through onColumnResize for mouse, pen, and touch. liveColumnResize opts into animation-frame-coalesced header/body geometry during the gesture; the default keeps Inovua's resize proxy. Cancel, blur, responsive changes, and unmount clean up the session. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
       },
       {
         name: "Header column menu",

@@ -110,6 +110,7 @@ type ReactDataGridDefaultPropName =
   | "enableColumnAutosize"
   | "skipHeaderOnAutoSize"
   | "resizable"
+  | "liveColumnResize"
   | "enableFiltering"
   | "filterTypes"
   | "virtualized"
@@ -136,6 +137,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   enableColumnAutosize: true,
   skipHeaderOnAutoSize: false,
   resizable: true,
+  liveColumnResize: false,
   enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
@@ -158,6 +160,94 @@ type ReactDataGridComponent = ((
 ) => React.ReactElement) & {
   defaultProps: ReactDataGridDefaultProps;
 };
+
+type LiveColumnResizePreview = {
+  baseColumnWidth: number;
+  columns: {
+    element: HTMLTableColElement;
+    inlineWidth: string;
+  }[];
+  tables: {
+    element: HTMLTableElement;
+    inlineWidth: string;
+    renderedWidth: number;
+  }[];
+};
+
+type ColumnResizeSession = {
+  columnId: string;
+  column: TypeColumn;
+  inputType: "mouse" | "pointer";
+  pointerId: number | null;
+  startX: number;
+  startWidth: number;
+  nextWidth: number;
+  columnLeft: number;
+  minWidth: number;
+  maxWidth: number;
+  liveColumnResize: boolean;
+  appliedPreviewWidth: number | null;
+  preview: LiveColumnResizePreview | null;
+};
+
+function captureLiveColumnResizePreview(
+  surface: HTMLElement,
+  columnId: string,
+  baseColumnWidth: number
+): LiveColumnResizePreview {
+  const columns = Array.from(
+    surface.querySelectorAll<HTMLTableColElement>("col[data-column-id]")
+  )
+    .filter((element) => element.dataset.columnId === columnId)
+    .map((element) => ({
+      element,
+      inlineWidth: element.style.width,
+    }));
+  const owningTables = new Set<HTMLTableElement>();
+
+  for (const { element } of columns) {
+    const table = element.closest("table");
+    if (table instanceof HTMLTableElement) owningTables.add(table);
+  }
+
+  return {
+    baseColumnWidth,
+    columns,
+    tables: Array.from(owningTables, (element) => ({
+      element,
+      inlineWidth: element.style.width,
+      renderedWidth: element.getBoundingClientRect().width,
+    })),
+  };
+}
+
+function applyLiveColumnResizePreview(
+  session: ColumnResizeSession,
+  nextWidth: number
+) {
+  if (!session.preview || session.appliedPreviewWidth === nextWidth) return;
+
+  const widthDelta = nextWidth - session.preview.baseColumnWidth;
+  for (const { element } of session.preview.columns) {
+    element.style.width = `${nextWidth}px`;
+  }
+  for (const { element, renderedWidth } of session.preview.tables) {
+    element.style.width = `${Math.max(1, renderedWidth + widthDelta)}px`;
+  }
+  session.appliedPreviewWidth = nextWidth;
+}
+
+function restoreLiveColumnResizePreview(session: ColumnResizeSession | null) {
+  if (!session?.preview || session.appliedPreviewWidth == null) return;
+
+  for (const { element, inlineWidth } of session.preview.columns) {
+    element.style.width = inlineWidth;
+  }
+  for (const { element, inlineWidth } of session.preview.tables) {
+    element.style.width = inlineWidth;
+  }
+  session.appliedPreviewWidth = null;
+}
 
 type InternalSearchController = {
   value: string;
@@ -358,6 +448,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     enableColumnAutosize = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnAutosize,
     skipHeaderOnAutoSize = REACT_DATA_GRID_DEFAULT_PROPS.skipHeaderOnAutoSize,
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
+    liveColumnResize = REACT_DATA_GRID_DEFAULT_PROPS.liveColumnResize,
 
     enableFiltering = REACT_DATA_GRID_DEFAULT_PROPS.enableFiltering,
     onColumnFilterValueChange,
@@ -2811,21 +2902,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const resizeProxyElementRef = React.useRef<HTMLDivElement | null>(null);
   const resizeProxyFrameRef = React.useRef<number | null>(null);
   const resizeProxyNextLeftRef = React.useRef<number | null>(null);
+  const liveColumnResizeFrameRef = React.useRef<number | null>(null);
+  const liveColumnResizeNextWidthRef = React.useRef<number | null>(null);
   const [resizingColumnId, setResizingColumnId] = React.useState<string | null>(
     null
   );
-  const resizeSessionRef = React.useRef<{
-    columnId: string;
-    column: TypeColumn;
-    inputType: "mouse" | "pointer";
-    pointerId: number | null;
-    startX: number;
-    startWidth: number;
-    nextWidth: number;
-    columnLeft: number;
-    minWidth: number;
-    maxWidth: number;
-  } | null>(null);
+  const resizeSessionRef = React.useRef<ColumnResizeSession | null>(null);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
 
   const cancelResizeProxyFrame = React.useCallback(() => {
@@ -2849,6 +2931,65 @@ function ReactDataGrid(props: TypeDataGridProps) {
       proxy.style.transform = `translate3d(${left}px, 0, 0)`;
     });
   }, []);
+
+  const cancelLiveColumnResizeFrame = React.useCallback(() => {
+    if (liveColumnResizeFrameRef.current != null) {
+      window.cancelAnimationFrame(liveColumnResizeFrameRef.current);
+      liveColumnResizeFrameRef.current = null;
+    }
+    liveColumnResizeNextWidthRef.current = null;
+  }, []);
+
+  const scheduleLiveColumnResizePreview = React.useCallback(
+    (nextWidth: number) => {
+      liveColumnResizeNextWidthRef.current = nextWidth;
+      if (liveColumnResizeFrameRef.current != null) return;
+
+      liveColumnResizeFrameRef.current = window.requestAnimationFrame(() => {
+        liveColumnResizeFrameRef.current = null;
+        const activeSession = resizeSessionRef.current;
+        const width = liveColumnResizeNextWidthRef.current;
+        liveColumnResizeNextWidthRef.current = null;
+        if (!activeSession?.liveColumnResize || width == null) return;
+
+        applyLiveColumnResizePreview(activeSession, width);
+      });
+    },
+    []
+  );
+
+  React.useLayoutEffect(() => {
+    const activeSession = resizeSessionRef.current;
+    const preview = activeSession?.preview;
+    if (!activeSession?.liveColumnResize || !preview) return;
+
+    const latestColumn = renderedColumnLayout.find(
+      (column) => column.id === activeSession.columnId
+    );
+    if (!latestColumn) return;
+
+    // React can receive a newer controlled width while a pointer gesture is
+    // still active. Keep that latest React-owned geometry as the cancellation
+    // baseline, then place the transient pointer preview back on top before
+    // paint. This prevents cleanup from restoring a stale drag-start width.
+    preview.baseColumnWidth = latestColumn.width;
+    for (const column of preview.columns) {
+      column.inlineWidth = `${latestColumn.width}px`;
+    }
+
+    const latestTableInlineWidth = tableMinWidth ? `${tableMinWidth}px` : "";
+    for (const table of preview.tables) {
+      table.inlineWidth = latestTableInlineWidth;
+      table.renderedWidth =
+        tableMinWidth ?? table.element.getBoundingClientRect().width;
+    }
+
+    const appliedPreviewWidth = activeSession.appliedPreviewWidth;
+    if (appliedPreviewWidth == null) return;
+
+    activeSession.appliedPreviewWidth = null;
+    applyLiveColumnResizePreview(activeSession, appliedPreviewWidth);
+  }, [renderedColumnLayout, tableMinWidth]);
 
   const captureRenderedColumnWidths = React.useCallback(() => {
     const headerCells = Array.from(
@@ -3150,14 +3291,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
 
   const stopColumnResize = React.useCallback(() => {
+    const session = resizeSessionRef.current;
     const cleanup = resizeCleanupRef.current;
     resizeCleanupRef.current = null;
     resizeSessionRef.current = null;
-    cleanup?.();
     cancelResizeProxyFrame();
+    cancelLiveColumnResizeFrame();
+    restoreLiveColumnResizePreview(session);
+    cleanup?.();
     setResizeProxyLeft(null);
     setResizingColumnId(null);
-  }, [cancelResizeProxyFrame]);
+  }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
 
   const startColumnResize = React.useCallback(
     (
@@ -3223,6 +3367,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
           bodyViewport.scrollLeft <=
           1
       );
+      const preview = liveColumnResize
+        ? captureLiveColumnResizePreview(surfaceElement, columnId, startWidth)
+        : null;
 
       headerCell.draggable = false;
 
@@ -3237,6 +3384,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         columnLeft,
         minWidth,
         maxWidth,
+        liveColumnResize,
+        appliedPreviewWidth: null,
+        preview,
       };
 
       resizeCleanupRef.current?.();
@@ -3257,15 +3407,26 @@ function ReactDataGrid(props: TypeDataGridProps) {
         );
 
         activeSession.nextWidth = nextWidth;
-        scheduleResizeProxyPosition(activeSession.columnLeft + nextWidth);
+        if (activeSession.liveColumnResize) {
+          scheduleLiveColumnResizePreview(nextWidth);
+        } else {
+          scheduleResizeProxyPosition(activeSession.columnLeft + nextWidth);
+        }
       };
 
       const completeResize = () => {
         const completedSession = resizeSessionRef.current;
-        if (
+        const shouldCommit = Boolean(
           completedSession &&
           completedSession.nextWidth !== completedSession.startWidth
-        ) {
+        );
+        if (completedSession && shouldCommit) {
+          // Settle the imperative preview before entering the existing commit
+          // path. React applies the grid-owned result in the same event turn;
+          // controlled widths therefore return to their prop value unless the
+          // consumer supplies the proposal back from `onColumnResize`.
+          cancelLiveColumnResizeFrame();
+          restoreLiveColumnResizePreview(completedSession);
           commitColumnPixelResize(
             completedSession.column,
             completedSession.nextWidth
@@ -3387,15 +3548,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
       window.addEventListener("blur", handleWindowBlur);
       setResizingColumnId(columnId);
-      const initialProxyLeft = columnLeft + startWidth;
       cancelResizeProxyFrame();
-      resizeProxyNextLeftRef.current = initialProxyLeft;
-      setResizeProxyLeft(initialProxyLeft);
+      cancelLiveColumnResizeFrame();
+      if (liveColumnResize) {
+        setResizeProxyLeft(null);
+      } else {
+        const initialProxyLeft = columnLeft + startWidth;
+        resizeProxyNextLeftRef.current = initialProxyLeft;
+        setResizeProxyLeft(initialProxyLeft);
+      }
     },
     [
+      cancelLiveColumnResizeFrame,
       cancelResizeProxyFrame,
       commitColumnPixelResize,
+      liveColumnResize,
       orderedColumns,
+      scheduleLiveColumnResizePreview,
       scheduleResizeProxyPosition,
       seedManualColumnWidthsFromDom,
       showColumnMenuTool,
@@ -3405,17 +3574,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   React.useLayoutEffect(() => {
     return () => {
+      const session = resizeSessionRef.current;
       const cleanup = resizeCleanupRef.current;
       resizeCleanupRef.current = null;
       resizeSessionRef.current = null;
-      cleanup?.();
       cancelResizeProxyFrame();
+      cancelLiveColumnResizeFrame();
+      restoreLiveColumnResizePreview(session);
+      cleanup?.();
     };
-  }, [cancelResizeProxyFrame]);
+  }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
 
   React.useEffect(() => {
     if (!resizingColumnId) return;
 
+    const activeSession = resizeSessionRef.current;
     const resizingColumnExists = orderedColumns.some(
       (column) => getColumnId(column) === resizingColumnId
     );
@@ -3424,11 +3597,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       mobileTransformActive ||
       !resizable ||
       !showHeader ||
-      !resizingColumnExists
+      !resizingColumnExists ||
+      activeSession?.liveColumnResize !== liveColumnResize
     ) {
       stopColumnResize();
     }
   }, [
+    liveColumnResize,
     mobileTransformActive,
     orderedColumns,
     resizable,
@@ -4835,7 +5010,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             tabIndex={-1}
             style={style}
           >
-            {resizeProxyLeft != null ? (
+            {!liveColumnResize && resizeProxyLeft != null ? (
               <div
                 ref={resizeProxyElementRef}
                 className="InovuaReactDataGrid__resize-proxy"
@@ -4889,6 +5064,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           {renderedColumnLayout.map((column) => (
                             <col
                               key={column.id}
+                              data-column-id={column.id}
                               style={{
                                 width: column.width,
                                 minWidth: column.minWidth,
@@ -4949,6 +5125,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     {renderedColumnLayout.map((column) => (
                       <col
                         key={column.id}
+                        data-column-id={column.id}
                         style={{
                           width: column.width,
                           minWidth: column.minWidth,

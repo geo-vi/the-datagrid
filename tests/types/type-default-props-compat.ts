@@ -33,6 +33,7 @@ const defaultTheme: string = defaultExportDefaults.theme;
 const defaultVirtualized: boolean = defaultExportDefaults.virtualized;
 const defaultVirtualizeColumnsThreshold: number =
   defaultExportDefaults.virtualizeColumnsThreshold;
+const defaultLiveColumnResize: boolean = defaultExportDefaults.liveColumnResize;
 const defaultEmptyText: TypeDataGridProps["emptyText"] =
   defaultExportDefaults.emptyText;
 
@@ -43,6 +44,7 @@ export const defaultPropsCompat = {
   defaultTheme,
   defaultVirtualized,
   defaultVirtualizeColumnsThreshold,
+  defaultLiveColumnResize,
   defaultEmptyText,
   stringOperatorCount: defaultFilterTypes.string.operators.length,
 };

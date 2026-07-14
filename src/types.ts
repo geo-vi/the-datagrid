@@ -851,6 +851,15 @@ export type TypeDataGridProps = {
   reorderColumns?: boolean;
   resizable?: boolean;
 
+  /**
+   * When enabled, the rendered column follows the pointer while its resize
+   * handle is dragged. The default deferred mode keeps the lightweight resize
+   * proxy and applies the proposed width when the gesture completes.
+   *
+   * `onColumnResize` remains a completion callback in both modes.
+   */
+  liveColumnResize?: boolean;
+
   enableColumnFilterContextMenu?: boolean;
 
   enableColumnAutosize?: boolean;

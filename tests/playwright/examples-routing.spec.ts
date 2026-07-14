@@ -286,7 +286,7 @@ test("keeps the compatibility lab source bounded and internally scrollable", asy
     .getByRole("button");
 
   await expect(sourcePanel).toBeVisible();
-  await expect(scenarioButtons).toHaveCount(20);
+  await expect(scenarioButtons).toHaveCount(22);
   await expect
     .poll(async () => sourcePanel.evaluate((element) => element.clientHeight))
     .toBeLessThanOrEqual(640);
