@@ -405,6 +405,8 @@ export default function ColumnsGridExample() {
           filteredRowsCount={setFilteredRows}
           onColumnOrderChange={setColumnOrder}
           virtualized
+          rowHeight={naturalHeight ? null : 56}
+          minRowHeight={52}
           columnUserSelect
           showCellBorders={showCellBorders}
           i18n={i18n}

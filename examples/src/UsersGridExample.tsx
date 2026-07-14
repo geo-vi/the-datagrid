@@ -1,5 +1,5 @@
-import { Download, EyeOff, Filter, FilterX, Pencil, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, Filter, FilterX, Pencil, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import ReactDataGrid, {
   DateFilter,
@@ -7,6 +7,7 @@ import ReactDataGrid, {
   SelectFilter,
   type TypeColumn,
   type TypeColumns,
+  type TypeComputedProps,
   type TypeFilterValue,
   type TypeI18n,
   type TypeShowCellBorders,
@@ -33,6 +34,13 @@ const roleOptions = [
 ];
 
 const languageOptions = ["en", "de", "fr", "it"];
+const dateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 type ExportFormat = "csv" | "json";
 
@@ -70,11 +78,17 @@ function getColumnId(column: TypeColumn): string {
 }
 
 function getColumnLabel(column: TypeColumn): string {
-  return typeof column.header === "string" ? column.header : getColumnId(column);
+  return typeof column.header === "string"
+    ? column.header
+    : getColumnId(column);
 }
 
 function extractCellValue(valueOrCellProps: unknown): unknown {
-  if (typeof valueOrCellProps === "object" && valueOrCellProps !== null && "value" in valueOrCellProps) {
+  if (
+    typeof valueOrCellProps === "object" &&
+    valueOrCellProps !== null &&
+    "value" in valueOrCellProps
+  ) {
     return (valueOrCellProps as { value?: unknown }).value;
   }
 
@@ -82,7 +96,11 @@ function extractCellValue(valueOrCellProps: unknown): unknown {
 }
 
 function extractRowData(valueOrCellProps: unknown): ExampleUser | null {
-  if (typeof valueOrCellProps === "object" && valueOrCellProps !== null && "data" in valueOrCellProps) {
+  if (
+    typeof valueOrCellProps === "object" &&
+    valueOrCellProps !== null &&
+    "data" in valueOrCellProps
+  ) {
     return (valueOrCellProps as { data?: ExampleUser }).data ?? null;
   }
 
@@ -95,13 +113,7 @@ function formatDateTime(value: unknown): string {
   const date = value instanceof Date ? value : new Date(String(value));
   if (Number.isNaN(date.getTime())) return String(value);
 
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return dateTimeFormatter.format(date);
 }
 
 function formatBooleanPill(value: boolean) {
@@ -118,7 +130,10 @@ function formatBooleanPill(value: boolean) {
   );
 }
 
-function getUserFieldValue(row: ExampleUser, columnId: keyof ExampleUser): ExampleUser[keyof ExampleUser] {
+function getUserFieldValue(
+  row: ExampleUser,
+  columnId: keyof ExampleUser
+): ExampleUser[keyof ExampleUser] {
   return row[columnId];
 }
 
@@ -135,8 +150,12 @@ function createUsers(): ExampleUser[] {
       csrolename: role,
       csemail: `user.${id}@ikarus.demo`,
       failed_login_attempts: index % 5,
-      date_last_successful_login: new Date(Date.UTC(2026, 1, 10 + (index % 18), 8 + (index % 9), 15)).toISOString(),
-      date_pwdchanged: new Date(Date.UTC(2026, 0, 2 + (index % 24), 6 + (index % 7), 45)).toISOString(),
+      date_last_successful_login: new Date(
+        Date.UTC(2026, 1, 10 + (index % 18), 8 + (index % 9), 15)
+      ).toISOString(),
+      date_pwdchanged: new Date(
+        Date.UTC(2026, 0, 2 + (index % 24), 6 + (index % 7), 45)
+      ).toISOString(),
       lang: language,
       disabled,
       tfa_enabled: tfaEnabled,
@@ -165,9 +184,15 @@ function downloadTextFile(filename: string, content: string, mimeType: string) {
 }
 
 function orderColumns(columns: TypeColumns, order: string[]) {
-  const indexed = new Map(columns.map((column) => [getColumnId(column), column]));
-  const ordered = order.map((columnId) => indexed.get(columnId)).filter((column): column is TypeColumn => Boolean(column));
-  const remaining = columns.filter((column) => !order.includes(getColumnId(column)));
+  const indexed = new Map(
+    columns.map((column) => [getColumnId(column), column])
+  );
+  const ordered = order
+    .map((columnId) => indexed.get(columnId))
+    .filter((column): column is TypeColumn => Boolean(column));
+  const remaining = columns.filter(
+    (column) => !order.includes(getColumnId(column))
+  );
   return [...ordered, ...remaining];
 }
 
@@ -180,9 +205,14 @@ function UsersToolbar({
   onToggleFilters,
   onExport,
 }: UsersToolbarProps) {
-  const orderedColumns = useMemo(() => orderColumns(columns, order), [columns, order]);
+  const orderedColumns = useMemo(
+    () => orderColumns(columns, order),
+    [columns, order]
+  );
 
-  const visibleColumnNames = selectedColumns.filter((name) => name !== FILTER_RESERVED_COLNAME);
+  const visibleColumnNames = selectedColumns.filter(
+    (name) => name !== FILTER_RESERVED_COLNAME
+  );
   const visibleSet = new Set(visibleColumnNames);
 
   function toggleColumn(columnName: string) {
@@ -193,7 +223,9 @@ function UsersToolbar({
     }
 
     if (isVisible) {
-      onSelectedColumnsChange(visibleColumnNames.filter((name) => name !== columnName));
+      onSelectedColumnsChange(
+        visibleColumnNames.filter((name) => name !== columnName)
+      );
       return;
     }
 
@@ -205,12 +237,16 @@ function UsersToolbar({
       <div className="flex flex-col gap-1">
         <div className="text-sm font-medium">Visible columns</div>
         <div className="text-xs text-muted-foreground">
-          Toggle columns, export the current dataset shape, and show or hide the filter row.
+          Toggle columns, export the current dataset shape, and show or hide the
+          filter row.
         </div>
       </div>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <ButtonGroup aria-label="Visible column toggles" className="flex max-w-full flex-wrap gap-2">
+        <ButtonGroup
+          aria-label="Visible column toggles"
+          className="flex max-w-full flex-wrap gap-2"
+        >
           {orderedColumns.map((column) => {
             const columnId = getColumnId(column);
             const isVisible = visibleSet.has(columnId);
@@ -222,9 +258,9 @@ function UsersToolbar({
                 variant={isVisible ? "secondary" : "outline"}
                 size="sm"
                 className="rounded-md"
+                aria-pressed={isVisible}
                 onClick={() => toggleColumn(columnId)}
               >
-                {isVisible ? null : <EyeOff className="size-3.5" />}
                 {getColumnLabel(column)}
               </Button>
             );
@@ -243,14 +279,27 @@ function UsersToolbar({
               <DropdownMenuLabel>Download example data</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={() => onExport("csv")}>Export CSV</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onExport("json")}>Export JSON</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExport("csv")}>
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExport("json")}>
+                  Export JSON
+                </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button type="button" variant={filtersActive ? "secondary" : "outline"} size="sm" onClick={onToggleFilters}>
-            {filtersActive ? <FilterX className="size-4" /> : <Filter className="size-4" />}
+          <Button
+            type="button"
+            variant={filtersActive ? "secondary" : "outline"}
+            size="sm"
+            onClick={onToggleFilters}
+          >
+            {filtersActive ? (
+              <FilterX className="size-4" />
+            ) : (
+              <Filter className="size-4" />
+            )}
             {filtersActive ? "Hide filters" : "Show filters"}
           </Button>
         </div>
@@ -272,14 +321,29 @@ export default function UsersGridExample({
       { name: "csuserid", operator: "eq", type: "string", value: "" },
       { name: "csrolename", operator: "eq", type: "select", value: null },
       { name: "csemail", operator: "contains", type: "string", value: "" },
-      { name: "failed_login_attempts", operator: "eq", type: "number", value: null },
-      { name: "date_last_successful_login", operator: "afterOrOn", type: "date", value: null },
-      { name: "date_pwdchanged", operator: "afterOrOn", type: "date", value: null },
+      {
+        name: "failed_login_attempts",
+        operator: "eq",
+        type: "number",
+        value: null,
+      },
+      {
+        name: "date_last_successful_login",
+        operator: "afterOrOn",
+        type: "date",
+        value: null,
+      },
+      {
+        name: "date_pwdchanged",
+        operator: "afterOrOn",
+        type: "date",
+        value: null,
+      },
       { name: "lang", operator: "eq", type: "select", value: null },
       { name: "disabled", operator: "eq", type: "select", value: null },
       { name: "tfa_enabled", operator: "eq", type: "select", value: null },
     ],
-    [],
+    []
   );
 
   const baseColumns = useMemo<TypeColumns>(
@@ -314,6 +378,7 @@ export default function UsersGridExample({
         header: "Failed logins",
         defaultWidth: 152,
         defaultHidden: true,
+        visible: false,
         type: "number",
         filterType: "number",
         filterEditor: NumberFilter,
@@ -322,6 +387,7 @@ export default function UsersGridExample({
         name: "date_last_successful_login",
         header: "Last login",
         defaultHidden: true,
+        visible: false,
         defaultWidth: 212,
         filterType: "date",
         filterEditor: DateFilter,
@@ -335,6 +401,7 @@ export default function UsersGridExample({
         name: "date_pwdchanged",
         header: "Password changed",
         defaultHidden: true,
+        visible: false,
         defaultWidth: 212,
         filterType: "date",
         filterEditor: DateFilter,
@@ -349,11 +416,15 @@ export default function UsersGridExample({
         header: "Language",
         defaultWidth: 132,
         defaultHidden: true,
+        visible: false,
         filterType: "select",
         filterEditor: SelectFilter,
         filterEditorProps: {
           placeholder: "All languages",
-          dataSource: languageOptions.map((language) => ({ id: language, label: language.toUpperCase() })),
+          dataSource: languageOptions.map((language) => ({
+            id: language,
+            label: language.toUpperCase(),
+          })),
         },
         render: (valueOrCellProps: unknown) =>
           String(extractCellValue(valueOrCellProps) ?? "").toUpperCase(),
@@ -431,12 +502,16 @@ export default function UsersGridExample({
         },
       },
     ],
-    [],
+    []
   );
 
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => baseColumns.map(getColumnId));
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    baseColumns.map(getColumnId)
+  );
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => [
-    ...baseColumns.filter((column) => column.defaultHidden !== true).map(getColumnId),
+    ...baseColumns
+      .filter((column) => column.defaultHidden !== true)
+      .map(getColumnId),
     FILTER_RESERVED_COLNAME,
   ]);
   const [filteredRows, setFilteredRows] = useState(rows.length);
@@ -444,22 +519,33 @@ export default function UsersGridExample({
   const filtersActive = selectedColumns.includes(FILTER_RESERVED_COLNAME);
   const visibleColumnNames = useMemo(
     () => selectedColumns.filter((name) => name !== FILTER_RESERVED_COLNAME),
-    [selectedColumns],
+    [selectedColumns]
   );
+  const gridApiRef = useRef<TypeComputedProps | null>(null);
 
-  const gridColumns = useMemo(
-    () => baseColumns.filter((column) => visibleColumnNames.includes(getColumnId(column))),
-    [baseColumns, visibleColumnNames],
-  );
-  const gridColumnOrder = useMemo(
-    () =>
-      orderColumns(baseColumns, columnOrder)
-        .map((column) => getColumnId(column))
-        .filter((columnId) => visibleColumnNames.includes(columnId)),
-    [baseColumns, columnOrder, visibleColumnNames],
+  const captureGridApi = useCallback(
+    (ref: { current: TypeComputedProps | null }) => {
+      gridApiRef.current = ref.current;
+    },
+    []
   );
 
   function handleSelectedColumnsChange(nextColumns: string[]) {
+    const currentVisible = new Set(visibleColumnNames);
+    const nextVisible = new Set(nextColumns);
+
+    // Visibility is presentation state. Keep the complete column model stable
+    // so toggling one button does not recreate TanStack definitions, rerun the
+    // local data pipeline, or remount every filter editor.
+    for (const column of baseColumns) {
+      const columnId = getColumnId(column);
+      const wasVisible = currentVisible.has(columnId);
+      const willBeVisible = nextVisible.has(columnId);
+      if (wasVisible !== willBeVisible) {
+        gridApiRef.current?.setColumnVisible?.(columnId, willBeVisible);
+      }
+    }
+
     const filtersMarker = filtersActive ? [FILTER_RESERVED_COLNAME] : [];
     setSelectedColumns([...nextColumns, ...filtersMarker]);
   }
@@ -468,16 +554,18 @@ export default function UsersGridExample({
     setSelectedColumns((current) =>
       current.includes(FILTER_RESERVED_COLNAME)
         ? current.filter((name) => name !== FILTER_RESERVED_COLNAME)
-        : [...current, FILTER_RESERVED_COLNAME],
+        : [...current, FILTER_RESERVED_COLNAME]
     );
     setFilteredRows(rows.length);
   }
 
   function handleExport(format: ExportFormat) {
-    const exportColumns = orderColumns(baseColumns, columnOrder).filter((column) => {
-      const columnId = getColumnId(column);
-      return selectedColumns.includes(columnId) && columnId !== "actions";
-    });
+    const exportColumns = orderColumns(baseColumns, columnOrder).filter(
+      (column) => {
+        const columnId = getColumnId(column);
+        return selectedColumns.includes(columnId) && columnId !== "actions";
+      }
+    );
 
     const exportedRows = rows.map((row) =>
       Object.fromEntries(
@@ -488,21 +576,34 @@ export default function UsersGridExample({
               ? row[columnId as "disabled" | "tfa_enabled"]
                 ? "Yes"
                 : "No"
-              : columnId === "date_last_successful_login" || columnId === "date_pwdchanged"
-                ? formatDateTime(row[columnId as "date_last_successful_login" | "date_pwdchanged"])
+              : columnId === "date_last_successful_login" ||
+                  columnId === "date_pwdchanged"
+                ? formatDateTime(
+                    row[
+                      columnId as
+                        | "date_last_successful_login"
+                        | "date_pwdchanged"
+                    ]
+                  )
                 : getUserFieldValue(row, columnId as keyof ExampleUser);
 
           return [getColumnLabel(column), value];
-        }),
-      ),
+        })
+      )
     );
 
     if (format === "json") {
-      downloadTextFile("users-grid.json", JSON.stringify(exportedRows, null, 2), "application/json;charset=utf-8");
+      downloadTextFile(
+        "users-grid.json",
+        JSON.stringify(exportedRows, null, 2),
+        "application/json;charset=utf-8"
+      );
       return;
     }
 
-    const header = exportColumns.map((column) => escapeCsv(getColumnLabel(column))).join(",");
+    const header = exportColumns
+      .map((column) => escapeCsv(getColumnLabel(column)))
+      .join(",");
     const body = exportedRows
       .map((row) =>
         exportColumns
@@ -510,11 +611,15 @@ export default function UsersGridExample({
             const key = getColumnLabel(column);
             return escapeCsv(row[key]);
           })
-          .join(","),
+          .join(",")
       )
       .join("\n");
 
-    downloadTextFile("users-grid.csv", `${header}\n${body}`, "text/csv;charset=utf-8");
+    downloadTextFile(
+      "users-grid.csv",
+      `${header}\n${body}`,
+      "text/csv;charset=utf-8"
+    );
   }
 
   return (
@@ -522,16 +627,19 @@ export default function UsersGridExample({
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Users-style example</h2>
         <p className="text-sm text-muted-foreground">
-          A fuller integration example with optional columns, export actions, row actions, and mixed string, select,
-          number, and date filters.
+          A fuller integration example with optional columns, export actions,
+          row actions, and mixed string, select, number, and date filters.
         </p>
       </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          Filtered users: <span className="font-mono">{filteredRows}</span> / {rows.length}
+          Filtered users: <span className="font-mono">{filteredRows}</span> /{" "}
+          {rows.length}
         </span>
-        <span>Reorder columns directly in the grid to update the toolbar order.</span>
+        <span>
+          Reorder columns directly in the grid to update the toolbar order.
+        </span>
       </div>
 
       <UsersToolbar
@@ -544,27 +652,29 @@ export default function UsersGridExample({
         onExport={handleExport}
       />
 
-      <ReactDataGrid
-        key={filtersActive ? "users-grid-filters-on" : "users-grid-filters-off"}
-        theme={theme}
-        idProperty="csuserid"
-        columns={gridColumns}
-        dataSource={rows}
-        columnOrder={gridColumnOrder}
-        enableColumnFilterContextMenu
-        enableColumnAutosize
-        skipHeaderOnAutoSize={false}
-        resizable={resizable}
-        enableFiltering={filtersActive}
-        defaultFilterValue={defaultFilterValue}
-        filteredRowsCount={setFilteredRows}
-        onColumnOrderChange={setColumnOrder}
-        virtualized
-        columnUserSelect
-        showCellBorders={showCellBorders}
-        i18n={i18n}
-        showColumnMenuTool={false}
-      />
+      <div className="h-[32rem] min-h-0" data-testid="users-grid-viewport">
+        <ReactDataGrid
+          theme={theme}
+          idProperty="csuserid"
+          columns={baseColumns}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          enableColumnFilterContextMenu
+          enableColumnAutosize
+          skipHeaderOnAutoSize={false}
+          resizable={resizable}
+          enableFiltering={filtersActive}
+          defaultFilterValue={defaultFilterValue}
+          filteredRowsCount={setFilteredRows}
+          onColumnOrderChange={setColumnOrder}
+          virtualized
+          columnUserSelect
+          showCellBorders={showCellBorders}
+          i18n={i18n}
+          showColumnMenuTool={false}
+          handle={captureGridApi}
+        />
+      </div>
     </section>
   );
 }

@@ -25,13 +25,14 @@ type Issue17ImplementedProp =
   | "onEditCancel"
   | "onEditValueChange"
   | "showZebraRows"
-  | "defaultShowZebraRows";
-
-type Issue17UnsupportedProp =
-  | "emptyText"
-  | "onColumnFilterValueChange"
+  | "defaultShowZebraRows"
   | "enableSelection"
-  | "virtualizeColumnsThreshold";
+  | "virtualizeColumnsThreshold"
+  | "virtualizeColumns"
+  | "onColumnFilterValueChange"
+  | "emptyText";
+
+type Issue17UnsupportedProp = never;
 
 type AssertNever<T extends never> = T;
 
@@ -296,24 +297,42 @@ export async function exerciseIssue17EditingApi(
 
 export const issue17EmptyTextReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Use i18n.noRecords instead of an emptyText root prop.
   emptyText: "No issue #17 rows match the current view",
+});
+
+export const issue17EmptyTextRendererReproduction = acceptGridProps({
+  ...issue17FixedContractProps,
+  emptyText: () =>
+    React.createElement(
+      "button",
+      { type: "button" },
+      "No issue #17 rows match the current view"
+    ),
 });
 
 export const issue17ColumnFilterCallbackReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error This callback is not part of the approved public surface.
-  onColumnFilterValueChange: () => {},
+  onColumnFilterValueChange: (event) => {
+    const columnId: string = event.columnId;
+    const columnIndex: number = event.columnIndex;
+    const filterName: string = event.filterValue.name;
+    const cellColumnIndex: number | undefined =
+      event.cellProps?.computedVisibleIndex;
+
+    void columnId;
+    void columnIndex;
+    void filterName;
+    void cellColumnIndex;
+  },
 });
 
 export const issue17EnableSelectionReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Selection is configured through the supported selection props.
   enableSelection: true,
 });
 
 export const issue17VirtualizeColumnsThresholdReproduction = acceptGridProps({
   ...issue17FixedContractProps,
-  // @ts-expect-error Column virtualization thresholds are not public API.
   virtualizeColumnsThreshold: 20,
+  virtualizeColumns: true,
 });

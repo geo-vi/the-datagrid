@@ -31,6 +31,11 @@ const defaultFilterTypes: TypeFilterTypes = defaultExportDefaults.filterTypes;
 const namedFilterTypes: TypeFilterTypes = namedExportDefaults.filterTypes;
 const defaultTheme: string = defaultExportDefaults.theme;
 const defaultVirtualized: boolean = defaultExportDefaults.virtualized;
+const defaultVirtualizeColumnsThreshold: number =
+  defaultExportDefaults.virtualizeColumnsThreshold;
+const defaultLiveColumnResize: boolean = defaultExportDefaults.liveColumnResize;
+const defaultEmptyText: TypeDataGridProps["emptyText"] =
+  defaultExportDefaults.emptyText;
 
 export const defaultPropsCompat = {
   defaultPropsShape,
@@ -38,5 +43,8 @@ export const defaultPropsCompat = {
   namedFilterTypes,
   defaultTheme,
   defaultVirtualized,
+  defaultVirtualizeColumnsThreshold,
+  defaultLiveColumnResize,
+  defaultEmptyText,
   stringOperatorCount: defaultFilterTypes.string.operators.length,
 };

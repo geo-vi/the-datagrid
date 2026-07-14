@@ -36,6 +36,11 @@ type NaturalMeasurement = {
   totalVirtualHeight: number | null;
 };
 
+type SmoothScrollReport = {
+  target: number | null;
+  completed: number | null;
+};
+
 type EditEvent = {
   type: "start" | "stop" | "complete" | "cancel" | "value";
   rowId: string | number;
@@ -66,6 +71,61 @@ type CustomEditorContractReport = {
   hasGotoNext: boolean;
   hasGotoPrev: boolean;
   hasClickHandler: boolean;
+};
+
+type CellPresentationSnapshot = {
+  cellHeight: number;
+  cellWidth: number;
+  contentLeft: number;
+  contentTop: number;
+  contentWidth: number;
+  contentHeight: number;
+  textLeft: number;
+  textCenterY: number;
+  rowHeight: number;
+  nextRowOffset: number;
+  neighborOffset: number;
+  neighborWidth: number;
+  fontFamily: string;
+  fontSize: string;
+  fontWeight: string;
+  lineHeight: string;
+  color: string;
+  textAlign: string;
+};
+
+type EditorChromeSnapshot = {
+  borderTop: number;
+  borderRight: number;
+  borderBottom: number;
+  borderLeft: number;
+  borderRadius: number;
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+  marginTop: number;
+  marginRight: number;
+  marginBottom: number;
+  marginLeft: number;
+  boxShadow: string;
+  outlineStyle: string;
+  backgroundColor: string;
+};
+
+type EditorPresentationSnapshot = CellPresentationSnapshot & {
+  inputLeft: number;
+  inputTop: number;
+  inputWidth: number;
+  inputHeight: number;
+  inputTextLeft: number;
+  surfaceLeft: number;
+  surfaceTop: number;
+  surfaceWidth: number;
+  surfaceHeight: number;
+  cellBoxShadow: string;
+  inputChrome: EditorChromeSnapshot;
+  surfaceChrome: EditorChromeSnapshot;
 };
 
 type ImperativeSnapshot = {
@@ -124,6 +184,343 @@ async function readWidth(locator: Locator): Promise<number> {
   return locator.evaluate((element) =>
     Math.round(element.getBoundingClientRect().width)
   );
+}
+
+async function readCellPresentation(
+  targetCell: Locator
+): Promise<CellPresentationSnapshot> {
+  return targetCell.evaluate((element) => {
+    const cell = element as HTMLElement;
+    const content = cell.querySelector<HTMLElement>(".tdg-cell-content");
+    const row = cell.closest<HTMLElement>('[data-slot="grid-row"]');
+    const grid = cell.closest<HTMLElement>(".tdg-root");
+    const neighbor = row?.querySelector<HTMLElement>('[data-column-id="city"]');
+    const nextRow = grid?.querySelector<HTMLElement>(
+      '[data-slot="grid-row"][data-row-id="row-2"]'
+    );
+    if (!content || !row || !neighbor || !nextRow) {
+      throw new Error("Expected editing geometry targets were not rendered");
+    }
+
+    const findTextNode = (node: Node): Text | null => {
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE && child.textContent?.trim()) {
+          return child as Text;
+        }
+        const nested = findTextNode(child);
+        if (nested) return nested;
+      }
+      return null;
+    };
+    const textNode = findTextNode(content);
+    if (!textNode) throw new Error("Expected rendered cell text");
+    const textRange = document.createRange();
+    textRange.selectNodeContents(textNode);
+
+    const cellRect = cell.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const textRect = textRange.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const nextRowRect = nextRow.getBoundingClientRect();
+    const neighborRect = neighbor.getBoundingClientRect();
+    const textStyle = getComputedStyle(textNode.parentElement ?? content);
+
+    return {
+      cellHeight: cellRect.height,
+      cellWidth: cellRect.width,
+      contentLeft: contentRect.left - cellRect.left,
+      contentTop: contentRect.top - cellRect.top,
+      contentWidth: contentRect.width,
+      contentHeight: contentRect.height,
+      textLeft: textRect.left - cellRect.left,
+      textCenterY: textRect.top + textRect.height / 2 - cellRect.top,
+      rowHeight: rowRect.height,
+      nextRowOffset: nextRowRect.top - rowRect.top,
+      neighborOffset: neighborRect.left - cellRect.left,
+      neighborWidth: neighborRect.width,
+      fontFamily: textStyle.fontFamily,
+      fontSize: textStyle.fontSize,
+      fontWeight: textStyle.fontWeight,
+      lineHeight: textStyle.lineHeight,
+      color: textStyle.color,
+      textAlign: textStyle.textAlign,
+    };
+  });
+}
+
+async function readEditorPresentation(
+  editor: Locator
+): Promise<EditorPresentationSnapshot> {
+  return editor.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    const cell = input.closest<HTMLElement>('[data-column-id="name"]');
+    const content = cell?.querySelector<HTMLElement>(".tdg-cell-content");
+    const row = cell?.closest<HTMLElement>('[data-slot="grid-row"]');
+    const grid = cell?.closest<HTMLElement>(".tdg-root");
+    const neighbor = row?.querySelector<HTMLElement>('[data-column-id="city"]');
+    const nextRow = grid?.querySelector<HTMLElement>(
+      '[data-slot="grid-row"][data-row-id="row-2"]'
+    );
+    const surface =
+      input.closest<HTMLElement>(".inovua-react-toolkit-text-input") ?? input;
+    if (!cell || !content || !row || !neighbor || !nextRow) {
+      throw new Error(
+        "Expected active editor geometry targets were not rendered"
+      );
+    }
+
+    const px = (value: string): number => Number.parseFloat(value) || 0;
+    const readChrome = (target: HTMLElement): EditorChromeSnapshot => {
+      const style = getComputedStyle(target);
+      return {
+        borderTop: px(style.borderTopWidth),
+        borderRight: px(style.borderRightWidth),
+        borderBottom: px(style.borderBottomWidth),
+        borderLeft: px(style.borderLeftWidth),
+        borderRadius: px(style.borderTopLeftRadius),
+        paddingTop: px(style.paddingTop),
+        paddingRight: px(style.paddingRight),
+        paddingBottom: px(style.paddingBottom),
+        paddingLeft: px(style.paddingLeft),
+        marginTop: px(style.marginTop),
+        marginRight: px(style.marginRight),
+        marginBottom: px(style.marginBottom),
+        marginLeft: px(style.marginLeft),
+        boxShadow: style.boxShadow,
+        outlineStyle: style.outlineStyle,
+        backgroundColor: style.backgroundColor,
+      };
+    };
+
+    const cellRect = cell.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const inputRect = input.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const nextRowRect = nextRow.getBoundingClientRect();
+    const neighborRect = neighbor.getBoundingClientRect();
+    const inputStyle = getComputedStyle(input);
+    const cellStyle = getComputedStyle(cell);
+
+    return {
+      cellHeight: cellRect.height,
+      cellWidth: cellRect.width,
+      contentLeft: contentRect.left - cellRect.left,
+      contentTop: contentRect.top - cellRect.top,
+      contentWidth: contentRect.width,
+      contentHeight: contentRect.height,
+      textLeft: inputRect.left - cellRect.left,
+      textCenterY: inputRect.top + inputRect.height / 2 - cellRect.top,
+      rowHeight: rowRect.height,
+      nextRowOffset: nextRowRect.top - rowRect.top,
+      neighborOffset: neighborRect.left - cellRect.left,
+      neighborWidth: neighborRect.width,
+      fontFamily: inputStyle.fontFamily,
+      fontSize: inputStyle.fontSize,
+      fontWeight: inputStyle.fontWeight,
+      lineHeight: inputStyle.lineHeight,
+      color: inputStyle.color,
+      textAlign: inputStyle.textAlign,
+      inputLeft: inputRect.left - cellRect.left,
+      inputTop: inputRect.top - cellRect.top,
+      inputWidth: inputRect.width,
+      inputHeight: inputRect.height,
+      inputTextLeft:
+        inputRect.left -
+        cellRect.left +
+        px(inputStyle.borderLeftWidth) +
+        px(inputStyle.paddingLeft),
+      surfaceLeft: surfaceRect.left - cellRect.left,
+      surfaceTop: surfaceRect.top - cellRect.top,
+      surfaceWidth: surfaceRect.width,
+      surfaceHeight: surfaceRect.height,
+      cellBoxShadow: cellStyle.boxShadow,
+      inputChrome: readChrome(input),
+      surfaceChrome: readChrome(surface),
+    };
+  });
+}
+
+function expectBorderlessEditorChrome(chrome: EditorChromeSnapshot): void {
+  expect({
+    borderTop: chrome.borderTop,
+    borderRight: chrome.borderRight,
+    borderBottom: chrome.borderBottom,
+    borderLeft: chrome.borderLeft,
+    borderRadius: chrome.borderRadius,
+    marginTop: chrome.marginTop,
+    marginRight: chrome.marginRight,
+    marginBottom: chrome.marginBottom,
+    marginLeft: chrome.marginLeft,
+  }).toEqual({
+    borderTop: 0,
+    borderRight: 0,
+    borderBottom: 0,
+    borderLeft: 0,
+    borderRadius: 0,
+    marginTop: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+  });
+  expect(chrome.boxShadow).toBe("none");
+  expect(chrome.outlineStyle).toBe("none");
+  expect(chrome.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+}
+
+function expectSeamlessEditorGeometry(
+  display: CellPresentationSnapshot,
+  editing: EditorPresentationSnapshot
+): void {
+  const delta = (left: number, right: number) => Math.abs(left - right);
+  expect(delta(editing.cellHeight, display.cellHeight)).toBeLessThanOrEqual(
+    0.5
+  );
+  expect(delta(editing.cellWidth, display.cellWidth)).toBeLessThanOrEqual(0.5);
+  expect(delta(editing.rowHeight, display.rowHeight)).toBeLessThanOrEqual(0.5);
+  expect(
+    delta(editing.nextRowOffset, display.nextRowOffset)
+  ).toBeLessThanOrEqual(0.5);
+  expect(
+    delta(editing.neighborOffset, display.neighborOffset)
+  ).toBeLessThanOrEqual(0.5);
+  expect(
+    delta(editing.neighborWidth, display.neighborWidth)
+  ).toBeLessThanOrEqual(0.5);
+  // The editing surface occupies the whole cell, while its internal text
+  // inset exactly replaces the display cell's padding. This creates a large
+  // hit target without moving the value when edit mode starts.
+  expect(Math.abs(editing.inputLeft)).toBeLessThanOrEqual(0.5);
+  expect(delta(editing.inputWidth, display.cellWidth)).toBeLessThanOrEqual(1);
+  expect(delta(editing.inputHeight, display.cellHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(editing.surfaceLeft)).toBeLessThanOrEqual(0.5);
+  expect(delta(editing.surfaceWidth, display.cellWidth)).toBeLessThanOrEqual(1);
+  expect(delta(editing.surfaceHeight, display.cellHeight)).toBeLessThanOrEqual(
+    1
+  );
+  expect(delta(editing.inputTextLeft, display.textLeft)).toBeLessThanOrEqual(
+    0.5
+  );
+  expect(delta(editing.textCenterY, display.textCenterY)).toBeLessThanOrEqual(
+    1
+  );
+  expect(
+    Math.abs(editing.inputChrome.paddingTop - editing.inputChrome.paddingBottom)
+  ).toBeLessThanOrEqual(0.5);
+  expect(editing.inputTop).toBeGreaterThanOrEqual(-0.5);
+  expect(editing.inputTop + editing.inputHeight).toBeLessThanOrEqual(
+    editing.cellHeight + 0.5
+  );
+  expect(editing.surfaceTop).toBeGreaterThanOrEqual(-0.5);
+  expect(editing.surfaceTop + editing.surfaceHeight).toBeLessThanOrEqual(
+    editing.cellHeight + 0.5
+  );
+  expect({
+    fontFamily: editing.fontFamily,
+    fontSize: editing.fontSize,
+    fontWeight: editing.fontWeight,
+    lineHeight: editing.lineHeight,
+    color: editing.color,
+    textAlign: editing.textAlign,
+  }).toEqual({
+    fontFamily: display.fontFamily,
+    fontSize: display.fontSize,
+    fontWeight: display.fontWeight,
+    lineHeight: display.lineHeight,
+    color: display.color,
+    textAlign: display.textAlign,
+  });
+  expectBorderlessEditorChrome(editing.inputChrome);
+  expectBorderlessEditorChrome(editing.surfaceChrome);
+  expect(editing.cellBoxShadow).not.toBe("none");
+  expect(editing.cellBoxShadow).toContain("inset");
+}
+
+function expectCellPresentationStable(
+  initial: CellPresentationSnapshot,
+  next: CellPresentationSnapshot
+): void {
+  const numericKeys: Array<
+    keyof Pick<
+      CellPresentationSnapshot,
+      | "cellHeight"
+      | "cellWidth"
+      | "contentLeft"
+      | "contentTop"
+      | "contentWidth"
+      | "contentHeight"
+      | "textLeft"
+      | "textCenterY"
+      | "rowHeight"
+      | "nextRowOffset"
+      | "neighborOffset"
+      | "neighborWidth"
+    >
+  > = [
+    "cellHeight",
+    "cellWidth",
+    "contentLeft",
+    "contentTop",
+    "contentWidth",
+    "contentHeight",
+    "textLeft",
+    "textCenterY",
+    "rowHeight",
+    "nextRowOffset",
+    "neighborOffset",
+    "neighborWidth",
+  ];
+  for (const key of numericKeys) {
+    expect(Math.abs(next[key] - initial[key])).toBeLessThanOrEqual(0.5);
+  }
+  expect({
+    fontFamily: next.fontFamily,
+    fontSize: next.fontSize,
+    fontWeight: next.fontWeight,
+    lineHeight: next.lineHeight,
+    color: next.color,
+    textAlign: next.textAlign,
+  }).toEqual({
+    fontFamily: initial.fontFamily,
+    fontSize: initial.fontSize,
+    fontWeight: initial.fontWeight,
+    lineHeight: initial.lineHeight,
+    color: initial.color,
+    textAlign: initial.textAlign,
+  });
+}
+
+async function verifySeamlessEditor(
+  page: Page,
+  scenario: "editing-default" | "editing-custom"
+): Promise<void> {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  const { grid } = await openScenario(page, scenario);
+  const nameCell = cell(grid, "row-1", "name");
+  await nameCell.scrollIntoViewIfNeeded();
+  const display = await readCellPresentation(nameCell);
+
+  await nameCell.dblclick({ delay: 0 });
+  const editor =
+    scenario === "editing-custom"
+      ? nameCell.getByTestId("compat-custom-editor")
+      : nameCell.getByRole("textbox");
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue("Ada Lovelace");
+  await expect(nameCell).toHaveAttribute("data-editor-surface", "seamless");
+  expectSeamlessEditorGeometry(display, await readEditorPresentation(editor));
+
+  await editor.fill("Seamless editing draft");
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue("Seamless editing draft");
+  expectSeamlessEditorGeometry(display, await readEditorPresentation(editor));
+
+  await editor.press("Escape");
+  await expect(nameCell.getByRole("textbox")).toHaveCount(0);
+  await expect(nameCell).not.toHaveAttribute("data-editor-surface", "seamless");
+  expectCellPresentationStable(display, await readCellPresentation(nameCell));
+  expect(pageErrors).toEqual([]);
 }
 
 async function moveColumnBy(
@@ -214,6 +611,7 @@ test.describe("Inovua Community parity", () => {
 
     expect(tall.domHeight ?? 0).toBeGreaterThanOrEqual(104);
     expect(short.domHeight ?? 0).toBeGreaterThanOrEqual(52);
+    expect(tall.virtualStart).toBe(0);
     expect(
       Math.abs((tall.virtualHeight ?? 0) - (tall.domHeight ?? 0))
     ).toBeLessThanOrEqual(2);
@@ -225,12 +623,93 @@ test.describe("Inovua Community parity", () => {
     ).toBeLessThanOrEqual(2);
   });
 
+  test("keeps a natural virtual row measured while its tall cell is edited", async ({
+    page,
+  }) => {
+    const { scope, grid } = await openScenario(page, "natural-height");
+    await page.addStyleTag({
+      content: "*, *::before, *::after { box-sizing: content-box !important; }",
+    });
+    const tallRow = row(grid, "natural-tall");
+    const nextRow = row(grid, "natural-short");
+    const tallCell = cell(grid, "natural-tall", "contentHeight");
+
+    await expect(tallRow).toBeVisible();
+    await expect
+      .poll(() =>
+        tallCell.evaluate((element) => getComputedStyle(element).boxSizing)
+      )
+      .toBe("border-box");
+    await scope.getByTestId("capture-natural-height").click();
+    await expect
+      .poll(async () => {
+        const measurement = await readJson<NaturalMeasurement>(
+          scope.getByTestId("natural-tall-measurement")
+        );
+        return measurement.domHeight;
+      })
+      .not.toBeNull();
+
+    const before = await readJson<NaturalMeasurement>(
+      scope.getByTestId("natural-tall-measurement")
+    );
+    const beforeGeometry = await Promise.all([
+      readHeight(tallRow),
+      tallRow.evaluate((element) => element.getBoundingClientRect().top),
+      nextRow.evaluate((element) => element.getBoundingClientRect().top),
+    ]);
+
+    await tallCell.dblclick({ delay: 0 });
+    const editor = tallCell.getByRole("textbox");
+    await expect(editor).toBeFocused();
+    await expect(editor).toHaveValue("104");
+    await page.waitForTimeout(100);
+
+    const during = await readJson<NaturalMeasurement>(
+      scope.getByTestId("natural-tall-measurement")
+    );
+    const duringGeometry = await Promise.all([
+      readHeight(tallRow),
+      tallRow.evaluate((element) => element.getBoundingClientRect().top),
+      nextRow.evaluate((element) => element.getBoundingClientRect().top),
+    ]);
+
+    for (const [current, initial] of [
+      [during.domHeight, before.domHeight],
+      [during.virtualHeight, before.virtualHeight],
+      [during.virtualStart, before.virtualStart],
+      [during.nextVirtualStart, before.nextVirtualStart],
+    ] as const) {
+      expect(current).not.toBeNull();
+      expect(initial).not.toBeNull();
+      expect(Math.abs((current ?? 0) - (initial ?? 0))).toBeLessThanOrEqual(2);
+    }
+    duringGeometry.forEach((current, index) => {
+      expect(Math.abs(current - beforeGeometry[index]!)).toBeLessThanOrEqual(2);
+    });
+
+    await editor.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await page.waitForTimeout(100);
+
+    const after = await readJson<NaturalMeasurement>(
+      scope.getByTestId("natural-tall-measurement")
+    );
+    expect(
+      Math.abs((after.domHeight ?? 0) - (before.domHeight ?? 0))
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs((after.virtualHeight ?? 0) - (before.virtualHeight ?? 0))
+    ).toBeLessThanOrEqual(2);
+  });
+
   test("smooth-scrolls natural rows using measured virtual offsets", async ({
     page,
   }) => {
     const { scope, grid } = await openScenario(page, "natural-height");
     await expect(row(grid, "natural-tall")).toBeVisible();
     const viewport = grid.locator('[data-slot="scroll-area-viewport"]');
+    const headerViewport = grid.locator('[data-slot="grid-header-viewport"]');
 
     // Ensure the first row's 104px DOM height has replaced the 52px estimate
     // before asking for an offset beyond it.
@@ -255,42 +734,44 @@ test.describe("Inovua Community parity", () => {
     );
     expect(measuredTallRow.virtualHeight ?? 0).toBeGreaterThanOrEqual(104);
 
-    await viewport.evaluate((element) => {
-      const scrollElement = element as HTMLElement;
-      const originalScrollTo = scrollElement.scrollTo.bind(scrollElement);
-
-      scrollElement.scrollTo = ((
-        optionsOrX?: ScrollToOptions | number,
-        y?: number
-      ) => {
-        scrollElement.dataset.testScrollBehavior =
-          typeof optionsOrX === "object" && optionsOrX !== null
-            ? String(optionsOrX.behavior ?? "auto")
-            : "coordinates";
-        if (typeof optionsOrX === "number") {
-          originalScrollTo(optionsOrX, y ?? 0);
-        } else {
-          originalScrollTo(optionsOrX);
-        }
-      }) as typeof scrollElement.scrollTo;
-    });
     await scope.getByTestId("smooth-scroll-natural").click();
-    await expect(viewport).toHaveAttribute(
-      "data-test-scroll-behavior",
-      "smooth"
-    );
+    const reportOutput = scope.getByTestId("natural-smooth-scroll-report");
+    await expect
+      .poll(async () => {
+        const report = await readJson<SmoothScrollReport>(reportOutput);
+        return report.completed;
+      })
+      .not.toBeNull();
+
+    const report = await readJson<SmoothScrollReport>(reportOutput);
+    expect(report.target ?? 0).toBeGreaterThan(0);
+    expect(report.completed).toBe(report.target);
+    await expect
+      .poll(async () => {
+        const scrollTop = await viewport.evaluate(
+          (element) => (element as HTMLElement).scrollTop
+        );
+        return Math.abs(scrollTop - (report.target ?? 0));
+      })
+      .toBeLessThanOrEqual(2);
 
     const targetRow = row(grid, "natural-11");
     await expect(targetRow).toBeVisible();
     await expect
       .poll(async () => {
-        const [targetBox, viewportBox] = await Promise.all([
+        const [targetBox, headerBox, viewportBox] = await Promise.all([
           targetRow.boundingBox(),
+          headerViewport.boundingBox(),
           viewport.boundingBox(),
         ]);
-        if (!targetBox || !viewportBox) return Number.POSITIVE_INFINITY;
+        if (!targetBox || !headerBox || !viewportBox) {
+          return Number.POSITIVE_INFINITY;
+        }
 
-        return Math.abs(targetBox.y - viewportBox.y);
+        expect(headerBox.height).toBeGreaterThan(0);
+        expect(headerBox.y).toBeCloseTo(viewportBox.y, 0);
+
+        return Math.abs(targetBox.y - (headerBox.y + headerBox.height));
       })
       .toBeLessThanOrEqual(3);
   });
@@ -353,9 +834,61 @@ test.describe("Inovua Community parity", () => {
   test("remeasures natural virtual rows when a controlled column width changes", async ({
     page,
   }) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") runtimeErrors.push(message.text());
+    });
+    page.on("crash", () => runtimeErrors.push("Renderer process crashed"));
+
+    await page.addInitScript(() => {
+      let prototype: object | null = HTMLElement.prototype;
+      let descriptor: PropertyDescriptor | undefined;
+      while (prototype && !descriptor) {
+        descriptor = Object.getOwnPropertyDescriptor(prototype, "offsetHeight");
+        if (!descriptor) prototype = Object.getPrototypeOf(prototype);
+      }
+      const originalGet = descriptor?.get;
+      if (!prototype || !descriptor || !originalGet) return;
+
+      const audit = { naturalRowHeightReads: 0 };
+      Object.defineProperty(window, "__tdgNaturalResizeAudit", {
+        configurable: false,
+        value: audit,
+      });
+      Object.defineProperty(prototype, "offsetHeight", {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        get() {
+          if (
+            this instanceof HTMLElement &&
+            this.matches(
+              '[data-slot="grid-row"][data-row-id^="resize-natural-"]'
+            )
+          ) {
+            audit.naturalRowHeightReads += 1;
+          }
+          return originalGet.call(this);
+        },
+      });
+    });
+
     const { scope, grid } = await openScenario(page, "natural-resize");
     const firstRow = row(grid, "resize-natural-1");
+    const descriptionHeader = header(grid, "description");
+    const resizer = descriptionHeader.locator('[data-slot="column-resizer"]');
     await expect(firstRow).toBeVisible();
+    await expect(resizer).toBeVisible();
+
+    const resizerUx = await resizer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        width: element.getBoundingClientRect().width,
+        cursor: style.cursor,
+      };
+    });
+    expect(resizerUx.width).toBeGreaterThanOrEqual(24);
+    expect(resizerUx.cursor).toBe("col-resize");
 
     await scope.getByTestId("capture-natural-resize").click();
     await expect
@@ -369,25 +902,106 @@ test.describe("Inovua Community parity", () => {
     const before = await readJson<NaturalMeasurement>(
       scope.getByTestId("natural-resize-measurement")
     );
+    const initialHeaderWidth = await readWidth(descriptionHeader);
+    const resizerBox = await resizer.boundingBox();
+    expect(resizerBox).not.toBeNull();
+    const startX = (resizerBox?.x ?? 0) + (resizerBox?.width ?? 0) / 2;
+    const startY = (resizerBox?.y ?? 0) + (resizerBox?.height ?? 0) / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await expect(grid).toHaveAttribute("data-column-resizing", "true");
+    const resizeProxy = grid.locator(".InovuaReactDataGrid__resize-proxy");
+    await expect(resizeProxy).toBeVisible();
+    const initialProxyBox = await resizeProxy.boundingBox();
+    expect(initialProxyBox).not.toBeNull();
 
-    await scope.getByTestId("widen-natural-column").click();
-    await expect(scope.getByTestId("natural-resize-width")).toHaveText("360");
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
+    const initialHeightReads = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+          }
+        ).__tdgNaturalResizeAudit?.naturalRowHeightReads ?? 0
+    );
+    expect(initialHeightReads).toBeGreaterThan(0);
+    await page.evaluate(() => {
+      (
+        window as typeof window & {
+          __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+        }
+      ).__tdgNaturalResizeAudit!.naturalRowHeightReads = 0;
+    });
+
+    await page.mouse.move(startX + 180, startY, { steps: 60 });
     await expect
-      .poll(() => readWidth(header(grid, "description")))
-      .toBeGreaterThan(340);
+      .poll(async () => (await resizeProxy.boundingBox())?.x ?? 0)
+      .toBeGreaterThan((initialProxyBox?.x ?? 0) + 150);
+
+    const heightReadsDuringMoves = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+          }
+        ).__tdgNaturalResizeAudit?.naturalRowHeightReads ?? 0
+    );
+    const mountedNaturalRows = await grid
+      .locator('[data-slot="grid-row"][data-row-id^="resize-natural-"]')
+      .count();
+    const proxyMotionStyle = await resizeProxy.evaluate((element) => ({
+      left: (element as HTMLElement).style.left,
+      transform: (element as HTMLElement).style.transform,
+    }));
+
+    expect(proxyMotionStyle.left).toBe("");
+    expect(proxyMotionStyle.transform).toContain("translate3d");
+    expect(heightReadsDuringMoves).toBeLessThanOrEqual(
+      Math.max(2, mountedNaturalRows * 2)
+    );
+    expect(await readWidth(descriptionHeader)).toBe(initialHeaderWidth);
+    await expect(scope.getByTestId("natural-resize-width")).toHaveText("140");
+    await expect(scope.getByTestId("natural-resize-event-count")).toHaveText(
+      "0"
+    );
+
+    await page.mouse.up();
+    await expect(grid).toHaveAttribute("data-column-resizing", "false");
+    await expect(resizeProxy).toHaveCount(0);
+    await expect(scope.getByTestId("natural-resize-event-count")).toHaveText(
+      "1"
+    );
+    await expect(scope.getByTestId("natural-resize-width")).toHaveText("320");
+    await expect.poll(() => readWidth(descriptionHeader)).toBeGreaterThan(300);
     await expect
       .poll(() => readHeight(firstRow))
       .toBeLessThan((before.domHeight ?? 0) - 20);
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          cursor: document.body.style.cursor,
+          userSelect: document.body.style.userSelect,
+        }))
+      )
+      .toEqual({ cursor: "", userSelect: "" });
 
-    await scope.getByTestId("capture-natural-resize").click();
     await expect
       .poll(async () => {
+        await scope.getByTestId("capture-natural-resize").click();
         const value = await readJson<NaturalMeasurement>(
           scope.getByTestId("natural-resize-measurement")
         );
-        return value.domHeight;
+        return Math.abs(
+          (value.virtualHeight ?? Number.POSITIVE_INFINITY) -
+            (value.domHeight ?? 0)
+        );
       })
-      .toBeLessThan((before.domHeight ?? 0) - 20);
+      .toBeLessThanOrEqual(2);
     const after = await readJson<NaturalMeasurement>(
       scope.getByTestId("natural-resize-measurement")
     );
@@ -404,12 +1018,93 @@ test.describe("Inovua Community parity", () => {
     expect(
       Math.abs((after.nextVirtualStart ?? 0) - (after.virtualEnd ?? 0))
     ).toBeLessThanOrEqual(2);
+
+    await page.evaluate(() => {
+      (
+        window as typeof window & {
+          __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+        }
+      ).__tdgNaturalResizeAudit!.naturalRowHeightReads = 0;
+    });
+    await scope.getByTestId("capture-natural-resize").click();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
+    const readsAfterUnrelatedRender = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+          }
+        ).__tdgNaturalResizeAudit?.naturalRowHeightReads ?? 0
+    );
+    expect(readsAfterUnrelatedRender).toBeLessThanOrEqual(1);
+
+    const settledReads = readsAfterUnrelatedRender;
+    await page.waitForTimeout(250);
+    const plateauReads = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __tdgNaturalResizeAudit?: { naturalRowHeightReads: number };
+          }
+        ).__tdgNaturalResizeAudit?.naturalRowHeightReads ?? 0
+    );
+    expect(plateauReads - settledReads).toBeLessThanOrEqual(1);
+
+    await resizer.focus();
+    await resizer.press("ArrowRight");
+    await expect(scope.getByTestId("natural-resize-event-count")).toHaveText(
+      "2"
+    );
+    await expect(scope.getByTestId("natural-resize-width")).toHaveText("330");
+
+    await scope.getByTestId("widen-natural-column").click();
+    await expect(scope.getByTestId("natural-resize-width")).toHaveText("360");
+    await expect(scope.getByTestId("capture-natural-resize")).toBeEnabled();
+    expect(runtimeErrors).toEqual([]);
   });
 
   test("emits the documented onColumnResize payload", async ({ page }) => {
     const { scope, grid } = await openScenario(page, "resize-callback");
+    const frame = scope.getByTestId("parity-grid-frame");
     const descriptionHeader = header(grid, "description");
     const initialWidth = await readWidth(descriptionHeader);
+
+    const initialGeometry = await frame.evaluate((element) => {
+      const viewport = element.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      );
+      const headerTable =
+        element.querySelector<HTMLElement>(".tdg-header-table");
+      const bodyTable = element.querySelector<HTMLElement>(".tdg-body-table");
+
+      if (!viewport || !headerTable || !bodyTable) return null;
+
+      const frameRect = element.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const headerRect = headerTable.getBoundingClientRect();
+      const bodyRect = bodyTable.getBoundingClientRect();
+
+      return {
+        frameHeight: Math.round(frameRect.height),
+        frameWidth: Math.round(frameRect.width),
+        hasHorizontalOverflow: viewport.scrollWidth > viewport.clientWidth,
+        headerReachesViewport: headerRect.right >= viewportRect.right - 1,
+        bodyReachesViewport: bodyRect.right >= viewportRect.right - 1,
+      };
+    });
+
+    expect(initialGeometry).toEqual({
+      frameHeight: 280,
+      frameWidth: 560,
+      hasHorizontalOverflow: true,
+      headerReachesViewport: true,
+      bodyReachesViewport: true,
+    });
 
     await moveColumnBy(page, grid, "description", 100);
     await expect(scope.getByTestId("column-resize-event-count")).toHaveText(
@@ -558,6 +1253,132 @@ test.describe("Inovua Community parity", () => {
     await expect(idCell.getByRole("textbox")).toHaveCount(0);
   });
 
+  test("keeps the built-in editor visually seamless with the cell", async ({
+    page,
+  }) => {
+    await verifySeamlessEditor(page, "editing-default");
+  });
+
+  test("keeps custom editors visually seamless when they use the cell editor marker", async ({
+    page,
+  }) => {
+    await verifySeamlessEditor(page, "editing-custom");
+  });
+
+  test("tracks a custom editor marker without changing the editor DOM parent", async ({
+    page,
+  }) => {
+    const { grid } = await openScenario(page, "editing-custom");
+    const nameCell = cell(grid, "row-1", "name");
+
+    await nameCell.dblclick({ delay: 0 });
+    const editor = nameCell.getByRole("textbox");
+    await expect(editor).toBeFocused();
+    await expect(nameCell).toHaveAttribute("data-editor-surface", "seamless");
+    expect(
+      await editor.evaluate((input) =>
+        input.parentElement?.classList.contains("tdg-cell-content")
+      )
+    ).toBe(true);
+
+    await editor.evaluate((input) => {
+      input.classList.remove(
+        "tdg-cell-editor",
+        "InovuaReactDataGrid__cell__editor",
+        "InovuaReactDataGrid__cell__editor--text"
+      );
+      input.removeAttribute("data-slot");
+    });
+    await expect(nameCell).not.toHaveAttribute(
+      "data-editor-surface",
+      "seamless"
+    );
+
+    await editor.evaluate((input) => {
+      input.classList.add("tdg-cell-editor");
+      input.setAttribute("data-slot", "cell-editor");
+    });
+    await expect(nameCell).toHaveAttribute("data-editor-surface", "seamless");
+
+    await editor.press("Escape");
+    await expect(nameCell).not.toHaveAttribute(
+      "data-editor-surface",
+      "seamless"
+    );
+  });
+
+  test("preserves a falsy custom renderEditor result", async ({ page }) => {
+    await page.goto(
+      "/compat/inovua-parity?scenario=editing-custom&editorOutput=zero"
+    );
+    const scope = page.getByTestId("inovua-parity-scenario");
+    await expect(scope).toHaveAttribute("data-scenario", "editing-custom");
+    const grid = scope.locator(".InovuaReactDataGrid.tdg-root").first();
+    const nameCell = cell(grid, "row-1", "name");
+
+    await nameCell.dblclick({ delay: 0 });
+    await expect(nameCell).toHaveAttribute("data-editing", "true");
+    await expect(nameCell.locator(".tdg-cell-content")).toHaveText("0");
+    await expect(nameCell.getByText("Ada Lovelace")).toHaveCount(0);
+    await expect(nameCell).not.toHaveAttribute(
+      "data-editor-surface",
+      "seamless"
+    );
+  });
+
+  test("keeps an unmarked custom editor in the ordinary padded cell layout", async ({
+    page,
+  }) => {
+    const { grid } = await openScenario(page, "editing-navigation");
+    const nameCell = cell(grid, "row-1", "name");
+
+    await nameCell.dblclick({ delay: 0 });
+    const editor = nameCell.getByTestId("navigation-editor");
+    await expect(editor).toBeFocused();
+    await expect(nameCell).not.toHaveAttribute(
+      "data-editor-surface",
+      "seamless"
+    );
+
+    const geometry = await editor.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const content = input.closest<HTMLElement>(".tdg-cell-content");
+      const targetCell = input.closest<HTMLElement>('[data-column-id="name"]');
+      if (!content || !targetCell) {
+        throw new Error("Expected unmarked editor cell geometry");
+      }
+
+      const cellRect = targetCell.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
+      const inputStyle = getComputedStyle(input);
+
+      return {
+        cellHeight: cellRect.height,
+        contentLeft: contentRect.left - cellRect.left,
+        contentRight: cellRect.right - contentRect.right,
+        inputLeft: inputRect.left - cellRect.left,
+        inputHeight: inputRect.height,
+        borderWidth: Number.parseFloat(inputStyle.borderTopWidth) || 0,
+        borderRadius: Number.parseFloat(inputStyle.borderTopLeftRadius) || 0,
+        cellBoxShadow: getComputedStyle(targetCell).boxShadow,
+        markedEditorCount: content.querySelectorAll(
+          '.tdg-cell-editor[data-slot="cell-editor"]'
+        ).length,
+      };
+    });
+
+    expect(geometry.cellHeight).toBe(64);
+    expect(geometry.contentLeft).toBe(8);
+    expect(geometry.contentRight).toBeGreaterThanOrEqual(8);
+    expect(geometry.inputLeft).toBe(8);
+    expect(geometry.inputHeight).toBe(32);
+    expect(geometry.borderWidth).toBeGreaterThan(0);
+    expect(geometry.borderRadius).toBeGreaterThan(0);
+    expect(geometry.cellBoxShadow).toBe("none");
+    expect(geometry.markedEditorCount).toBe(0);
+  });
+
   test("passes the Inovua custom editor contract and renderEditor cell arguments", async ({
     page,
   }) => {
@@ -602,6 +1423,177 @@ test.describe("Inovua Community parity", () => {
     await expect(scope.getByTestId("custom-editor-bubbles")).toHaveText(
       String(bubblesBefore)
     );
+  });
+
+  test("rapidly replaces an active custom editor without duplicating its session", async ({
+    page,
+  }) => {
+    const pageErrors: Error[] = [];
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+
+    const { grid } = await openScenario(page, "editing-custom");
+    const firstName = cell(grid, "row-1", "name");
+    const secondName = cell(grid, "row-2", "name");
+
+    await firstName.dblclick({ delay: 0 });
+    const firstEditor = firstName.getByTestId("compat-custom-editor");
+    await firstEditor.fill("Row 1 draft");
+    const bubblesBeforeEditorDoubleClick = Number(
+      (await page.getByTestId("custom-editor-bubbles").textContent())?.trim()
+    );
+    await firstEditor.dblclick({ delay: 0 });
+
+    await expect(grid.getByTestId("compat-custom-editor")).toHaveCount(1);
+    await expect(firstName).toHaveAttribute("data-editing", "true");
+    await expect(firstEditor).toBeFocused();
+    await expect(firstEditor).toHaveValue("Row 1 draft");
+    await expect(page.getByTestId("custom-editor-bubbles")).toHaveText(
+      String(bubblesBeforeEditorDoubleClick)
+    );
+
+    // A synthetic double-click keeps focus on the first editor, isolating the
+    // grid's cross-target replacement behavior from editor-specific blur
+    // completion.
+    await secondName.dispatchEvent("dblclick");
+
+    const secondEditor = secondName.getByTestId("compat-custom-editor");
+    await expect(grid.getByTestId("compat-custom-editor")).toHaveCount(1);
+    await expect(firstName).toHaveAttribute("data-editing", "false");
+    await expect(firstEditor).toHaveCount(0);
+    await expect(secondName).toHaveAttribute("data-editing", "true");
+    await expect(secondEditor).toBeFocused();
+    await expect(secondEditor).toHaveValue("Grace Hopper");
+
+    const events = await readJson<EditEvent[]>(
+      page.getByTestId("custom-editor-events")
+    );
+    expect(
+      events.map(({ type, rowId, columnId, value }) => ({
+        type,
+        rowId,
+        columnId,
+        value,
+      }))
+    ).toEqual([
+      {
+        type: "start",
+        rowId: "row-1",
+        columnId: "name",
+        value: "Ada Lovelace",
+      },
+      {
+        type: "value",
+        rowId: "row-1",
+        columnId: "name",
+        value: "Row 1 draft",
+      },
+      {
+        type: "start",
+        rowId: "row-2",
+        columnId: "name",
+        value: "Grace Hopper",
+      },
+    ]);
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test("completes a blur-aware custom editor once and immediately opens the next row", async ({
+    page,
+  }) => {
+    const pageErrors: Error[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+    const { scope, grid } = await openScenario(page, "editing-custom");
+    const firstName = cell(grid, "row-1", "name");
+    const secondName = cell(grid, "row-2", "name");
+    const outsideTarget = scope.getByTestId("custom-editor-outside-target");
+
+    await firstName.dblclick({ delay: 0 });
+    await firstName
+      .getByTestId("compat-custom-editor")
+      .fill("Outside-click draft");
+    await outsideTarget.click();
+
+    await expect(grid.getByTestId("compat-custom-editor")).toHaveCount(0);
+    await expect(grid.locator('[data-slot="grid-surface"]')).toBeFocused();
+
+    let events = await readJson<EditEvent[]>(
+      scope.getByTestId("custom-editor-events")
+    );
+    expect(events.map(({ type, rowId }) => ({ type, rowId }))).toEqual([
+      { type: "start", rowId: "row-1" },
+      { type: "value", rowId: "row-1" },
+      { type: "stop", rowId: "row-1" },
+      { type: "complete", rowId: "row-1" },
+    ]);
+
+    await firstName.dblclick({ delay: 0 });
+    await firstName
+      .getByTestId("compat-custom-editor")
+      .fill("Fast-switch draft");
+    await secondName.dblclick({ delay: 0 });
+
+    const secondEditor = secondName.getByTestId("compat-custom-editor");
+    await expect(grid.getByTestId("compat-custom-editor")).toHaveCount(1);
+    await expect(firstName).toHaveAttribute("data-editing", "false");
+    await expect(secondName).toHaveAttribute("data-editing", "true");
+    await expect(secondEditor).toBeFocused();
+    await expect(secondEditor).toHaveValue("Grace Hopper");
+
+    events = await readJson<EditEvent[]>(
+      scope.getByTestId("custom-editor-events")
+    );
+    expect(events.slice(4).map(({ type, rowId }) => ({ type, rowId }))).toEqual(
+      [
+        { type: "start", rowId: "row-1" },
+        { type: "value", rowId: "row-1" },
+        { type: "stop", rowId: "row-1" },
+        { type: "complete", rowId: "row-1" },
+        { type: "start", rowId: "row-2" },
+      ]
+    );
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("keeps one focused editor through rapid alternating activation", async ({
+    page,
+  }) => {
+    const pageErrors: Error[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+    const { scope, grid } = await openScenario(page, "editing-custom");
+    const firstName = cell(grid, "row-1", "name");
+    const secondName = cell(grid, "row-2", "name");
+    const targets = [firstName, secondName] as const;
+
+    for (let index = 0; index < 10; index += 1) {
+      const target = targets[index % targets.length];
+      await target.dispatchEvent("dblclick");
+      await expect(grid.getByTestId("compat-custom-editor")).toHaveCount(1);
+      await expect(target.getByTestId("compat-custom-editor")).toBeFocused();
+    }
+
+    const starts = (
+      await readJson<EditEvent[]>(scope.getByTestId("custom-editor-events"))
+    ).filter((event) => event.type === "start");
+    expect(starts).toHaveLength(10);
+    expect(starts.map((event) => event.rowId)).toEqual([
+      "row-1",
+      "row-2",
+      "row-1",
+      "row-2",
+      "row-1",
+      "row-2",
+      "row-1",
+      "row-2",
+      "row-1",
+      "row-2",
+    ]);
+
+    expect(pageErrors).toEqual([]);
   });
 
   test("invalidates stale async editability and contains falsy and rejected checks", async ({
@@ -1401,6 +2393,62 @@ test.describe("Inovua Community parity", () => {
     page,
   }) => {
     const { scope, grid } = await openScenario(page, "flex");
+    const initialGeometry = await grid.evaluate((element) => {
+      const viewport = element.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      );
+      const headerTable =
+        element.querySelector<HTMLElement>(".tdg-header-table");
+      const bodyTable = element.querySelector<HTMLElement>(".tdg-body-table");
+      const trailingHandle = element.querySelector<HTMLElement>(
+        '[data-column-id="two"] [data-slot="column-resizer"]'
+      );
+      if (!viewport || !headerTable || !bodyTable || !trailingHandle) {
+        return null;
+      }
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const headerRect = headerTable.getBoundingClientRect();
+      const bodyRect = bodyTable.getBoundingClientRect();
+      const handleRect = trailingHandle.getBoundingClientRect();
+      const actualOverflow = viewport.scrollWidth - viewport.clientWidth;
+      const paintedOverflow = Math.max(
+        0,
+        bodyRect.width - viewport.clientWidth
+      );
+
+      return {
+        actualOverflow,
+        paintedOverflow,
+        headerBodyWidthDelta: Math.abs(headerRect.width - bodyRect.width),
+        handleWidth: handleRect.width,
+        handleRightDelta: Math.abs(handleRect.right - viewportRect.right),
+      };
+    });
+
+    expect(initialGeometry).not.toBeNull();
+    expect(initialGeometry?.actualOverflow ?? Infinity).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        (initialGeometry?.actualOverflow ?? Infinity) -
+          (initialGeometry?.paintedOverflow ?? 0)
+      )
+    ).toBeLessThanOrEqual(1);
+    expect(
+      initialGeometry?.headerBodyWidthDelta ?? Infinity
+    ).toBeLessThanOrEqual(1);
+    expect(initialGeometry?.handleWidth ?? 0).toBeGreaterThanOrEqual(24);
+    expect(initialGeometry?.handleRightDelta ?? Infinity).toBeLessThanOrEqual(
+      1
+    );
+
+    await grid.hover();
+    await expect(
+      grid.locator(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+      )
+    ).toBeHidden();
+
     const [fixedWidth, flexOneWidth, flexTwoWidth] = await Promise.all([
       readWidth(header(grid, "fixed")),
       readWidth(header(grid, "one")),
@@ -1409,6 +2457,11 @@ test.describe("Inovua Community parity", () => {
 
     expect.soft(Math.abs(fixedWidth - 120)).toBeLessThanOrEqual(3);
     expect(Math.abs(flexTwoWidth / flexOneWidth - 2)).toBeLessThanOrEqual(0.12);
+
+    const edgeCases = scope.getByTestId("flex-edge-cases");
+    await expect(edgeCases).not.toHaveAttribute("open", "");
+    await edgeCases.locator("summary").click();
+    await expect(edgeCases).toHaveAttribute("open", "");
 
     const constrainedGrid = scope
       .getByTestId("flex-constrained")
@@ -1420,13 +2473,75 @@ test.describe("Inovua Community parity", () => {
     expect(Math.abs(defaultMinWidth - 40)).toBeLessThanOrEqual(2);
     expect(zeroMinWidth).toBeGreaterThan(0);
     expect(zeroMinWidth).toBeLessThan(35);
+    expect(
+      await constrainedGrid
+        .locator('[data-slot="scroll-area-viewport"]')
+        .evaluate((element) => element.scrollWidth - element.clientWidth)
+    ).toBeLessThanOrEqual(1);
 
-    const unboundedGrid = scope
-      .getByTestId("flex-unbounded")
-      .locator(".InovuaReactDataGrid.tdg-root");
+    const unbounded = scope.getByTestId("flex-unbounded");
+    const unboundedGrid = unbounded.locator(".InovuaReactDataGrid.tdg-root");
     expect(await readWidth(header(unboundedGrid, "wide"))).toBeGreaterThan(
       10_000
     );
+    expect(
+      await unboundedGrid
+        .locator('[data-slot="scroll-area-viewport"]')
+        .evaluate((element) => element.scrollWidth - element.clientWidth)
+    ).toBeLessThanOrEqual(1);
+    expect(
+      await unbounded.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      )
+    ).toBeGreaterThan(8_000);
+    expect(
+      await scope.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      )
+    ).toBeLessThanOrEqual(1);
+  });
+
+  test("keeps the public flex checkpoint free of phantom and diagnostic scrollbars", async ({
+    page,
+  }) => {
+    await page.goto("/examples/inovua-parity?scenario=flex");
+    const scope = page.getByTestId("inovua-parity-scenario");
+    await expect(scope).toHaveAttribute("data-scenario", "flex");
+    const edgeCases = scope.getByTestId("flex-edge-cases");
+    await expect(edgeCases).not.toHaveAttribute("open", "");
+    await expect(scope.locator(".InovuaReactDataGrid.tdg-root")).toHaveCount(1);
+
+    const grid = scope.locator(".InovuaReactDataGrid.tdg-root");
+    const viewport = grid.locator('[data-slot="scroll-area-viewport"]');
+    await expect
+      .poll(() =>
+        viewport.evaluate(
+          (element) => element.scrollWidth - element.clientWidth
+        )
+      )
+      .toBeLessThanOrEqual(1);
+
+    await grid.hover();
+    await expect(
+      grid.locator(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+      )
+    ).toBeHidden();
+
+    const pageOverflow = await page.evaluate(() => ({
+      document:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+      scenario:
+        document.querySelector<HTMLElement>(
+          '[data-testid="inovua-parity-scenario"]'
+        )!.scrollWidth -
+        document.querySelector<HTMLElement>(
+          '[data-testid="inovua-parity-scenario"]'
+        )!.clientWidth,
+    }));
+    expect(pageOverflow.document).toBeLessThanOrEqual(1);
+    expect(pageOverflow.scenario).toBeLessThanOrEqual(1);
   });
 
   test("converts resized defaultFlex to width and keeps controlled flex authoritative", async ({
@@ -1437,6 +2552,9 @@ test.describe("Inovua Community parity", () => {
     const controlledFlexHeader = header(grid, "two");
     const defaultFlexBefore = await readWidth(defaultFlexHeader);
     const controlledFlexBefore = await readWidth(controlledFlexHeader);
+    const viewport = grid.locator('[data-slot="scroll-area-viewport"]');
+    const bodyTable = grid.locator(".tdg-body-table");
+    const tableWidthBefore = await readWidth(bodyTable);
 
     await dragColumnBy(page, grid, "one", 80);
     await expect
@@ -1461,6 +2579,69 @@ test.describe("Inovua Community parity", () => {
     expect(
       Math.abs((defaultFlexEvents[1]?.flex ?? 0) - controlledFlexBefore)
     ).toBeLessThanOrEqual(3);
+
+    const grownGeometry = await Promise.all([
+      viewport.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      })),
+      readWidth(bodyTable),
+    ]).then(([viewportSize, tableWidth]) => ({
+      actualOverflow: viewportSize.scrollWidth - viewportSize.clientWidth,
+      paintedOverflow: Math.max(0, tableWidth - viewportSize.clientWidth),
+      tableGrowth: tableWidth - tableWidthBefore,
+    }));
+    expect(Math.abs(grownGeometry.tableGrowth - 80)).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(grownGeometry.actualOverflow - grownGeometry.paintedOverflow)
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(grownGeometry.actualOverflow - grownGeometry.tableGrowth)
+    ).toBeLessThanOrEqual(1);
+
+    const scrollArea = grid.locator('[data-slot="scroll-area"]');
+    const horizontalScrollbar = grid.locator(
+      '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]'
+    );
+    await scrollArea.hover({ position: { x: 24, y: 4 } });
+    await expect(horizontalScrollbar).toBeVisible();
+
+    await viewport.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
+    const trailingAlignment = await grid.evaluate((element) => {
+      const viewportElement = element.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      );
+      const trailingHeader = element.querySelector<HTMLElement>(
+        '[data-slot="grid-header-cell"][data-column-id="two"]'
+      );
+      const trailingCell = element.querySelector<HTMLElement>(
+        '[data-slot="grid-row"][data-row-id="flex-row"] [data-column-id="two"]'
+      );
+      if (!viewportElement || !trailingHeader || !trailingCell) return null;
+
+      const viewportRect = viewportElement.getBoundingClientRect();
+      const headerRect = trailingHeader.getBoundingClientRect();
+      const cellRect = trailingCell.getBoundingClientRect();
+      return {
+        headerBodyRightDelta: Math.abs(headerRect.right - cellRect.right),
+        viewportRightDelta: Math.abs(viewportRect.right - cellRect.right),
+      };
+    });
+    expect(trailingAlignment).not.toBeNull();
+    expect(
+      trailingAlignment?.headerBodyRightDelta ?? Infinity
+    ).toBeLessThanOrEqual(1);
+    expect(
+      trailingAlignment?.viewportRightDelta ?? Infinity
+    ).toBeLessThanOrEqual(1);
 
     const controlledBeforeDrag = await readWidth(controlledFlexHeader);
     await grid

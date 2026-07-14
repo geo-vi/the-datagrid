@@ -134,8 +134,11 @@ test.describe("allowMobileTransform", () => {
       );
 
       return {
-        gutterWidth: clipRight - headerRect.right,
         handleWidth: handleRect.width,
+        handleInsideHeader:
+          handleRect.left >= headerRect.left - 1 &&
+          handleRect.right <= headerRect.right + 1,
+        edgeAlignment: Math.abs(clipRight - headerRect.right),
         handleFullyVisible: handleRect.right <= clipRight + 1,
         handleClearsScrollbar:
           !scrollbarRect || handleRect.right <= scrollbarRect.left + 1,
@@ -155,9 +158,9 @@ test.describe("allowMobileTransform", () => {
     expect(edgeLayout).not.toBeNull();
     expect(edgeLayout?.headerFullyVisible).toBe(true);
     expect(edgeLayout?.labelFullyVisible).toBe(true);
-    expect(edgeLayout?.gutterWidth ?? 0).toBeGreaterThanOrEqual(
-      (edgeLayout?.handleWidth ?? 0) / 2
-    );
+    expect(edgeLayout?.handleWidth ?? 0).toBeGreaterThanOrEqual(24);
+    expect(edgeLayout?.handleInsideHeader).toBe(true);
+    expect(edgeLayout?.edgeAlignment ?? Infinity).toBeLessThanOrEqual(1);
     expect(edgeLayout?.handleFullyVisible).toBe(true);
     expect(edgeLayout?.handleClearsScrollbar).toBe(true);
     expect(edgeLayout?.handleHitTarget).toBe(true);

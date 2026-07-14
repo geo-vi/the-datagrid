@@ -35,16 +35,24 @@ export function stripFromOrder(order: string[], id: string): string[] {
   return order.filter((x) => x !== id);
 }
 
-export function injectIntoOrder(order: string[] | undefined, id: string): string[] | undefined {
+export function injectIntoOrder(
+  order: string[] | undefined,
+  id: string
+): string[] | undefined {
   if (!order) return order;
   if (order.includes(id)) return order;
   return [id, ...order];
 }
 
-export function normalizeColumnOrder(order: string[] | undefined, availableIds: string[]): string[] {
+export function normalizeColumnOrder(
+  order: string[] | undefined,
+  availableIds: string[]
+): string[] {
   if (availableIds.length === 0) return [];
 
-  const normalized = Array.isArray(order) ? order.filter((id) => availableIds.includes(id)) : [];
+  const normalized = Array.isArray(order)
+    ? order.filter((id) => availableIds.includes(id))
+    : [];
 
   for (const id of availableIds) {
     if (!normalized.includes(id)) normalized.push(id);
@@ -65,7 +73,7 @@ export function isInteractiveClickTarget(target: HTMLElement | null): boolean {
       "[role='button']",
       "[data-rdg-stop-selection]",
       "[data-no-row-select]",
-    ].join(","),
+    ].join(",")
   );
   return Boolean(el);
 }
@@ -78,7 +86,8 @@ export function isColumnVisible(c: TypeColumn): boolean {
 }
 
 export function normalizeEditorOutput(next: unknown): unknown {
-  if (next && typeof next === "object" && "value" in (next as any)) return (next as any).value;
+  if (next && typeof next === "object" && "value" in (next as any))
+    return (next as any).value;
   return next;
 }
 
@@ -87,7 +96,9 @@ export function humanizeOperatorName(name: string): string {
     .replace(/[_-]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .trim();
-  return spaced.length ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : name;
+  return spaced.length
+    ? spaced.charAt(0).toUpperCase() + spaced.slice(1)
+    : name;
 }
 
 export function isEmptyLikeUI(v: unknown): boolean {

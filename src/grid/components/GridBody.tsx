@@ -10,16 +10,17 @@ import type {
   TypeColumnEditorProps,
   TypeComputedColumn,
   TypeComputedColumnsMap,
+  TypeDataGridProps,
   TypeI18n,
   TypeRowSelection,
   TypeRowStyle,
   TypeShowCellBorders,
 } from "../../types";
 import { cn } from "../../lib/utils";
-import { t } from "../../utils/helpers";
 import { buildEditCellProps } from "../utils/editing";
+import { resolveEmptyText } from "../utils/emptyText";
+import { resolveConfiguredRowHeight } from "../utils/rowHeight";
 
-import { Input } from "../../components/ui/input";
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 
 export type GridEditingCell = {
@@ -33,6 +34,7 @@ export type GridEditingCell = {
   data: any;
   column: TypeColumn;
   cellProps: CellProps;
+  initialCellHeight: number | null;
 };
 
 export type GridCellEditStartArgs = {
@@ -44,6 +46,7 @@ export type GridCellEditStartArgs = {
   data: any;
   column: TypeColumn;
   cellProps: CellProps;
+  initialCellHeight: number | null;
 };
 
 export type GridEditNavigation = {
@@ -89,10 +92,11 @@ function DefaultCellEditor(props: {
   }, []);
 
   return (
-    <Input
+    <input
       ref={inputRef}
       aria-label={props.ariaLabel}
-      className="tdg-cell-editor h-8 min-w-0 rounded-md px-2 py-1 text-sm"
+      className="tdg-cell-editor InovuaReactDataGrid__cell__editor InovuaReactDataGrid__cell__editor--text"
+      data-slot="cell-editor"
       value={props.value == null ? "" : String(props.value)}
       onChange={(event) => props.onChange(event.target.value)}
       onBlur={() => props.onComplete()}
@@ -129,6 +133,52 @@ function DefaultCellEditor(props: {
   );
 }
 
+const SEAMLESS_CELL_EDITOR_SELECTOR =
+  '.tdg-cell-editor[data-slot="cell-editor"], .InovuaReactDataGrid__cell__editor';
+
+function CellEditorSurfaceSync(props: {
+  cellKey: string;
+  cellNodesRef: React.MutableRefObject<Map<string, HTMLTableCellElement>>;
+}) {
+  React.useLayoutEffect(() => {
+    const cell = props.cellNodesRef.current.get(props.cellKey);
+    const content = cell
+      ? Array.from(cell.children).find(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement &&
+            child.classList.contains("tdg-cell-content")
+        )
+      : undefined;
+    if (!cell || !content) return;
+
+    const syncSurface = () => {
+      if (content.querySelector(SEAMLESS_CELL_EDITOR_SELECTOR)) {
+        cell.dataset.editorSurface = "seamless";
+      } else if (cell.dataset.editorSurface === "seamless") {
+        delete cell.dataset.editorSurface;
+      }
+    };
+
+    syncSurface();
+    const observer = new MutationObserver(syncSurface);
+    observer.observe(content, {
+      attributes: true,
+      attributeFilter: ["class", "data-slot"],
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+      if (cell.dataset.editorSurface === "seamless") {
+        delete cell.dataset.editorSurface;
+      }
+    };
+  }, [props.cellKey, props.cellNodesRef]);
+
+  return null;
+}
+
 export type GridBodyProps = {
   rowModel: any[];
   orderedColumns: TypeColumn[];
@@ -138,6 +188,14 @@ export type GridBodyProps = {
   showVerticalCellBorders: boolean;
 
   virtualized: boolean;
+  virtualizeColumns: boolean;
+  columnRenderRange: {
+    firstIndex: number;
+    lastIndex: number;
+    beforeWidth: number;
+    afterWidth: number;
+    columnRenderCount: number;
+  };
   virtualItems: any[];
   paddingTop: number;
   paddingBottom: number;
@@ -145,6 +203,7 @@ export type GridBodyProps = {
 
   loading: boolean;
   i18n?: TypeI18n;
+  emptyText: TypeDataGridProps["emptyText"];
 
   selectedMap: Record<string, any>;
   onRowClick?: (rowId: string, rowData: any, e: React.MouseEvent) => void;
@@ -159,6 +218,9 @@ export type GridBodyProps = {
     totalComputedWidth: number;
     remoteRowOffset: number;
     columns: TypeComputedColumn[];
+    columnRenderCount: number;
+    totalColumnCount: number;
+    virtualizeColumns: boolean;
     columnsMap: TypeComputedColumnsMap;
     dataSourceArray: any[];
     theme: string;
@@ -196,12 +258,15 @@ export function GridBody(props: GridBodyProps) {
     showHorizontalCellBorders,
     showVerticalCellBorders,
     virtualized,
+    virtualizeColumns,
+    columnRenderRange,
     virtualItems,
     paddingTop,
     paddingBottom,
     stickyHeaderOffset,
     loading,
     i18n,
+    emptyText,
     selectedMap,
     onRowClick,
     rowHeight,
@@ -221,6 +286,17 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
+  const measureNaturalRow = React.useCallback(
+    (element: HTMLTableRowElement | null) => {
+      measureElement?.(element);
+    },
+    [measureElement]
+  );
+  const renderedTableColumnCount = virtualizeColumns
+    ? columnRenderRange.columnRenderCount +
+      (columnRenderRange.beforeWidth > 0 ? 1 : 0) +
+      (columnRenderRange.afterWidth > 0 ? 1 : 0)
+    : orderedColumns.length;
 
   function getRowThemeClasses(
     rowIndex: number,
@@ -259,17 +335,12 @@ export function GridBody(props: GridBodyProps) {
   function getResolvedRowHeight(rowIndex: number): number | null {
     if (rowHeight == null) return null;
 
-    const requestedHeight =
-      typeof rowHeight === "function" ? rowHeight(rowIndex) : rowHeight;
-    const finiteHeight = Number.isFinite(requestedHeight)
-      ? requestedHeight
-      : minRowHeight;
-    const upperBound =
-      typeof maxRowHeight === "number" && Number.isFinite(maxRowHeight)
-        ? Math.max(minRowHeight, maxRowHeight)
-        : Number.POSITIVE_INFINITY;
-
-    return Math.min(Math.max(finiteHeight, minRowHeight), upperBound);
+    return resolveConfiguredRowHeight({
+      rowHeight,
+      rowIndex,
+      minRowHeight,
+      maxRowHeight,
+    });
   }
 
   function getRowStyle(
@@ -291,7 +362,9 @@ export function GridBody(props: GridBodyProps) {
       width: rowStyleMetadata.totalComputedWidth,
       minWidth: rowStyleMetadata.totalComputedWidth,
       direction: "ltr",
-      ...(typeof maxRowHeight === "number" && Number.isFinite(maxRowHeight)
+      ...(typeof rowHeight !== "number" &&
+      typeof maxRowHeight === "number" &&
+      Number.isFinite(maxRowHeight)
         ? { maxHeight: maxRowHeight }
         : {}),
       ...getRowThemeStyle(rowIsSelected),
@@ -318,8 +391,8 @@ export function GridBody(props: GridBodyProps) {
               lastNonEmpty: rowIndex === rowModel.length - 1,
               columns: rowStyleMetadata.columns,
               columnsMap: rowStyleMetadata.columnsMap,
-              columnRenderCount: rowStyleMetadata.columns.length,
-              totalColumnCount: rowStyleMetadata.columns.length,
+              columnRenderCount: rowStyleMetadata.columnRenderCount,
+              totalColumnCount: rowStyleMetadata.totalColumnCount,
               firstUnlockedIndex: rowStyleMetadata.columns.length > 0 ? 0 : -1,
               lastUnlockedIndex: rowStyleMetadata.columns.length - 1,
               firstLockedStartIndex: -1,
@@ -363,7 +436,7 @@ export function GridBody(props: GridBodyProps) {
                     editColumnId: editingCell.columnId,
                   }
                 : {}),
-              virtualizeColumns: false,
+              virtualizeColumns: rowStyleMetadata.virtualizeColumns,
               theme: rowStyleMetadata.theme,
               getItemId: rowStyleMetadata.getItemId,
             },
@@ -428,6 +501,7 @@ export function GridBody(props: GridBodyProps) {
       editStartEvent,
       theme: rowStyleMetadata.theme,
       totalDataCount: rowStyleMetadata.dataSourceArray.length,
+      virtualizeColumns,
     });
 
     const toNavigation = (
@@ -475,6 +549,7 @@ export function GridBody(props: GridBodyProps) {
             data: row.original,
             column,
             cellProps,
+            initialCellHeight: editingCell.initialCellHeight,
           });
           if (!started) return errBack?.(false);
           return nextValue;
@@ -568,7 +643,11 @@ export function GridBody(props: GridBodyProps) {
     );
   }
 
-  function renderCells(row: any, rowIndex: number): React.ReactNode {
+  function renderCells(
+    row: any,
+    rowIndex: number,
+    virtualRowHeight?: number
+  ): React.ReactNode {
     const resolvedRowHeight = getResolvedRowHeight(rowIndex);
     const contentHeightLimit =
       rowHeight == null ? maxRowHeight : resolvedRowHeight;
@@ -578,129 +657,195 @@ export function GridBody(props: GridBodyProps) {
         ? { maxHeight: Math.max(0, contentHeightLimit - 16) }
         : undefined;
 
-    return row.getVisibleCells().map((cell: any, cellIndex: number) => {
-      const columnId = cell.column.id;
-      const column = (cell.column.columnDef as any)?.meta?.__column as
-        | TypeColumn
-        | undefined;
-      const width = columnWidths[columnId];
-      const align = column?.textAlign;
-      const isLastCell = cellIndex === row.getVisibleCells().length - 1;
-      const editor = column
-        ? renderEditor(row, rowIndex, cellIndex, column, columnId)
-        : null;
+    const allCells = row.getVisibleCells();
+    const renderedCells = virtualizeColumns
+      ? allCells.slice(
+          columnRenderRange.firstIndex,
+          columnRenderRange.lastIndex + 1
+        )
+      : allCells;
 
-      const startEdit = () => {
-        if (!column) return;
-        const value = cell.getValue();
-        const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
-        const cellProps = buildEditCellProps({
-          value,
-          data: row.original,
-          rowIndex,
-          remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
-          rowId,
-          rowSelected: Boolean(selectedMap[String(row.id)]),
-          selection: rowStyleMetadata.selection,
-          multiSelect: rowStyleMetadata.multiSelect,
-          naturalRowHeight: rowHeight == null,
-          resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
-          minRowHeight,
-          column,
-          columnId,
-          columnIndex: cellIndex,
-          columnCount: orderedColumns.length,
-          computedWidth: width,
-          editable: rowStyleMetadata.editable,
-          editStartEvent,
-          theme: rowStyleMetadata.theme,
-          totalDataCount: rowStyleMetadata.dataSourceArray.length,
-        });
+    return (
+      <>
+        {columnRenderRange.beforeWidth > 0 && virtualizeColumns ? (
+          <TableCell
+            aria-hidden="true"
+            className="pointer-events-none !p-0"
+            style={{
+              width: columnRenderRange.beforeWidth,
+              minWidth: columnRenderRange.beforeWidth,
+              maxWidth: columnRenderRange.beforeWidth,
+            }}
+          />
+        ) : null}
+        {renderedCells.map((cell: any, renderedIndex: number) => {
+          const cellIndex = virtualizeColumns
+            ? columnRenderRange.firstIndex + renderedIndex
+            : renderedIndex;
+          const columnId = cell.column.id;
+          const column = (cell.column.columnDef as any)?.meta?.__column as
+            | TypeColumn
+            | undefined;
+          const width = cell.column.getSize();
+          const cellKey = `${String(row.id)}\u0000${columnId}`;
+          const align = column?.textAlign;
+          const isLastCell = cellIndex === allCells.length - 1;
+          const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
+          const isEditingThisCell = Boolean(
+            editingCell &&
+            String(editingCell.rowId) === String(rowId) &&
+            editingCell.columnId === columnId
+          );
+          const editor = column
+            ? renderEditor(row, rowIndex, cellIndex, column, columnId)
+            : null;
 
-        onCellEditStart({
-          rowId,
-          rowIndex,
-          columnId,
-          columnIndex: cellIndex,
-          value,
-          data: row.original,
-          column,
-          cellProps,
-        });
-      };
-      const normalizedStartEvent = editStartEvent.toLowerCase();
+          const startEdit = () => {
+            // The editor's own click/double-click events can bubble through
+            // the cell. Inovua only starts when this cell is not already in
+            // edit, so repeated activation must be idempotent.
+            if (!column || isEditingThisCell) return;
+            const value = cell.getValue();
+            const cellProps = buildEditCellProps({
+              value,
+              data: row.original,
+              rowIndex,
+              remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
+              rowId,
+              rowSelected: Boolean(selectedMap[String(row.id)]),
+              selection: rowStyleMetadata.selection,
+              multiSelect: rowStyleMetadata.multiSelect,
+              naturalRowHeight: rowHeight == null,
+              resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
+              minRowHeight,
+              column,
+              columnId,
+              columnIndex: cellIndex,
+              columnCount: orderedColumns.length,
+              computedWidth: width,
+              editable: rowStyleMetadata.editable,
+              editStartEvent,
+              theme: rowStyleMetadata.theme,
+              totalDataCount: rowStyleMetadata.dataSourceArray.length,
+              virtualizeColumns,
+            });
 
-      return (
-        <TableCell
-          ref={(node) => {
-            const key = `${String(row.id)}\u0000${columnId}`;
-            if (node) cellNodesRef.current.set(key, node);
-            else cellNodesRef.current.delete(key);
-          }}
-          key={cell.id}
-          data-column-id={columnId}
-          data-column-index={cellIndex}
-          data-editing={editor ? "true" : "false"}
-          className={cn(
-            userSelectClass,
-            "InovuaReactDataGrid__cell",
-            "InovuaReactDataGrid__cell--direction-ltr",
-            showHorizontalCellBorders
-              ? "InovuaReactDataGrid__cell--show-border-bottom"
-              : "",
-            showVerticalCellBorders
-              ? "InovuaReactDataGrid__cell--show-border-right"
-              : "",
-            isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-            hoveredCellId === cell.id ? "InovuaReactDataGrid__cell--over" : "",
-            showHorizontalCellBorders
-              ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
-              : "",
-            showVerticalCellBorders
-              ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
-              : "",
-            align === "right" || align === "end" ? "text-right" : "",
-            column?.className
-          )}
-          style={{
-            width,
-            minWidth: column?.minWidth,
-            maxWidth: column?.maxWidth,
-            ...(typeof column?.style === "object" && column?.style
-              ? column.style
-              : {}),
-          }}
-          onClick={() => {
-            if (
-              normalizedStartEvent === "click" ||
-              normalizedStartEvent === "onclick"
-            ) {
-              startEdit();
-            }
-          }}
-          onDoubleClick={() => {
-            if (
-              normalizedStartEvent === "dblclick" ||
-              normalizedStartEvent === "doubleclick" ||
-              normalizedStartEvent === "ondoubleclick"
-            ) {
-              startEdit();
-            }
-          }}
-          onMouseEnter={() => setHoveredCellId(cell.id)}
-          onMouseLeave={() => {
-            setHoveredCellId((current) =>
-              current === cell.id ? null : current
-            );
-          }}
-        >
-          <div className="tdg-cell-content" style={contentStyle}>
-            {editor ??
-              flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </div>
-        </TableCell>
-      );
-    });
+            onCellEditStart({
+              rowId,
+              rowIndex,
+              columnId,
+              columnIndex: cellIndex,
+              value,
+              data: row.original,
+              column,
+              cellProps,
+              initialCellHeight:
+                cellNodesRef.current.get(cellKey)?.getBoundingClientRect()
+                  .height ?? null,
+            });
+          };
+          const normalizedStartEvent = editStartEvent.toLowerCase();
+
+          return (
+            <TableCell
+              ref={(node) => {
+                if (node) cellNodesRef.current.set(cellKey, node);
+                else cellNodesRef.current.delete(cellKey);
+              }}
+              key={cell.id}
+              data-column-id={columnId}
+              data-column-index={cellIndex}
+              data-editing={isEditingThisCell ? "true" : "false"}
+              className={cn(
+                userSelectClass,
+                "InovuaReactDataGrid__cell",
+                "InovuaReactDataGrid__cell--direction-ltr",
+                showHorizontalCellBorders
+                  ? "InovuaReactDataGrid__cell--show-border-bottom"
+                  : "",
+                showVerticalCellBorders
+                  ? "InovuaReactDataGrid__cell--show-border-right"
+                  : "",
+                isLastCell ? "InovuaReactDataGrid__cell--last" : "",
+                hoveredCellId === cell.id
+                  ? "InovuaReactDataGrid__cell--over"
+                  : "",
+                showHorizontalCellBorders
+                  ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                  : "",
+                showVerticalCellBorders
+                  ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
+                  : "",
+                align === "right" || align === "end" ? "text-right" : "",
+                column?.className
+              )}
+              style={{
+                width,
+                minWidth: column?.minWidth,
+                maxWidth: column?.maxWidth,
+                ...(typeof column?.style === "object" && column?.style
+                  ? column.style
+                  : {}),
+                ...(isEditingThisCell && rowHeight == null
+                  ? {
+                      height:
+                        editingCell?.initialCellHeight ?? virtualRowHeight,
+                    }
+                  : {}),
+              }}
+              onClick={() => {
+                if (
+                  normalizedStartEvent === "click" ||
+                  normalizedStartEvent === "onclick"
+                ) {
+                  startEdit();
+                }
+              }}
+              onDoubleClick={() => {
+                if (
+                  normalizedStartEvent === "dblclick" ||
+                  normalizedStartEvent === "doubleclick" ||
+                  normalizedStartEvent === "ondoubleclick"
+                ) {
+                  startEdit();
+                }
+              }}
+              onMouseEnter={() => setHoveredCellId(cell.id)}
+              onMouseLeave={() => {
+                setHoveredCellId((current) =>
+                  current === cell.id ? null : current
+                );
+              }}
+            >
+              <div className="tdg-cell-content" style={contentStyle}>
+                {editor != null ? (
+                  <>
+                    <CellEditorSurfaceSync
+                      cellKey={cellKey}
+                      cellNodesRef={cellNodesRef}
+                    />
+                    {editor}
+                  </>
+                ) : (
+                  flexRender(cell.column.columnDef.cell, cell.getContext())
+                )}
+              </div>
+            </TableCell>
+          );
+        })}
+        {columnRenderRange.afterWidth > 0 && virtualizeColumns ? (
+          <TableCell
+            aria-hidden="true"
+            className="pointer-events-none !p-0"
+            style={{
+              width: columnRenderRange.afterWidth,
+              minWidth: columnRenderRange.afterWidth,
+              maxWidth: columnRenderRange.afterWidth,
+            }}
+          />
+        ) : null}
+      </>
+    );
   }
 
   if (loading && rowModel.length === 0) {
@@ -709,14 +854,14 @@ export function GridBody(props: GridBodyProps) {
         {stickyHeaderOffset > 0 ? (
           <TableRow aria-hidden="true">
             <TableCell
-              colSpan={orderedColumns.length}
+              colSpan={renderedTableColumnCount}
               style={{ height: stickyHeaderOffset }}
             />
           </TableRow>
         ) : null}
         <TableRow>
           <TableCell
-            colSpan={orderedColumns.length}
+            colSpan={renderedTableColumnCount}
             className={cn(
               "h-24 text-center",
               showHorizontalCellBorders
@@ -732,29 +877,33 @@ export function GridBody(props: GridBodyProps) {
   }
 
   if (rowModel.length === 0) {
+    const emptyContent = resolveEmptyText(emptyText, i18n);
+
     return (
       <TableBody>
         {stickyHeaderOffset > 0 ? (
           <TableRow aria-hidden="true">
             <TableCell
-              colSpan={orderedColumns.length}
+              colSpan={renderedTableColumnCount}
               style={{ height: stickyHeaderOffset }}
             />
           </TableRow>
         ) : null}
-        <TableRow>
-          <TableCell
-            colSpan={orderedColumns.length}
-            className={cn(
-              "h-24 text-center",
-              showHorizontalCellBorders
-                ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
-                : ""
-            )}
-          >
-            {t(i18n, "noRecords", "No records")}
-          </TableCell>
-        </TableRow>
+        {emptyContent == null ? null : (
+          <TableRow>
+            <TableCell
+              colSpan={renderedTableColumnCount}
+              className={cn(
+                "h-24 text-center",
+                showHorizontalCellBorders
+                  ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
+                  : ""
+              )}
+            >
+              {emptyContent}
+            </TableCell>
+          </TableRow>
+        )}
       </TableBody>
     );
   }
@@ -766,7 +915,7 @@ export function GridBody(props: GridBodyProps) {
           {paddingTop > 0 && (
             <TableRow>
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: paddingTop }}
               />
             </TableRow>
@@ -778,11 +927,7 @@ export function GridBody(props: GridBodyProps) {
 
             return (
               <TableRow
-                ref={
-                  rowHeight == null
-                    ? (element) => measureElement?.(element)
-                    : undefined
-                }
+                ref={rowHeight == null ? measureNaturalRow : undefined}
                 key={row.id}
                 className={cn(
                   getRowThemeClasses(vi.index, rowIsSelected),
@@ -800,7 +945,7 @@ export function GridBody(props: GridBodyProps) {
                 style={getRowStyle(row, vi.index, rowIsSelected, vi.size)}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
-                {renderCells(row, vi.index)}
+                {renderCells(row, vi.index, vi.size)}
               </TableRow>
             );
           })}
@@ -808,7 +953,7 @@ export function GridBody(props: GridBodyProps) {
           {paddingBottom > 0 && (
             <TableRow>
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: paddingBottom }}
               />
             </TableRow>
@@ -819,7 +964,7 @@ export function GridBody(props: GridBodyProps) {
           {stickyHeaderOffset > 0 ? (
             <TableRow aria-hidden="true">
               <TableCell
-                colSpan={orderedColumns.length}
+                colSpan={renderedTableColumnCount}
                 style={{ height: stickyHeaderOffset }}
               />
             </TableRow>

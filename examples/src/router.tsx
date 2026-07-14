@@ -16,6 +16,7 @@ import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
 import InovuaParityCompatPage from "./InovuaParityCompatPage";
 import InovuaParityExamplePage from "./InovuaParityExamplePage";
+import InovuaPendingParityCompatPage from "./InovuaPendingParityCompatPage";
 import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
@@ -315,6 +316,12 @@ const compatInovuaParityRoute = createRoute({
   component: InovuaParityFixturePage,
 });
 
+const compatInovuaPendingParityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/inovua-pending-parity",
+  component: InovuaPendingParityCompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -328,6 +335,7 @@ const routeTree = rootRoute.addChildren([
   compatDefaultPropsRoute,
   compatFilteredRowsCountRoute,
   compatInovuaParityRoute,
+  compatInovuaPendingParityRoute,
   compatMemorySafetyRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,

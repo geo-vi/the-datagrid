@@ -193,6 +193,29 @@ test("navigates between docs and dedicated example pages", async ({ page }) => {
     page.getByRole("heading", { name: "ReactDataGrid prop reference" })
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Core props" })).toBeVisible();
+  for (const propName of [
+    "onColumnFilterValueChange",
+    "enableSelection",
+    "virtualizeColumnsThreshold",
+    "virtualizeColumns",
+    "emptyText",
+  ]) {
+    await expect(
+      page.getByRole("cell", { name: propName, exact: true })
+    ).toBeVisible();
+  }
+
+  await page.goto("/docs/migration/inovua-status");
+  for (const feature of [
+    "Per-column filter change callback",
+    "Selection enablement and precedence",
+    "Horizontal column virtualization",
+    "Empty-state content",
+  ]) {
+    await expect(
+      page.getByRole("rowheader", { name: feature, exact: true })
+    ).toBeVisible();
+  }
 
   await page.goto("/docs/getting-started/quickstart");
   await expect(
@@ -263,7 +286,7 @@ test("keeps the compatibility lab source bounded and internally scrollable", asy
     .getByRole("button");
 
   await expect(sourcePanel).toBeVisible();
-  await expect(scenarioButtons).toHaveCount(20);
+  await expect(scenarioButtons).toHaveCount(22);
   await expect
     .poll(async () => sourcePanel.evaluate((element) => element.clientHeight))
     .toBeLessThanOrEqual(640);

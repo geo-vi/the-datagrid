@@ -73,6 +73,45 @@ export type TypeSingleFilterValue = {
 
 export type TypeFilterValue = TypeSingleFilterValue[] | null;
 
+/**
+ * Filter-header cell context supplied by `onColumnFilterValueChange`.
+ *
+ * Inovua types this payload as `TypeCellProps`. Header filter cells do not
+ * represent a data row, so `rowIndex` is reported as `-1` by our runtime while
+ * the column aliases identify the filter that initiated the change.
+ */
+export type TypeCellProps = {
+  rowIndex: number;
+  columnIndex: number;
+  computedVisibleIndex?: number;
+  data?: any;
+  name?: string;
+  header?:
+    | React.ReactNode
+    | string
+    | ((
+        cellProps: TypeCellProps,
+        context: {
+          cellProps: TypeCellProps;
+          column: TypeComputedColumn;
+          contextMenu: any;
+        }
+      ) => React.ReactNode);
+  groupProps?: any;
+  cellSelectable?: boolean;
+  id?: string | number;
+  columnId?: string;
+  column?: TypeComputedColumn | TypeColumn;
+  [key: string]: any;
+};
+
+export type TypeColumnFilterValueChangeArg = {
+  filterValue: TypeSingleFilterValue;
+  columnId: string;
+  columnIndex: number;
+  cellProps?: TypeCellProps;
+};
+
 export type TypeFilterOperator = {
   name: string;
   fn: (args: {
@@ -310,7 +349,7 @@ export type TypeRowStyleProps = Record<string, unknown> & {
   editValue?: unknown;
   editColumnIndex?: number;
   editColumnId?: string;
-  virtualizeColumns: false;
+  virtualizeColumns: boolean;
   theme: string;
   getItemId: (data: any) => unknown;
 };
@@ -478,6 +517,19 @@ export type TypeScrollToIndex = (
   callback?: (...args: unknown[]) => void
 ) => void;
 
+export type TypeSmoothScrollConfig = {
+  orientation?: "horizontal" | "vertical";
+  duration?: number;
+};
+
+export type TypeSmoothScrollCallback = (value: number) => void;
+
+export type TypeSmoothScrollTo = (
+  value: number,
+  configOrCallback?: TypeSmoothScrollConfig | TypeSmoothScrollCallback | null,
+  callback?: TypeSmoothScrollCallback
+) => void;
+
 export type TypeComputedVirtualList = {
   props: Record<string, unknown>;
   context: Record<string, unknown>;
@@ -510,7 +562,7 @@ export type TypeComputedVirtualList = {
   getVisibleRange: () => TypeComputedVirtualListRange;
   setRowIndex: (index: number) => void;
   scrollToIndex: TypeScrollToIndex;
-  smoothScrollTo: TypeScrollToIndex;
+  smoothScrollTo: TypeSmoothScrollTo;
   refreshLayout: () => void;
   updateVisibleCount: () => number;
   isRowRendered: (rowIndex: number) => boolean;
@@ -566,7 +618,14 @@ export type TypeComputedProps = {
   getColumnFilterValue?: (
     column: TypeGetColumnByParam
   ) => TypeSingleFilterValue | undefined;
-  setColumnFilterValue?: (column: TypeGetColumnByParam, value: unknown) => void;
+  setColumnFilterValue?: (
+    column: TypeGetColumnByParam,
+    value: unknown,
+    operator?: string
+  ) => void;
+  computedOnColumnFilterValueChange?: (
+    columnFilterValue: TypeColumnFilterValueChangeArg
+  ) => void;
   isColumnFiltered?: (column: TypeGetColumnByParam) => boolean;
 
   computedEditable?: boolean;
@@ -629,6 +688,9 @@ export type TypeComputedProps = {
 
   computedShowHeader?: boolean;
   setShowHeader?: (value: React.SetStateAction<boolean>) => void;
+
+  computedShowZebraRows: boolean;
+  setShowZebraRows: (value: React.SetStateAction<boolean>) => void;
 
   showHorizontalCellBorders?: boolean;
   showVerticalCellBorders?: boolean;
@@ -789,6 +851,15 @@ export type TypeDataGridProps = {
   reorderColumns?: boolean;
   resizable?: boolean;
 
+  /**
+   * When enabled, the rendered column follows the pointer while its resize
+   * handle is dragged. The default deferred mode keeps the lightweight resize
+   * proxy and applies the proposed width when the gesture completes.
+   *
+   * `onColumnResize` remains a completion callback in both modes.
+   */
+  liveColumnResize?: boolean;
+
   enableColumnFilterContextMenu?: boolean;
 
   enableColumnAutosize?: boolean;
@@ -798,6 +869,9 @@ export type TypeDataGridProps = {
   filterValue?: TypeFilterValue;
   defaultFilterValue?: TypeFilterValue;
   onFilterValueChange?: (filterValue: TypeFilterValue) => void;
+  onColumnFilterValueChange?: (
+    columnFilterValue: TypeColumnFilterValueChangeArg
+  ) => void;
 
   filterTypes?: TypeFilterTypes;
 
@@ -820,6 +894,21 @@ export type TypeDataGridProps = {
 
   virtualized?: boolean;
 
+  /**
+   * Enables horizontal column virtualization when the grid has at least this
+   * many visible columns. The boundary is inclusive and defaults to `15`.
+   * Column virtualization requires a fixed numeric `rowHeight`.
+   */
+  virtualizeColumnsThreshold?: number;
+
+  /**
+   * Explicitly enables or disables horizontal column virtualization,
+   * overriding `virtualizeColumnsThreshold`. A function-valued or natural
+   * `rowHeight` still disables column virtualization because those layouts
+   * cannot safely share a fixed horizontal render window.
+   */
+  virtualizeColumns?: boolean;
+
   /** Transform the grid into a responsive virtual list at widths up to 1024px. */
   allowMobileTransform?: boolean;
 
@@ -831,6 +920,15 @@ export type TypeDataGridProps = {
   showCellBorders?: TypeShowCellBorders;
 
   i18n?: TypeI18n;
+
+  /**
+   * Content rendered when the current data view has no rows.
+   *
+   * String values are resolved as i18n keys before falling back to the
+   * supplied string. A function is invoked when the empty state is rendered;
+   * `null`, `false`, and an empty string suppress the empty-state content.
+   */
+  emptyText?: React.ReactNode | (() => React.ReactNode);
 
   showColumnMenuTool?: boolean;
 
@@ -862,6 +960,12 @@ export type TypeDataGridProps = {
    * Selection / checkbox column (Inovua-compatible).
    */
   checkboxColumn?: TypeCheckboxColumn;
+
+  /**
+   * Explicitly enables or disables row selection. When omitted, selection is
+   * inferred from `selected`, `defaultSelected`, or `checkboxColumn`.
+   */
+  enableSelection?: boolean;
 
   selected?: TypeRowSelection;
   defaultSelected?: TypeRowSelection;

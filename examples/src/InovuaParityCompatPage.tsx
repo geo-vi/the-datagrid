@@ -19,6 +19,7 @@ import ReactDataGrid, {
   type TypeEditInfo,
 } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
+import { cn } from "../../src/lib/utils";
 import { useExamplesUi } from "./App";
 
 type ParityScenario =
@@ -27,6 +28,7 @@ type ParityScenario =
   | "bounded-row-height"
   | "natural-resize"
   | "resize-callback"
+  | "live-resize"
   | "zebra-default"
   | "zebra-disabled"
   | "editing-default"
@@ -41,7 +43,8 @@ type ParityScenario =
   | "row-style-static"
   | "row-style-contract"
   | "flex"
-  | "controlled-width";
+  | "controlled-width"
+  | "controlled-live-resize";
 
 const scenarios = new Set<ParityScenario>([
   "natural-height",
@@ -49,6 +52,7 @@ const scenarios = new Set<ParityScenario>([
   "bounded-row-height",
   "natural-resize",
   "resize-callback",
+  "live-resize",
   "zebra-default",
   "zebra-disabled",
   "editing-default",
@@ -64,6 +68,7 @@ const scenarios = new Set<ParityScenario>([
   "row-style-contract",
   "flex",
   "controlled-width",
+  "controlled-live-resize",
 ]);
 
 type ScenarioGroupId = "rows" | "columns" | "appearance" | "editing";
@@ -114,7 +119,7 @@ const scenarioGroups: ScenarioGroup[] = [
         label: "Resize remeasurement",
         summary: "Natural rows remeasure after controlled width changes.",
         instructions:
-          "Capture the narrow layout, widen Description, then capture again. The wrapped row and total virtual height should shrink.",
+          "Drag the Description edge or focus its resize handle and use the arrow keys, then capture again. The wrapped row and total virtual height should shrink; the 360px button remains a deterministic comparison.",
       },
     ],
   },
@@ -131,6 +136,13 @@ const scenarioGroups: ScenarioGroup[] = [
           "Drag the Description header edge and compare the latest callback width with the rendered header width.",
       },
       {
+        id: "live-resize",
+        label: "Live column resize",
+        summary: "The column follows the pointer without a resize proxy.",
+        instructions:
+          "Drag the Description header edge. Header and body geometry should update together before release, while the completion callback still fires exactly once on drop.",
+      },
+      {
         id: "flex",
         label: "Flex allocation",
         summary: "Remaining width split through flex and defaultFlex.",
@@ -143,6 +155,13 @@ const scenarioGroups: ScenarioGroup[] = [
         summary: "A supplied width remains authoritative during drag.",
         instructions:
           "Drag Controlled to a proposed width and inspect the clamped callback payload—it should render at 180px until the button supplies 300px.",
+      },
+      {
+        id: "controlled-live-resize",
+        label: "Controlled live resize",
+        summary: "A controlled width previews live without losing ownership.",
+        instructions:
+          "Drag Controlled and hold to inspect the live preview. On release it returns to 180px unless the consumer applies the completion proposal.",
       },
     ],
   },
@@ -325,7 +344,10 @@ function FixtureFrame(props: {
 }): React.ReactNode {
   return (
     <div
-      className={`h-[360px] w-[720px] max-w-full min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm ${props.className ?? ""}`}
+      className={cn(
+        "h-[360px] w-[720px] max-w-full min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm",
+        props.className
+      )}
       data-testid="parity-grid-frame"
     >
       {props.children}
@@ -404,6 +426,10 @@ function NaturalHeightScenario(): React.ReactNode {
     tall: NaturalMeasurement;
     short: NaturalMeasurement;
   }>({ tall: emptyNaturalMeasurement, short: emptyNaturalMeasurement });
+  const [smoothScrollReport, setSmoothScrollReport] = React.useState<{
+    target: number | null;
+    completed: number | null;
+  }>({ target: null, completed: null });
 
   const rows = React.useMemo(
     () => [
@@ -425,6 +451,7 @@ function NaturalHeightScenario(): React.ReactNode {
         name: "contentHeight",
         header: "Measured content",
         width: 260,
+        editable: true,
         render: ({ data }: CellProps) => {
           const row = data as (typeof rows)[number];
           return (
@@ -486,6 +513,11 @@ function NaturalHeightScenario(): React.ReactNode {
       short: captureAt("natural-short", 1),
     });
   }, []);
+  const captureAfterLayout = React.useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(captureMeasurements);
+    });
+  }, [captureMeasurements]);
 
   return (
     <div ref={scopeRef} className="space-y-3">
@@ -501,11 +533,20 @@ function NaturalHeightScenario(): React.ReactNode {
           type="button"
           variant="outline"
           data-testid="smooth-scroll-natural"
-          onClick={() =>
-            apiRef.current
-              ?.getVirtualList()
-              .smoothScrollTo(10, { direction: "top" })
-          }
+          onClick={() => {
+            const virtualList = apiRef.current?.getVirtualList();
+            if (!virtualList) return;
+
+            const target = virtualList.getRowAt(10)?.start;
+            if (target == null) return;
+
+            setSmoothScrollReport({ target, completed: null });
+            virtualList.smoothScrollTo(
+              target,
+              { duration: 100, orientation: "vertical" },
+              (completed) => setSmoothScrollReport({ target, completed })
+            );
+          }}
         >
           Smooth-scroll to row 11
         </Button>
@@ -517,6 +558,14 @@ function NaturalHeightScenario(): React.ReactNode {
         <MetricOutput label="Short row" testId="natural-short-measurement">
           {JSON.stringify(measurements.short)}
         </MetricOutput>
+        <div className="md:col-span-2">
+          <MetricOutput
+            label="Smooth-scroll pixel contract"
+            testId="natural-smooth-scroll-report"
+          >
+            {JSON.stringify(smoothScrollReport)}
+          </MetricOutput>
+        </div>
       </div>
       <FixtureFrame className="h-[320px] w-[560px]">
         <CommonGrid
@@ -527,6 +576,10 @@ function NaturalHeightScenario(): React.ReactNode {
           virtualized
           rowHeight={null}
           minRowHeight={52}
+          editable
+          onEditStart={captureAfterLayout}
+          onEditCancel={captureAfterLayout}
+          onEditComplete={captureAfterLayout}
           onReady={(ref) => {
             apiRef.current = ref.current;
           }}
@@ -662,6 +715,7 @@ function NaturalResizeScenario(): React.ReactNode {
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const scopeRef = React.useRef<HTMLDivElement | null>(null);
   const [descriptionWidth, setDescriptionWidth] = React.useState(140);
+  const [resizeEventCount, setResizeEventCount] = React.useState(0);
   const [measurement, setMeasurement] = React.useState<NaturalMeasurement>(
     emptyNaturalMeasurement
   );
@@ -696,7 +750,7 @@ function NaturalResizeScenario(): React.ReactNode {
           </span>
         ),
       },
-      { name: "filler", header: "Filler", width: 500 },
+      { name: "filler", header: "Filler", defaultWidth: 500 },
     ],
     [descriptionWidth]
   );
@@ -745,7 +799,7 @@ function NaturalResizeScenario(): React.ReactNode {
           data-testid="widen-natural-column"
           onClick={() => setDescriptionWidth(360)}
         >
-          Widen description
+          Set Description to 360px
         </Button>
         <Button
           type="button"
@@ -758,6 +812,12 @@ function NaturalResizeScenario(): React.ReactNode {
       <div className="grid gap-2 md:grid-cols-[11rem_minmax(0,1fr)]">
         <MetricOutput label="Description width" testId="natural-resize-width">
           {descriptionWidth}
+        </MetricOutput>
+        <MetricOutput
+          label="Resize callbacks"
+          testId="natural-resize-event-count"
+        >
+          {resizeEventCount}
         </MetricOutput>
         <MetricOutput
           label="Virtual measurement"
@@ -777,6 +837,20 @@ function NaturalResizeScenario(): React.ReactNode {
           minRowHeight={36}
           onReady={(ref) => {
             apiRef.current = ref.current;
+          }}
+          onColumnResize={(info) => {
+            setResizeEventCount((current) => current + 1);
+            const columnId = String(info.column.name ?? info.column.id ?? "");
+            const nextWidth = info.width;
+            if (
+              columnId === "description" &&
+              typeof nextWidth === "number" &&
+              Number.isFinite(nextWidth)
+            ) {
+              setDescriptionWidth((current) =>
+                current === nextWidth ? current : nextWidth
+              );
+            }
           }}
         />
       </FixtureFrame>
@@ -806,8 +880,25 @@ function sanitizeResizeEvent(
   };
 }
 
-function ResizeCallbackScenario(): React.ReactNode {
+function ResizeCallbackScenario(props: {
+  liveColumnResize?: boolean;
+}): React.ReactNode {
   const [events, setEvents] = React.useState<ResizeEvent[]>([]);
+  const rows = React.useMemo(
+    () =>
+      props.liveColumnResize
+        ? Array.from({ length: 500 }, (_, index) => ({
+            id: `live-resize-${index + 1}`,
+            description: `Interactive resize row ${index + 1}`,
+            filler: `Stable virtualized content ${index + 1}`,
+          }))
+        : baseRows.map((row) => ({
+            ...row,
+            description: `${row.name} description`,
+            filler: row.city,
+          })),
+    [props.liveColumnResize]
+  );
   const columns = React.useMemo<TypeColumns>(
     () => [
       {
@@ -836,14 +927,11 @@ function ResizeCallbackScenario(): React.ReactNode {
         <CommonGrid
           idProperty="id"
           columns={columns}
-          dataSource={baseRows.map((row) => ({
-            ...row,
-            description: `${row.name} description`,
-            filler: row.city,
-          }))}
+          dataSource={rows}
           columnOrder={["description", "filler"]}
-          virtualized={false}
+          virtualized={Boolean(props.liveColumnResize)}
           resizable
+          liveColumnResize={props.liveColumnResize}
           onColumnResize={(info, context) => {
             const event = sanitizeResizeEvent(info, context);
             setEvents((current) => [...current, event]);
@@ -989,36 +1077,38 @@ function ContractEditor(
     thirdCellSame: boolean;
   }
 ): React.ReactNode {
-  const reportedRef = React.useRef(false);
+  const initialPropsRef = React.useRef(props);
   React.useLayoutEffect(() => {
-    if (reportedRef.current) return;
-    reportedRef.current = true;
-    window.requestAnimationFrame(() => {
-      const domNode = props.cell?.getDOMNode?.() ?? null;
-      props.onContract({
-        topLevelMarker: props.customMarker ?? null,
-        nestedMarker: props.editorProps?.customMarker ?? null,
-        theme: props.theme ?? null,
-        rtl: props.rtl ?? null,
-        nativeScroll: props.nativeScroll ?? null,
-        hasCell: Boolean(props.cell),
-        hasCellProps: Boolean(props.cellProps),
+    const initialProps = initialPropsRef.current;
+    const frame = window.requestAnimationFrame(() => {
+      const domNode = initialProps.cell?.getDOMNode?.() ?? null;
+      initialProps.onContract({
+        topLevelMarker: initialProps.customMarker ?? null,
+        nestedMarker: initialProps.editorProps?.customMarker ?? null,
+        theme: initialProps.theme ?? null,
+        rtl: initialProps.rtl ?? null,
+        nativeScroll: initialProps.nativeScroll ?? null,
+        hasCell: Boolean(initialProps.cell),
+        hasCellProps: Boolean(initialProps.cellProps),
         getDOMNodeColumnId: domNode?.getAttribute("data-column-id") ?? null,
-        secondCellPropsSame: props.secondCellPropsSame,
-        thirdCellSame: props.thirdCellSame,
-        hasGotoNext: typeof props.gotoNext === "function",
-        hasGotoPrev: typeof props.gotoPrev === "function",
-        hasClickHandler: typeof props.onClick === "function",
+        secondCellPropsSame: initialProps.secondCellPropsSame,
+        thirdCellSame: initialProps.thirdCellSame,
+        hasGotoNext: typeof initialProps.gotoNext === "function",
+        hasGotoPrev: typeof initialProps.gotoPrev === "function",
+        hasClickHandler: typeof initialProps.onClick === "function",
       });
     });
-  }, [props]);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <input
       autoFocus={props.autoFocus}
-      className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+      className="tdg-cell-editor InovuaReactDataGrid__cell__editor InovuaReactDataGrid__cell__editor--text"
+      data-slot="cell-editor"
       data-testid="compat-custom-editor"
       value={String(props.value ?? "")}
+      onBlur={() => props.onComplete()}
       onChange={(event) => props.onChange(event.target.value)}
       onClick={props.onClick as React.MouseEventHandler<HTMLInputElement>}
       onKeyDown={(event) => {
@@ -1032,9 +1122,29 @@ function ContractEditor(
 }
 
 function CustomEditorScenario(): React.ReactNode {
+  const editorOutput =
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("editorOutput");
   const [contract, setContract] =
     React.useState<CustomEditorContractReport | null>(null);
   const [bubbleCount, setBubbleCount] = React.useState(0);
+  const [events, setEvents] = React.useState<EditEvent[]>([]);
+  const handleContract = React.useCallback(
+    (report: CustomEditorContractReport) => {
+      // The contract is invariant across cells. Keeping the first report
+      // avoids rerendering the scenario on every rapid editor replacement.
+      setContract((current) => current ?? report);
+    },
+    []
+  );
+  const appendEvent = React.useCallback(
+    (type: EditEvent["type"], info: TypeEditInfo) => {
+      const event = sanitizeEditEvent(type, info);
+      setEvents((current) => [...current, event]);
+    },
+    []
+  );
   const columns = React.useMemo(
     () =>
       [
@@ -1050,13 +1160,15 @@ function CustomEditorScenario(): React.ReactNode {
             secondCellProps?: CellProps,
             thirdCell?: CompatEditorCell
           ) => {
+            if (editorOutput === "zero") return 0;
+
             const editorProps = rawEditorProps as InovuaCompatEditorProps;
             const { key: editorKey, ...contractEditorProps } = editorProps;
             return (
               <ContractEditor
                 key={String(editorKey ?? "editor")}
                 {...contractEditorProps}
-                onContract={setContract}
+                onContract={handleContract}
                 secondCellPropsSame={secondCellProps === editorProps.cellProps}
                 thirdCellSame={thirdCell === editorProps.cell}
               />
@@ -1065,12 +1177,45 @@ function CustomEditorScenario(): React.ReactNode {
         },
         { name: "city", header: "City", width: 220, editable: false },
       ] as unknown as TypeColumns,
-    []
+    [editorOutput, handleContract]
+  );
+  const gridFixture = React.useMemo(
+    () => (
+      <FixtureFrame className="h-[280px] w-[620px]">
+        <CommonGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={baseRows}
+          columnOrder={["id", "name", "city"]}
+          virtualized={false}
+          editable
+          onEditStart={(info) => appendEvent("start", info)}
+          onEditStop={(info) => appendEvent("stop", info)}
+          onEditComplete={(info) => appendEvent("complete", info)}
+          onEditCancel={(info) => appendEvent("cancel", info)}
+          onEditValueChange={(info) => appendEvent("value", info)}
+        />
+      </FixtureFrame>
+    ),
+    [appendEvent, columns]
   );
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-[9rem_minmax(0,1fr)]">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="custom-editor-outside-target"
+        >
+          Complete with outside click
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          Custom editors opt into blur completion by calling their supplied
+          onComplete callback.
+        </span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)]">
         <MetricOutput label="Outer click count" testId="custom-editor-bubbles">
           {bubbleCount}
         </MetricOutput>
@@ -1081,18 +1226,16 @@ function CustomEditorScenario(): React.ReactNode {
         >
           {contract ? JSON.stringify(contract, null, 2) : "none"}
         </MetricOutput>
+        <MetricOutput
+          label="Editor lifecycle"
+          testId="custom-editor-events"
+          wrap
+        >
+          {JSON.stringify(events, null, 2)}
+        </MetricOutput>
       </div>
       <div onClick={() => setBubbleCount((current) => current + 1)}>
-        <FixtureFrame className="h-[280px] w-[620px]">
-          <CommonGrid
-            idProperty="id"
-            columns={columns}
-            dataSource={baseRows}
-            columnOrder={["id", "name", "city"]}
-            virtualized={false}
-            editable
-          />
-        </FixtureFrame>
+        {gridFixture}
       </div>
     </div>
   );
@@ -2115,6 +2258,7 @@ function RowStyleContractScenario(): React.ReactNode {
 function FlexScenario(): React.ReactNode {
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [events, setEvents] = React.useState<ResizeEvent[]>([]);
+  const [showEdgeCases, setShowEdgeCases] = React.useState(false);
   const columns: TypeColumns = [
     { name: "fixed", header: "Fixed", width: 120 },
     { name: "one", header: "Flex one", defaultFlex: 1, minWidth: 60 },
@@ -2144,7 +2288,16 @@ function FlexScenario(): React.ReactNode {
           {JSON.stringify(events)}
         </MetricOutput>
       </div>
-      <FixtureFrame className="h-[240px] w-[720px]">
+      <div className="rounded-xl border bg-muted/20 p-3 text-sm leading-relaxed text-muted-foreground">
+        <p className="font-medium text-foreground">Compatibility behavior</p>
+        <p>
+          Flex one starts as grid-owned defaultFlex. Resizing it converts it to
+          a fixed width without redistributing the delta, while controlled Flex
+          two remains authoritative. Growing can create a real horizontal scroll
+          range; shrinking can intentionally preserve reserved space.
+        </p>
+      </div>
+      <FixtureFrame className="h-[240px] w-full">
         <CommonGrid
           idProperty="id"
           columns={columns}
@@ -2161,36 +2314,75 @@ function FlexScenario(): React.ReactNode {
           }}
         />
       </FixtureFrame>
-      <div data-testid="flex-constrained">
-        <FixtureFrame className="h-[180px] !w-[60px]">
-          <CommonGrid
-            idProperty="id"
-            columns={[
-              { name: "defaultMin", header: "", flex: 1 },
-              { name: "zeroMin", header: "", flex: 1, minWidth: 0 },
-            ]}
-            dataSource={[{ id: "constrained", defaultMin: "", zeroMin: "" }]}
-            columnOrder={["defaultMin", "zeroMin"]}
-            virtualized={false}
-          />
-        </FixtureFrame>
-      </div>
-      <div className="max-w-full overflow-x-auto" data-testid="flex-unbounded">
-        <FixtureFrame className="!h-[160px] !w-[10050px] !max-w-none">
-          <CommonGrid
-            idProperty="id"
-            columns={[{ name: "wide", header: "", flex: 1 }]}
-            dataSource={[{ id: "unbounded", wide: "" }]}
-            columnOrder={["wide"]}
-            virtualized={false}
-          />
-        </FixtureFrame>
-      </div>
+      <details
+        className="overflow-hidden rounded-xl border bg-muted/10"
+        data-testid="flex-edge-cases"
+        onToggle={(event) => setShowEdgeCases(event.currentTarget.open)}
+      >
+        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+          Advanced width stress probes
+        </summary>
+        {showEdgeCases ? (
+          <div className="space-y-5 border-t p-4">
+            <section className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+              <div className="space-y-1 text-sm">
+                <h3 className="font-medium">Minimum-width compression</h3>
+                <p className="max-w-2xl text-muted-foreground">
+                  This deliberately narrow 60px host verifies the default 40px
+                  minimum alongside an explicit zero minimum.
+                </p>
+              </div>
+              <div data-testid="flex-constrained">
+                <FixtureFrame className="h-[180px] !w-[60px]">
+                  <CommonGrid
+                    idProperty="id"
+                    columns={[
+                      { name: "defaultMin", header: "", flex: 1 },
+                      { name: "zeroMin", header: "", flex: 1, minWidth: 0 },
+                    ]}
+                    dataSource={[
+                      { id: "constrained", defaultMin: "", zeroMin: "" },
+                    ]}
+                    columnOrder={["defaultMin", "zeroMin"]}
+                    virtualized={false}
+                  />
+                </FixtureFrame>
+              </div>
+            </section>
+            <section className="space-y-2 text-sm">
+              <div className="space-y-1">
+                <h3 className="font-medium">Unbounded-width stress check</h3>
+                <p className="max-w-2xl text-muted-foreground">
+                  The 10,050px host checks that flex allocation has no
+                  artificial 10,000px cap. The local scrollbar below is
+                  intentional and belongs only to this diagnostic.
+                </p>
+              </div>
+              <div
+                className="max-w-full overflow-x-auto"
+                data-testid="flex-unbounded"
+              >
+                <FixtureFrame className="!h-[160px] !w-[10050px] !max-w-none">
+                  <CommonGrid
+                    idProperty="id"
+                    columns={[{ name: "wide", header: "", flex: 1 }]}
+                    dataSource={[{ id: "unbounded", wide: "" }]}
+                    columnOrder={["wide"]}
+                    virtualized={false}
+                  />
+                </FixtureFrame>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </details>
     </div>
   );
 }
 
-function ControlledWidthScenario(): React.ReactNode {
+function ControlledWidthScenario(props: {
+  liveColumnResize?: boolean;
+}): React.ReactNode {
   const [controlledWidth, setControlledWidth] = React.useState(180);
   const [events, setEvents] = React.useState<ResizeEvent[]>([]);
   const columns = React.useMemo<TypeColumns>(
@@ -2241,6 +2433,7 @@ function ControlledWidthScenario(): React.ReactNode {
           columnOrder={["controlled", "filler"]}
           virtualized={false}
           resizable
+          liveColumnResize={props.liveColumnResize}
           onColumnResize={(info, context) => {
             const event = sanitizeResizeEvent(info, context);
             setEvents((current) => [...current, event]);
@@ -2263,6 +2456,8 @@ function ScenarioContent(props: { scenario: ParityScenario }): React.ReactNode {
       return <NaturalResizeScenario />;
     case "resize-callback":
       return <ResizeCallbackScenario />;
+    case "live-resize":
+      return <ResizeCallbackScenario liveColumnResize />;
     case "zebra-default":
       return <ZebraScenario disabled={false} />;
     case "zebra-disabled":
@@ -2293,6 +2488,8 @@ function ScenarioContent(props: { scenario: ParityScenario }): React.ReactNode {
       return <FlexScenario />;
     case "controlled-width":
       return <ControlledWidthScenario />;
+    case "controlled-live-resize":
+      return <ControlledWidthScenario liveColumnResize />;
     default:
       return null;
   }
@@ -2476,7 +2673,7 @@ export default function InovuaParityCompatPage({
           </Button>
         </div>
 
-        <div className="min-w-0 overflow-x-auto pb-1">
+        <div className="min-w-0">
           <ScenarioContent
             key={`${scenario}-${scenarioRevision}`}
             scenario={scenario}

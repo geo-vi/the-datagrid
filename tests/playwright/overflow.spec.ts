@@ -30,11 +30,40 @@ test("keeps the grid contained inside a constrained parent shell", async ({
     const bodyViewport = shell?.querySelector<HTMLElement>(
       '[data-slot="scroll-area-viewport"]'
     );
+    const headerTable = shell?.querySelector<HTMLElement>(".tdg-header-table");
+    const bodyTable = shell?.querySelector<HTMLElement>(".tdg-body-table");
 
-    if (!shell || !grid || !headerViewport || !bodyViewport) return null;
+    if (
+      !shell ||
+      !grid ||
+      !headerViewport ||
+      !bodyViewport ||
+      !headerTable ||
+      !bodyTable
+    ) {
+      return null;
+    }
 
     const shellRect = shell.getBoundingClientRect();
     const gridRect = grid.getBoundingClientRect();
+    const headerTableRect = headerTable.getBoundingClientRect();
+    const bodyTableRect = bodyTable.getBoundingClientRect();
+    const headerActualOverflow = Math.max(
+      0,
+      headerViewport.scrollWidth - headerViewport.clientWidth
+    );
+    const bodyActualOverflow = Math.max(
+      0,
+      bodyViewport.scrollWidth - bodyViewport.clientWidth
+    );
+    const headerPaintedOverflow = Math.max(
+      0,
+      headerTableRect.width - headerViewport.clientWidth
+    );
+    const bodyPaintedOverflow = Math.max(
+      0,
+      bodyTableRect.width - bodyViewport.clientWidth
+    );
 
     return {
       shellClientWidth: shell.clientWidth,
@@ -50,21 +79,20 @@ test("keeps the grid contained inside a constrained parent shell", async ({
       bodyViewportScrollWidth: bodyViewport.scrollWidth,
       rootOverflowsParent: gridRect.width > shellRect.width + 0.5,
       shellHasHorizontalOverflow: shell.scrollWidth > shell.clientWidth + 0.5,
-      headerViewportHasHorizontalOverflow:
-        headerViewport.scrollWidth > headerViewport.clientWidth + 0.5,
-      bodyViewportHasHorizontalOverflow:
-        bodyViewport.scrollWidth > bodyViewport.clientWidth + 0.5,
+      headerOverflowDelta: Math.abs(
+        headerActualOverflow - headerPaintedOverflow
+      ),
+      bodyOverflowDelta: Math.abs(bodyActualOverflow - bodyPaintedOverflow),
+      tableWidthDelta: Math.abs(headerTableRect.width - bodyTableRect.width),
     };
   });
 
   expect(layout).not.toBeNull();
   expect(layout?.rootOverflowsParent).toBe(false);
   expect(layout?.shellHasHorizontalOverflow).toBe(false);
-  expect(layout?.headerViewportHasHorizontalOverflow).toBe(true);
-  expect(
-    Boolean(layout?.headerViewportHasHorizontalOverflow) ||
-      Boolean(layout?.bodyViewportHasHorizontalOverflow)
-  ).toBe(true);
+  expect(layout?.headerOverflowDelta ?? Infinity).toBeLessThanOrEqual(1);
+  expect(layout?.bodyOverflowDelta ?? Infinity).toBeLessThanOrEqual(1);
+  expect(layout?.tableWidthDelta ?? Infinity).toBeLessThanOrEqual(1);
 });
 
 test("keeps the horizontal scrollbar above cells and draggable", async ({
@@ -103,11 +131,13 @@ test("keeps the horizontal scrollbar above cells and draggable", async ({
     .locator('[data-slot="scroll-area-thumb"]')
     .first();
 
-  await expect.poll(async () => {
-    return viewport.evaluate((element) => {
-      return element.scrollWidth > element.clientWidth;
-    });
-  }).toBe(true);
+  await expect
+    .poll(async () => {
+      return viewport.evaluate((element) => {
+        return element.scrollWidth > element.clientWidth;
+      });
+    })
+    .toBe(true);
 
   await scrollArea.hover({
     position: {
@@ -161,7 +191,9 @@ test("keeps the horizontal scrollbar above cells and draggable", async ({
   );
   await page.mouse.up();
 
-  await expect.poll(async () => {
-    return viewport.evaluate((element) => element.scrollLeft);
-  }).toBeGreaterThan(beforeScrollLeft + 20);
+  await expect
+    .poll(async () => {
+      return viewport.evaluate((element) => element.scrollLeft);
+    })
+    .toBeGreaterThan(beforeScrollLeft + 20);
 });

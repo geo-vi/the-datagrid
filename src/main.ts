@@ -13,6 +13,8 @@ export type {
   IColumn,
   SortDirection,
   TypeColumn,
+  TypeCellProps,
+  TypeColumnFilterValueChangeArg,
   TypeColumns,
   TypeComputedColumn,
   TypeComputedColumnsMap,

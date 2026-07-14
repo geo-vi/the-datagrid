@@ -25,8 +25,11 @@ export default function DefaultPropsCompatPage() {
   const defaultValues = [
     `theme=${defaultProps.theme}`,
     `virtualized=${String(defaultProps.virtualized)}`,
+    `virtualizeColumnsThreshold=${defaultProps.virtualizeColumnsThreshold}`,
     `allowMobileTransform=${String(defaultProps.allowMobileTransform)}`,
+    `liveColumnResize=${String(defaultProps.liveColumnResize)}`,
     `rowHeight=${defaultProps.rowHeight}`,
+    `emptyText=${String(defaultProps.emptyText)}`,
   ].join(",");
 
   return (

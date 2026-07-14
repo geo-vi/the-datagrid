@@ -96,6 +96,94 @@ const initialStatus: CompatStatus = {
   virtualListTanStackLeak: "unknown",
 };
 
+const visibilityProbeRows = [
+  {
+    id: "visibility-row",
+    locked: "Locked column",
+    alpha: "Imperative column",
+    beta: "Prop-driven column",
+  },
+];
+
+function VisibilityReconciliationProbe() {
+  const apiRef = React.useRef<TypeComputedProps | null>(null);
+  const [apiReady, setApiReady] = React.useState(false);
+  const [betaVisible, setBetaVisible] = React.useState(true);
+  const stableColumns = React.useMemo<TypeColumns>(
+    () => [
+      {
+        name: "locked",
+        header: "Locked",
+        defaultWidth: 150,
+        hideable: false,
+      },
+      { name: "alpha", header: "Alpha", defaultWidth: 170 },
+    ],
+    []
+  );
+  const visibilityColumns = React.useMemo<TypeColumns>(
+    () => [
+      ...stableColumns,
+      {
+        name: "beta",
+        header: "Beta",
+        defaultWidth: 190,
+        visible: betaVisible,
+      },
+    ],
+    [betaVisible, stableColumns]
+  );
+
+  return (
+    <section
+      className="rounded-3xl border bg-background/95 p-4 shadow-sm"
+      data-testid="visibility-reconciliation-probe"
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          data-testid="visibility-hide-locked"
+          disabled={!apiReady}
+          onClick={() => apiRef.current?.setColumnVisible?.("locked", false)}
+        >
+          Imperatively hide locked
+        </Button>
+        <Button
+          type="button"
+          data-testid="visibility-hide-alpha"
+          disabled={!apiReady}
+          onClick={() => apiRef.current?.setColumnVisible?.("alpha", false)}
+        >
+          Imperatively hide alpha
+        </Button>
+        <Button
+          type="button"
+          data-testid="visibility-toggle-beta-prop"
+          onClick={() => setBetaVisible((current) => !current)}
+        >
+          Toggle beta visible prop
+        </Button>
+        <output data-testid="visibility-beta-prop">
+          {String(betaVisible)}
+        </output>
+      </div>
+      <div className="h-[220px] min-h-0">
+        <ReactDataGrid
+          idProperty="id"
+          columns={visibilityColumns}
+          dataSource={visibilityProbeRows}
+          columnOrder={["locked", "alpha", "beta"]}
+          virtualized={false}
+          onReady={(ref) => {
+            apiRef.current = ref.current;
+            setApiReady(Boolean(ref.current));
+          }}
+        />
+      </div>
+    </section>
+  );
+}
+
 export default function ComputedPropsCompatPage() {
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [apiReady, setApiReady] = React.useState(false);
@@ -269,6 +357,8 @@ export default function ComputedPropsCompatPage() {
           />
         </div>
       </section>
+
+      <VisibilityReconciliationProbe />
     </main>
   );
 }

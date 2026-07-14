@@ -111,9 +111,10 @@ export type HeaderCellProps = {
   canResize: boolean;
   isResizing: boolean;
   onResizeStart: (
-    event: React.MouseEvent<HTMLElement>,
+    event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
     columnId: string
   ) => void;
+  onResizeBy: (columnId: string, diff: number) => void;
   onAutoResize: (columnId: string) => void;
 };
 
@@ -141,6 +142,7 @@ export function HeaderCell(props: HeaderCellProps) {
     canResize,
     isResizing,
     onResizeStart,
+    onResizeBy,
     onAutoResize,
   } = props;
 
@@ -271,7 +273,7 @@ export function HeaderCell(props: HeaderCellProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent"
                   aria-label="Column menu"
                 >
                   <IconDotsVertical className="size-4" />
@@ -312,11 +314,12 @@ export function HeaderCell(props: HeaderCellProps) {
           <button
             type="button"
             aria-label={`Resize ${typeof col?.header === "string" ? col.header : colId}`}
+            aria-keyshortcuts="ArrowLeft ArrowRight"
             data-slot="column-resizer"
             data-resizing={isResizing ? "true" : "false"}
             className="tdg-column-resizer InovuaReactDataGrid__column-header__resize-handle"
             draggable={false}
-            tabIndex={-1}
+            tabIndex={0}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -325,7 +328,22 @@ export function HeaderCell(props: HeaderCellProps) {
               event.preventDefault();
               event.stopPropagation();
             }}
+            onPointerDown={(event) => onResizeStart(event, colId)}
+            // Pointer events are the primary path for mouse, pen and touch.
+            // Keep a mouse-only fallback for environments/tests which dispatch
+            // legacy mouse events directly; the grid ignores it while the
+            // corresponding pointer session is already active.
             onMouseDown={(event) => onResizeStart(event, colId)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                return;
+              }
+
+              event.preventDefault();
+              event.stopPropagation();
+              const direction = event.key === "ArrowRight" ? 1 : -1;
+              onResizeBy(colId, direction * (event.shiftKey ? 40 : 10));
+            }}
             onDoubleClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

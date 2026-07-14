@@ -297,7 +297,10 @@ export default function SelectionGridExample() {
     columns.map((column) => column.name ?? "")
   );
   const [filteredCount, setFilteredCount] = useState(rows.length);
-  const selectedMap = useMemo(() => extractSelectedMap(selectedRows), [selectedRows]);
+  const selectedMap = useMemo(
+    () => extractSelectedMap(selectedRows),
+    [selectedRows]
+  );
 
   const selectedAccounts = useMemo(() => {
     return Object.values(selectedMap);
@@ -405,6 +408,8 @@ export default function SelectionGridExample() {
           filteredRowsCount={setFilteredCount}
           onColumnOrderChange={setColumnOrder}
           virtualized={false}
+          rowHeight={null}
+          minRowHeight={52}
           columnUserSelect
           enableColumnAutosize={false}
           skipHeaderOnAutoSize={false}
