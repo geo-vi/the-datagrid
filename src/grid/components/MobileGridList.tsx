@@ -92,6 +92,7 @@ export function MobileGridList({
   );
   const deferredQuery = React.useDeferredValue(committedQuery);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const searchIndexCache = React.useRef<{
     columns: TypeColumn[];
     index: DataGridSearchIndex<Row<Record<string, unknown>>>;
@@ -293,18 +294,23 @@ export function MobileGridList({
     setSortPanelOpen((open) => !open);
   };
 
+  const closeSortPanel = React.useCallback(() => {
+    setSortPanelOpen(false);
+    requestAnimationFrame(() => sortButtonRef.current?.focus());
+  }, []);
+
   const applyMobileSort = () => {
     if (!draftSortColumn) return;
     onSortInfoChange({
       name: getColumnSortName(draftSortColumn),
       dir: draftSortDirection,
     });
-    setSortPanelOpen(false);
+    closeSortPanel();
   };
 
   const clearMobileSort = () => {
     onSortInfoChange(null);
-    setSortPanelOpen(false);
+    closeSortPanel();
   };
   const virtualizer = useVirtualizer({
     count: filteredRows.length,
@@ -326,6 +332,19 @@ export function MobileGridList({
     <div
       className="tdg-mobile flex min-h-0 flex-1 flex-col bg-muted/30"
       data-slot="mobile-grid-list"
+      onKeyDown={(event) => {
+        if (
+          event.key !== "Escape" ||
+          event.defaultPrevented ||
+          !sortPanelOpen
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        closeSortPanel();
+      }}
     >
       <div className="shrink-0 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
         <div className="flex items-center gap-2">
@@ -340,6 +359,7 @@ export function MobileGridList({
           )}
           {sortableColumns.length ? (
             <Button
+              ref={sortButtonRef}
               type="button"
               variant={sortPanelOpen ? "secondary" : "outline"}
               size="icon"

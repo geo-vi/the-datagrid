@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  DialogTrigger,
 } from "../../src/components/ui/dialog";
 import { examplePages } from "./exampleMeta";
 import GlobalSearch from "./GlobalSearch";
@@ -123,16 +124,17 @@ function AppHeader(props: {
             </Link>
           </h1>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="!rounded-none border-0 shadow-none"
-            aria-label="Open navigation menu"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          </Button>
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="!rounded-none border-0 shadow-none"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            </Button>
+          </DialogTrigger>
         </div>
 
         <DialogContent className="tdg-mobile-nav-content !inset-0 !w-screen !max-w-none !translate-x-0 !translate-y-0 gap-0 !rounded-none border-0 bg-background/98 p-0 shadow-2xl sm:!rounded-none">
@@ -359,6 +361,7 @@ export default function App() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+  const isDocsRoute = pathname === "/docs" || pathname.startsWith("/docs/");
   const [gridTheme, setGridTheme] = useState<GridTheme>("default");
   const [siteTheme, setSiteTheme] = useState<SiteTheme>(getInitialSiteTheme);
   const [showCellBorders, setShowCellBorders] =
@@ -372,6 +375,25 @@ export default function App() {
     root.style.colorScheme = siteTheme;
     window.localStorage.setItem(SITE_THEME_STORAGE_KEY, siteTheme);
   }, [siteTheme]);
+
+  useEffect(() => {
+    if (!isDocsRoute) {
+      return;
+    }
+
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [isDocsRoute]);
 
   const i18n: TypeI18n = useMemo(
     () => ({
@@ -405,8 +427,6 @@ export default function App() {
     }),
     [gridTheme, i18n, resizable, showCellBorders]
   );
-  const isDocsRoute = pathname === "/docs" || pathname.startsWith("/docs/");
-
   return (
     <ExamplesUiContext.Provider value={contextValue}>
       <div

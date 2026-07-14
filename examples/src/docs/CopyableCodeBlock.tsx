@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Highlight, themes, type Language } from "prism-react-renderer";
 
@@ -92,29 +92,11 @@ export default function CopyableCodeBlock(props: CopyableCodeBlockProps) {
     }, 1500);
   };
 
-  const handleKeyDown = async (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-
-    event.preventDefault();
-    await handleCopy();
-  };
-
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Copy ${headerLabel} code block`}
       data-testid={`copy-code-block-${headerLabel.toLowerCase()}`}
-      onClick={() => {
-        void handleCopy();
-      }}
-      onKeyDown={(event) => {
-        void handleKeyDown(event);
-      }}
       className={[
-        "group cursor-copy overflow-hidden rounded-2xl border bg-card text-left text-card-foreground shadow-sm transition-colors hover:border-ring/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "group overflow-hidden rounded-2xl border bg-card text-left text-card-foreground shadow-sm transition-colors hover:border-ring/30",
         className,
       ]
         .filter(Boolean)

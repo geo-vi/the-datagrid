@@ -495,7 +495,7 @@ export function FilterCell(props: FilterCellProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="InovuaReactDataGrid__column-header__filter-clear size-6 shrink-0 rounded-none border-0 bg-transparent p-0 text-[var(--tdg-filter-tool-color)] shadow-none hover:bg-transparent hover:text-[var(--tdg-filter-tool-hover-color)] focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="InovuaReactDataGrid__column-header__filter-clear size-6 shrink-0 rounded-none border-0 bg-transparent p-0 text-[var(--tdg-filter-tool-color)] shadow-none hover:bg-transparent hover:text-[var(--tdg-filter-tool-hover-color)]"
               aria-label={clearLabel}
               title={clearLabel}
               onMouseDown={(event) => event.stopPropagation()}

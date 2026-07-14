@@ -295,13 +295,33 @@ test.describe("optional table search", () => {
         );
         const rootStyle = getComputedStyle(element);
         const controlStyle = control ? getComputedStyle(control) : null;
+        const toRenderedRgba = (color: string | null) => {
+          if (!color) return null;
+
+          const canvas = document.createElement("canvas");
+          canvas.width = 1;
+          canvas.height = 1;
+          const context = canvas.getContext("2d");
+          if (!context) return null;
+
+          context.clearRect(0, 0, 1, 1);
+          context.fillStyle = color;
+          context.fillRect(0, 0, 1, 1);
+          return Array.from(context.getImageData(0, 0, 1, 1).data);
+        };
 
         return {
           backgroundColor: rootStyle.backgroundColor,
+          backgroundRgba: toRenderedRgba(rootStyle.backgroundColor),
           color: rootStyle.color,
+          colorRgba: toRenderedRgba(rootStyle.color),
           colorScheme: rootStyle.colorScheme,
           controlBackgroundColor: controlStyle?.backgroundColor ?? null,
+          controlBackgroundRgba: toRenderedRgba(
+            controlStyle?.backgroundColor ?? null
+          ),
           controlColor: controlStyle?.color ?? null,
+          controlColorRgba: toRenderedRgba(controlStyle?.color ?? null),
         };
       }),
       scope.evaluate((element) => {
@@ -314,10 +334,10 @@ test.describe("optional table search", () => {
       }),
     ]);
     expect(searchStyles.colorScheme).toBe("dark");
-    expect(searchStyles.backgroundColor).toBe(
-      searchStyles.controlBackgroundColor
+    expect(searchStyles.backgroundRgba).toEqual(
+      searchStyles.controlBackgroundRgba
     );
-    expect(searchStyles.color).toBe(searchStyles.controlColor);
+    expect(searchStyles.colorRgba).toEqual(searchStyles.controlColorRgba);
     expect(searchStyles.backgroundColor).not.toBe(hostStyles.backgroundColor);
     expect(searchStyles.color).not.toBe(hostStyles.color);
     await expect(page.getByTestId("search-remote-filtered-count")).toHaveText(

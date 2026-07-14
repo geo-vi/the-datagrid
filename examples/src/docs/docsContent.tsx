@@ -406,7 +406,9 @@ function SectionBody(props: { section: ReferenceSection }) {
           {section.title}
         </h2>
       </div>
-      {section.body}
+      <div className="min-w-0 space-y-4 [&_ol]:max-w-prose [&_p]:max-w-prose [&_ul]:max-w-prose">
+        {section.body}
+      </div>
       {section.rows ? <ReferenceTable rows={section.rows} /> : null}
     </section>
   );
@@ -1942,14 +1944,14 @@ const computedPropsRows: ReferenceRow[] = [
     type: "methods and fields",
     defaultValue: "implemented",
     description:
-      "Horizontal/vertical get, set, and increment methods; scrollToIndex/Id/Cell/Column; scrollToIndexIfNeeded; first-visible/rendered/fully-visible checks; getRenderRange; and scrollbar flags. duration/force options are accepted but not acted on.",
+      "Horizontal/vertical get, set, and increment methods; scrollToIndex/Id/Cell/Column; scrollToIndexIfNeeded; first-visible/rendered/fully-visible checks; getRenderRange; and scrollbar flags. scrollToIndex duration/force options are accepted but are not yet acted on.",
   },
   {
     name: "Virtual-list adapter",
     type: "getVirtualList()",
     defaultValue: "implemented subset",
     description:
-      "getVirtualList exposes getContainerNode/getScrollerNode/getScrollingElement, height/scroll/client-size reads, getRows/forEachRow/getRowAt, visible count/range, setRowIndex, scrollToIndex/smoothScrollTo, refresh/update, visibility/rendered-index checks, and max render count. Ranges include overscan and measured natural rows report their current sizes.",
+      "getVirtualList exposes getContainerNode/getScrollerNode/getScrollingElement, height/scroll/client-size reads, getRows/forEachRow/getRowAt, visible count/range, setRowIndex, scrollToIndex/smoothScrollTo, refresh/update, visibility/rendered-index checks, and max render count. Inovua's smoothScrollTo(value, config, callback) pixel contract is preserved, including vertical/horizontal orientation, duration, and completion value. Ranges include overscan and measured natural rows report zero-based offsets and their current sizes.",
   },
   {
     name: "Editing",
@@ -4889,6 +4891,37 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                 implementation.
               </li>
             </ul>
+          </div>
+        ),
+      },
+      {
+        id: "internal-engine-boundary",
+        title: "Internal engine boundary",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The Inovua-facing contract remains the canonical public API.
+              Consumers configure the grid with the documented Inovua-shaped
+              props, columns, state, callbacks, and imperative methods; TanStack
+              types and state shapes are internal implementation details and do
+              not replace that migration surface.
+            </p>
+            <p>
+              Internally, responsibilities are deliberately split. TanStack
+              Table provides the column, header, controlled-state, and pixel
+              geometry engine. TanStack Virtual provides the row and column
+              render windows because Table is headless and does not perform
+              virtualization itself.
+            </p>
+            <p>
+              Compatibility adapters preserve behavior that cannot be delegated
+              directly to those engines: Inovua <code>flex</code> and{" "}
+              <code>defaultFlex</code> allocation, selection callback payloads,
+              complete filter metadata, local and remote data-source semantics,
+              and the editing lifecycle. This boundary lets the implementation
+              use TanStack without asking an existing Inovua application to
+              rewrite its business logic or adopt additional public props.
+            </p>
           </div>
         ),
       },

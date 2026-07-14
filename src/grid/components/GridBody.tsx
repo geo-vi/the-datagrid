@@ -21,7 +21,6 @@ import { buildEditCellProps } from "../utils/editing";
 import { resolveEmptyText } from "../utils/emptyText";
 import { resolveConfiguredRowHeight } from "../utils/rowHeight";
 
-import { Input } from "../../components/ui/input";
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 
 export type GridEditingCell = {
@@ -35,6 +34,7 @@ export type GridEditingCell = {
   data: any;
   column: TypeColumn;
   cellProps: CellProps;
+  initialCellHeight: number | null;
 };
 
 export type GridCellEditStartArgs = {
@@ -46,6 +46,7 @@ export type GridCellEditStartArgs = {
   data: any;
   column: TypeColumn;
   cellProps: CellProps;
+  initialCellHeight: number | null;
 };
 
 export type GridEditNavigation = {
@@ -91,10 +92,11 @@ function DefaultCellEditor(props: {
   }, []);
 
   return (
-    <Input
+    <input
       ref={inputRef}
       aria-label={props.ariaLabel}
-      className="tdg-cell-editor h-8 min-w-0 rounded-md px-2 py-1 text-sm"
+      className="tdg-cell-editor InovuaReactDataGrid__cell__editor InovuaReactDataGrid__cell__editor--text"
+      data-slot="cell-editor"
       value={props.value == null ? "" : String(props.value)}
       onChange={(event) => props.onChange(event.target.value)}
       onBlur={() => props.onComplete()}
@@ -129,6 +131,52 @@ function DefaultCellEditor(props: {
       }}
     />
   );
+}
+
+const SEAMLESS_CELL_EDITOR_SELECTOR =
+  '.tdg-cell-editor[data-slot="cell-editor"], .InovuaReactDataGrid__cell__editor';
+
+function CellEditorSurfaceSync(props: {
+  cellKey: string;
+  cellNodesRef: React.MutableRefObject<Map<string, HTMLTableCellElement>>;
+}) {
+  React.useLayoutEffect(() => {
+    const cell = props.cellNodesRef.current.get(props.cellKey);
+    const content = cell
+      ? Array.from(cell.children).find(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement &&
+            child.classList.contains("tdg-cell-content")
+        )
+      : undefined;
+    if (!cell || !content) return;
+
+    const syncSurface = () => {
+      if (content.querySelector(SEAMLESS_CELL_EDITOR_SELECTOR)) {
+        cell.dataset.editorSurface = "seamless";
+      } else if (cell.dataset.editorSurface === "seamless") {
+        delete cell.dataset.editorSurface;
+      }
+    };
+
+    syncSurface();
+    const observer = new MutationObserver(syncSurface);
+    observer.observe(content, {
+      attributes: true,
+      attributeFilter: ["class", "data-slot"],
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+      if (cell.dataset.editorSurface === "seamless") {
+        delete cell.dataset.editorSurface;
+      }
+    };
+  }, [props.cellKey, props.cellNodesRef]);
+
+  return null;
 }
 
 export type GridBodyProps = {
@@ -238,6 +286,12 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
+  const measureNaturalRow = React.useCallback(
+    (element: HTMLTableRowElement | null) => {
+      measureElement?.(element);
+    },
+    [measureElement]
+  );
   const renderedTableColumnCount = virtualizeColumns
     ? columnRenderRange.columnRenderCount +
       (columnRenderRange.beforeWidth > 0 ? 1 : 0) +
@@ -495,6 +549,7 @@ export function GridBody(props: GridBodyProps) {
             data: row.original,
             column,
             cellProps,
+            initialCellHeight: editingCell.initialCellHeight,
           });
           if (!started) return errBack?.(false);
           return nextValue;
@@ -588,7 +643,11 @@ export function GridBody(props: GridBodyProps) {
     );
   }
 
-  function renderCells(row: any, rowIndex: number): React.ReactNode {
+  function renderCells(
+    row: any,
+    rowIndex: number,
+    virtualRowHeight?: number
+  ): React.ReactNode {
     const resolvedRowHeight = getResolvedRowHeight(rowIndex);
     const contentHeightLimit =
       rowHeight == null ? maxRowHeight : resolvedRowHeight;
@@ -627,17 +686,26 @@ export function GridBody(props: GridBodyProps) {
           const column = (cell.column.columnDef as any)?.meta?.__column as
             | TypeColumn
             | undefined;
-          const width = columnWidths[columnId];
+          const width = cell.column.getSize();
+          const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
           const isLastCell = cellIndex === allCells.length - 1;
+          const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
+          const isEditingThisCell = Boolean(
+            editingCell &&
+            String(editingCell.rowId) === String(rowId) &&
+            editingCell.columnId === columnId
+          );
           const editor = column
             ? renderEditor(row, rowIndex, cellIndex, column, columnId)
             : null;
 
           const startEdit = () => {
-            if (!column) return;
+            // The editor's own click/double-click events can bubble through
+            // the cell. Inovua only starts when this cell is not already in
+            // edit, so repeated activation must be idempotent.
+            if (!column || isEditingThisCell) return;
             const value = cell.getValue();
-            const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
             const cellProps = buildEditCellProps({
               value,
               data: row.original,
@@ -671,6 +739,9 @@ export function GridBody(props: GridBodyProps) {
               data: row.original,
               column,
               cellProps,
+              initialCellHeight:
+                cellNodesRef.current.get(cellKey)?.getBoundingClientRect()
+                  .height ?? null,
             });
           };
           const normalizedStartEvent = editStartEvent.toLowerCase();
@@ -678,14 +749,13 @@ export function GridBody(props: GridBodyProps) {
           return (
             <TableCell
               ref={(node) => {
-                const key = `${String(row.id)}\u0000${columnId}`;
-                if (node) cellNodesRef.current.set(key, node);
-                else cellNodesRef.current.delete(key);
+                if (node) cellNodesRef.current.set(cellKey, node);
+                else cellNodesRef.current.delete(cellKey);
               }}
               key={cell.id}
               data-column-id={columnId}
               data-column-index={cellIndex}
-              data-editing={editor ? "true" : "false"}
+              data-editing={isEditingThisCell ? "true" : "false"}
               className={cn(
                 userSelectClass,
                 "InovuaReactDataGrid__cell",
@@ -716,6 +786,12 @@ export function GridBody(props: GridBodyProps) {
                 ...(typeof column?.style === "object" && column?.style
                   ? column.style
                   : {}),
+                ...(isEditingThisCell && rowHeight == null
+                  ? {
+                      height:
+                        editingCell?.initialCellHeight ?? virtualRowHeight,
+                    }
+                  : {}),
               }}
               onClick={() => {
                 if (
@@ -742,8 +818,17 @@ export function GridBody(props: GridBodyProps) {
               }}
             >
               <div className="tdg-cell-content" style={contentStyle}>
-                {editor ??
-                  flexRender(cell.column.columnDef.cell, cell.getContext())}
+                {editor != null ? (
+                  <>
+                    <CellEditorSurfaceSync
+                      cellKey={cellKey}
+                      cellNodesRef={cellNodesRef}
+                    />
+                    {editor}
+                  </>
+                ) : (
+                  flexRender(cell.column.columnDef.cell, cell.getContext())
+                )}
               </div>
             </TableCell>
           );
@@ -842,11 +927,7 @@ export function GridBody(props: GridBodyProps) {
 
             return (
               <TableRow
-                ref={
-                  rowHeight == null
-                    ? (element) => measureElement?.(element)
-                    : undefined
-                }
+                ref={rowHeight == null ? measureNaturalRow : undefined}
                 key={row.id}
                 className={cn(
                   getRowThemeClasses(vi.index, rowIsSelected),
@@ -864,7 +945,7 @@ export function GridBody(props: GridBodyProps) {
                 style={getRowStyle(row, vi.index, rowIsSelected, vi.size)}
                 onClick={(e) => onRowClick?.(row.id, row.original, e)}
               >
-                {renderCells(row, vi.index)}
+                {renderCells(row, vi.index, vi.size)}
               </TableRow>
             );
           })}

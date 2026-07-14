@@ -48,6 +48,16 @@ export function assertComputedPropsCompat(
   api.deselectAll?.();
   virtualList.scrollToIndex(0);
   virtualList.smoothScrollTo(0);
+  virtualList.smoothScrollTo(120, null);
+  virtualList.smoothScrollTo(120, (value) => value.toFixed());
+  virtualList.smoothScrollTo(
+    120,
+    { duration: 0, orientation: "horizontal" },
+    (value) => value.toFixed()
+  );
+
+  // @ts-expect-error smoothScrollTo follows Inovua's pixel/config contract.
+  virtualList.smoothScrollTo(0, { direction: "top" });
 
   // @ts-expect-error TanStack Virtualizer internals must not be exposed here.
   virtualList.getVirtualItems();

@@ -58,17 +58,25 @@ import {
   normalizeFilterValue,
   upsertFilterEntry,
 } from "../filters/utils";
+import { applyLocalSort, toggleSortInfo } from "../sorting/utils";
+
 import {
-  applyLocalSort,
-  toTanstackSorting,
-  toggleSortInfo,
-} from "../sorting/utils";
+  fromTanStackColumnFiltersState,
+  fromTanStackRowSelectionState,
+  fromTanStackSortingState,
+  hydrateTanStackRowSelection,
+  projectTanStackColumnOrder,
+  projectTanStackColumnSizing,
+  projectTanStackColumnVisibility,
+  toTanStackColumnFiltersState,
+  toTanStackRowSelectionState,
+  toTanStackSortingState,
+} from "./engine/tanstackAdapter";
 
 import {
   injectIntoOrder,
   isColumnVisible,
   isInteractiveClickTarget,
-  normalizeColumnOrder,
   stripFromOrder,
   toSelectionMap,
   unwrapSelectionState,
@@ -619,17 +627,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
       return Object.fromEntries(nextEntries);
     });
   }, [allInputColumns]);
-  const columnVisibilityMap = React.useMemo(() => {
-    const next: Record<string, boolean> = {};
-
-    for (const column of allInputColumns) {
-      const columnId = getColumnId(column);
-      next[columnId] =
-        columnVisibilityState[columnId] ?? isColumnVisible(column);
-    }
-
-    return next;
-  }, [allInputColumns, columnVisibilityState]);
+  const columnVisibilityMap = React.useMemo(
+    () =>
+      projectTanStackColumnVisibility(allInputColumns, columnVisibilityState),
+    [allInputColumns, columnVisibilityState]
+  );
 
   const defaultColumnOrder = React.useMemo(() => {
     const base = inputColumns.map((c) => getColumnId(c));
@@ -665,13 +667,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       props.onColumnOrderChange?.(userNext);
     },
   });
-  const availableColumnIds = React.useMemo(
-    () => allInputColumns.map((column) => getColumnId(column)),
-    [allInputColumns]
-  );
   const effectiveColumnOrder = React.useMemo(
-    () => normalizeColumnOrder(columnOrder, availableColumnIds),
-    [availableColumnIds, columnOrder]
+    () => projectTanStackColumnOrder(allInputColumns, columnOrder),
+    [allInputColumns, columnOrder]
   );
 
   const [sortInfo, setSortInfo] = useControllableState<TypeSortInfo>({
@@ -784,8 +782,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [allInputColumns, columnVisibilityMap, effectiveColumnOrder]);
 
   const tanstackSorting = React.useMemo(
-    () => toTanstackSorting(sortInfo, orderedColumns),
-    [sortInfo, orderedColumns]
+    () => toTanStackSortingState(sortInfo, allInputColumns),
+    [allInputColumns, sortInfo]
+  );
+  const tanstackColumnFilters = React.useMemo(
+    () => toTanStackColumnFiltersState(filterValue, allInputColumns),
+    [allInputColumns, filterValue]
+  );
+  const tanstackRowSelection = React.useMemo(
+    () => toTanStackRowSelectionState(selected),
+    [selected]
   );
 
   /** ---------------- data loading ---------------- */
@@ -1206,6 +1212,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showColumnMenuTool,
   ]);
   const columnWidths = columnWidthAllocation.widths;
+  const tanstackColumnSizing = React.useMemo(
+    () => projectTanStackColumnSizing(allInputColumns, columnWidths),
+    [allInputColumns, columnWidths]
+  );
   const normalizedVirtualizeColumnsThreshold =
     typeof virtualizeColumnsThreshold === "number" &&
     Number.isFinite(virtualizeColumnsThreshold)
@@ -1267,9 +1277,40 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- columnDefs (TanStack) ---------------- */
 
+  // Keep the feature definitions stable. Selection is live compatibility
+  // state, so renderers read it through a ref instead of forcing TanStack to
+  // rebuild its complete column/header/cell memo graph for every selection or
+  // data update.
+  const selectionRuntimeRef = React.useRef({
+    rows,
+    selectedMap,
+    selectionEnabled,
+    multiSelect,
+    checkboxSelectEnableShiftKey,
+    getRowKey,
+    emitSelectionChange,
+  });
+  selectionRuntimeRef.current = {
+    rows,
+    selectedMap,
+    selectionEnabled,
+    multiSelect,
+    checkboxSelectEnableShiftKey,
+    getRowKey,
+    emitSelectionChange,
+  };
+
   const columnDefs = React.useMemo<ColumnDef<any, any>[]>(() => {
-    return orderedColumns.map((c) => {
+    return allInputColumns.map((c) => {
       const colId = getColumnId(c);
+      const { minWidth, maxWidth } = getColumnWidthBounds(c);
+      const configuredSize =
+        typeof c.width === "number" && Number.isFinite(c.width)
+          ? c.width
+          : typeof c.defaultWidth === "number" &&
+              Number.isFinite(c.defaultWidth)
+            ? c.defaultWidth
+            : undefined;
 
       if (checkboxEnabled && colId === checkboxColId) {
         const cfg =
@@ -1284,11 +1325,20 @@ function ReactDataGrid(props: TypeDataGridProps) {
           id: colId,
           accessorFn: () => null,
           enableSorting: false,
+          enableColumnFilter: false,
+          enableHiding: false,
+          enableResizing: false,
+          size: configuredSize,
+          minSize: minWidth,
+          maxSize: maxWidth,
 
           header: () => {
-            const pageRowIds = rows.map((r, idx) => getRowKey(r, idx));
+            const runtime = selectionRuntimeRef.current;
+            const pageRowIds = runtime.rows.map((r, idx) =>
+              runtime.getRowKey(r, idx)
+            );
             const selectedOnPage = pageRowIds.reduce(
-              (acc, id) => acc + (selectedMap[id] ? 1 : 0),
+              (acc, id) => acc + (runtime.selectedMap[id] ? 1 : 0),
               0
             );
             const allSelected =
@@ -1296,37 +1346,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const someSelected = selectedOnPage > 0 && !allSelected;
 
             const onChange = (checked: boolean) => {
-              if (!selectionEnabled) return;
+              const current = selectionRuntimeRef.current;
+              if (!current.selectionEnabled) return;
 
-              if (!multiSelect) {
+              if (!current.multiSelect) {
                 const next: Record<string, any> = {};
-                if (checked && rows[0]) next[getRowKey(rows[0], 0)] = rows[0];
-                emitSelectionChange(next, { data: rows[0] });
+                if (checked && current.rows[0]) {
+                  next[current.getRowKey(current.rows[0], 0)] = current.rows[0];
+                }
+                current.emitSelectionChange(next, { data: current.rows[0] });
                 return;
               }
 
-              const next = { ...selectedMap };
+              const next = { ...current.selectedMap };
               if (checked) {
-                rows.forEach((r, idx) => {
-                  next[getRowKey(r, idx)] = r;
+                current.rows.forEach((r, idx) => {
+                  next[current.getRowKey(r, idx)] = r;
                 });
               } else {
-                rows.forEach((r, idx) => {
-                  delete next[getRowKey(r, idx)];
+                current.rows.forEach((r, idx) => {
+                  delete next[current.getRowKey(r, idx)];
                 });
               }
-              emitSelectionChange(next, { data: rows });
+              current.emitSelectionChange(next, { data: current.rows });
             };
 
             const checkboxProps: TypeCheckboxProps = {
               checked: allSelected,
               indeterminate: someSelected,
-              disabled: !selectionEnabled || rows.length === 0,
+              disabled: !runtime.selectionEnabled || runtime.rows.length === 0,
               onChange,
             };
 
             const node = renderCheckbox ? (
-              renderCheckbox(checkboxProps, { headerCell: true, data: rows })
+              renderCheckbox(checkboxProps, {
+                headerCell: true,
+                data: runtime.rows,
+              })
             ) : (
               <Checkbox
                 checked={
@@ -1358,22 +1414,24 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const rowData = ctx.row.original;
             const rowIndex = ctx.row.index;
             const rowId = ctx.row.id;
+            const runtime = selectionRuntimeRef.current;
 
-            const isSelected = Boolean(selectedMap[rowId]);
+            const isSelected = Boolean(runtime.selectedMap[rowId]);
 
             const onChange = (checked: boolean) => {
-              if (!selectionEnabled) return;
+              const current = selectionRuntimeRef.current;
+              if (!current.selectionEnabled) return;
 
               const shiftKey =
-                checkboxSelectEnableShiftKey &&
+                current.checkboxSelectEnableShiftKey &&
                 lastPointerRef.current.shiftKey === true;
-              const next = { ...selectedMap };
+              const next = { ...current.selectedMap };
 
               const rowModel = ctx.table.getRowModel().rows;
 
               if (
                 shiftKey &&
-                multiSelect &&
+                current.multiSelect &&
                 lastSelectedIndexRef.current != null
               ) {
                 const from = Math.min(lastSelectedIndexRef.current, rowIndex);
@@ -1387,7 +1445,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 }
               } else {
                 if (checked) {
-                  if (!multiSelect) {
+                  if (!current.multiSelect) {
                     Object.keys(next).forEach((k) => delete next[k]);
                   }
                   next[rowId] = rowData;
@@ -1397,12 +1455,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
               }
 
               lastSelectedIndexRef.current = rowIndex;
-              emitSelectionChange(next, { data: rowData });
+              current.emitSelectionChange(next, { data: rowData });
             };
 
             const checkboxProps: TypeCheckboxProps = {
               checked: isSelected,
-              disabled: !selectionEnabled,
+              disabled: !runtime.selectionEnabled,
               onChange,
             };
 
@@ -1443,6 +1501,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
         id: colId,
         accessorFn: (row) => (row as any)?.[colId],
         enableSorting: c.sortable ?? true,
+        enableColumnFilter: c.filterable ?? true,
+        enableHiding: c.hideable ?? true,
+        enableResizing: resizable && (c.resizable ?? true),
+        size: configuredSize,
+        minSize: minWidth,
+        maxSize: maxWidth,
 
         header: () =>
           (c as any).renderHeader?.({ column: c, columnId: colId }) ??
@@ -1511,48 +1575,129 @@ function ReactDataGrid(props: TypeDataGridProps) {
     checkboxColId,
     checkboxColumnProp,
     checkboxEnabled,
-    emitSelectionChange,
-    getRowKey,
-    multiSelect,
-    orderedColumns,
-    rows,
-    selectedMap,
-    selectionEnabled,
-    checkboxSelectEnableShiftKey,
+    allInputColumns,
+    resizable,
   ]);
 
   const table = useReactTable({
     data: rows,
     columns: columnDefs,
-    state: { sorting: tanstackSorting },
-    manualSorting: true,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row, index) => {
-      const v = (row as any)?.[idProperty];
-      return v == null ? String(index) : String(v);
+    state: {
+      sorting: tanstackSorting,
+      columnFilters: tanstackColumnFilters,
+      globalFilter: searchValue,
+      columnOrder: effectiveColumnOrder,
+      columnVisibility: columnVisibilityMap,
+      columnSizing: tanstackColumnSizing,
+      rowSelection: tanstackRowSelection,
     },
+    onSortingChange: (updater) => {
+      const nextSorting = resolveStateAction(updater, tanstackSorting);
+      setSkip(0);
+      setSortInfo(
+        fromTanStackSortingState(nextSorting, allInputColumns, sortInfo)
+      );
+    },
+    onColumnFiltersChange: (updater) => {
+      const nextColumnFilters = resolveStateAction(
+        updater,
+        tanstackColumnFilters
+      );
+      const nextFilterValue = fromTanStackColumnFiltersState(
+        nextColumnFilters,
+        allInputColumns,
+        filterValue
+      );
+
+      setSkip(0);
+      if (!filterControlled) setDraftFilterValue(nextFilterValue);
+      setFilterValue(nextFilterValue);
+    },
+    onColumnOrderChange: (updater) => {
+      setColumnOrder(resolveStateAction(updater, effectiveColumnOrder));
+    },
+    onColumnVisibilityChange: (updater) => {
+      const nextVisibility = resolveStateAction(updater, columnVisibilityMap);
+
+      // TanStack visibility is a complete controlled snapshot, while the
+      // compatibility layer stores sparse user overrides on top of live
+      // column.visible values. Persist only the IDs changed by this action so
+      // an unrelated column prop can still change on a later render.
+      setColumnVisibilityState((current) => {
+        const next = { ...current };
+        let changed = false;
+
+        for (const column of allInputColumns) {
+          const columnId = getColumnId(column);
+          const previousVisible = columnVisibilityMap[columnId] !== false;
+          const nextVisible = nextVisibility[columnId] !== false;
+          if (nextVisible === previousVisible) continue;
+
+          next[columnId] = nextVisible;
+          changed = true;
+        }
+
+        return changed ? next : current;
+      });
+    },
+    onRowSelectionChange: (updater) => {
+      if (!selectionEnabled) return;
+
+      const nextRowSelection = resolveStateAction(
+        updater,
+        tanstackRowSelection
+      );
+      const nextCompatibilitySelection = fromTanStackRowSelectionState(
+        nextRowSelection,
+        selected
+      );
+      const nextMap = {
+        ...toSelectionMap(nextCompatibilitySelection),
+        ...hydrateTanStackRowSelection(nextRowSelection, rows, getRowKey),
+      };
+
+      emitSelectionChange(nextMap);
+    },
+    manualSorting: true,
+    manualFiltering: true,
+    manualPagination: true,
+    enableRowSelection: selectionEnabled,
+    enableMultiRowSelection: multiSelect,
+    enableSortingRemoval: allowUnsort,
+    sortDescFirst: defaultSortDir === -1,
+    enableColumnResizing: resizable,
+    columnResizeMode: "onEnd",
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: getRowKey,
   });
 
   /** ---------------- virtualization ---------------- */
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
-  const [columnScrollLeft, setColumnScrollLeft] = React.useState(0);
-  React.useLayoutEffect(() => {
-    const viewport = scrollRef.current;
-    if (!viewport) return;
-
-    const updateScrollLeft = () => {
-      const nextScrollLeft = Math.max(0, viewport.scrollLeft);
-      setColumnScrollLeft((current) =>
-        Object.is(current, nextScrollLeft) ? current : nextScrollLeft
+  const smoothScrollFrameIdsRef = React.useRef<Set<number>>(new Set());
+  React.useEffect(
+    () => () => {
+      smoothScrollFrameIdsRef.current.forEach((frameId) =>
+        window.cancelAnimationFrame(frameId)
       );
-    };
-
-    updateScrollLeft();
-    viewport.addEventListener("scroll", updateScrollLeft, { passive: true });
-    return () => viewport.removeEventListener("scroll", updateScrollLeft);
-  }, [mobileTransformActive]);
+      smoothScrollFrameIdsRef.current.clear();
+    },
+    []
+  );
+  const visibleTableColumns = table.getVisibleLeafColumns();
+  const visibleTableColumnsRef = React.useRef(visibleTableColumns);
+  visibleTableColumnsRef.current = visibleTableColumns;
+  const estimateVirtualColumnSize = React.useCallback(
+    (columnIndex: number) =>
+      visibleTableColumnsRef.current[columnIndex]?.getSize() ?? 0,
+    []
+  );
+  const getVirtualColumnKey = React.useCallback(
+    (columnIndex: number) =>
+      visibleTableColumnsRef.current[columnIndex]?.id ?? columnIndex,
+    []
+  );
   const rowModel = table.getRowModel().rows;
   const headerGroupCount = table.getHeaderGroups().length;
   const stickyHeaderOffset =
@@ -1590,10 +1735,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     estimateSize: (rowIndex) => resolveRowHeight(rowIndex),
     overscan: 10,
     scrollMargin: stickyHeaderOffset,
+    // Keep start-aligned imperative scrolling below the sticky header and
+    // filter rows instead of positioning the requested row underneath them.
+    scrollPaddingStart: stickyHeaderOffset,
     // Seed a usable range before the desktop viewport observer reports its
     // size, including when returning from the unmounted mobile branch.
     initialRect: { width: 0, height: initialRowHeight * 10 },
     enabled: virtualized && !mobileTransformActive,
+  });
+
+  // TanStack Table owns the ordered/visible column model and resolved pixel
+  // sizes. TanStack Virtual only decides which of those columns are mounted.
+  // Keeping horizontal scroll offset inside the virtualizer avoids rerendering
+  // the entire grid from a second, component-level scrollLeft state.
+  const columnVirtualizer = useVirtualizer({
+    horizontal: true,
+    count: visibleTableColumns.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: estimateVirtualColumnSize,
+    getItemKey: getVirtualColumnKey,
+    overscan: 1,
+    initialRect: { width: Math.max(0, columnViewportWidth), height: 0 },
+    enabled: computedVirtualizeColumns && !mobileTransformActive,
   });
 
   const columnWidthMeasurementKey = React.useMemo(
@@ -1607,8 +1770,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [columnWidths, orderedColumns]
   );
   React.useLayoutEffect(() => {
+    if (!computedVirtualizeColumns || mobileTransformActive) return;
+
+    columnVirtualizer.measure();
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const maxScrollLeft = Math.max(
+        0,
+        columnVirtualizer.getTotalSize() - viewport.clientWidth
+      );
+      if (viewport.scrollLeft > maxScrollLeft + 1) {
+        viewport.scrollLeft = maxScrollLeft;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [
+    columnVirtualizer,
+    columnWidthMeasurementKey,
+    computedVirtualizeColumns,
+    mobileTransformActive,
+  ]);
+  React.useLayoutEffect(() => {
     if (virtualized && rowHeight == null && !mobileTransformActive) {
       rowVirtualizer.measure();
+
+      // `measure()` clears cached sizes for rows which are currently outside
+      // the viewport. Remeasure the mounted rows once after the resulting
+      // layout, rather than replacing every row ref on every grid render.
+      const frameId = window.requestAnimationFrame(() => {
+        scrollRef.current
+          ?.querySelectorAll<HTMLElement>('[data-slot="grid-row"][data-index]')
+          .forEach((element) => rowVirtualizer.measureElement(element));
+      });
+
+      return () => window.cancelAnimationFrame(frameId);
     }
   }, [
     columnWidthMeasurementKey,
@@ -1723,6 +1921,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         value: args.value,
         data: args.data,
         column: args.column,
+        initialCellHeight: args.initialCellHeight,
         cellProps: {
           ...args.cellProps,
           editValue: args.value,
@@ -1742,6 +1941,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
       return true;
     },
     [editable, onEditStart, setEditingCell, toEditInfo]
+  );
+
+  // Inovua treats a UI activation on another cell as a direct coordinate
+  // replacement. The previous custom editor is not implicitly completed or
+  // cancelled; editors that want blur completion call their supplied
+  // `onComplete` handler. Keeping this path separate preserves the guarded
+  // behavior used by post-completion keyboard navigation.
+  const handleUiCellEditStart = React.useCallback(
+    (args: GridCellEditStartArgs) =>
+      tryStartCellEdit(args, { replaceActive: true }),
+    [tryStartCellEdit]
   );
 
   const getEditStartArgs = React.useCallback(
@@ -1796,6 +2006,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
         data: row.original,
         column,
         cellProps,
+        initialCellHeight:
+          editCellNodesRef.current
+            .get(`${String(row.id)}\u0000${columnId}`)
+            ?.getBoundingClientRect().height ?? null,
       };
     },
     [
@@ -1844,6 +2058,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         originalValue: targetChanged ? args.value : cell.originalValue,
         data: args.data,
         column: args.column,
+        initialCellHeight: targetChanged
+          ? args.initialCellHeight
+          : cell.initialCellHeight,
         cellProps: {
           ...args.cellProps,
           editValue: cell.value,
@@ -1968,6 +2185,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         data: args.data,
         column: args.column,
         cellProps: args.cellProps,
+        initialCellHeight: args.initialCellHeight,
       };
     },
     [editable, getEditingCellAtCurrentCoordinate]
@@ -2499,44 +2717,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
     coerceUserSelect(columnUserSelect) === "none"
       ? "select-none"
       : "select-text";
-  const tableMinWidth = React.useMemo(() => {
-    if (orderedColumns.length === 0) return undefined;
-
-    return orderedColumns.reduce((sum, column) => {
-      const columnId = getColumnId(column);
-      const explicitWidth =
-        columnWidths[columnId] ??
-        column.width ??
-        column.defaultWidth ??
-        column.minWidth ??
-        120;
-      return sum + explicitWidth;
-    }, 0);
-  }, [columnWidths, orderedColumns]);
+  const tableMinWidth =
+    visibleTableColumns.length > 0 ? table.getTotalSize() : undefined;
   const sharedTableStyle = tableMinWidth
     ? { width: `${tableMinWidth}px` }
     : undefined;
   const columnLayout = React.useMemo(
     () =>
-      orderedColumns.map((column) => {
-        const columnId = getColumnId(column);
-        const explicitWidth =
-          columnWidths[columnId] ??
-          column.width ??
-          column.defaultWidth ??
-          column.minWidth ??
-          120;
-
+      visibleTableColumns.map((column) => {
+        const tableWidth = column.getSize();
         return {
-          id: columnId,
-          width: explicitWidth,
-          minWidth: column.minWidth,
-          maxWidth: column.maxWidth,
+          id: column.id,
+          width: Number.isFinite(tableWidth)
+            ? tableWidth
+            : (columnWidths[column.id] ?? 0),
+          minWidth: column.columnDef.minSize,
+          maxWidth: column.columnDef.maxSize,
         };
       }),
-    [columnWidths, orderedColumns]
+    [columnWidths, visibleTableColumns]
   );
-  const columnRenderRange = React.useMemo(() => {
+  const columnRenderRange = (() => {
     const totalColumnCount = columnLayout.length;
     if (!computedVirtualizeColumns || totalColumnCount === 0) {
       return {
@@ -2548,51 +2749,31 @@ function ReactDataGrid(props: TypeDataGridProps) {
       };
     }
 
-    const viewportStart = Math.max(0, columnScrollLeft);
-    const viewportEnd = viewportStart + Math.max(1, columnViewportWidth || 1);
-    let runningWidth = 0;
-    let firstVisibleIndex = 0;
-    let lastVisibleIndex = totalColumnCount - 1;
-    let foundFirst = false;
+    const virtualColumns = columnVirtualizer.getVirtualItems();
+    const firstColumn = virtualColumns[0];
+    const lastColumn = virtualColumns[virtualColumns.length - 1];
 
-    for (const [index, column] of columnLayout.entries()) {
-      const columnStart = runningWidth;
-      const columnEnd = columnStart + column.width;
-
-      if (!foundFirst && columnEnd > viewportStart) {
-        firstVisibleIndex = index;
-        foundFirst = true;
-      }
-      if (columnStart < viewportEnd) {
-        lastVisibleIndex = index;
-      }
-      runningWidth = columnEnd;
+    if (!firstColumn || !lastColumn) {
+      return {
+        firstIndex: 0,
+        lastIndex: totalColumnCount - 1,
+        beforeWidth: 0,
+        afterWidth: 0,
+        columnRenderCount: totalColumnCount,
+      };
     }
 
-    // One column of horizontal overscan keeps resize handles, filter menus and
-    // keyboard-driven edit navigation stable at both viewport edges.
-    const firstIndex = Math.max(0, firstVisibleIndex - 1);
-    const lastIndex = Math.min(totalColumnCount - 1, lastVisibleIndex + 1);
-    const beforeWidth = columnLayout
-      .slice(0, firstIndex)
-      .reduce((sum, column) => sum + column.width, 0);
-    const renderedWidth = columnLayout
-      .slice(firstIndex, lastIndex + 1)
-      .reduce((sum, column) => sum + column.width, 0);
-
     return {
-      firstIndex,
-      lastIndex,
-      beforeWidth,
-      afterWidth: Math.max(0, runningWidth - beforeWidth - renderedWidth),
-      columnRenderCount: lastIndex - firstIndex + 1,
+      firstIndex: firstColumn.index,
+      lastIndex: lastColumn.index,
+      beforeWidth: firstColumn.start,
+      afterWidth: Math.max(
+        0,
+        columnVirtualizer.getTotalSize() - lastColumn.end
+      ),
+      columnRenderCount: virtualColumns.length,
     };
-  }, [
-    columnLayout,
-    columnScrollLeft,
-    columnViewportWidth,
-    computedVirtualizeColumns,
-  ]);
+  })();
   const renderedColumnLayout = React.useMemo(() => {
     if (!computedVirtualizeColumns) return columnLayout;
 
@@ -2627,6 +2808,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(
     null
   );
+  const resizeProxyElementRef = React.useRef<HTMLDivElement | null>(null);
+  const resizeProxyFrameRef = React.useRef<number | null>(null);
+  const resizeProxyNextLeftRef = React.useRef<number | null>(null);
   const [resizingColumnId, setResizingColumnId] = React.useState<string | null>(
     null
   );
@@ -2643,6 +2827,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     maxWidth: number;
   } | null>(null);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
+
+  const cancelResizeProxyFrame = React.useCallback(() => {
+    if (resizeProxyFrameRef.current != null) {
+      window.cancelAnimationFrame(resizeProxyFrameRef.current);
+      resizeProxyFrameRef.current = null;
+    }
+    resizeProxyNextLeftRef.current = null;
+  }, []);
+
+  const scheduleResizeProxyPosition = React.useCallback((nextLeft: number) => {
+    resizeProxyNextLeftRef.current = nextLeft;
+    if (resizeProxyFrameRef.current != null) return;
+
+    resizeProxyFrameRef.current = window.requestAnimationFrame(() => {
+      resizeProxyFrameRef.current = null;
+      const proxy = resizeProxyElementRef.current;
+      const left = resizeProxyNextLeftRef.current;
+      if (!proxy || left == null) return;
+
+      proxy.style.transform = `translate3d(${left}px, 0, 0)`;
+    });
+  }, []);
 
   const captureRenderedColumnWidths = React.useCallback(() => {
     const headerCells = Array.from(
@@ -2883,6 +3089,20 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ]
   );
 
+  const resizeColumnBy = React.useCallback(
+    (columnId: string, diff: number) => {
+      const column = orderedColumns.find(
+        (candidate) => getColumnId(candidate) === columnId
+      );
+      if (!column || !Number.isFinite(diff) || diff === 0) return;
+
+      const currentWidth =
+        columnWidths[columnId] ?? column.width ?? column.defaultWidth ?? 120;
+      commitColumnPixelResize(column, currentWidth + diff);
+    },
+    [columnWidths, commitColumnPixelResize, orderedColumns]
+  );
+
   const autosizeColumn = React.useCallback(
     (columnId: string) => {
       const column = orderedColumns.find(
@@ -2934,9 +3154,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resizeCleanupRef.current = null;
     resizeSessionRef.current = null;
     cleanup?.();
+    cancelResizeProxyFrame();
     setResizeProxyLeft(null);
     setResizingColumnId(null);
-  }, []);
+  }, [cancelResizeProxyFrame]);
 
   const startColumnResize = React.useCallback(
     (
@@ -3036,7 +3257,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         );
 
         activeSession.nextWidth = nextWidth;
-        setResizeProxyLeft(activeSession.columnLeft + nextWidth);
+        scheduleResizeProxyPosition(activeSession.columnLeft + nextWidth);
       };
 
       const completeResize = () => {
@@ -3166,11 +3387,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
       window.addEventListener("blur", handleWindowBlur);
       setResizingColumnId(columnId);
-      setResizeProxyLeft(columnLeft + startWidth);
+      const initialProxyLeft = columnLeft + startWidth;
+      cancelResizeProxyFrame();
+      resizeProxyNextLeftRef.current = initialProxyLeft;
+      setResizeProxyLeft(initialProxyLeft);
     },
     [
+      cancelResizeProxyFrame,
       commitColumnPixelResize,
       orderedColumns,
+      scheduleResizeProxyPosition,
       seedManualColumnWidthsFromDom,
       showColumnMenuTool,
       stopColumnResize,
@@ -3183,8 +3409,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       resizeCleanupRef.current = null;
       resizeSessionRef.current = null;
       cleanup?.();
+      cancelResizeProxyFrame();
     };
-  }, []);
+  }, [cancelResizeProxyFrame]);
 
   React.useEffect(() => {
     if (!resizingColumnId) return;
@@ -3251,7 +3478,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     next.splice(from, 1);
     next.splice(to, 0, sourceId);
-    setColumnOrder(next);
+    table.setColumnOrder(next);
   }
 
   function onHeaderDragOver(e: React.DragEvent) {
@@ -3325,36 +3552,51 @@ function ReactDataGrid(props: TypeDataGridProps) {
       {}
     );
   }, [filterValue]);
+  const computedColumnLayoutMap = React.useMemo(
+    () =>
+      new Map(
+        columnLayout.map((column, visibleIndex) => [
+          column.id,
+          { ...column, visibleIndex },
+        ])
+      ),
+    [columnLayout]
+  );
   const allComputedColumns = React.useMemo<TypeComputedColumn[]>(() => {
     return allInputColumns.map((column, index) => {
       const columnId = getColumnId(column);
-      const computedVisibleIndex = orderedColumns.findIndex(
-        (candidate) => getColumnId(candidate) === columnId
-      );
+      const layout = computedColumnLayoutMap.get(columnId);
 
       return {
         ...column,
-        computedWidth: columnWidths[columnId],
-        computedVisibleIndex:
-          computedVisibleIndex >= 0 ? computedVisibleIndex : undefined,
+        computedWidth:
+          layout?.width ??
+          tanstackColumnSizing[columnId] ??
+          columnWidths[columnId],
+        computedVisibleIndex: layout?.visibleIndex,
         index,
       };
     });
-  }, [allInputColumns, columnWidths, orderedColumns]);
+  }, [
+    allInputColumns,
+    columnWidths,
+    computedColumnLayoutMap,
+    tanstackColumnSizing,
+  ]);
   const visibleComputedColumns = React.useMemo<TypeComputedColumn[]>(() => {
-    return orderedColumns.map((column, visibleIndex) => {
-      const columnId = getColumnId(column);
+    return columnLayout.map((layout, visibleIndex) => {
+      const columnId = layout.id;
       const computedColumn = allComputedColumns.find(
         (candidate) => getColumnId(candidate) === columnId
       );
 
       return {
-        ...(computedColumn ?? column),
-        computedWidth: columnWidths[columnId],
+        ...(computedColumn ?? { id: columnId }),
+        computedWidth: layout.width,
         computedVisibleIndex: visibleIndex,
       };
     });
-  }, [allComputedColumns, columnWidths, orderedColumns]);
+  }, [allComputedColumns, columnLayout]);
   const columnsMap = React.useMemo<TypeComputedColumnsMap>(() => {
     return Object.fromEntries(
       allComputedColumns.map((column) => [getColumnId(column), column])
@@ -3381,12 +3623,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [columnWidthAllocation.flexWeights]);
   const columnSizes = React.useMemo<Record<string, number>>(() => {
     return Object.fromEntries(
-      orderedColumns.map((column) => [
-        getColumnId(column),
-        Number(columnWidths[getColumnId(column)] ?? 0),
-      ])
+      columnLayout.map((column) => [column.id, Number(column.width)])
     );
-  }, [columnWidths, orderedColumns]);
+  }, [columnLayout]);
 
   const setLimitAndResetPage = React.useCallback(
     (next: number) => {
@@ -3435,9 +3674,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const internalNext = checkboxEnabled
         ? (injectIntoOrder(next, checkboxColId) ?? next)
         : next;
-      setColumnOrder(internalNext);
+      table.setColumnOrder(internalNext);
     },
-    [checkboxColId, checkboxEnabled, setColumnOrder]
+    [checkboxColId, checkboxEnabled, table]
   );
 
   const getColumnByCompat = React.useCallback(
@@ -3702,13 +3941,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const setScrollLeftCompat = React.useCallback((nextScrollLeft: number) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollLeft = nextScrollLeft;
-    setColumnScrollLeft(scrollRef.current.scrollLeft);
   }, []);
 
   const incrementScrollLeftCompat = React.useCallback((delta: number) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollLeft += delta;
-    setColumnScrollLeft(scrollRef.current.scrollLeft);
   }, []);
 
   const setScrollTopCompat = React.useCallback((nextScrollTop: number) => {
@@ -3790,7 +4027,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
 
       viewport.scrollLeft = Math.max(0, nextScrollLeft);
-      setColumnScrollLeft(viewport.scrollLeft);
 
       callback?.();
     },
@@ -3881,19 +4117,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       return virtualRows.map((virtualRow) => {
         const row = rowModel[virtualRow.index];
+        const start = Math.max(
+          0,
+          virtualRow.start - (virtualized ? stickyHeaderOffset : 0)
+        );
+        const end = start + virtualRow.size;
 
         return {
           id: row?.id ?? virtualRow.index,
           index: virtualRow.index,
           rowIndex: virtualRow.index,
           data: row?.original,
-          top: virtualRow.start,
+          top: start,
           height: virtualRow.size,
-          start: virtualRow.start,
-          end: virtualRow.end,
+          start,
+          end,
         };
       });
-    }, [resolvedRowHeightLayout, rowModel, rowVirtualizer, virtualized]);
+    }, [
+      resolvedRowHeightLayout,
+      rowModel,
+      rowVirtualizer,
+      stickyHeaderOffset,
+      virtualized,
+    ]);
 
   const getTotalRowHeightCompat = React.useCallback(() => {
     return virtualized
@@ -3949,62 +4196,58 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const smoothScrollToCompat = React.useCallback<
     TypeComputedVirtualList["smoothScrollTo"]
-  >(
-    (index, config, callback) => {
-      if (index < 0) return;
+  >((value, configOrCallback, callback) => {
+    const viewport = scrollRef.current;
+    if (!viewport || !Number.isFinite(value)) return;
 
-      const viewport = scrollRef.current;
-      if (!viewport) {
-        scrollToIndexCompat(index, config, callback);
-        return;
+    const config =
+      typeof configOrCallback === "function"
+        ? undefined
+        : (configOrCallback ?? undefined);
+    const resolvedCallback =
+      typeof configOrCallback === "function" ? configOrCallback : callback;
+    const horizontal = config?.orientation === "horizontal";
+    const duration = config?.duration ?? 100;
+    const initialValue = horizontal ? viewport.scrollLeft : viewport.scrollTop;
+    const writeValue = (nextValue: number) => {
+      if (horizontal) {
+        viewport.scrollLeft = nextValue;
+      } else {
+        viewport.scrollTop = nextValue;
       }
+    };
 
-      const maxIndex = Math.max(0, rowModel.length - 1);
-      const targetIndex = clamp(index, 0, maxIndex);
-      const alignEnd = config?.direction === "bottom" || config?.top === false;
-      const offset = config?.offset ?? 0;
+    if (!Number.isFinite(duration) || duration <= 0 || initialValue === value) {
+      writeValue(value);
+      resolvedCallback?.(value);
+      return;
+    }
 
-      if (virtualized) {
-        const offsetInfo = rowVirtualizer.getOffsetForIndex(
-          targetIndex,
-          alignEnd ? "end" : "start"
-        );
-
-        if (offsetInfo) {
-          viewport.scrollTo({
-            top: Math.max(0, offsetInfo[0] + offset),
-            behavior: "smooth",
-          });
-          callback?.();
-          return;
-        }
-
-        scrollToIndexCompat(targetIndex, config, callback);
-        return;
-      }
-
-      const targetRow = resolvedRowHeightLayout[targetIndex] ?? {
-        start: 0,
-        end: 0,
-      };
-      const top = alignEnd
-        ? targetRow.end - viewport.clientHeight + offset
-        : targetRow.start + offset;
-
-      viewport.scrollTo({
-        top: Math.max(0, top),
-        behavior: "smooth",
+    const scheduleFrame = (frameCallback: FrameRequestCallback) => {
+      let frameId = 0;
+      frameId = window.requestAnimationFrame((now) => {
+        smoothScrollFrameIdsRef.current.delete(frameId);
+        frameCallback(now);
       });
-      callback?.();
-    },
-    [
-      resolvedRowHeightLayout,
-      rowModel.length,
-      rowVirtualizer,
-      scrollToIndexCompat,
-      virtualized,
-    ]
-  );
+      smoothScrollFrameIdsRef.current.add(frameId);
+    };
+    const startedAt = window.performance.now();
+    const difference = value - initialValue;
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      writeValue(initialValue + difference * progress);
+
+      if (progress < 1) {
+        scheduleFrame(animate);
+        return;
+      }
+
+      writeValue(value);
+      resolvedCallback?.(value);
+    };
+
+    scheduleFrame(animate);
+  }, []);
 
   const refreshVirtualListLayoutCompat = React.useCallback(() => {
     if (virtualized) {
@@ -4060,9 +4303,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       },
       getRowAt: (index) => {
         const virtualRows = getVirtualListRowsCompat();
-        return (
-          virtualRows.find((row) => row.index === index) ?? virtualRows[index]
-        );
+        return virtualRows.find((row) => row.index === index);
       },
       getVisibleCount: getVirtualListVisibleCountCompat,
       getVisibleRange: getVirtualListRangeCompat,
@@ -4173,16 +4414,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setColumnVisible: (column, visible) => {
         const columnId = getColumnIdCompat(column);
         if (!columnId) return;
+        if (!table.getColumn(columnId)) return;
 
+        // `hideable` constrains UI affordances, not the Inovua imperative API.
+        // Writing the sparse controlled override also avoids TanStack's
+        // `getCanHide()` gate for hideable:false columns.
         setColumnVisibilityState((current) => {
-          if (current[columnId] === visible) {
-            return current;
-          }
-
-          return {
-            ...current,
-            [columnId]: visible,
-          };
+          if (current[columnId] === visible) return current;
+          return { ...current, [columnId]: visible };
         });
       },
       gridId: gridIdRef.current,
@@ -4475,6 +4714,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     commitColumnPixelResize,
     commitColumnResizeEntries,
     computedVirtualizeColumns,
+    computedFilterValueMap,
     computedOnColumnFilterValueChangeCompat,
     count,
     dataSource,
@@ -4496,6 +4736,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getCurrentEditInfoCompat,
     i18n,
     idProperty,
+    incrementScrollLeftCompat,
+    incrementScrollTopCompat,
     isRowFullyVisibleCompat,
     isRowRenderedCompat,
     limit,
@@ -4525,6 +4767,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSelectedByIdCompat,
     setSelectedCompat,
     setShowZebraRows,
+    setSkip,
     setSortInfoAndResetPage,
     setScrollLeftCompat,
     setScrollTopCompat,
@@ -4536,6 +4779,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortInfo,
     stableApi,
     stableApiTarget,
+    table,
     startEditCompat,
     toggleColumnSortCompat,
     tryStartEditCompat,
@@ -4593,9 +4837,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           >
             {resizeProxyLeft != null ? (
               <div
+                ref={resizeProxyElementRef}
                 className="InovuaReactDataGrid__resize-proxy"
                 aria-hidden="true"
-                style={{ left: `${resizeProxyLeft}px` }}
+                style={{
+                  transform: `translate3d(${resizeProxyLeft}px, 0, 0)`,
+                }}
               />
             ) : null}
             {mobileTransformActive ? (
@@ -4654,7 +4901,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           headerGroups={table.getHeaderGroups()}
                           headerHeight={headerHeight}
                           filterRowHeight={filterRowHeight}
-                          columnWidths={columnWidths}
                           sortInfo={sortInfo}
                           setSortInfo={setSortInfo}
                           setSkip={setSkip}
@@ -4673,6 +4919,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           onHeaderDrop={onHeaderDrop}
                           resizingColumnId={resizingColumnId}
                           onColumnResizeStart={startColumnResize}
+                          onColumnResizeBy={resizeColumnBy}
                           onColumnAutoResize={autosizeColumn}
                           enableFiltering={effectiveEnableFiltering}
                           enableColumnFilterContextMenu={
@@ -4758,7 +5005,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     editingCell={coordinateEditingCell}
                     cellNodesRef={editCellNodesRef}
                     editStartEvent={editStartEvent}
-                    onCellEditStart={tryStartCellEdit}
+                    onCellEditStart={handleUiCellEditStart}
                     onEditValueChange={handleEditValueChange}
                     onEditComplete={handleEditComplete}
                     onEditStop={handleEditStop}

@@ -517,6 +517,19 @@ export type TypeScrollToIndex = (
   callback?: (...args: unknown[]) => void
 ) => void;
 
+export type TypeSmoothScrollConfig = {
+  orientation?: "horizontal" | "vertical";
+  duration?: number;
+};
+
+export type TypeSmoothScrollCallback = (value: number) => void;
+
+export type TypeSmoothScrollTo = (
+  value: number,
+  configOrCallback?: TypeSmoothScrollConfig | TypeSmoothScrollCallback | null,
+  callback?: TypeSmoothScrollCallback
+) => void;
+
 export type TypeComputedVirtualList = {
   props: Record<string, unknown>;
   context: Record<string, unknown>;
@@ -549,7 +562,7 @@ export type TypeComputedVirtualList = {
   getVisibleRange: () => TypeComputedVirtualListRange;
   setRowIndex: (index: number) => void;
   scrollToIndex: TypeScrollToIndex;
-  smoothScrollTo: TypeScrollToIndex;
+  smoothScrollTo: TypeSmoothScrollTo;
   refreshLayout: () => void;
   updateVisibleCount: () => number;
   isRowRendered: (rowIndex: number) => boolean;

@@ -19,7 +19,6 @@ export type GridHeaderProps = {
 
   headerHeight: number;
   filterRowHeight: number;
-  columnWidths: Record<string, number>;
 
   // sorting
   sortInfo: TypeSortInfo;
@@ -46,6 +45,7 @@ export type GridHeaderProps = {
     event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
     columnId: string
   ) => void;
+  onColumnResizeBy: (columnId: string, diff: number) => void;
   onColumnAutoResize: (columnId: string) => void;
 
   // filtering
@@ -92,7 +92,6 @@ export function GridHeader(props: GridHeaderProps) {
     headerGroups,
     headerHeight,
     filterRowHeight,
-    columnWidths,
     sortInfo,
     setSortInfo,
     setSkip,
@@ -111,6 +110,7 @@ export function GridHeader(props: GridHeaderProps) {
     onHeaderDrop,
     resizingColumnId,
     onColumnResizeStart,
+    onColumnResizeBy,
     onColumnAutoResize,
     enableFiltering,
     enableColumnFilterContextMenu,
@@ -154,7 +154,7 @@ export function GridHeader(props: GridHeaderProps) {
               const col: TypeColumn | undefined = colDef?.meta?.__column;
               const colId = h.column.id;
 
-              const width = columnWidths[colId];
+              const width = h.getSize();
 
               const canDrag =
                 allowColumnReorder &&
@@ -190,6 +190,7 @@ export function GridHeader(props: GridHeaderProps) {
                   canResize={canResize}
                   isResizing={resizingColumnId === colId}
                   onResizeStart={onColumnResizeStart}
+                  onResizeBy={onColumnResizeBy}
                   onAutoResize={onColumnAutoResize}
                 />
               );
@@ -226,7 +227,7 @@ export function GridHeader(props: GridHeaderProps) {
                 const col: TypeColumn | undefined = colDef?.meta?.__column;
                 const colId = h.column.id;
 
-                const width = columnWidths[colId];
+                const width = h.getSize();
 
                 return (
                   <FilterCell
