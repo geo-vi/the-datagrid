@@ -10,7 +10,8 @@ function isRangeOperator(op?: string): boolean {
 
 function toDate(value: unknown): Date | null {
   if (value == null || value === "") return null;
-  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null;
+  if (value instanceof Date)
+    return Number.isFinite(value.getTime()) ? value : null;
   if (typeof value === "number") {
     const d = new Date(value);
     return Number.isFinite(d.getTime()) ? d : null;
@@ -41,7 +42,10 @@ function toInputDateTimeLocalValue(d: Date | null): string {
   return `${y}-${m}-${day}T${hh}:${mm}`;
 }
 
-function parseInputValue(input: string, mode: "date" | "datetime-local"): Date | null {
+function parseInputValue(
+  input: string,
+  mode: "date" | "datetime-local"
+): Date | null {
   if (!input) return null;
   if (mode === "date") {
     // Interpret as local date
@@ -53,7 +57,12 @@ function parseInputValue(input: string, mode: "date" | "datetime-local"): Date |
 }
 
 export type DateFilterProps = {
-  filterValue?: { value?: any; operator?: string; type?: string; name?: string };
+  filterValue?: {
+    value?: any;
+    operator?: string;
+    type?: string;
+    name?: string;
+  };
   value?: any;
   onChange?: (value: any) => void;
 
@@ -75,7 +84,7 @@ export type DateFilterProps = {
   [key: string]: any;
 };
 
-export default function DateFilter(props: DateFilterProps) {
+export default function DateFilter(props: DateFilterProps): React.ReactElement {
   const {
     filterValue,
     value: valueProp,
@@ -92,7 +101,8 @@ export default function DateFilter(props: DateFilterProps) {
   const type = filterValue?.type;
 
   // If column type is "time", use datetime-local; otherwise date.
-  const inputMode: "date" | "datetime-local" = type === "time" ? "datetime-local" : "date";
+  const inputMode: "date" | "datetime-local" =
+    type === "time" ? "datetime-local" : "date";
 
   const raw = valueProp !== undefined ? valueProp : filterValue?.value;
 
@@ -101,8 +111,14 @@ export default function DateFilter(props: DateFilterProps) {
     const start = toDate(arr[0]);
     const end = toDate(arr[1]);
 
-    const startStr = inputMode === "datetime-local" ? toInputDateTimeLocalValue(start) : toInputDateValue(start);
-    const endStr = inputMode === "datetime-local" ? toInputDateTimeLocalValue(end) : toInputDateValue(end);
+    const startStr =
+      inputMode === "datetime-local"
+        ? toInputDateTimeLocalValue(start)
+        : toInputDateValue(start);
+    const endStr =
+      inputMode === "datetime-local"
+        ? toInputDateTimeLocalValue(end)
+        : toInputDateValue(end);
 
     return (
       <div className={cn("flex items-center gap-1", className)} style={style}>
@@ -136,7 +152,10 @@ export default function DateFilter(props: DateFilterProps) {
 
   // Single date
   const d = toDate(raw);
-  const str = inputMode === "datetime-local" ? toInputDateTimeLocalValue(d) : toInputDateValue(d);
+  const str =
+    inputMode === "datetime-local"
+      ? toInputDateTimeLocalValue(d)
+      : toInputDateValue(d);
 
   return (
     <Input

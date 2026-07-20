@@ -834,6 +834,7 @@ export type TypeCheckboxColumn =
 export type TypeDataGridProps = {
   /**
    * Built-ins:
+   * - "default-light": the Inovua-compatible default; forces light tokens
    * - "default": follows the nearest `.dark` ancestor when present
    * - "light": forces the light theme tokens
    * - "dark": forces the dark theme tokens
@@ -843,6 +844,10 @@ export type TypeDataGridProps = {
    * Custom theme names ending in `-light`/`_light` inherit the light token base.
    */
   theme?: string;
+  /**
+   * Required by the raw Inovua-compatible props type. JSX consumers may omit
+   * it because `ReactDataGrid.defaultProps.idProperty` is `"id"`.
+   */
   idProperty: string;
 
   columns: TypeColumns;
@@ -872,6 +877,15 @@ export type TypeDataGridProps = {
   enableColumnAutosize?: boolean;
   skipHeaderOnAutoSize?: boolean;
 
+  /**
+   * Explicitly shows or hides the filter row. When omitted, a non-empty
+   * `filterValue` or `defaultFilterValue` makes the row visible.
+   *
+   * For local arrays, uncontrolled `defaultFilterValue` state performs the
+   * data transformation even when this row is hidden. Controlled
+   * `filterValue` is display/remote-request state and does not transform the
+   * supplied array, matching Inovua 5.10.2.
+   */
   enableFiltering?: boolean;
   filterValue?: TypeFilterValue;
   defaultFilterValue?: TypeFilterValue;
@@ -998,4 +1012,7 @@ export type TypeDataGridProps = {
 
   className?: string;
   style?: React.CSSProperties;
+  onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
+  onFocus?: React.FocusEventHandler<HTMLDivElement>;
+  onBlur?: React.FocusEventHandler<HTMLDivElement>;
 };

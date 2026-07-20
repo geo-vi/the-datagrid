@@ -12,7 +12,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 
 type AnyRecord = Record<string, any>;
 
@@ -25,7 +31,9 @@ function toKey(v: unknown): string {
   return String(v);
 }
 
-function normalizeOptions(input: any[] | undefined): { key: string; raw: any; label: string }[] {
+function normalizeOptions(
+  input: any[] | undefined
+): { key: string; raw: any; label: string }[] {
   const arr = Array.isArray(input) ? input : [];
   return arr.map((item) => {
     if (isRecord(item)) {
@@ -38,7 +46,15 @@ function normalizeOptions(input: any[] | undefined): { key: string; raw: any; la
         item.title ??
         item.code ??
         "";
-      const label = String(item.label ?? item.name ?? item.title ?? item.value ?? item.id ?? raw ?? "");
+      const label = String(
+        item.label ??
+          item.name ??
+          item.title ??
+          item.value ??
+          item.id ??
+          raw ??
+          ""
+      );
       return { key: toKey(raw), raw, label };
     }
 
@@ -54,7 +70,12 @@ function splitStringList(v: string): string[] {
 }
 
 export type SelectFilterProps = {
-  filterValue?: { value?: any; operator?: string; type?: string; name?: string };
+  filterValue?: {
+    value?: any;
+    operator?: string;
+    type?: string;
+    name?: string;
+  };
   value?: any;
   onChange?: (value: any) => void;
 
@@ -80,7 +101,9 @@ export type SelectFilterProps = {
   [key: string]: any;
 };
 
-export default function SelectFilter(props: SelectFilterProps) {
+export default function SelectFilter(
+  props: SelectFilterProps
+): React.ReactElement {
   const {
     filterValue,
     value: valueProp,
@@ -99,7 +122,10 @@ export default function SelectFilter(props: SelectFilterProps) {
 
   const multiple = Boolean(multipleProp) || operator === "inlist";
 
-  const optionList = React.useMemo(() => normalizeOptions(dataSource ?? options), [dataSource, options]);
+  const optionList = React.useMemo(
+    () => normalizeOptions(dataSource ?? options),
+    [dataSource, options]
+  );
 
   const optionByKey = React.useMemo(() => {
     const m = new Map<string, { raw: any; label: string }>();
@@ -110,8 +136,13 @@ export default function SelectFilter(props: SelectFilterProps) {
   const clearLabel = placeholder ?? "All";
 
   if (multiple) {
-    const selectedRaw: any[] =
-      Array.isArray(current) ? current : typeof current === "string" ? splitStringList(current) : current == null ? [] : [current];
+    const selectedRaw: any[] = Array.isArray(current)
+      ? current
+      : typeof current === "string"
+        ? splitStringList(current)
+        : current == null
+          ? []
+          : [current];
 
     const selectedKeys = selectedRaw.map((v) => toKey(v)).filter(Boolean);
     const selectedSet = new Set(selectedKeys);

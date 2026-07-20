@@ -16,7 +16,7 @@ export type RDGColumnVisibilityProviderProps = {
 
 export function RDGColumnVisibilityProvider(
   props: RDGColumnVisibilityProviderProps
-) {
+): React.ReactElement {
   const { children } = props;
   const [store] = React.useState(createRDGColumnVisibilityStore);
 

@@ -106,6 +106,20 @@ export function AccountsGrid() {
       dataSource={rows}
       columnOrder={["id", "account", "owner"]}
       enableFiltering
+      defaultFilterValue={[
+        {
+          name: "account",
+          type: "string",
+          operator: "contains",
+          value: "",
+        },
+        {
+          name: "owner",
+          type: "string",
+          operator: "contains",
+          value: "",
+        },
+      ]}
       enableColumnAutosize
       skipHeaderOnAutoSize={false}
       virtualized
@@ -675,16 +689,16 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "theme",
         type: "string",
-        defaultValue: '"default"',
+        defaultValue: '"default-light"',
         description:
-          "Theme hook for built-in and custom themes. Built-ins are default, light, and dark; custom names are exposed through data-theme.",
+          "Theme hook for built-in and custom themes. The Inovua-compatible default-light name selects the light base; default follows a dark ancestor, and custom names are exposed through data-theme.",
       },
       {
         name: "idProperty",
         type: "string",
-        defaultValue: "required",
+        defaultValue: '"id"',
         description:
-          "Row identity field. The grid uses it for selection, row ids, and stable rendering.",
+          "Row identity field used for selection, row ids, and stable rendering. JSX callers may omit it because ReactDataGrid.defaultProps supplies id; the raw TypeDataGridProps contract keeps the field explicit for non-JSX integrations.",
       },
       {
         name: "columns",
@@ -698,7 +712,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "TypeDataSource",
         defaultValue: "required",
         description:
-          "Array, promise, or function-backed data source. Local arrays are filtered and sorted client-side; remote functions receive the current grid state.",
+          "Array, promise, or function-backed data source. Local arrays apply uncontrolled default filters and local sorting; controlled filtering remains externally owned. Remote functions receive the current grid state.",
       },
       {
         name: "columnOrder",
@@ -793,7 +807,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "columnUserSelect",
         type: 'true | false | "text" | "none"',
-        defaultValue: "true",
+        defaultValue: "false",
         description:
           "Controls text selection behavior inside column cells and headers.",
       },
@@ -807,7 +821,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "rowHeight",
         type: "number | ((rowIndex: number) => number) | null",
-        defaultValue: "44",
+        defaultValue: "40",
         description:
           "Sets one fixed height, computes a height per row, or enables content-driven measured height with null. A valid numeric height is authoritative and is not raised by minRowHeight or clamped by maxRowHeight.",
       },
@@ -855,7 +869,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "filterRowHeight",
         type: "number",
-        defaultValue: "44",
+        defaultValue: "40",
         description: "Filter row height in pixels when filtering is enabled.",
       },
       {
@@ -869,7 +883,21 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "React.CSSProperties",
         defaultValue: "-",
         description:
-          "Inline styles for the inner grid surface; use rowStyle for row-level presentation.",
+          "Inline styles merged onto the outer .tdg-root. Computed grid geometry remains on the inner surface; use rowStyle for row-level presentation.",
+      },
+      {
+        name: "onFocus / onBlur",
+        type: "React.FocusEventHandler<HTMLDivElement>",
+        defaultValue: "-",
+        description:
+          "Root lifecycle handlers. They receive bubbling focus transitions at the outer .tdg-root, matching ordinary React container semantics.",
+      },
+      {
+        name: "onKeyDown",
+        type: "React.KeyboardEventHandler<HTMLDivElement>",
+        defaultValue: "-",
+        description:
+          "Runs on keyboard events that bubble to the outer .tdg-root without replacing the grid's internal keyboard behavior.",
       },
     ],
   },
@@ -880,21 +908,23 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "enableFiltering",
         type: "boolean",
-        defaultValue: "true",
-        description: "Turns the filter row on or off.",
+        defaultValue: "inferred",
+        description:
+          "Explicitly shows or hides the filter row. When omitted, a non-empty defaultFilterValue or filterValue shows it; an empty or missing state hides it. This prop controls visibility, not whether an uncontrolled default filter transforms local rows.",
       },
       {
         name: "filterValue",
         type: "TypeFilterValue",
         defaultValue: "-",
         description:
-          "Controlled filter state. Use when your app owns the active filters.",
+          "Controlled filter display state. Inovua 5.10.2 treats local data transformation as externally owned in this mode, so the grid does not reapply controlled descriptors to a local array.",
       },
       {
         name: "defaultFilterValue",
         type: "TypeFilterValue",
         defaultValue: "null",
-        description: "Initial uncontrolled filter state.",
+        description:
+          "Initial uncontrolled filter state. Active descriptors transform local array rows even when enableFiltering=false hides the filter row; active:false keeps an editor visible without filtering.",
       },
       {
         name: "onFilterValueChange",
@@ -907,7 +937,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(event: TypeColumnFilterValueChangeArg) => void",
         defaultValue: "-",
         description:
-          "Runs before onFilterValueChange for editor, operator, and clear changes. The payload contains filterValue, columnId, and visible columnIndex; filter-cell gestures also include cellProps, while imperative API calls intentionally omit it.",
+          "Runs before onFilterValueChange for editor, operator, activation, and single-filter clear changes. The payload contains filterValue, columnId, and visible columnIndex; filter-cell gestures also include cellProps, while imperative API calls omit it. Clear All intentionally emits only one aggregate callback.",
       },
       {
         name: "filterTypes",
@@ -918,9 +948,9 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "enableColumnFilterContextMenu",
         type: "boolean",
-        defaultValue: "false",
+        defaultValue: "true",
         description:
-          "Enables operator switching through the filter-cell context menu.",
+          "Enables the filter-cell menu for operator selection, explicit Enable/Disable activation, Clear, and Clear All.",
       },
       {
         name: "filteredRowsCount",
@@ -1167,7 +1197,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "showColumnMenuTool",
         type: "boolean",
-        defaultValue: "false",
+        defaultValue: "true",
         description: "Shows the header menu trigger for per-column actions.",
       },
       {
@@ -1225,7 +1255,7 @@ function createInovuaStatusPage(): DocsPage {
     summary:
       "A living, evidence-backed ledger of verified compatibility, remaining gaps, and behavior still being audited.",
     description:
-      "The status page is deliberately evidence-based: verified Issue 17 and Issue 48 behaviors are marked compatible, while the remaining Community surface is still audited independently.",
+      "The status page is deliberately evidence-based: verified Issue 17, Issue 31, and Issue 48 behaviors are marked compatible, while the remaining Community surface is still audited independently.",
     tags: ["Migration", "Inovua", "Parity status"],
     sections: [
       {
@@ -1246,9 +1276,10 @@ function createInovuaStatusPage(): DocsPage {
             </Callout>
             <p>
               This ledger covers the differences audited from Issue 17, Issue
-              48, and the linked compatibility analysis. It is not exhaustive.
-              The remaining public Community surface is still being verified,
-              and absence from this table is not proof of compatibility.
+              31, Issue 48, and the linked compatibility analysis. It is not
+              exhaustive. The remaining public Community surface is still being
+              verified, and absence from this table is not proof of
+              compatibility.
             </p>
             <p>
               The matching{" "}
@@ -1261,8 +1292,8 @@ function createInovuaStatusPage(): DocsPage {
                 executable parity specifications
               </a>{" "}
               become permanent green regression coverage as each behavior is
-              implemented. The Issue 17 and Issue 48 rows marked compatible
-              below are backed by focused local suites.
+              implemented. The Issue 17, Issue 31, and Issue 48 rows marked
+              compatible below are backed by focused local suites.
             </p>
           </div>
         ),
@@ -1943,7 +1974,7 @@ const columnSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "inferred",
         description:
-          "With filtering enabled, a cell renders for filterable: true, an existing filter entry, or filterEditor. filterable: false always opts out.",
+          "When the filter row is visible, every non-checkbox column gets its structural cell unless filterable is false. An explicit filter descriptor is still required to render the built-in or custom editor; filterable: true and filterEditor do not invent filter state.",
       },
       {
         name: "filterType",
@@ -1970,7 +2001,7 @@ const columnSections: ReferenceSection[] = [
         type: "object | ((columnContext, indexContext) => object)",
         defaultValue: "-",
         description:
-          "Object props, or a function called as ({ column, columnId }, { index: 0 }). They are spread last and may override the supplied filterValue, value, onChange, column, columnId, or disabled props.",
+          "Object props, or a function called as ({ column, columnId }, { index: 0 }). They are resolved first; grid-owned filterValue, value, onChange, column, columnId, and disabled props take precedence so activation and state callbacks cannot be bypassed.",
       },
       {
         name: "filterCellPadding",
@@ -2980,6 +3011,89 @@ const checkboxRows: ReferenceRow[] = [
 
 const inovuaCompatibilityRows: CompatibilityRow[] = [
   {
+    id: "core-defaults-and-root-contract",
+    feature: "Core defaults, identity, and root props",
+    upstreamContract: (
+      <>
+        Community 5.10.2 defaults <code>idProperty</code> to <code>id</code>,
+        uses the <code>default-light</code> theme, 40px data/filter rows,
+        non-selectable column text, enabled filter context menus, and enabled
+        column menu tools. Root class, style, focus, blur, and keyboard handlers
+        attach to the component container.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Runtime and <code>ReactDataGrid.defaultProps</code> expose those values.
+        JSX may omit <code>idProperty</code> while the raw props type keeps it
+        explicit. Consumer class/style and lifecycle handlers merge onto the
+        outer <code>.tdg-root</code>; the inner surface fills the content box of
+        its 1px design-system frame.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Preserve the defaults in runtime and declarations, keep required grid
+        data props required, and retain root event bubbling and geometry without
+        removing the packaged frame.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "filter-row-inference-and-local-ownership",
+    feature: "Filter visibility and local ownership",
+    upstreamContract: (
+      <>
+        Omitted <code>enableFiltering</code> infers filter-row visibility from a
+        non-empty filter state. The executable 5.10.2 runtime applies
+        uncontrolled default filters to local rows independently of visibility,
+        while controlled <code>filterValue</code> remains externally owned.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Missing and empty state hide the row; controlled, default, and inactive
+        descriptors reveal their editors unless an explicit boolean overrides
+        visibility. Active uncontrolled descriptors filter local data even while
+        hidden; controlled and inactive descriptors do not.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep row visibility, editor presence/disabled state, remote args, and
+        local transformation as separate, regression-tested decisions.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "react-peer-runtime-matrix",
+    feature: "React 16.8–19 package compatibility",
+    upstreamContract: (
+      <>
+        Community supports React 16.8 through 18, so a compatible replacement
+        cannot require React 18-only hooks or the post-16.8 JSX runtime.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The peer range covers 16.8, 17, 18, and 19. A packed-tarball matrix
+        compiles declarations and mounts core, search, column visibility,
+        combined providers, mobile layout, and menu behavior against one exact
+        release from each major.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep newer hooks behind compatibility helpers, use the official
+        external-store shim, and reject packed output that imports an
+        unavailable React 16 JSX runtime.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
     id: "column-filter-change-callback",
     feature: "Per-column filter change callback",
     upstreamContract: (
@@ -2991,9 +3105,11 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        Editor, operator, clear, and imperative set/clear paths use the same
-        ordered callback. UI paths include <code>cellProps</code>; imperative
-        calls omit it.
+        Editor, operator, enable/disable, single clear, and imperative set/clear
+        paths use the same ordered callback. UI paths include{" "}
+        <code>cellProps</code>; imperative calls omit it. Clear All resets every
+        descriptor value while preserving activation and emits one aggregate
+        callback without per-column callbacks.
       </>
     ),
     requiredOutcome: (
@@ -3478,8 +3594,9 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        The rows above are the audited Issue 17 and Issue 48 differences, not a
-        certificate that every other API has already been verified.
+        The rows above are the audited Issue 17, Issue 31, and Issue 48
+        differences, not a certificate that every other API has already been
+        verified.
       </>
     ),
     requiredOutcome: (
@@ -3617,30 +3734,35 @@ const implementedSurfaceSections: ReferenceSection[] = [
         </p>
         <CodeBlock
           code={`ReactDataGrid.defaultProps = {
-  theme: "default",
-  enableColumnFilterContextMenu: false,
+  theme: "default-light",
+  idProperty: "id",
+  enableColumnFilterContextMenu: true,
   enableColumnAutosize: true,
   skipHeaderOnAutoSize: false,
   resizable: true,
   liveColumnResize: false,
-  enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
   virtualizeColumnsThreshold: 15,
   allowMobileTransform: false,
-  columnUserSelect: true,
+  columnUserSelect: false,
   showCellBorders: true,
-  showColumnMenuTool: false,
-  rowHeight: 44,
+  showColumnMenuTool: true,
+  rowHeight: 40,
   minRowHeight: 20,
   defaultShowZebraRows: true,
   editStartEvent: "dblclick",
   emptyText: "noRecords",
   headerHeight: 40,
-  filterRowHeight: 44,
+  filterRowHeight: 40,
 };`}
           language="ts"
         />
+        <p>
+          <code>enableFiltering</code> is intentionally absent. Inovua 5.10.2
+          infers filter-row visibility from non-empty controlled or uncontrolled
+          filter state unless the caller explicitly supplies the boolean.
+        </p>
         <p>
           Other real fallbacks—such as <code>reorderColumns=true</code>,{" "}
           <code>allowUnsort=true</code>, ascending first sort, pagination off,
@@ -3659,7 +3781,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "unknown[]",
         defaultValue: "client-owned rows",
         description:
-          "Optional global search runs first, then active column filters, local sorting, count calculation, and finally local pagination slicing. Count is therefore pre-slice.",
+          "Optional global search runs first. Active uncontrolled default filters run next; controlled filterValue remains externally owned for Inovua 5.10.2 parity. Local sorting, count calculation, and pagination slicing follow, so count is pre-slice.",
       },
       {
         name: "Static promises",
@@ -3775,7 +3897,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
       {
         name: "Header column menu",
         type: "showColumnMenuTool",
-        defaultValue: "false",
+        defaultValue: "true",
         description:
           "Shows an accessible dropdown with ascending, descending, and unsort actions; each action resets skip. The current menu can set sort state even when sortable=false, while direct header toggling correctly opts out.",
       },
@@ -3784,7 +3906,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "props",
         defaultValue: "documented defaults",
         description:
-          "headerHeight, filterRowHeight, fixed/functional/natural rowHeight, min/max row bounds, horizontal column virtualization, rowStyle, showZebraRows, showCellBorders, columnUserSelect, root className, and inner-surface style are implemented. Fixed numeric rowHeight remains authoritative over min/max; inline styles are used for computed numeric layout.",
+          "headerHeight, filterRowHeight, fixed/functional/natural rowHeight, min/max row bounds, horizontal column virtualization, rowStyle, showZebraRows, showCellBorders, columnUserSelect, root className/style, and root focus, blur, and keyboard handlers are implemented. Fixed numeric rowHeight remains authoritative over min/max; inline styles are used for computed numeric layout.",
       },
     ],
   },
@@ -3863,12 +3985,17 @@ const implementedSurfaceSections: ReferenceSection[] = [
             calls omit that DOM-specific context.
           </li>
           <li>
-            The filter-cell context menu switches operators. Object/function{" "}
+            The filter-cell context menu switches operators, explicitly enables
+            or disables a descriptor, and clears one or all values. Clear keeps
+            the descriptor&apos;s activation state; Clear All emits one
+            aggregate update without per-column callbacks. Object/function{" "}
             <code>filterEditorProps</code> and custom editors are supported as
-            described in IColumn; resolved props spread last. Without a custom
-            editor, only select + filterEditorProps.options renders a select;
-            other types use generic text input. Use exported DateFilter,
-            NumberFilter, or SelectFilter explicitly when needed.
+            described in IColumn; resolved props are applied first and
+            grid-owned state, identity, callback, and disabled props win on
+            conflicts. Without a custom editor, only select +
+            filterEditorProps.options renders a select; other types use generic
+            text input. Use exported DateFilter, NumberFilter, or SelectFilter
+            explicitly when needed.
           </li>
         </ul>
       </div>
@@ -4031,10 +4158,10 @@ const implementedSurfaceSections: ReferenceSection[] = [
     rows: [
       {
         name: "Theme model",
-        type: "default / light / dark / custom",
-        defaultValue: "default",
+        type: "default-light / default / light / dark / custom",
+        defaultValue: "default-light",
         description:
-          "default follows a .dark ancestor; light/dark force a base; custom names become data-theme/class hooks and may inherit a suffix-based base. Tailwind/shadcn tokens drive the packaged UI.",
+          "default-light preserves the Inovua-compatible default name and uses a fixed shadcn light base even below a .dark ancestor; default follows a .dark ancestor; light/dark force a base; custom names become data-theme/class hooks and may inherit a suffix-based base. Explicit --tdg-color-* and component tokens remain overrideable.",
       },
       {
         name: "Legacy theme bridge",
@@ -4146,6 +4273,22 @@ pnpm add @geovi/the-datagrid`}
               setups, you only need to import the component from the package and
               render it.
             </p>
+            <p>
+              The peer range supports React and React DOM 16.8, 17, 18, and 19.
+              CI installs the packed package against an exact release from every
+              supported major, compiles its public declarations, and mounts the
+              core grid, optional provider entries, mobile layout, and Radix
+              menu path. Compatibility shims supply external-store snapshots,
+              stable IDs, deferred values, JSX creation, and React DOM flushing
+              only where an older React runtime needs them.
+            </p>
+            <p>
+              The published JavaScript bundles its tested Radix, TanStack, icon,
+              and utility implementations. Consumers therefore do not install a
+              second UI dependency graph; those packages are build-time
+              dependencies, while the official external-store shim is the only
+              runtime dependency in the published manifest.
+            </p>
           </div>
         ),
       },
@@ -4219,7 +4362,11 @@ pnpm add @geovi/the-datagrid`}
         title: "What this setup already gives you",
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-            <li>Local array filtering when enableFiltering is on.</li>
+            <li>
+              Inferred filter-row visibility and local array filtering from an
+              uncontrolled defaultFilterValue; enableFiltering can explicitly
+              show or hide the row.
+            </li>
             <li>Local sorting through sortable columns.</li>
             <li>
               Controlled row selection through checkboxColumn and selected.
@@ -4401,7 +4548,16 @@ pnpm add @geovi/the-datagrid`}
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              enableFiltering applies local filter operators against the array.
+              Active uncontrolled defaultFilterValue entries apply local filter
+              operators against the array. enableFiltering controls whether the
+              filter row is visible, including an explicit false that leaves an
+              existing default filter active.
+            </li>
+            <li>
+              Controlled filterValue describes externally owned state for Inovua
+              5.10.2 parity and is not applied to a local array a second time.
+              Apply that state in the parent or use a function-backed
+              dataSource.
             </li>
             <li>sortInfo applies local sorting against the same array.</li>
             <li>
@@ -4807,8 +4963,8 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               <code>filterEditor</code> to shape each filter cell.
             </li>
             <li>
-              Use <code>enableColumnFilterContextMenu</code> to expose the
-              operator switcher UI.
+              Use <code>enableColumnFilterContextMenu</code> to expose operator,
+              Enable/Disable, Clear, and Clear All actions.
             </li>
           </ul>
         ),
@@ -4830,17 +4986,18 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               applies onSkipChange(0).
             </li>
             <li>
-              Clearing keeps an inactive/empty entry where the type contract
-              requires it rather than treating array removal as the only clear
-              representation. Inactive and empty ordinary entries are skipped by
-              local filtering.
+              Clearing keeps the descriptor and its existing activation state
+              while resetting only its value. Inactive and empty ordinary
+              entries are skipped by local filtering.
             </li>
             <li>
-              empty and notEmpty stay active without an input. Custom
-              filterEditor components receive descriptor/value/change, column
-              identity, disabled state, and resolved filterEditorProps (spread
-              last). Without one, only select + options gets a select UI; use
-              exported DateFilter/NumberFilter/SelectFilter explicitly.
+              empty and notEmpty run without an input while their descriptor is
+              enabled. Custom filterEditor components receive
+              descriptor/value/change, column identity, disabled state, and
+              resolved filterEditorProps; those user props are applied first,
+              then grid-owned state and lifecycle props take precedence. Without
+              one, only select + options gets a select UI; use exported
+              DateFilter/NumberFilter/SelectFilter explicitly.
             </li>
           </ul>
         ),
@@ -5893,7 +6050,12 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               and the published package disagree, the executable package
               contract wins; for example, the 5.10.2 root <code>editable</code>{" "}
               prop is boolean, while conditional or async editability belongs on{" "}
-              <code>column.editable</code>.
+              <code>column.editable</code>. Filtering is another verified case:
+              archived prose describes controlled and uncontrolled local
+              filtering together, while the published runtime applies local
+              array filters from <code>defaultFilterValue</code> and treats
+              controlled <code>filterValue</code> as externally owned display
+              state. The runtime behavior is the compatibility requirement.
             </p>
             <ul className="list-disc space-y-2 pl-5">
               <li>

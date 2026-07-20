@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
+import { useDeferredValueCompat } from "../../hooks/useDeferredValueCompat";
+import { useStableId } from "../../hooks/useStableId";
 import { getColumnId, getColumnSortName } from "../../utils/column";
 import { t } from "../../utils/helpers";
 import { resolveEmptyText } from "../utils/emptyText";
@@ -84,7 +86,7 @@ export function MobileGridList({
   onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
-}: MobileGridListProps) {
+}: MobileGridListProps): React.ReactElement {
   const [query, setQuery] = React.useState("");
   const [committedQuery, setCommittedQuery] = React.useState("");
   const [sortPanelOpen, setSortPanelOpen] = React.useState(false);
@@ -92,7 +94,7 @@ export function MobileGridList({
   const [draftSortDirection, setDraftSortDirection] = React.useState<1 | -1>(
     defaultSortDirection
   );
-  const deferredQuery = React.useDeferredValue(committedQuery);
+  const deferredQuery = useDeferredValueCompat(committedQuery);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const searchIndexCache = React.useRef<{
@@ -100,7 +102,7 @@ export function MobileGridList({
     index: DataGridSearchIndex<Row<Record<string, unknown>>>;
     rows: Row<Record<string, unknown>>[];
   } | null>(null);
-  const sortPanelId = React.useId();
+  const sortPanelId = useStableId("tdg-mobile-sort-panel");
   const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
     Set<string>
   >(() => new Set());

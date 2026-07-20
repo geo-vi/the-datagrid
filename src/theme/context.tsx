@@ -22,10 +22,12 @@ export function normalizeThemeName(theme: string | null | undefined): string {
 }
 
 export function toThemeClassSuffix(theme: string | null | undefined): string {
-  return normalizeThemeName(theme)
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "") || DEFAULT_THEME;
+  return (
+    normalizeThemeName(theme)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || DEFAULT_THEME
+  );
 }
 
 export function resolveThemeBase(
@@ -34,7 +36,11 @@ export function resolveThemeBase(
   const suffix = toThemeClassSuffix(theme);
 
   if (suffix === DEFAULT_THEME) return DEFAULT_THEME;
-  if (suffix === "dark" || suffix.endsWith("-dark") || suffix.endsWith("_dark")) {
+  if (
+    suffix === "dark" ||
+    suffix.endsWith("-dark") ||
+    suffix.endsWith("_dark")
+  ) {
     return "dark";
   }
   if (
@@ -53,8 +59,13 @@ export function DatagridThemeProvider(props: {
   themeBase?: DatagridThemeBase;
   portalContainer?: HTMLElement | null;
   children: React.ReactNode;
-}) {
-  const { theme, themeBase = resolveThemeBase(theme), portalContainer = null, children } = props;
+}): React.ReactElement {
+  const {
+    theme,
+    themeBase = resolveThemeBase(theme),
+    portalContainer = null,
+    children,
+  } = props;
   return (
     <DatagridThemeContext.Provider
       value={{

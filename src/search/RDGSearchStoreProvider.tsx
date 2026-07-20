@@ -6,7 +6,7 @@ import { createRDGSearchStore, RDGSearchContext } from "./store";
 export function RDGSearchStoreProvider(props: {
   children: React.ReactNode;
   defaultValue: string;
-}) {
+}): React.ReactElement {
   const { children, defaultValue } = props;
   const [store] = React.useState(() => createRDGSearchStore(defaultValue));
 

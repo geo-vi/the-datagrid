@@ -32,9 +32,15 @@ TypeScript fields: it includes defaults, runtime behavior, callback payloads
 and timing, controlled/uncontrolled state, local and remote data flow, layout,
 keyboard and focus interaction, and accessibility behavior.
 
-The audited Issue 17 and Issue 48 compatibility batches now implement and
+The audited Issue 17, Issue 31, and Issue 48 compatibility batches now implement and
 regression-test:
 
+- Inovua's `idProperty`, theme, row/filter height, text-selection, filter-menu,
+  and column-menu defaults;
+- tri-state filter-row inference and the upstream controlled/uncontrolled local
+  transformation split;
+- root class/style and focus, blur, and keyboard lifecycle handlers; and
+- packed-package compatibility across React 16.8, 17, 18, and 19;
 - natural and per-row height (`rowHeight={null}`, a `rowHeight` function,
   `minRowHeight`/`maxRowHeight`, and width-change remeasurement);
 - `onColumnResize`, controlled `width`, and uncontrolled `defaultWidth`;
@@ -103,10 +109,12 @@ method allowlists.
   animation-frame-coalesced `liveColumnResize`, and double-click autosizing.
   Rows support numeric, functional, and natural measured heights with
   minimum/maximum bounds and width-change remeasurement.
-- **Filtering and sorting:** controlled and uncontrolled state, local operators,
-  custom filter registries and editors, filter operator menus, single sorting,
-  Shift-assisted multi-sorting, configurable initial direction, and optional
-  unsorting. Filter and sort changes reset pagination to the first page.
+- **Filtering and sorting:** inferred or explicitly controlled filter-row
+  visibility, uncontrolled local filters, externally owned controlled filter
+  state, custom filter registries and editors, filter operator menus, single
+  sorting, Shift-assisted multi-sorting, configurable initial direction, and
+  optional unsorting. Filter and sort changes reset pagination to the first
+  page.
 - **Pagination:** controlled or uncontrolled `skip` and `limit`, local and remote
   modes, configurable page sizes, and a built-in accessible pager.
 - **Selection:** single or multi-row selection, a configurable checkbox column,
@@ -133,10 +141,11 @@ method allowlists.
 - **Optional column visibility:** a separate provider/toolbar/target entry that
   follows live grid order and visibility, honors non-hideable columns, protects
   the final visible column, and accepts application actions on the right.
-- **Themes and UI:** packaged CSS, shadcn-aligned controls, `default`, `light`,
-  and `dark` token bases, custom `data-theme` hooks, grid-scoped menu portals,
-  cell-border modes, i18n overrides, and compatibility class hooks for existing
-  Inovua-oriented theme styles.
+- **Themes and UI:** packaged CSS, shadcn-aligned controls, fixed
+  `default-light`/`light`, adaptive `default`, and fixed `dark` token bases,
+  custom `data-theme` hooks, grid-scoped menu portals, cell-border modes, i18n
+  overrides, and compatibility class hooks for existing Inovua-oriented theme
+  styles.
 - **Imperative compatibility API:** `onDidMount`, `handle`, and `onReady`
   expose the same stable `TypeComputedProps` ref with implemented data,
   pagination, filtering, sorting, column lookup/order/visibility, selection, DOM
@@ -248,6 +257,19 @@ pnpm add @geovi/the-datagrid react react-dom
 
 That is the normal installation flow for consumers.
 
+The peer contract supports React and React DOM 16.8, 17, 18, and 19. The
+published-package compatibility matrix installs the packed tarball against an
+exact version from every supported major, compiles its declarations, and mounts
+the core grid, optional providers, mobile layout, and menu interactions. React
+16/17 use the package's official external-store shim and compatibility fallbacks
+for newer React hooks.
+
+The shipped JavaScript already bundles the tested Radix, TanStack, icon, and
+utility implementations, so consumers do not install a second, independently
+resolved UI dependency graph. Those packages remain development dependencies
+for building the library; the official external-store shim is the only runtime
+dependency in the published manifest.
+
 You do **not** need to install:
 
 - Tailwind CSS
@@ -267,16 +289,28 @@ In a typical React app with a modern bundler, this is enough:
 - Webpack-based apps
 - other setups that support CSS imports from npm packages
 
-The grid keeps a shadcn-aligned look and will inherit app-level shadcn theme variables when they exist (`--background`, `--foreground`, `--border`, `--ring`, etc.). If they do not exist, the package uses scoped fallback tokens so it still renders correctly.
+The grid keeps a shadcn-aligned look and uses the same token vocabulary
+(`--background`, `--foreground`, `--border`, `--ring`, etc.). The adaptive
+`theme="default"` inherits those app-level variables, while fixed theme bases
+and explicit `--tdg-*` custom-theme tokens stay scoped to the grid. Packaged
+fallbacks keep the grid usable when an app does not define shadcn variables.
 
 Theme variables are resolved at runtime from normal CSS, not from the consumer's Tailwind build. Tailwind is only used to build this library, not required to consume it.
 
 Built-in theme behavior:
 
+- `theme="default-light"` is the default and keeps a fixed shadcn light token
+  base—even below a `.dark` application ancestor—while preserving the
+  Inovua-compatible theme name on the grid root
 - `theme="default"` follows the nearest `.dark` ancestor
 - `theme="light"` forces the light token set
 - `theme="dark"` forces the dark token set
 - `theme="<custom-name>"` activates a named custom theme on the grid root via `data-theme="<custom-name>"`
+
+The fixed light base remains customizable through the documented
+`--tdg-color-*` and component-level `--tdg-*` variables. A custom named theme
+can therefore opt into a `-light` suffix without losing its own explicit grid
+tokens.
 
 For non-built-in theme names, the grid also keeps Inovua-compatible root and
 element class hooks. When a readable legacy Inovua stylesheet for that theme is
@@ -364,6 +398,11 @@ export default function App() {
       dataSource={rows}
       virtualized
       enableFiltering
+      defaultFilterValue={[
+        { name: "id", type: "number", operator: "eq", value: null },
+        { name: "name", type: "string", operator: "contains", value: "" },
+        { name: "email", type: "string", operator: "contains", value: "" },
+      ]}
     />
   );
 }
@@ -604,13 +643,21 @@ import type {
 export default function App() {
   const [selected, setSelected] = useState<TypeRowSelection>({});
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
-  const [filterValue, setFilterValue] = useState<TypeFilterValue | null>(null);
 
   const columns: TypeColumns = useMemo(
     () => [
       { name: "id", header: "ID", sortable: true, filterable: true },
       { name: "name", header: "Name", sortable: true, filterable: true },
       { name: "email", header: "Email", sortable: true, filterable: true },
+    ],
+    []
+  );
+
+  const defaultFilterValue = useMemo<TypeFilterValue>(
+    () => [
+      { name: "id", type: "number", operator: "eq", value: null },
+      { name: "name", type: "string", operator: "contains", value: "" },
+      { name: "email", type: "string", operator: "contains", value: "" },
     ],
     []
   );
@@ -627,6 +674,11 @@ export default function App() {
     () => ({
       noRecords: "No records",
       clear: "Clear",
+      clearAll: "Clear all",
+      enable: "Enable",
+      disable: "Disable",
+      filter: "Filter",
+      operator: "Operator",
       contains: "Contains",
       sortAsc: "Sort A→Z",
       sortDesc: "Sort Z→A",
@@ -646,8 +698,8 @@ export default function App() {
       columnOrder={columnOrder}
       dataSource={rows}
       enableFiltering
-      defaultFilterValue={filterValue ?? undefined}
-      onFilterValueChange={(v) => setFilterValue(v)}
+      defaultFilterValue={defaultFilterValue}
+      onFilterValueChange={(v) => console.log("Filters:", v)}
       filteredRowsCount={(count) => console.log("Filtered rows:", count)}
       enableColumnFilterContextMenu
       enableColumnAutosize
@@ -673,28 +725,28 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Core
 
-| Prop         | Type             | Default      | Description                                 |
-| ------------ | ---------------- | ------------ | ------------------------------------------- |
-| `idProperty` | `string`         | **required** | Property name used as unique row identifier |
-| `columns`    | `TypeColumns`    | **required** | Column definitions                          |
-| `dataSource` | `TypeDataSource` | **required** | Data source (array, function, or promise)   |
+| Prop         | Type             | Default  | Description                                                  |
+| ------------ | ---------------- | -------- | ------------------------------------------------------------ |
+| `idProperty` | `string`         | `"id"`   | Property name used as unique row identifier; JSX may omit it |
+| `columns`    | `TypeColumns`    | required | Column definitions                                           |
+| `dataSource` | `TypeDataSource` | required | Data source (array, function, or promise)                    |
 
 ### Display
 
-| Prop                   | Type                                             | Default     | Description                                                       |
-| ---------------------- | ------------------------------------------------ | ----------- | ----------------------------------------------------------------- |
-| `theme`                | `string`                                         | `"default"` | Theme name                                                        |
-| `rowHeight`            | `number \| ((rowIndex) => number) \| null`       | `44`        | Fixed, per-row, or naturally measured row height                  |
-| `minRowHeight`         | `number`                                         | `20`        | Minimum natural row height and virtualizer estimate               |
-| `maxRowHeight`         | `number`                                         | -           | Optional upper bound for measured or functional row heights       |
-| `rowStyle`             | `CSSProperties \| ({ data, props, style }) => …` | -           | Static or data-dependent style merged onto each row               |
-| `showZebraRows`        | `boolean`                                        | `true`      | Show visible alternating row backgrounds                          |
-| `headerHeight`         | `number`                                         | `40`        | Header height in pixels                                           |
-| `filterRowHeight`      | `number`                                         | `44`        | Filter row height in pixels                                       |
-| `virtualized`          | `boolean`                                        | `true`      | Enable virtual scrolling, including measured natural rows         |
-| `allowMobileTransform` | `boolean`                                        | `false`     | Use searchable, sortable virtual cards at widths up to 1024px     |
-| `columnUserSelect`     | `boolean \| "text" \| "none"`                    | `true`      | Column text selection behavior                                    |
-| `showCellBorders`      | `boolean \| "vertical" \| "horizontal"`          | `true`      | Cell separator mode; use `"horizontal"` to disable vertical lines |
+| Prop                   | Type                                             | Default           | Description                                                       |
+| ---------------------- | ------------------------------------------------ | ----------------- | ----------------------------------------------------------------- |
+| `theme`                | `string`                                         | `"default-light"` | Theme name                                                        |
+| `rowHeight`            | `number \| ((rowIndex) => number) \| null`       | `40`              | Fixed, per-row, or naturally measured row height                  |
+| `minRowHeight`         | `number`                                         | `20`              | Minimum natural row height and virtualizer estimate               |
+| `maxRowHeight`         | `number`                                         | -                 | Optional upper bound for measured or functional row heights       |
+| `rowStyle`             | `CSSProperties \| ({ data, props, style }) => …` | -                 | Static or data-dependent style merged onto each row               |
+| `showZebraRows`        | `boolean`                                        | `true`            | Show visible alternating row backgrounds                          |
+| `headerHeight`         | `number`                                         | `40`              | Header height in pixels                                           |
+| `filterRowHeight`      | `number`                                         | `40`              | Filter row height in pixels                                       |
+| `virtualized`          | `boolean`                                        | `true`            | Enable virtual scrolling, including measured natural rows         |
+| `allowMobileTransform` | `boolean`                                        | `false`           | Use searchable, sortable virtual cards at widths up to 1024px     |
+| `columnUserSelect`     | `boolean \| "text" \| "none"`                    | `false`           | Column text selection behavior                                    |
+| `showCellBorders`      | `boolean \| "vertical" \| "horizontal"`          | `true`            | Cell separator mode; use `"horizontal"` to disable vertical lines |
 
 A `rowStyle` callback receives the live Inovua-shaped base style, including
 `height`, `width`, `minWidth`, and LTR `direction`. It may mutate that object
@@ -715,19 +767,32 @@ sentinels (`-1`, `false`, and `0`).
 | `onColumnResize`       | `(info, context) => void`   | -       | Reports proposed width/flex and reserved viewport width                       |
 | `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied   |
 | `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                           |
-| `showColumnMenuTool`   | `boolean`                   | `false` | Show the header menu tool                                                     |
+| `showColumnMenuTool`   | `boolean`                   | `true`  | Show the header menu tool                                                     |
 
 ### Filtering
 
-| Prop                            | Type                               | Default           | Description                                   |
-| ------------------------------- | ---------------------------------- | ----------------- | --------------------------------------------- |
-| `enableFiltering`               | `boolean`                          | `true`            | Enable filter row                             |
-| `filterValue`                   | `TypeFilterValue`                  | -                 | Controlled filter value                       |
-| `defaultFilterValue`            | `TypeFilterValue`                  | -                 | Uncontrolled initial filter value             |
-| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -                 | Fired on filter change                        |
-| `filterTypes`                   | `TypeFilterTypes`                  | built-in registry | Extend or override filter types and operators |
-| `enableColumnFilterContextMenu` | `boolean`                          | `false`           | Context menu for filter operators             |
-| `filteredRowsCount`             | `(count: number) => void`          | -                 | Reports filtered row count                    |
+| Prop                            | Type                               | Default           | Description                                               |
+| ------------------------------- | ---------------------------------- | ----------------- | --------------------------------------------------------- |
+| `enableFiltering`               | `boolean`                          | inferred          | Explicitly show or hide the filter row                    |
+| `filterValue`                   | `TypeFilterValue`                  | -                 | Controlled display state; data ownership remains external |
+| `defaultFilterValue`            | `TypeFilterValue`                  | -                 | Uncontrolled initial state and local filtering input      |
+| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -                 | Fired on filter change                                    |
+| `filterTypes`                   | `TypeFilterTypes`                  | built-in registry | Extend or override filter types and operators             |
+| `enableColumnFilterContextMenu` | `boolean`                          | `true`            | Operator, activation, Clear, and Clear All menu           |
+| `filteredRowsCount`             | `(count: number) => void`          | -                 | Reports filtered row count                                |
+
+For Inovua 5.10.2 compatibility, filter-row visibility and local array
+transformation are separate decisions. With no explicit `enableFiltering`, a
+non-empty `defaultFilterValue` or `filterValue` shows the row; an empty or
+missing descriptor array hides it. `enableFiltering` explicitly overrides only
+that row's visibility. A descriptor is still required for a column to render a
+filter editor; `enableFiltering={true}` by itself renders the structural row
+without inventing filter state. Active uncontrolled `defaultFilterValue`
+entries filter a local array even when the row is hidden, while controlled
+`filterValue` is treated as externally owned display state and is not reapplied
+locally. An entry with `active: false` still makes its editor visible but does
+not filter data. Clear resets values without changing activation; Enable and
+Disable are explicit menu actions, and Clear All emits one aggregate update.
 
 ### Sorting
 
@@ -824,8 +889,11 @@ source-compatible.
 | `onDidMount` | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Passive mount callback after API hydration, before handle/onReady |
 | `handle`     | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after onDidMount                     |
 | `onReady`    | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after handle                         |
-| `className`  | `string`                                             | -       | Extra CSS classes                                                 |
-| `style`      | `CSSProperties`                                      | -       | Inline styles                                                     |
+| `className`  | `string`                                             | -       | Extra CSS classes on the outer grid root                          |
+| `style`      | `CSSProperties`                                      | -       | Inline styles on the outer grid root                              |
+| `onFocus`    | `FocusEventHandler<HTMLDivElement>`                  | -       | Bubbling root focus lifecycle handler                             |
+| `onBlur`     | `FocusEventHandler<HTMLDivElement>`                  | -       | Bubbling root blur lifecycle handler                              |
+| `onKeyDown`  | `KeyboardEventHandler<HTMLDivElement>`               | -       | Bubbling root keyboard handler                                    |
 
 Issue 48 certifies the `onDidMount` mount contract. The existing `handle` and
 `onReady` adapters are usable, but Inovua's callback-identity cleanup and

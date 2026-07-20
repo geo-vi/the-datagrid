@@ -16,7 +16,12 @@ function toNumber(value: unknown): number | null {
 }
 
 export type NumberFilterProps = {
-  filterValue?: { value?: any; operator?: string; type?: string; name?: string };
+  filterValue?: {
+    value?: any;
+    operator?: string;
+    type?: string;
+    name?: string;
+  };
   value?: any;
   onChange?: (value: any) => void;
 
@@ -36,7 +41,9 @@ export type NumberFilterProps = {
   [key: string]: any;
 };
 
-export default function NumberFilter(props: NumberFilterProps) {
+export default function NumberFilter(
+  props: NumberFilterProps
+): React.ReactElement {
   const {
     filterValue,
     value: valueProp,
@@ -72,8 +79,12 @@ export default function NumberFilter(props: NumberFilterProps) {
           min={min}
           max={max}
           onChange={(e) => {
-            const nextStart = e.target.value === "" ? null : Number(e.target.value);
-            const next: [number | null, number | null] = [Number.isFinite(nextStart) ? nextStart : null, end];
+            const nextStart =
+              e.target.value === "" ? null : Number(e.target.value);
+            const next: [number | null, number | null] = [
+              Number.isFinite(nextStart) ? nextStart : null,
+              end,
+            ];
             onChange?.(next[0] != null || next[1] != null ? next : null);
           }}
         />
@@ -87,8 +98,12 @@ export default function NumberFilter(props: NumberFilterProps) {
           min={min}
           max={max}
           onChange={(e) => {
-            const nextEnd = e.target.value === "" ? null : Number(e.target.value);
-            const next: [number | null, number | null] = [start, Number.isFinite(nextEnd) ? nextEnd : null];
+            const nextEnd =
+              e.target.value === "" ? null : Number(e.target.value);
+            const next: [number | null, number | null] = [
+              start,
+              Number.isFinite(nextEnd) ? nextEnd : null,
+            ];
             onChange?.(next[0] != null || next[1] != null ? next : null);
           }}
         />

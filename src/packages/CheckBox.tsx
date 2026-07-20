@@ -18,7 +18,7 @@ export type CheckBoxProps = {
   [key: string]: any;
 };
 
-export default function CheckBox(props: CheckBoxProps) {
+export default function CheckBox(props: CheckBoxProps): React.ReactElement {
   const {
     checked = false,
     indeterminate = false,

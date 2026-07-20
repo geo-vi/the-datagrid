@@ -429,12 +429,17 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
 
   expect(headerBorderOff.borderRightWidth).toBe("0px");
 
-  await page.getByRole("button", { name: "Filter" }).first().click();
+  await grid
+    .locator('.tdg-filter-cell[data-column-id="name"]')
+    .getByRole("button", { name: "Filter" })
+    .click();
 
   const menu = page.getByRole("menu").last();
   await expect(menu.getByText("Filter", { exact: true })).toBeVisible();
   await expect(menu.getByText("Operator", { exact: true })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: "Clear" })).toBeVisible();
+  await expect(
+    menu.getByRole("menuitem", { name: "Clear", exact: true })
+  ).toBeVisible();
   await expect(
     menu.getByRole("menuitemradio", { name: /^Contains$/ })
   ).toHaveAttribute("aria-checked", "true");
@@ -1318,14 +1323,17 @@ test("keeps custom theme dropdown structure aligned with the default shell", asy
     await page.getByRole("button", { name: "Filter" }).first().click();
 
     const menu = page
-      .locator(".tdg-dropdown-content.inovua-react-toolkit-menu")
+      .locator(".tdg-dropdown-content.inovua-react-toolkit-menu:visible")
       .last();
-    const clearItem = page.getByRole("menuitem", { name: "Clear" }).last();
+    const clearItem = menu.getByRole("menuitem", {
+      name: "Clear",
+      exact: true,
+    });
     const radioItem = menu
       .locator('[data-slot="dropdown-menu-radio-item"]')
       .first();
     const clearCell = clearItem.locator(".tdg-dropdown-cell").first();
-    const separator = page.locator(".tdg-dropdown-separator").last();
+    const separator = menu.locator(".tdg-dropdown-separator").last();
 
     await expect(menu).toBeVisible();
 
@@ -1387,6 +1395,7 @@ test("keeps custom theme dropdown structure aligned with the default shell", asy
     ]);
 
     await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
 
     return {
       content: chrome[0],
@@ -1431,7 +1440,7 @@ test("keeps custom theme dropdown structure aligned with the default shell", asy
     expect(menuChrome.radioItem.minHeight).toBe(
       defaultMenu.radioItem.minHeight
     );
-    expect(menuChrome.radioItem.top).toBeGreaterThan(menuChrome.item.top);
+    expect(menuChrome.radioItem.top).toBeLessThan(menuChrome.item.top);
     expect(
       Math.abs(menuChrome.radioItem.left - menuChrome.item.left)
     ).toBeLessThanOrEqual(2);
@@ -1448,9 +1457,11 @@ test("keeps filter radio controls on the default shadcn shape across custom them
   async function getRadioShellStyles() {
     await page.getByRole("button", { name: "Filter" }).first().click();
 
-    const menu = page.getByRole("menu").last();
+    const menu = page
+      .locator(".tdg-dropdown-content.inovua-react-toolkit-menu:visible")
+      .last();
     const radioItem = menu
-      .locator('[data-slot="dropdown-menu-radio-item"]')
+      .locator('[data-slot="dropdown-menu-radio-item"][data-state="checked"]')
       .first();
     const shell = radioItem
       .locator('[data-slot="dropdown-menu-radio-indicator-shell"]')
@@ -1515,6 +1526,7 @@ test("keeps filter radio controls on the default shadcn shape across custom them
     ]);
 
     await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
 
     return {
       row: styles[0],

@@ -164,6 +164,35 @@ function Issue31Probe() {
       </div>
 
       <section
+        className="dark grid gap-4 rounded-lg p-4 lg:grid-cols-2"
+        data-testid="issue-31-dark-theme-host"
+        style={
+          {
+            "--background": "rgb(12 18 24)",
+            "--foreground": "rgb(238 242 246)",
+            "--popover": "rgb(17 24 39)",
+            "--popover-foreground": "rgb(238 242 246)",
+            "--muted": "rgb(31 41 55)",
+            "--muted-foreground": "rgb(203 213 225)",
+            "--border": "rgb(71 85 105)",
+            "--input": "rgb(71 85 105)",
+            "--ring": "rgb(148 163 184)",
+          } as React.CSSProperties
+        }
+      >
+        <Issue31FilterGrid
+          testId="issue-31-default-light-in-dark-host"
+          theme="default-light"
+          defaultFilterValue={activeNameFilter}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-adaptive-default-in-dark-host"
+          theme="default"
+          defaultFilterValue={activeNameFilter}
+        />
+      </section>
+
+      <section
         className="grid gap-4 lg:grid-cols-2"
         data-testid="issue-31-filter-precedence"
       >

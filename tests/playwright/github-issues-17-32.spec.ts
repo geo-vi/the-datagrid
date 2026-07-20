@@ -473,10 +473,12 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
           (element.parentElement?.clientWidth ?? rootRect.width) -
             rootRect.width
         ),
-        surfaceMatchesRoot:
+        surfaceFillsBorderedFrame:
           surfaceRect != null &&
-          Math.abs(surfaceRect.width - rootRect.width) <= 0.5 &&
-          Math.abs(surfaceRect.height - rootRect.height) <= 0.5,
+          Math.abs(surfaceRect.left - rootRect.left - 1) <= 0.5 &&
+          Math.abs(surfaceRect.top - rootRect.top - 1) <= 0.5 &&
+          Math.abs(rootRect.right - surfaceRect.right - 1) <= 0.5 &&
+          Math.abs(rootRect.bottom - surfaceRect.bottom - 1) <= 0.5,
         rootScrollMarginTop: element.style.scrollMarginTop || null,
         surfaceScrollMarginTop: surface?.style.scrollMarginTop || null,
       };
@@ -527,7 +529,7 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         hasInternalClass: true,
         rootHeight: 211,
         rootWidthInset: 17,
-        surfaceMatchesRoot: true,
+        surfaceFillsBorderedFrame: true,
         rootScrollMarginTop: "13px",
         surfaceScrollMarginTop: null,
         rootLifecycle: {
@@ -553,35 +555,83 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     const cases = [
       {
         testId: "issue-31-filter-omitted",
-        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+        expected: {
+          filterRows: 0,
+          filterCells: 0,
+          filterEditors: 0,
+          disabledEditors: 0,
+          dataRows: 2,
+        },
       },
       {
         testId: "issue-31-filter-default-active",
-        expected: { filterRows: 1, filterEditors: 1, dataRows: 1 },
+        expected: {
+          filterRows: 1,
+          filterCells: 2,
+          filterEditors: 1,
+          disabledEditors: 0,
+          dataRows: 1,
+        },
       },
       {
         testId: "issue-31-filter-controlled",
-        expected: { filterRows: 1, filterEditors: 1, dataRows: 2 },
+        expected: {
+          filterRows: 1,
+          filterCells: 2,
+          filterEditors: 1,
+          disabledEditors: 0,
+          dataRows: 2,
+        },
       },
       {
         testId: "issue-31-filter-explicit-true",
-        expected: { filterRows: 1, filterEditors: 0, dataRows: 2 },
+        expected: {
+          filterRows: 1,
+          filterCells: 2,
+          filterEditors: 0,
+          disabledEditors: 0,
+          dataRows: 2,
+        },
       },
       {
         testId: "issue-31-filter-explicit-false-default",
-        expected: { filterRows: 0, filterEditors: 0, dataRows: 1 },
+        expected: {
+          filterRows: 0,
+          filterCells: 0,
+          filterEditors: 0,
+          disabledEditors: 0,
+          dataRows: 1,
+        },
       },
       {
         testId: "issue-31-filter-explicit-false-controlled",
-        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+        expected: {
+          filterRows: 0,
+          filterCells: 0,
+          filterEditors: 0,
+          disabledEditors: 0,
+          dataRows: 2,
+        },
       },
       {
         testId: "issue-31-filter-empty-default",
-        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+        expected: {
+          filterRows: 0,
+          filterCells: 0,
+          filterEditors: 0,
+          disabledEditors: 0,
+          dataRows: 2,
+        },
       },
       {
         testId: "issue-31-filter-inactive-default",
-        expected: { filterRows: 1, filterEditors: 1, dataRows: 2 },
+        expected: {
+          filterRows: 1,
+          filterCells: 2,
+          filterEditors: 1,
+          disabledEditors: 1,
+          dataRows: 2,
+        },
       },
     ] as const;
 
@@ -594,12 +644,145 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
       await expect(grid, filterCase.testId).toBeVisible();
       const state = await grid.evaluate((element) => ({
         filterRows: element.querySelectorAll(".tdg-filter-row").length,
+        filterCells: element.querySelectorAll(
+          ".tdg-filter-row .tdg-filter-cell"
+        ).length,
         filterEditors: element.querySelectorAll(".tdg-filter-row input").length,
+        disabledEditors: element.querySelectorAll(
+          ".tdg-filter-row input:disabled"
+        ).length,
         dataRows: element.querySelectorAll('[data-slot="grid-row"]').length,
       }));
 
       expect.soft(state, filterCase.testId).toEqual(filterCase.expected);
     }
+  });
+
+  test("issue #31: default-light stays light inside a dark host while default remains adaptive", async ({
+    page,
+  }) => {
+    await page.goto("/compat/github-issues-31-32");
+    const host = page.getByTestId("issue-31-dark-theme-host");
+    const lightGrid = host
+      .getByTestId("issue-31-default-light-in-dark-host")
+      .locator(".tdg-root");
+    const adaptiveGrid = host
+      .getByTestId("issue-31-adaptive-default-in-dark-host")
+      .locator(".tdg-root");
+    await expect(lightGrid).toBeVisible();
+    await expect(adaptiveGrid).toBeVisible();
+
+    await lightGrid.getByRole("button", { name: "Filter" }).click();
+    const lightMenu = lightGrid.locator('[data-slot="dropdown-menu-content"]');
+    await expect(lightMenu).toBeVisible();
+
+    const lightColors = await lightGrid.evaluate((element) => {
+      const surface = element.querySelector<HTMLElement>(
+        '[data-slot="grid-surface"]'
+      );
+      const header = element.querySelector<HTMLElement>(".tdg-header-cell");
+      const firstCell = element.querySelector<HTMLElement>(
+        '[data-slot="grid-row"] td'
+      );
+      const menu = element.querySelector<HTMLElement>(
+        '[data-slot="dropdown-menu-content"]'
+      );
+      if (!surface || !header || !firstCell || !menu) {
+        throw new Error("Missing default-light theme measurement target");
+      }
+
+      const resolveColor = (value: string) => {
+        const swatch = document.createElement("span");
+        swatch.style.backgroundColor = value;
+        element.append(swatch);
+        const resolved = getComputedStyle(swatch).backgroundColor;
+        swatch.remove();
+        return resolved;
+      };
+
+      return {
+        theme: element.getAttribute("data-theme"),
+        themeBase: element.getAttribute("data-theme-base"),
+        colorScheme: getComputedStyle(element).colorScheme,
+        rootColor: getComputedStyle(element).color,
+        surfaceBackground: getComputedStyle(surface).backgroundColor,
+        surfaceColor: getComputedStyle(surface).color,
+        headerBackground: getComputedStyle(header).backgroundColor,
+        firstCellColor: getComputedStyle(firstCell).color,
+        menuBackground: getComputedStyle(menu).backgroundColor,
+        menuColor: getComputedStyle(menu).color,
+        menuPortaledWithinThemeRoot: element.contains(menu),
+        lightBackground: resolveColor("oklch(1 0 0)"),
+        lightForeground: resolveColor("oklch(0.145 0 0)"),
+        lightMuted: resolveColor("oklch(0.97 0 0)"),
+      };
+    });
+
+    expect(lightColors).toEqual({
+      theme: "default-light",
+      themeBase: "light",
+      colorScheme: "light",
+      rootColor: lightColors.lightForeground,
+      surfaceBackground: lightColors.lightBackground,
+      surfaceColor: lightColors.lightForeground,
+      headerBackground: lightColors.lightMuted,
+      firstCellColor: lightColors.lightForeground,
+      menuBackground: lightColors.lightBackground,
+      menuColor: lightColors.lightForeground,
+      menuPortaledWithinThemeRoot: true,
+      lightBackground: lightColors.lightBackground,
+      lightForeground: lightColors.lightForeground,
+      lightMuted: lightColors.lightMuted,
+    });
+
+    const adaptiveColors = await adaptiveGrid.evaluate((element) => {
+      const surface = element.querySelector<HTMLElement>(
+        '[data-slot="grid-surface"]'
+      );
+      const header = element.querySelector<HTMLElement>(".tdg-header-cell");
+      if (!surface || !header) {
+        throw new Error("Missing adaptive theme measurement target");
+      }
+
+      return {
+        theme: element.getAttribute("data-theme"),
+        themeBase: element.getAttribute("data-theme-base"),
+        colorScheme: getComputedStyle(element).colorScheme,
+        rootColor: getComputedStyle(element).color,
+        surfaceBackground: getComputedStyle(surface).backgroundColor,
+        headerBackground: getComputedStyle(header).backgroundColor,
+      };
+    });
+
+    expect(adaptiveColors).toEqual({
+      theme: "default",
+      themeBase: "default",
+      colorScheme: "dark",
+      rootColor: "rgb(238, 242, 246)",
+      surfaceBackground: "rgb(12, 18, 24)",
+      headerBackground: "rgb(31, 41, 55)",
+    });
+
+    const overriddenColors = await lightGrid.evaluate((element) => {
+      element.style.setProperty("--tdg-color-background", "rgb(250 240 230)");
+      element.style.setProperty("--tdg-color-popover", "rgb(249 230 210)");
+      const surface = element.querySelector<HTMLElement>(
+        '[data-slot="grid-surface"]'
+      );
+      const menu = element.querySelector<HTMLElement>(
+        '[data-slot="dropdown-menu-content"]'
+      );
+      return {
+        surfaceBackground: surface
+          ? getComputedStyle(surface).backgroundColor
+          : null,
+        menuBackground: menu ? getComputedStyle(menu).backgroundColor : null,
+      };
+    });
+    expect(overriddenColors).toEqual({
+      surfaceBackground: "rgb(250, 240, 230)",
+      menuBackground: "rgb(249, 230, 210)",
+    });
   });
 
   test("issue #31: 40px rows retain complete Latin and Cyrillic glyphs", async ({

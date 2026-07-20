@@ -36,8 +36,10 @@ import {
 import { TableHead } from "../../components/ui/table";
 
 import {
+  clearAllFilters,
   clearFilter,
   getFilterEntry,
+  isFilterEntryEmptyValue,
   setFilterOperator,
   upsertFilterEntry,
 } from "../../filters/utils";
@@ -117,12 +119,7 @@ function resolveOperator(
 function isColumnFilterable(
   args: Pick<
     FilterCellProps,
-    | "enableFiltering"
-    | "checkboxEnabled"
-    | "checkboxColId"
-    | "filterControlled"
-    | "filterValue"
-    | "draftFilterValue"
+    "enableFiltering" | "checkboxEnabled" | "checkboxColId"
   >,
   col: TypeColumn | undefined,
   colId: string
@@ -131,17 +128,7 @@ function isColumnFilterable(
   if (args.checkboxEnabled && colId === args.checkboxColId) return false;
 
   if (col?.filterable === false) return false;
-  if (col?.filterable === true) return true;
-
-  const current = args.filterControlled
-    ? args.filterValue
-    : args.draftFilterValue;
-  const hasEntry = Boolean(getFilterEntry(current, colId));
-  if (hasEntry) return true;
-
-  if (col?.filterEditor) return true;
-
-  return false;
+  return true;
 }
 
 function normalizeFilterCellPadding(
@@ -185,9 +172,6 @@ export function FilterCell(props: FilterCellProps) {
       enableFiltering,
       checkboxEnabled,
       checkboxColId,
-      filterControlled,
-      filterValue,
-      draftFilterValue,
     },
     col,
     colId
@@ -204,7 +188,8 @@ export function FilterCell(props: FilterCellProps) {
   const operators = Array.isArray(typeDef?.operators) ? typeDef.operators : [];
   const opDef = operators.find((o: any) => o?.name === operator);
 
-  const editorDisabled = Boolean(opDef?.disableFilterEditor);
+  const entryEnabled = Boolean(entry) && entry?.active !== false;
+  const editorDisabled = !entryEnabled || Boolean(opDef?.disableFilterEditor);
   const clearLabel = String(t(i18n, "clear", "Clear"));
 
   const active =
@@ -214,7 +199,8 @@ export function FilterCell(props: FilterCellProps) {
       Boolean(opDef?.disableFilterEditor) ||
       !isEmptyLikeUI(entry?.value));
 
-  const operatorMenuEnabled = enableColumnFilterContextMenu && filterable;
+  const operatorMenuEnabled =
+    enableColumnFilterContextMenu && filterable && Boolean(entry);
   const filterCellPadding = normalizeFilterCellPadding(col?.filterCellPadding);
   const filterCellContext = React.useMemo<TypeCellProps>(
     () => ({
@@ -259,14 +245,27 @@ export function FilterCell(props: FilterCellProps) {
     const next = clearFilter(currentFilter, colId, { filterTypes });
     const clearedEntry = getFilterEntry(next, colId);
 
-    if (entry && clearedEntry) {
-      emitColumnFilterValueChange({
-        ...entry,
-        value: clearedEntry.value,
-        active: entry.active,
-      });
+    if (clearedEntry) {
+      emitColumnFilterValueChange(clearedEntry);
     }
 
+    applyFilterNow(next);
+  };
+
+  const onClearAll = () => {
+    applyFilterNow(clearAllFilters(currentFilter, { filterTypes }));
+  };
+
+  const onSetEnabled = (enabled: boolean) => {
+    if (!entry) return;
+
+    const nextEntry: TypeSingleFilterValue = {
+      ...entry,
+      active: enabled,
+    };
+    const next = upsertFilterEntry(currentFilter, nextEntry, { filterTypes });
+
+    emitColumnFilterValueChange(nextEntry);
     applyFilterNow(next);
   };
 
@@ -295,7 +294,7 @@ export function FilterCell(props: FilterCellProps) {
       operator,
       type: filterTypeName,
       value: nextValue,
-      active: undefined,
+      active: entry?.active,
     };
 
     emitColumnFilterValueChange(nextEntry);
@@ -326,6 +325,7 @@ export function FilterCell(props: FilterCellProps) {
   return (
     <TableHead
       key={`${header.id}-filter`}
+      data-column-id={colId}
       className={cn(
         "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] [color:var(--tdg-filter-color)]",
         showVerticalCellBorders
@@ -353,7 +353,7 @@ export function FilterCell(props: FilterCellProps) {
         setOpenFilterMenuColId(colId);
       }}
     >
-      {header.isPlaceholder || !filterable ? null : (
+      {header.isPlaceholder || !filterable || !entry ? null : (
         <div
           className="tdg-filter-cell__inner flex h-full items-center gap-0"
           style={{ zIndex: columnIndex + 1 }}
@@ -361,6 +361,9 @@ export function FilterCell(props: FilterCellProps) {
           <div className="InovuaReactDataGrid__column-header__filter min-w-0 flex-1">
             {col?.filterEditor ? (
               React.createElement(col.filterEditor as any, {
+                ...(isPlainObject(resolvedEditorProps)
+                  ? resolvedEditorProps
+                  : {}),
                 filterValue: {
                   name: colId,
                   operator,
@@ -374,9 +377,6 @@ export function FilterCell(props: FilterCellProps) {
                 column: col,
                 columnId: colId,
                 disabled: editorDisabled,
-                ...(isPlainObject(resolvedEditorProps)
-                  ? resolvedEditorProps
-                  : {}),
               })
             ) : filterTypeName === "select" && options.length > 0 ? (
               multiple ? (
@@ -515,10 +515,21 @@ export function FilterCell(props: FilterCellProps) {
                 setOpenFilterMenuColId(open ? colId : null)
               }
               active={active}
+              enabled={entryEnabled}
+              clearDisabled={isFilterEntryEmptyValue(entry, filterTypes)}
+              clearAllDisabled={
+                !currentFilter?.some(
+                  (filterEntry) =>
+                    !isFilterEntryEmptyValue(filterEntry, filterTypes)
+                )
+              }
               operator={operator}
               operators={operators}
               i18n={i18n}
               onClear={onClear}
+              onClearAll={onClearAll}
+              onEnable={() => onSetEnabled(true)}
+              onDisable={() => onSetEnabled(false)}
               onSelectOperator={onSelectOperator}
               title={String(t(i18n, operator, humanizeOperatorName(operator)))}
             />

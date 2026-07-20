@@ -533,6 +533,16 @@ export function getFilterEntry(
   return filterValue.find((f) => f.name === name);
 }
 
+export function isFilterEntryEmptyValue(
+  entry: TypeSingleFilterValue,
+  customFilterTypes?: TypeFilterTypes
+): boolean {
+  const typeDef = getTypeDef(customFilterTypes, entry.type);
+  const emptyValue =
+    entry.emptyValue !== undefined ? entry.emptyValue : typeDef.emptyValue;
+  return entry.value === emptyValue;
+}
+
 function getTypeDef(
   filterTypes: TypeFilterTypes | undefined,
   typeName: string | undefined
@@ -578,8 +588,10 @@ export function hasActiveLocalFilter(
 }
 
 /**
- * Upsert WITHOUT removing entry on empty.
- * We keep the entry but mark it inactive when it’s empty (Inovua-like behavior).
+ * Upsert without removing a descriptor on empty.
+ *
+ * Empty values make ordinary predicates no-ops; only an explicit `active`
+ * boolean changes whether the descriptor itself is enabled.
  */
 export function upsertFilterEntry(
   filterValue: TypeFilterValue,
@@ -597,18 +609,17 @@ export function upsertFilterEntry(
     ...entry,
   };
 
+  // `active` is an explicit enable/disable switch in Inovua. A value update
+  // with an omitted/undefined flag must not accidentally re-enable or disable
+  // an existing descriptor.
+  if (entry.active === undefined) {
+    merged.active = existing?.active;
+  }
+
   const typeDef = getTypeDef(opts?.filterTypes, merged.type);
   const emptyValue =
     merged.emptyValue !== undefined ? merged.emptyValue : typeDef.emptyValue;
   merged.emptyValue = emptyValue;
-
-  const opDef = getOperatorDef(typeDef, merged.operator);
-
-  if (merged.active === undefined) {
-    const canRunWithoutValue =
-      Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
-    merged.active = canRunWithoutValue ? true : !isEmptyLike(merged.value);
-  }
 
   const next = [...current];
   if (idx >= 0) next[idx] = merged;
@@ -644,7 +655,6 @@ export function setFilterOperator(
   }
 
   if (opDef?.filterOnEmptyValue || opDef?.disableFilterEditor) {
-    nextEntry.active = true;
     nextEntry.value = nextEntry.value ?? typeDef.emptyValue;
   }
 
@@ -668,9 +678,23 @@ export function clearFilter(
         existing.emptyValue !== undefined
           ? existing.emptyValue
           : typeDef.emptyValue,
-      active: false,
+      // Inovua's clearColumnFilter changes only the value. Empty values make
+      // the predicate a no-op, but they do not change filter activation.
+      active: existing.active,
     },
     opts
+  );
+}
+
+export function clearAllFilters(
+  filterValue: TypeFilterValue,
+  opts?: { filterTypes?: TypeFilterTypes }
+): TypeFilterValue {
+  if (!filterValue?.length) return null;
+
+  return filterValue.reduce<TypeFilterValue>(
+    (next, entry) => clearFilter(next, entry.name, opts),
+    filterValue
   );
 }
 

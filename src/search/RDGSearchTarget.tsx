@@ -20,7 +20,9 @@ export type RDGSearchTargetProps = {
   children: React.ReactElement<TypeDataGridProps>;
 };
 
-export function RDGSearchTarget(props: RDGSearchTargetProps) {
+export function RDGSearchTarget(
+  props: RDGSearchTargetProps
+): React.ReactElement {
   const { children } = props;
   const forwardedColumnVisibilityController = (
     props as RDGSearchTargetProps & {

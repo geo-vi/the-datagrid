@@ -83,7 +83,7 @@ export type TextInputProps = Omit<
   size?: number;
   stopChangePropagation?: boolean | null;
   theme?: string;
-  type?: React.HTMLInputTypeAttribute;
+  type?: React.InputHTMLAttributes<HTMLInputElement>["type"];
   value?: TextInputValue;
   wrapperProps?: TextInputWrapperProps;
 
