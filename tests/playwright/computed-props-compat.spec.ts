@@ -32,7 +32,7 @@ test("computed props expose the broader Inovua-compatible runtime surface", asyn
   await expect(page.getByTestId("compat-size")).not.toContainText("0x0");
   await expect(page.getByTestId("compat-scrollWorked")).toContainText("true");
   await expect(page.getByTestId("compat-virtualListKeys")).toContainText(
-    "getVisibleRange,getVisibleCount,getScrollSize,getClientSize,getScrollHeight,getTotalRowHeight,getRows,scrollToIndex,smoothScrollTo"
+    "getVisibleRange,getVisibleCount,getScrollSize,getClientSize,getScrollHeight,getTotalRowHeight,getRows,scrollToIndex,smoothScrollTo,adjustHeights"
   );
   await expect(page.getByTestId("compat-virtualListRange")).not.toContainText(
     "missing"

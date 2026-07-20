@@ -4,6 +4,18 @@ export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
 export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
 export { default as CheckBox } from "./packages/CheckBox";
+export { default as TextInput } from "./packages/TextInput";
+export type {
+  TextInputChangeEvent,
+  TextInputChangeHandler,
+  TextInputClearButtonConfig,
+  TextInputClearIconProps,
+  TextInputInputProps,
+  TextInputProps,
+  TextInputValue,
+  TextInputWrapperProps,
+  TypeTextInputProps,
+} from "./packages/TextInput";
 
 // optionally useful for consumers
 export { DEFAULT_FILTER_TYPES, filterTypes } from "./filters/utils";

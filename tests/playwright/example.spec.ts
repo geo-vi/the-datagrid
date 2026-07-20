@@ -774,34 +774,6 @@ test("clips long cell content inside a resized column", async ({ page }) => {
   );
 });
 
-test("shows and hides columns when the grid receives a filtered columns array", async ({
-  page,
-}) => {
-  await page.goto("/users");
-
-  const usersExample = page.getByTestId("example-preview-panel");
-  await expect(usersExample).toBeVisible();
-
-  const usersGrid = usersExample
-    .locator(".InovuaReactDataGrid.tdg-root")
-    .first();
-  const failedLoginsHeader = usersGrid.locator(".tdg-header-cell", {
-    hasText: "Failed logins",
-  });
-
-  await expect(failedLoginsHeader).toHaveCount(0);
-
-  await usersExample
-    .getByRole("button", { name: "Failed logins", exact: true })
-    .click();
-  await expect(failedLoginsHeader).toHaveCount(1);
-
-  await usersExample
-    .getByRole("button", { name: "Failed logins", exact: true })
-    .click();
-  await expect(failedLoginsHeader).toHaveCount(0);
-});
-
 test("keeps the actions header vertically centered", async ({ page }) => {
   await page.goto("/users");
 
@@ -834,7 +806,10 @@ test("keeps body columns aligned after vertical scrolling in a wide virtualized 
     "Password changed",
     "Language",
   ]) {
-    await usersExample.getByRole("button", { name: columnName }).click();
+    await usersExample
+      .locator('[data-slot="rdg-column-toggle-list"]')
+      .getByRole("button", { name: columnName, exact: true })
+      .click();
   }
 
   const usersGrid = usersExample
@@ -903,7 +878,10 @@ test("keeps header and body cells horizontally aligned while scrolling", async (
     "Password changed",
     "Language",
   ]) {
-    await usersExample.getByRole("button", { name: columnName }).click();
+    await usersExample
+      .locator('[data-slot="rdg-column-toggle-list"]')
+      .getByRole("button", { name: columnName, exact: true })
+      .click();
   }
 
   const usersGrid = usersExample

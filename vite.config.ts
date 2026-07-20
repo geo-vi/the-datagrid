@@ -138,6 +138,8 @@ function injectLibraryCssEntry() {
   const cssEntryByJsEntry: Record<string, string> = {
     "index.js": "index.css",
     "search.js": "search.css",
+    "column-visibility.js": "column-visibility.css",
+    "packages/TextInput/index.js": "packages/TextInput/style.css",
   };
 
   return {
@@ -151,7 +153,15 @@ function injectLibraryCssEntry() {
         const cssFileName = cssEntryByJsEntry[item.fileName];
         if (!cssFileName || bundle[cssFileName]?.type !== "asset") continue;
 
-        const cssImport = `import "./${cssFileName}";`;
+        const relativeCssPath = path.posix.relative(
+          path.posix.dirname(item.fileName),
+          cssFileName
+        );
+        const cssImport = `import "${
+          relativeCssPath.startsWith(".")
+            ? relativeCssPath
+            : `./${relativeCssPath}`
+        }";`;
         if (typeof item.code !== "string") continue;
 
         const withoutClientDirective = item.code.replace(
@@ -189,27 +199,35 @@ function scopeLibraryCssBundle() {
         const scopeSelector =
           cssAsset.fileName === "search.css"
             ? ".tdg-search-root"
-            : DATAGRID_SCOPE_SELECTOR;
+            : cssAsset.fileName === "column-visibility.css"
+              ? ".tdg-column-visibility-root"
+              : DATAGRID_SCOPE_SELECTOR;
         cssAsset.source = scopeLibraryCss(source, scopeSelector);
       }
     },
   };
 }
 
-function scopeSearchCssForSite() {
-  const searchStyleSuffix = "/src/search/style.css";
+function scopeOptionalCssForSite() {
+  const optionalStyleScopes = new Map([
+    ["/src/search/style.css", ".tdg-search-root"],
+    ["/src/column-visibility/style.css", ".tdg-column-visibility-root"],
+  ]);
 
   return {
-    name: "scope-search-css-for-site",
+    name: "scope-optional-css-for-site",
     // Tailwind's generator is also `pre`; placing this plugin after it scopes
     // the generated CSS before Vite turns the stylesheet into a JS module.
     enforce: "pre" as const,
     transform(code: string, id: string) {
       const cleanId = id.split("?", 1)[0].replaceAll("\\", "/");
-      if (!cleanId.endsWith(searchStyleSuffix)) return null;
+      const scopeEntry = Array.from(optionalStyleScopes.entries()).find(
+        ([styleSuffix]) => cleanId.endsWith(styleSuffix)
+      );
+      if (!scopeEntry) return null;
 
       return {
-        code: scopeLibraryCss(code, ".tdg-search-root"),
+        code: scopeLibraryCss(code, scopeEntry[1]),
         map: null,
       };
     },
@@ -221,6 +239,16 @@ export default defineConfig(({ command, mode }) => {
   const isDev = command === "serve";
   const isSiteBuild = command === "build" && mode === "site";
   const isSearchLibraryBuild = command === "build" && mode === "library-search";
+  const isColumnVisibilityLibraryBuild =
+    command === "build" && mode === "library-column-visibility";
+  const isTextInputLibraryBuild =
+    command === "build" && mode === "library-text-input";
+  const isSupplementalLibraryBuild =
+    isSearchLibraryBuild ||
+    isColumnVisibilityLibraryBuild ||
+    isTextInputLibraryBuild;
+  const isCoreDependentSupplementalBuild =
+    isSearchLibraryBuild || isColumnVisibilityLibraryBuild;
   const resolveAlias = {
     "@": path.resolve(__dirname, "./src"),
   };
@@ -231,7 +259,7 @@ export default defineConfig(({ command, mode }) => {
   // In site mode, build the same app for GitHub Pages.
   if (isDev || isSiteBuild) {
     return {
-      plugins: [react(), tailwindcss(), scopeSearchCssForSite()],
+      plugins: [react(), tailwindcss(), scopeOptionalCssForSite()],
       resolve: {
         alias: resolveAlias,
       },
@@ -246,14 +274,28 @@ export default defineConfig(({ command, mode }) => {
     };
   }
 
-  const libraryEntryName = isSearchLibraryBuild ? "search" : "index";
+  const libraryEntryName = isSearchLibraryBuild
+    ? "search"
+    : isColumnVisibilityLibraryBuild
+      ? "column-visibility"
+      : isTextInputLibraryBuild
+        ? "packages/TextInput/index"
+        : "index";
   const coreLibraryEntry = fileURLToPath(
     new URL("./src/main.ts", import.meta.url)
   );
   const coreLibraryModuleId = coreLibraryEntry.replace(/\.ts$/, "");
   const libraryEntry = isSearchLibraryBuild
     ? fileURLToPath(new URL("./src/search/index.ts", import.meta.url))
-    : coreLibraryEntry;
+    : isColumnVisibilityLibraryBuild
+      ? fileURLToPath(
+          new URL("./src/column-visibility/index.ts", import.meta.url)
+        )
+      : isTextInputLibraryBuild
+        ? fileURLToPath(
+            new URL("./src/packages/TextInput/index.tsx", import.meta.url)
+          )
+        : coreLibraryEntry;
   const externalDependencies = new Set([
     "react",
     "react-dom",
@@ -266,14 +308,14 @@ export default defineConfig(({ command, mode }) => {
     "@radix-ui/react-label",
   ]);
 
-  // Build core and search independently. Search externalizes the already
-  // required core entry, giving it one shared component/engine at runtime
-  // without extracting a chunk that plain core consumers would need to fetch.
+  // Build core, optional UI entries, and the legacy TextInput path
+  // independently. Search and column visibility externalize the already
+  // required core runtime; TextInput stays standalone.
   return {
     plugins: [
       react(),
       tailwindcss(),
-      ...(isSearchLibraryBuild
+      ...(isSupplementalLibraryBuild
         ? []
         : [
             dts({
@@ -290,25 +332,27 @@ export default defineConfig(({ command, mode }) => {
     },
     build: {
       copyPublicDir: false,
-      cssCodeSplit: true,
-      emptyOutDir: !isSearchLibraryBuild,
+      cssCodeSplit: !isTextInputLibraryBuild,
+      emptyOutDir: !isSupplementalLibraryBuild,
       lib: {
         entry: {
           [libraryEntryName]: libraryEntry,
         },
         formats: ["es"],
         fileName: (_format, entryName) => `${entryName}.js`,
-        cssFileName: libraryEntryName,
+        cssFileName: isTextInputLibraryBuild
+          ? "packages/TextInput/style"
+          : libraryEntryName,
       },
       rollupOptions: {
         external: (id) =>
           externalDependencies.has(id) ||
-          (isSearchLibraryBuild &&
+          (isCoreDependentSupplementalBuild &&
             (id === "../main" || id === coreLibraryEntry)),
         output: {
           inlineDynamicImports: true,
           paths: (id) =>
-            isSearchLibraryBuild &&
+            isCoreDependentSupplementalBuild &&
             (id === "../main" ||
               id === coreLibraryEntry ||
               id === coreLibraryModuleId)

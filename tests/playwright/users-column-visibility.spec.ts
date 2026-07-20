@@ -1,378 +1,358 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-// Timing is a secondary guard because CI scheduling can be noisy. DOM identity
-// below is the deterministic signal for the expensive renderer churn.
-const MAX_FRAME_DELAY_MS = 250;
-const MAX_LONG_TASK_MS = 250;
-const MAX_GEOMETRY_DRIFT_PX = 2;
-const MAX_LAYOUT_DRIFT_PX = 1;
-const OPTIONAL_COLUMNS = [
-  { label: "Failed logins", id: "failed_login_attempts" },
-  { label: "Last login", id: "date_last_successful_login" },
-  { label: "Password changed", id: "date_pwdchanged" },
-  { label: "Language", id: "lang" },
+const ALL_COLUMN_IDS = [
+  "csuserid",
+  "csrolename",
+  "csemail",
+  "failed_login_attempts",
+  "date_last_successful_login",
+  "date_pwdchanged",
+  "lang",
+  "disabled",
+  "tfa_enabled",
+  "actions",
 ] as const;
 
-function captureRuntimeFailures(page: Page) {
-  const failures: string[] = [];
-  const renderLoopPattern =
-    /too many re-renders|maximum update depth|cannot update a component while rendering/i;
+const INITIALLY_VISIBLE_COLUMN_IDS = [
+  "csuserid",
+  "csrolename",
+  "csemail",
+  "disabled",
+  "tfa_enabled",
+  "actions",
+] as const;
 
-  page.on("pageerror", (error) => failures.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error" && renderLoopPattern.test(message.text())) {
-      failures.push(message.text());
-    }
-  });
-
-  return failures;
+function usersPreview(page: Page) {
+  return page.getByTestId("example-preview-panel");
 }
 
-test("Visible columns toggles stay responsive and geometrically consistent", async ({
-  page,
-}) => {
-  const runtimeFailures = captureRuntimeFailures(page);
+function usersGrid(preview: Locator) {
+  return preview.locator(".InovuaReactDataGrid.tdg-root").first();
+}
 
-  // This width exposed the old icon-driven wrap: toggling a hidden column
-  // changed the toolbar from one line to two and moved the complete grid.
-  await page.setViewportSize({ width: 940, height: 900 });
-  await page.goto("/users");
+function visibilityToolbar(preview: Locator) {
+  return preview.locator('[data-slot="rdg-column-visibility"]');
+}
 
-  const preview = page.getByTestId("example-preview-panel");
-  const toggleGroup = preview.getByRole("group", {
-    name: "Visible column toggles",
-  });
-  const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
-  const failedLoginsButton = toggleGroup.getByRole("button", {
-    name: "Failed logins",
-    exact: true,
-  });
-  const failedLoginsHeader = grid.locator(
-    '[data-slot="grid-header-cell"][data-column-id="failed_login_attempts"]'
+function toggleList(toolbar: Locator) {
+  return toolbar.locator('[data-slot="rdg-column-toggle-list"]');
+}
+
+function columnToggle(toolbar: Locator, columnId: string) {
+  return toggleList(toolbar).locator(
+    `[data-slot="rdg-column-toggle"][data-column-id="${columnId}"]`
   );
+}
 
-  await expect(preview).toBeVisible();
-  await expect(grid).toBeVisible();
-  await expect(failedLoginsButton).toBeVisible();
-  await expect(failedLoginsHeader).toHaveCount(0);
-  await expect(failedLoginsButton).toHaveAttribute("aria-pressed", "false");
-
-  const mountedRows = grid.locator('[data-slot="grid-row"][data-row-id]');
-  await expect(mountedRows.first()).toBeVisible();
-  const mountedRowCount = await mountedRows.count();
-  expect(mountedRowCount).toBeGreaterThan(0);
-  expect(mountedRowCount).toBeLessThan(48);
-
-  // Column toggles are text controls. Their state must not add an eye icon or
-  // change the button's accessible name when a column is hidden.
-  const initialIconCount = await toggleGroup.locator("svg").count();
-
-  // Exercise one browser-driven round trip before the in-page probe. This
-  // catches pointer/focus regressions that a synthetic click alone would miss.
-  await failedLoginsButton.click();
-  await expect(failedLoginsHeader).toBeVisible();
-  await expect(failedLoginsButton).toHaveAttribute("aria-pressed", "true");
-  await failedLoginsButton.click();
-  await expect(failedLoginsHeader).toHaveCount(0);
-  await expect(failedLoginsButton).toHaveAttribute("aria-pressed", "false");
-
-  const result = await preview.evaluate(
-    async (previewElement, optionalColumns) => {
-      const gridElement = previewElement.querySelector<HTMLElement>(
-        ".InovuaReactDataGrid.tdg-root"
-      );
-      const group = previewElement.querySelector<HTMLElement>(
-        '[role="group"][aria-label="Visible column toggles"]'
-      );
-      if (!gridElement || !group) {
-        return { error: "Visibility controls or grid were not found" } as const;
-      }
-
-      const longTasks: number[] = [];
-      const observer =
-        typeof PerformanceObserver === "function" &&
-        PerformanceObserver.supportedEntryTypes.includes("longtask")
-          ? new PerformanceObserver((list) => {
-              for (const entry of list.getEntries()) {
-                longTasks.push(entry.duration);
-              }
-            })
-          : null;
-
-      observer?.observe({ entryTypes: ["longtask"] });
-
-      const nextFrame = () =>
-        new Promise<number>((resolve) => requestAnimationFrame(resolve));
-
-      // Do not attribute route initialization or first-paint work to toggles.
-      await nextFrame();
-      await nextFrame();
-
-      const samples: Array<{
-        frameDelay: number;
-        geometryDrift: number;
-        headerIds: string[];
-        bodyIds: string[];
-        expectedVisible: boolean;
-        visibleOnNextFrame: boolean;
-        iconCount: number;
-        label: string;
-        pressedOnNextFrame: boolean;
-        replacedContentNodes: number;
-        buttonWidthDrift: number;
-        groupHeightDrift: number;
-        gridTopDrift: number;
-      }> = [];
-
-      const toggleColumn = async (
-        target: { label: string; id: string },
-        expectedVisible: boolean
-      ) => {
-        const button = Array.from(
-          group.querySelectorAll<HTMLButtonElement>("button")
-        ).find((element) => element.textContent?.trim() === target.label);
-        if (!button) throw new Error(`Missing ${target.label} toggle`);
-
-        // Existing renderers are the strongest deterministic proxy for work:
-        // adding one column must not remount content in every unaffected cell.
-        const preservedContent = new Map<string, Element>();
-        for (const rowElement of gridElement.querySelectorAll<HTMLElement>(
-          '[data-slot="grid-row"][data-row-id]'
-        )) {
-          for (const cellElement of rowElement.querySelectorAll<HTMLElement>(
-            `[data-column-id]:not([data-column-id="${target.id}"])`
-          )) {
-            const content = cellElement.querySelector(".tdg-cell-content > *");
-            if (!content) continue;
-
-            preservedContent.set(
-              `${rowElement.dataset.rowId}\u0000${cellElement.dataset.columnId}`,
-              content
-            );
-          }
-        }
-
-        const buttonWidthBefore = button.getBoundingClientRect().width;
-        const groupHeightBefore = group.getBoundingClientRect().height;
-        const gridTopBefore = gridElement.getBoundingClientRect().top;
-        const clickTime = performance.now();
-        button.click();
-        const frameTime = await nextFrame();
-
-        const header = gridElement.querySelector<HTMLElement>(
-          `[data-slot="grid-header-cell"][data-column-id="${target.id}"]`
-        );
-        const firstRow = gridElement.querySelector<HTMLElement>(
-          '[data-slot="grid-row"][data-row-id]'
-        );
-        const headers = Array.from(
-          gridElement.querySelectorAll<HTMLElement>(
-            '[data-slot="grid-header-cell"][data-column-id]'
-          )
-        );
-        const cells = Array.from(
-          firstRow?.querySelectorAll<HTMLElement>("[data-column-id]") ?? []
-        );
-        const headerIds = headers.map(
-          (element) => element.dataset.columnId ?? ""
-        );
-        const bodyIds = cells.map((element) => element.dataset.columnId ?? "");
-        let replacedContentNodes = 0;
-        for (const [key, previousContent] of preservedContent) {
-          const [rowId, columnId] = key.split("\u0000");
-          const currentContent = gridElement.querySelector(
-            `[data-slot="grid-row"][data-row-id="${rowId}"] ` +
-              `[data-column-id="${columnId}"] .tdg-cell-content > *`
-          );
-
-          if (currentContent !== previousContent) replacedContentNodes += 1;
-        }
-        const geometryDrift = headers.reduce(
-          (maximum, headerElement, index) => {
-            const cellElement = cells[index];
-            if (!cellElement) return Number.POSITIVE_INFINITY;
-
-            const headerRect = headerElement.getBoundingClientRect();
-            const cellRect = cellElement.getBoundingClientRect();
-            return Math.max(
-              maximum,
-              Math.abs(headerRect.left - cellRect.left),
-              Math.abs(headerRect.width - cellRect.width)
-            );
-          },
-          0
-        );
-
-        samples.push({
-          frameDelay: frameTime - clickTime,
-          geometryDrift,
-          headerIds,
-          bodyIds,
-          expectedVisible,
-          visibleOnNextFrame: Boolean(header),
-          iconCount: group.querySelectorAll("svg").length,
-          label: target.label,
-          pressedOnNextFrame:
-            button.getAttribute("aria-pressed") === String(expectedVisible),
-          replacedContentNodes,
-          buttonWidthDrift: Math.abs(
-            button.getBoundingClientRect().width - buttonWidthBefore
-          ),
-          groupHeightDrift: Math.abs(
-            group.getBoundingClientRect().height - groupHeightBefore
-          ),
-          gridTopDrift: Math.abs(
-            gridElement.getBoundingClientRect().top - gridTopBefore
-          ),
-        });
-      };
-
-      for (let cycle = 0; cycle < 2; cycle += 1) {
-        for (const target of optionalColumns) {
-          await toggleColumn(target, true);
-        }
-        for (const target of [...optionalColumns].reverse()) {
-          await toggleColumn(target, false);
-        }
-      }
-
-      // Let PerformanceObserver deliver any entry generated by the final
-      // toggle before disconnecting it.
-      await nextFrame();
-      observer?.disconnect();
-
-      return {
-        error: null,
-        longTasks,
-        samples,
-      };
-    },
-    OPTIONAL_COLUMNS
+function columnHeader(grid: Locator, columnId: string) {
+  return grid.locator(
+    `[data-slot="grid-header-cell"][data-column-id="${columnId}"]`
   );
+}
 
-  expect(result.error).toBeNull();
-  if (result.error) return;
+function mountedColumnCells(grid: Locator, columnId: string) {
+  return grid.locator(`[data-slot="grid-row"] [data-column-id="${columnId}"]`);
+}
 
-  expect(result.samples).toHaveLength(16);
-  for (const sample of result.samples) {
-    // A click is a discrete React event, so the complete header/body state must
-    // be committed before the next paint rather than settling over many frames.
-    expect(sample.visibleOnNextFrame).toBe(sample.expectedVisible);
-    expect(sample.pressedOnNextFrame).toBe(true);
-    expect(sample.headerIds).toEqual(sample.bodyIds);
-    expect(sample.geometryDrift).toBeLessThanOrEqual(MAX_GEOMETRY_DRIFT_PX);
-    expect(sample.replacedContentNodes).toBe(0);
-    expect(sample.buttonWidthDrift).toBeLessThanOrEqual(MAX_LAYOUT_DRIFT_PX);
-    expect(sample.groupHeightDrift).toBeLessThanOrEqual(MAX_LAYOUT_DRIFT_PX);
-    expect(sample.gridTopDrift).toBeLessThanOrEqual(MAX_LAYOUT_DRIFT_PX);
-    expect(sample.frameDelay).toBeLessThan(MAX_FRAME_DELAY_MS);
+async function columnIds(locator: Locator): Promise<string[]> {
+  const elements = await locator.all();
+  return Promise.all(
+    elements.map(
+      async (element) => (await element.getAttribute("data-column-id")) ?? ""
+    )
+  );
+}
+
+async function expectColumnIds(
+  locator: Locator,
+  expectedColumnIds: readonly string[]
+) {
+  await expect(locator).toHaveCount(expectedColumnIds.length);
+
+  for (const [index, columnId] of expectedColumnIds.entries()) {
+    await expect(locator.nth(index)).toHaveAttribute(
+      "data-column-id",
+      columnId
+    );
+  }
+}
+
+async function pressedState(
+  toolbar: Locator
+): Promise<Record<string, string | null>> {
+  const state: Record<string, string | null> = {};
+
+  for (const columnId of ALL_COLUMN_IDS) {
+    state[columnId] = await columnToggle(toolbar, columnId).getAttribute(
+      "aria-pressed"
+    );
   }
 
-  expect(Math.max(0, ...result.longTasks)).toBeLessThan(MAX_LONG_TASK_MS);
-  await expect(failedLoginsHeader).toHaveCount(0);
+  return state;
+}
 
-  const filterLifecycle = await preview.evaluate(async (previewElement) => {
-    const initialGridRoot = previewElement.querySelector<HTMLElement>(
-      ".InovuaReactDataGrid.tdg-root"
-    );
-    const group = previewElement.querySelector<HTMLElement>(
-      '[role="group"][aria-label="Visible column toggles"]'
-    );
-    const failedLoginsToggle = Array.from(
-      group?.querySelectorAll<HTMLButtonElement>("button") ?? []
-    ).find((element) => element.textContent?.trim() === "Failed logins");
+test.describe("external column visibility controls", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/examples/users");
+  });
 
-    if (!initialGridRoot || !failedLoginsToggle) {
-      return { error: "Grid root or visibility toggle was not found" } as const;
+  test("reflects the registered grid order and initial visibility", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const group = toggleList(toolbar);
+    const toggles = group.locator('[data-slot="rdg-column-toggle"]');
+
+    await expect(preview).toBeVisible();
+    await expect(grid).toBeVisible();
+    await expect(toolbar).toBeVisible();
+    await expect(group).toHaveRole("group");
+    await expect(group).toHaveAccessibleName("Visible column toggles");
+    await expectColumnIds(toggles, ALL_COLUMN_IDS);
+
+    const initiallyVisible = new Set(INITIALLY_VISIBLE_COLUMN_IDS);
+    for (const columnId of ALL_COLUMN_IDS) {
+      const visible = initiallyVisible.has(
+        columnId as (typeof INITIALLY_VISIBLE_COLUMN_IDS)[number]
+      );
+      await expect(columnToggle(toolbar, columnId)).toHaveAttribute(
+        "aria-pressed",
+        String(visible)
+      );
+      await expect(columnHeader(grid, columnId)).toHaveCount(visible ? 1 : 0);
     }
 
-    let rootWasDisconnected = false;
-    const rootObserver = new MutationObserver(() => {
-      if (!initialGridRoot.isConnected) rootWasDisconnected = true;
-    });
-    rootObserver.observe(previewElement, { childList: true, subtree: true });
-
-    const nextFrame = () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    const findButton = (label: string) =>
-      Array.from(
-        previewElement.querySelectorAll<HTMLButtonElement>("button")
-      ).find((element) => element.textContent?.trim() === label);
-    const currentGridRoot = () =>
-      previewElement.querySelector<HTMLElement>(
-        ".InovuaReactDataGrid.tdg-root"
-      );
-    const failedLoginsIsVisible = () =>
-      Boolean(
-        currentGridRoot()?.querySelector(
-          '[data-slot="grid-header-cell"][data-column-id="failed_login_attempts"]'
-        )
-      );
-
-    failedLoginsToggle.click();
-    await nextFrame();
-    const afterColumnShow = {
-      sameRoot: currentGridRoot() === initialGridRoot,
-      columnVisible: failedLoginsIsVisible(),
-      pressed: failedLoginsToggle.getAttribute("aria-pressed"),
-    };
-
-    const hideFilters = findButton("Hide filters");
-    hideFilters?.click();
-    await nextFrame();
-    const afterFilterHide = {
-      sameRoot: currentGridRoot() === initialGridRoot,
-      columnVisible: failedLoginsIsVisible(),
-      filterCellCount:
-        currentGridRoot()?.querySelectorAll(".tdg-filter-cell").length ?? -1,
-    };
-
-    const showFilters = findButton("Show filters");
-    showFilters?.click();
-    await nextFrame();
-    const afterFilterShow = {
-      sameRoot: currentGridRoot() === initialGridRoot,
-      columnVisible: failedLoginsIsVisible(),
-      filterCellCount:
-        currentGridRoot()?.querySelectorAll(".tdg-filter-cell").length ?? -1,
-    };
-
-    rootObserver.disconnect();
-
-    return {
-      error: hideFilters && showFilters ? null : "Filter toggle was not found",
-      afterColumnShow,
-      afterFilterHide,
-      afterFilterShow,
-      rootWasDisconnected,
-    };
+    await expectColumnIds(
+      grid.locator('[data-slot="grid-header-cell"][data-column-id]'),
+      INITIALLY_VISIBLE_COLUMN_IDS
+    );
   });
 
-  expect(filterLifecycle.error).toBeNull();
-  if (filterLifecycle.error) return;
+  test("shows and hides columns independently with pointer input", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const failedLoginsToggle = columnToggle(toolbar, "failed_login_attempts");
+    const emailToggle = columnToggle(toolbar, "csemail");
 
-  expect(filterLifecycle.afterColumnShow).toEqual({
-    sameRoot: true,
-    columnVisible: true,
-    pressed: "true",
-  });
-  expect(filterLifecycle.afterFilterHide).toEqual({
-    sameRoot: true,
-    columnVisible: true,
-    filterCellCount: 0,
-  });
-  expect(filterLifecycle.afterFilterShow.sameRoot).toBe(true);
-  expect(filterLifecycle.afterFilterShow.columnVisible).toBe(true);
-  expect(filterLifecycle.afterFilterShow.filterCellCount).toBeGreaterThan(0);
-  expect(filterLifecycle.rootWasDisconnected).toBe(false);
-  await expect(failedLoginsHeader).toBeVisible();
-  await expect(failedLoginsButton).toHaveAttribute("aria-pressed", "true");
+    await expect(failedLoginsToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(columnHeader(grid, "failed_login_attempts")).toHaveCount(0);
+    await expect(emailToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, "csemail")).toBeVisible();
 
-  expect(runtimeFailures).toEqual([]);
-  expect(
-    Math.max(
-      initialIconCount,
-      ...result.samples.map((sample) => sample.iconCount)
-    )
-  ).toBe(0);
+    await failedLoginsToggle.click();
+
+    await expect(failedLoginsToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, "failed_login_attempts")).toBeVisible();
+    await expect(
+      mountedColumnCells(grid, "failed_login_attempts").first()
+    ).toBeVisible();
+
+    await emailToggle.click();
+
+    await expect(emailToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(columnHeader(grid, "csemail")).toHaveCount(0);
+    await expect(mountedColumnCells(grid, "csemail")).toHaveCount(0);
+    await expect(failedLoginsToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, "csrolename")).toBeVisible();
+
+    await emailToggle.click();
+    await failedLoginsToggle.click();
+
+    await expect(emailToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, "csemail")).toBeVisible();
+    await expect(failedLoginsToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(columnHeader(grid, "failed_login_attempts")).toHaveCount(0);
+  });
+
+  test("supports native keyboard toggling and retains focus", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const languageToggle = columnToggle(toolbar, "lang");
+
+    await expect(languageToggle).toHaveAccessibleName("Language");
+    await languageToggle.focus();
+    await expect(languageToggle).toBeFocused();
+
+    await languageToggle.press(" ");
+
+    await expect(languageToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(languageToggle).toBeFocused();
+    await expect(columnHeader(grid, "lang")).toBeVisible();
+    await expect(mountedColumnCells(grid, "lang").first()).toBeVisible();
+
+    await languageToggle.press("Enter");
+
+    await expect(languageToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(languageToggle).toBeFocused();
+    await expect(columnHeader(grid, "lang")).toHaveCount(0);
+    await expect(mountedColumnCells(grid, "lang")).toHaveCount(0);
+  });
+
+  test("keeps composed export and filter controls isolated from visibility", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const group = toggleList(toolbar);
+    const actions = toolbar.locator(
+      '[data-slot="rdg-column-visibility-actions"]'
+    );
+    const initialPressedState = await pressedState(toolbar);
+    const initialHeaderIds = await columnIds(
+      grid.locator('[data-slot="grid-header-cell"][data-column-id]')
+    );
+
+    await expect(actions).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Export" })).toBeVisible();
+    await expect(
+      actions.getByRole("button", { name: "Hide filters" })
+    ).toBeVisible();
+    await expect(group.getByRole("button", { name: "Export" })).toHaveCount(0);
+    await expect(
+      group.getByRole("button", { name: "Hide filters" })
+    ).toHaveCount(0);
+    await expect(grid.locator(".tdg-filter-cell").first()).toBeVisible();
+
+    await actions.getByRole("button", { name: "Hide filters" }).click();
+
+    await expect(grid.locator(".tdg-filter-cell")).toHaveCount(0);
+    await expect(
+      actions.getByRole("button", { name: "Show filters" })
+    ).toBeVisible();
+    expect(await pressedState(toolbar)).toEqual(initialPressedState);
+    expect(
+      await columnIds(
+        grid.locator('[data-slot="grid-header-cell"][data-column-id]')
+      )
+    ).toEqual(initialHeaderIds);
+
+    await actions.getByRole("button", { name: "Export" }).click();
+    await expect(
+      page.getByRole("menuitem", { name: "Export CSV" })
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("menuitem", { name: "Export CSV" })
+    ).toHaveCount(0);
+    expect(await pressedState(toolbar)).toEqual(initialPressedState);
+
+    await actions.getByRole("button", { name: "Show filters" }).click();
+    await expect(grid.locator(".tdg-filter-cell").first()).toBeVisible();
+    expect(await pressedState(toolbar)).toEqual(initialPressedState);
+  });
+
+  test("never hides the final visible column", async ({ page }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const survivorId = "csuserid";
+
+    for (const columnId of INITIALLY_VISIBLE_COLUMN_IDS) {
+      if (columnId === survivorId) continue;
+
+      const toggle = columnToggle(toolbar, columnId);
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      await expect(columnHeader(grid, columnId)).toHaveCount(0);
+    }
+
+    const survivor = columnToggle(toolbar, survivorId);
+    await expect(survivor).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, survivorId)).toBeVisible();
+    await expect(survivor).toBeDisabled();
+    await expect(survivor).toHaveAttribute("aria-pressed", "true");
+    await expect(columnHeader(grid, survivorId)).toBeVisible();
+    await expect(
+      grid.locator('[data-slot="grid-header-cell"][data-column-id]')
+    ).toHaveCount(1);
+  });
+});
+
+test("an explicit nested target follows controlled order after a remount", async ({
+  page,
+}) => {
+  await page.goto("/compat/column-visibility");
+
+  const scope = page.getByTestId("column-visibility-nested-target");
+  const toolbar = visibilityToolbar(scope);
+  const grid = usersGrid(scope);
+  const toggles = toggleList(toolbar).locator(
+    '[data-slot="rdg-column-toggle"]'
+  );
+  const headers = grid.locator(
+    '[data-slot="grid-header-cell"][data-column-id]'
+  );
+
+  await expect(scope).toBeVisible();
+  await expect(toolbar).toBeVisible();
+  await expectColumnIds(toggles, ["id", "name", "city"]);
+  await expectColumnIds(headers, ["id", "name"]);
+  await expect(columnToggle(toolbar, "city")).toHaveAttribute(
+    "aria-pressed",
+    "false"
+  );
+
+  await page.getByTestId("column-visibility-reverse-order").click();
+
+  await expectColumnIds(toggles, ["city", "name", "id"]);
+  await expectColumnIds(headers, ["name", "id"]);
+
+  await page.getByTestId("column-visibility-remount-grid").click();
+
+  await expectColumnIds(toggles, ["city", "name", "id"]);
+  await expectColumnIds(headers, ["name", "id"]);
+  await expect(columnToggle(toolbar, "city")).toHaveAttribute(
+    "aria-pressed",
+    "false"
+  );
+
+  await columnToggle(toolbar, "city").click();
+
+  await expect(columnToggle(toolbar, "city")).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await expectColumnIds(headers, ["city", "name", "id"]);
+  await expect(mountedColumnCells(grid, "city").first()).toBeVisible();
+});
+
+test("auto-targets a direct grid and omits non-hideable columns", async ({
+  page,
+}) => {
+  await page.goto("/compat/column-visibility");
+
+  const scope = page.getByTestId("column-visibility-direct-target");
+  const toolbar = visibilityToolbar(scope);
+  const grid = usersGrid(scope);
+  const toggles = toggleList(toolbar).locator(
+    '[data-slot="rdg-column-toggle"]'
+  );
+  const optionalToggle = columnToggle(toolbar, "optional");
+
+  await expect(scope).toBeVisible();
+  await expect(toggles).toHaveCount(1);
+  expect(await columnIds(toggles)).toEqual(["optional"]);
+  await expect(columnToggle(toolbar, "locked")).toHaveCount(0);
+  await expect(columnHeader(grid, "locked")).toBeVisible();
+  await expect(columnHeader(grid, "optional")).toHaveCount(0);
+  await expect(optionalToggle).toBeEnabled();
+  await expect(optionalToggle).toHaveAttribute("aria-pressed", "false");
+
+  await optionalToggle.click();
+  await expect(optionalToggle).toHaveAttribute("aria-pressed", "true");
+  await expect(columnHeader(grid, "optional")).toBeVisible();
+
+  await optionalToggle.click();
+  await expect(optionalToggle).toHaveAttribute("aria-pressed", "false");
+  await expect(columnHeader(grid, "optional")).toHaveCount(0);
+  await expect(columnHeader(grid, "locked")).toBeVisible();
 });

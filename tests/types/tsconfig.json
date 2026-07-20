@@ -5,6 +5,12 @@
     "paths": {
       "@/*": ["./src/*"],
       "@geovi/the-datagrid": ["./src/main.ts"],
+      "@geovi/the-datagrid/packages/TextInput": [
+        "./src/packages/TextInput/index.tsx"
+      ],
+      "@geovi/the-datagrid/column-visibility": [
+        "./src/column-visibility/index.ts"
+      ],
       "@geovi/the-datagrid/search": ["./src/search/index.ts"]
     }
   },

@@ -46,6 +46,7 @@ const virtualListCompatKeys = [
   "getRows",
   "scrollToIndex",
   "smoothScrollTo",
+  "adjustHeights",
 ];
 
 type CompatStatus = {

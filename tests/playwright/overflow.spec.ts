@@ -116,7 +116,10 @@ test("keeps the horizontal scrollbar above cells and draggable", async ({
     "Password changed",
     "Language",
   ]) {
-    await preview.getByRole("button", { name: columnName }).click();
+    await preview
+      .locator('[data-slot="rdg-column-toggle-list"]')
+      .getByRole("button", { name: columnName, exact: true })
+      .click();
   }
 
   const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();

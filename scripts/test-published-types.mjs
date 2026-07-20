@@ -77,6 +77,20 @@ try {
     );
   }
 
+  for (const relativePath of [
+    "dist/column-visibility.js",
+    "dist/column-visibility.css",
+    "dist/column-visibility/index.d.ts",
+    "dist/packages/TextInput/index.js",
+    "dist/packages/TextInput/index.d.ts",
+    "dist/packages/TextInput/style.css",
+  ]) {
+    const publishedPath = path.join(installedPackageDirectory, relativePath);
+    if (!fs.existsSync(publishedPath)) {
+      throw new Error(`Packed package is missing ${relativePath}.`);
+    }
+  }
+
   fs.writeFileSync(
     path.join(fixtureDirectory, "package.json"),
     `${JSON.stringify(
@@ -116,7 +130,9 @@ try {
       );
     }
 
-    console.log(`Packed root and search types resolved with ${configuration}.`);
+    console.log(
+      `Packed root, search, column-visibility, and TextInput types resolved with ${configuration}.`
+    );
   }
 } finally {
   fs.rmSync(fixtureDirectory, { recursive: true, force: true });

@@ -563,6 +563,13 @@ export type TypeComputedVirtualList = {
   setRowIndex: (index: number) => void;
   scrollToIndex: TypeScrollToIndex;
   smoothScrollTo: TypeSmoothScrollTo;
+  /**
+   * Remeasure the currently rendered variable-height rows.
+   *
+   * This mirrors Inovua's virtual-list compatibility method: it is a no-op
+   * for fixed numeric row heights and returns synchronously.
+   */
+  adjustHeights: () => void;
   refreshLayout: () => void;
   updateVisibleCount: () => number;
   isRowRendered: (rowIndex: number) => boolean;
@@ -975,6 +982,13 @@ export type TypeDataGridProps = {
   checkboxOnlyRowSelect?: boolean;
   checkboxSelectEnableShiftKey?: boolean;
 
+  /**
+   * Invoked from the grid's mount effect after the imperative API has been
+   * hydrated and before `handle` / `onReady` are notified.
+   */
+  onDidMount?: (
+    computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
+  ) => void;
   onReady?: (
     computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
   ) => void;

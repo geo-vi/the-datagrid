@@ -10,6 +10,7 @@ Documentation and live examples: https://geo-vi.github.io/the-datagrid/
 - Sorting (single + multi-column)
 - Filtering with a built-in filter row and operators
 - Opt-in global table search through a separate, tree-shakeable entry
+- Opt-in contextual column-visibility toolbar with a right-side action slot
 - Column management (reorder, resize, auto-size)
 - Pagination (local + remote)
 - Row selection (checkbox column)
@@ -31,7 +32,8 @@ TypeScript fields: it includes defaults, runtime behavior, callback payloads
 and timing, controlled/uncontrolled state, local and remote data flow, layout,
 keyboard and focus interaction, and accessibility behavior.
 
-The Issue 17 compatibility batch now implements and regression-tests:
+The audited Issue 17 and Issue 48 compatibility batches now implement and
+regression-test:
 
 - natural and per-row height (`rowHeight={null}`, a `rowHeight` function,
   `minRowHeight`/`maxRowHeight`, and width-change remeasurement);
@@ -41,6 +43,12 @@ The Issue 17 compatibility batch now implements and regression-tests:
 - inline editing (`editable`, `editStartEvent`, column editors, lifecycle
   callbacks, cancellation, focus, and keyboard navigation);
 - object- or function-valued whole-row `rowStyle`.
+- the standalone
+  `@geovi/the-datagrid/packages/TextInput` compatibility entry, including its
+  value-first callbacks, clear tool, legacy class hooks, and imperative ref;
+- the `onDidMount` computed-props lifecycle callback; and
+- `getVirtualList().adjustHeights()` for instantiated variable-height rows in
+  virtual and non-virtual layouts.
 
 This closes those audited differences; it does not certify the entire Inovua
 Community API as complete. Remaining mismatches stay in the public status
@@ -51,10 +59,10 @@ technically impossible, document consumer impact and a safe migration path, and
 carry executable coverage. Cost, bundle size, schedule, or architectural
 preference alone do not qualify.
 
-Inovua's internal default editor uses `TextInput`, but a standalone `TextInput`
-was not a documented top-level Community grid API. Matching the observable
-default-editor behavior is in scope; supporting undocumented toolkit deep
-imports is not part of the current public baseline.
+Issue 48 explicitly adopts Inovua's standalone `TextInput` toolkit path. Migrate
+its default import to `@geovi/the-datagrid/packages/TextInput`; the package also
+provides a named root export. The deep entry and its class-instance TypeScript
+shape are now part of the compatibility contract.
 
 Read the public
 [compatibility contract](https://geo-vi.github.io/the-datagrid/docs/migration/inovua-compat)
@@ -122,14 +130,21 @@ method allowlists.
   entry, normalized AND matching, column-scoped queries and aliases, nested or
   derived search values, hidden-column search, a lazy cached local index, static
   Promise search, and `searchValue` forwarding for remote functions.
+- **Optional column visibility:** a separate provider/toolbar/target entry that
+  follows live grid order and visibility, honors non-hideable columns, protects
+  the final visible column, and accepts application actions on the right.
 - **Themes and UI:** packaged CSS, shadcn-aligned controls, `default`, `light`,
   and `dark` token bases, custom `data-theme` hooks, grid-scoped menu portals,
   cell-border modes, i18n overrides, and compatibility class hooks for existing
   Inovua-oriented theme styles.
-- **Imperative compatibility API:** `onReady` and `handle` expose a stable
-  `TypeComputedProps` ref with implemented data, pagination, filtering, sorting,
-  column lookup/order/visibility, selection, DOM lookup, scrolling, loading,
-  header/filter visibility, localization, editing, and virtual-list helpers.
+- **Imperative compatibility API:** `onDidMount`, `handle`, and `onReady`
+  expose the same stable `TypeComputedProps` ref with implemented data,
+  pagination, filtering, sorting, column lookup/order/visibility, selection, DOM
+  lookup, scrolling, loading, header/filter visibility, localization, editing,
+  and virtual-list helpers. `onDidMount` runs first from the passive mount
+  lifecycle; `getVirtualList().adjustHeights()` reads the instantiated
+  variable-height rows' DOM `scrollHeight` without registering extra resize
+  observers.
   The editing subset includes `startEdit`, `tryStartEdit`, `completeEdit`,
   `cancelEdit`, `getCurrentEditInfo`, `isInEdit`, and
   `currentEditCompletePromise`. This is an implemented subset;
@@ -142,7 +157,8 @@ The main entry, `@geovi/the-datagrid`, exports:
 
 - default and named `ReactDataGrid`, plus the compatibility-shaped `plugins`
   empty list;
-- `DateFilter`, `NumberFilter`, `SelectFilter`, and `CheckBox`;
+- `DateFilter`, `NumberFilter`, `SelectFilter`, `CheckBox`, and the named
+  `TextInput`;
 - `DEFAULT_FILTER_TYPES` and its `filterTypes` alias;
 - the public types `CellProps`, `IColumn`, `SortDirection`, `TypeColumn`,
   `TypeColumns`, `TypeColumnEditorProps`, `TypeColumnResizeContext`,
@@ -154,13 +170,24 @@ The main entry, `@geovi/the-datagrid`, exports:
   `TypeGetColumnByParam`, `TypeI18n`, `TypeOnSelectionChangeArg`,
   `TypePaginationMode`, `TypeRowSelection`, `TypeRowStyle`, `TypeRowStyleArgs`,
   `TypeRowStyleProps`, `TypeShowCellBorders`, `TypeSize`, `TypeSingleFilterValue`,
-  `TypeSingleSortInfo`, `TypeSortInfo`, `TypeCheckboxColumn`, and
-  `TypeCheckboxProps`.
+  `TypeSingleSortInfo`, `TypeSortInfo`, `TypeCheckboxColumn`,
+  `TypeCheckboxProps`, `TextInputProps`, `TypeTextInputProps`, and the
+  TextInput callback/input/wrapper/clear-button helper types.
 
 The optional `@geovi/the-datagrid/search` entry exports `RDGSearchProvider`,
 `RDGSearchBar`, `RDGSearchTarget`, and their prop types. The explicit stylesheet
 fallbacks are `@geovi/the-datagrid/style.css` and
 `@geovi/the-datagrid/search/style.css`.
+
+The optional `@geovi/the-datagrid/column-visibility` entry exports
+`RDGColumnVisibilityProvider`, `RDGColumnVisibilityToolbar`,
+`RDGColumnVisibilityTarget`, and their prop types. Its explicit stylesheet
+fallback is `@geovi/the-datagrid/column-visibility/style.css`.
+
+The Inovua-compatible standalone input remains a default class export at
+`@geovi/the-datagrid/packages/TextInput`. That deep entry loads the packaged
+standalone styles, does not load the grid runtime, and preserves `focus()` /
+`setValue()` instance refs.
 
 ### Runtime defaults and filter registry
 
@@ -384,6 +411,10 @@ import {
 </RDGSearchProvider>;
 ```
 
+See [Providers and targets](https://geo-vi.github.io/the-datagrid/docs/reference/providers-and-targets)
+for the exact direct-child rule, Fragment and Suspense boundaries, and
+multiple-grid scoping.
+
 The normal-table bar and transformed-mobile search are two placements of the
 same internal component. They use the same shadcn-style Input and Button,
 column-prefix highlighting, IME handling, Escape behavior, and clear/refocus
@@ -455,6 +486,48 @@ Remote functions own the search operation. The grid does not post-filter one
 remote page and present it as a server-wide result. If the backend does not yet
 support global search, keep that search state application-owned until its
 request contract is defined.
+
+## Optional column visibility toolbar
+
+Column visibility controls are also an opt-in contextual entry. A direct grid
+child connects automatically, and toolbar children form a separate right-side
+action area for consumer-owned export, filter, or navigation controls:
+
+```tsx
+import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityProvider,
+  RDGColumnVisibilityToolbar,
+} from "@geovi/the-datagrid/column-visibility";
+
+<RDGColumnVisibilityProvider>
+  <RDGColumnVisibilityToolbar>
+    <button type="button" onClick={exportRows}>
+      Export CSV
+    </button>
+    <button type="button" onClick={toggleFilters}>
+      Show filters
+    </button>
+  </RDGColumnVisibilityToolbar>
+  <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+</RDGColumnVisibilityProvider>;
+```
+
+The toolbar renders columns in the grid's current order and reflects the live
+visibility map. It uses string or numeric headers with stable `id`/`name`
+fallbacks, omits columns with `hideable={false}`, and does not allow the final
+visible column to be hidden. Button state is exposed through `aria-pressed`; no
+eye icon or parallel application visibility state is required.
+
+Use `RDGColumnVisibilityTarget` around the grid when layout markup separates it
+from the provider. Keep one grid per provider so the column model is
+unambiguous. The JavaScript entry loads its scoped stylesheet automatically; if
+your environment requires manual CSS imports, add
+`import "@geovi/the-datagrid/column-visibility/style.css"`.
+
+For the complete direct-child rules, nested layout examples, multiple-grid
+scoping, and the stability contract for all feature-specific providers and
+targets, see [Providers and targets](https://geo-vi.github.io/the-datagrid/docs/reference/providers-and-targets).
 
 ## Advanced usage
 
@@ -685,14 +758,20 @@ source-compatible.
 
 ### Misc
 
-| Prop        | Type                       | Default | Description                                         |
-| ----------- | -------------------------- | ------- | --------------------------------------------------- |
-| `i18n`      | `TypeI18n`                 | -       | Text overrides (labels, operators, etc.)            |
-| `loading`   | `boolean`                  | -       | Loading state                                       |
-| `onReady`   | `(ref: RefObject) => void` | -       | Called with an Inovua-compatible computed-props ref |
-| `handle`    | `(ref: RefObject) => void` | -       | Alias for `onReady`                                 |
-| `className` | `string`                   | -       | Extra CSS classes                                   |
-| `style`     | `CSSProperties`            | -       | Inline styles                                       |
+| Prop         | Type                                                 | Default | Description                                                       |
+| ------------ | ---------------------------------------------------- | ------- | ----------------------------------------------------------------- |
+| `i18n`       | `TypeI18n`                                           | -       | Text overrides (labels, operators, etc.)                          |
+| `loading`    | `boolean`                                            | -       | Loading state                                                     |
+| `onDidMount` | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Passive mount callback after API hydration, before handle/onReady |
+| `handle`     | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after onDidMount                     |
+| `onReady`    | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after handle                         |
+| `className`  | `string`                                             | -       | Extra CSS classes                                                 |
+| `style`      | `CSSProperties`                                      | -       | Inline styles                                                     |
+
+Issue 48 certifies the `onDidMount` mount contract. The existing `handle` and
+`onReady` adapters are usable, but Inovua's callback-identity cleanup and
+nonzero-width readiness details remain explicitly listed as a known gap in the
+public compatibility ledger.
 
 ## TypeScript
 
