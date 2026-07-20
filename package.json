@@ -11,6 +11,9 @@
       "column-visibility": [
         "./dist/column-visibility/index.d.ts"
       ],
+      "components": [
+        "./dist/providers/index.d.ts"
+      ],
       "packages/TextInput": [
         "./dist/packages/TextInput/index.d.ts"
       ],
@@ -31,6 +34,10 @@
     "./column-visibility": {
       "types": "./dist/column-visibility/index.d.ts",
       "import": "./dist/column-visibility.js"
+    },
+    "./components": {
+      "types": "./dist/providers/index.d.ts",
+      "import": "./dist/components.js"
     },
     "./packages/TextInput": {
       "types": "./dist/packages/TextInput/index.d.ts",
@@ -67,7 +74,7 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-text-input && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
+    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",

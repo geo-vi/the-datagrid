@@ -6,6 +6,13 @@ import {
   RDGColumnVisibilityToolbar,
 } from "../../src/column-visibility";
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
+import {
+  RDGColumnVisibilityToolbar as CombinedColumnVisibilityToolbar,
+  RDGProvider,
+  RDGSearchBar as CombinedSearchBar,
+  RDGTarget,
+} from "../../src/providers";
+import { RDGSearchBar as LegacySearchBar } from "../../src/search";
 
 const rows = [
   { id: 1, name: "Ada Lovelace", city: "London" },
@@ -27,6 +34,33 @@ const directColumns: TypeColumns = [
     visible: false,
     defaultWidth: 180,
   },
+];
+
+const combinedRows = [
+  {
+    id: "combined-1",
+    name: "Ada Lovelace",
+    city: "London",
+    role: "Mathematician",
+  },
+  {
+    id: "combined-2",
+    name: "Grace Hopper",
+    city: "New York",
+    role: "Rear admiral",
+  },
+  {
+    id: "combined-3",
+    name: "Katherine Johnson",
+    city: "Paris",
+    role: "Research mathematician",
+  },
+];
+
+const combinedColumns: TypeColumns = [
+  { name: "name", header: "Name", defaultWidth: 220 },
+  { name: "city", header: "City", defaultWidth: 180 },
+  { name: "role", header: "Role", defaultWidth: 220 },
 ];
 
 export default function ColumnVisibilityCompatPage() {
@@ -96,6 +130,52 @@ export default function ColumnVisibilityCompatPage() {
             style={{ height: 240 }}
           />
         </RDGColumnVisibilityProvider>
+      </section>
+
+      <section
+        className="flex flex-col gap-3"
+        data-testid="combined-provider-direct-target"
+      >
+        <RDGProvider>
+          <CombinedSearchBar
+            ariaLabel="Search direct combined grid"
+            debounceMs={0}
+          />
+          <CombinedColumnVisibilityToolbar title="Direct combined columns" />
+          <ReactDataGrid
+            idProperty="id"
+            columns={combinedColumns}
+            dataSource={combinedRows}
+            allowMobileTransform
+            virtualized={false}
+            showColumnMenuTool={false}
+            style={{ height: 320 }}
+          />
+        </RDGProvider>
+      </section>
+
+      <section
+        className="flex flex-col gap-3"
+        data-testid="combined-provider-nested-target"
+      >
+        <RDGProvider defaultSearchValue="London">
+          <LegacySearchBar
+            ariaLabel="Search nested combined grid"
+            debounceMs={0}
+          />
+          <RDGColumnVisibilityToolbar title="Nested mixed-import columns" />
+          <div className="h-80 min-h-0">
+            <RDGTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={combinedColumns}
+                dataSource={combinedRows}
+                virtualized={false}
+                showColumnMenuTool={false}
+              />
+            </RDGTarget>
+          </div>
+        </RDGProvider>
       </section>
     </main>
   );

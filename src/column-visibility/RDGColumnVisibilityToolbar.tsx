@@ -57,6 +57,8 @@ export function RDGColumnVisibilityToolbar(
     title = "Visible columns",
     description = "Choose which columns are visible in the grid.",
   } = props;
+  const titleId = React.useId();
+  const descriptionId = React.useId();
   const snapshot = useRDGColumnVisibilitySnapshot();
   const theme = normalizeThemeName(snapshot.theme);
   const themeBase = resolveThemeBase(theme);
@@ -81,14 +83,26 @@ export function RDGColumnVisibilityToolbar(
       data-slot="rdg-column-visibility"
       data-theme={theme}
       data-theme-base={themeBase}
+      role={title != null ? "region" : undefined}
+      aria-labelledby={title != null ? titleId : undefined}
+      aria-describedby={description != null ? descriptionId : undefined}
     >
       {title != null || description != null ? (
         <div className="flex flex-col gap-1">
           {title != null ? (
-            <div className="text-sm font-medium">{title}</div>
+            <div
+              id={titleId}
+              className="text-sm font-medium"
+              role="heading"
+              aria-level={2}
+            >
+              {title}
+            </div>
           ) : null}
           {description != null ? (
-            <div className="text-xs text-muted-foreground">{description}</div>
+            <div id={descriptionId} className="text-xs text-muted-foreground">
+              {description}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -98,6 +112,7 @@ export function RDGColumnVisibilityToolbar(
           className="flex max-w-full flex-wrap gap-2"
           role="group"
           aria-label={ariaLabel}
+          aria-describedby={description != null ? descriptionId : undefined}
           data-slot="rdg-column-toggle-list"
         >
           {toggleColumns.map((column) => {

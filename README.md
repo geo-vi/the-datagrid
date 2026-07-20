@@ -179,6 +179,13 @@ The optional `@geovi/the-datagrid/search` entry exports `RDGSearchProvider`,
 fallbacks are `@geovi/the-datagrid/style.css` and
 `@geovi/the-datagrid/search/style.css`.
 
+The optional `@geovi/the-datagrid/components` entry is the one-import choice for
+mixed contextual controls. It exports `RDGProvider`, `RDGTarget`,
+`RDGSearchBar`, `RDGColumnVisibilityToolbar`, all four stable feature-specific
+provider/target APIs, and their prop types. It reuses the existing search and
+column-visibility singleton contexts and automatically loads both isolated
+stylesheets; there is intentionally no duplicate `components/style.css`.
+
 The optional `@geovi/the-datagrid/column-visibility` entry exports
 `RDGColumnVisibilityProvider`, `RDGColumnVisibilityToolbar`,
 `RDGColumnVisibilityTarget`, and their prop types. Its explicit stylesheet
@@ -362,6 +369,43 @@ export default function App() {
 }
 ```
 
+## Combined contextual controls
+
+Use one `RDGProvider` when search and column visibility control the same grid.
+A direct grid child connects automatically:
+
+```tsx
+import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityToolbar,
+  RDGProvider,
+  RDGSearchBar,
+} from "@geovi/the-datagrid/components";
+
+<RDGProvider>
+  <RDGSearchBar />
+  <RDGColumnVisibilityToolbar>
+    <button type="button" onClick={exportRows}>
+      Export CSV
+    </button>
+  </RDGColumnVisibilityToolbar>
+  <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+</RDGProvider>;
+```
+
+If a `div`, card, Fragment, Suspense boundary, or application component sits
+between the provider and grid, put one `RDGTarget` immediately around the grid.
+`RDGProvider` and `RDGTarget` add no DOM elements and support one grid per
+provider scope. Use `defaultSearchValue` when the shared search query needs a
+non-empty initial value. Do not nest `RDGSearchTarget` and
+`RDGColumnVisibilityTarget`; use the combined target instead.
+
+Controls imported from `@geovi/the-datagrid/search` and
+`@geovi/the-datagrid/column-visibility` also work inside `RDGProvider`. The
+existing `RDGSearchProvider`, `RDGSearchTarget`,
+`RDGColumnVisibilityProvider`, and `RDGColumnVisibilityTarget` exports remain
+supported and are not deprecated.
+
 ## Optional table search
 
 Global search is intentionally separate from the main component entry. A plain
@@ -519,6 +563,17 @@ fallbacks, omits columns with `hideable={false}`, and does not allow the final
 visible column to be hidden. Button state is exposed through `aria-pressed`; no
 eye icon or parallel application visibility state is required.
 
+Set `visible: false` on a column that should start hidden and `hideable: false`
+on one that must not be toggled. `defaultVisible` and `defaultHidden` remain
+ignored compatibility fields. Visibility clicks update grid-owned runtime
+state; a real grid remount discards those overrides and initializes again from
+the current column props.
+
+The default title is a level-two heading that labels the toolbar region. The
+toggle group keeps its `ariaLabel`, and the description is associated with both
+through `aria-describedby`. Passing `title={null}` suppresses the heading while
+preserving the group's accessible name.
+
 Use `RDGColumnVisibilityTarget` around the grid when layout markup separates it
 from the provider. Keep one grid per provider so the column model is
 unambiguous. The JavaScript entry loads its scoped stylesheet automatically; if
@@ -528,6 +583,10 @@ your environment requires manual CSS imports, add
 For the complete direct-child rules, nested layout examples, multiple-grid
 scoping, and the stability contract for all feature-specific providers and
 targets, see [Providers and targets](https://geo-vi.github.io/the-datagrid/docs/reference/providers-and-targets).
+
+When search and visibility share a grid, prefer `RDGProvider`/`RDGTarget` from
+`@geovi/the-datagrid/components`. The feature-specific provider and target
+remain supported for visibility-only screens and existing integrations.
 
 ## Advanced usage
 

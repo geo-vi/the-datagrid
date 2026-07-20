@@ -81,6 +81,8 @@ try {
     "dist/column-visibility.js",
     "dist/column-visibility.css",
     "dist/column-visibility/index.d.ts",
+    "dist/components.js",
+    "dist/providers/index.d.ts",
     "dist/packages/TextInput/index.js",
     "dist/packages/TextInput/index.d.ts",
     "dist/packages/TextInput/style.css",
@@ -131,7 +133,7 @@ try {
     }
 
     console.log(
-      `Packed root, search, column-visibility, and TextInput types resolved with ${configuration}.`
+      `Packed root, search, column-visibility, components, and TextInput types resolved with ${configuration}.`
     );
   }
 } finally {

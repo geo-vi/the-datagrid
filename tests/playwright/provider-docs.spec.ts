@@ -18,15 +18,16 @@ test("documents provider requirements and conditional grid targets", async ({
     "The provider contract",
     "Direct grid children connect automatically",
     "When a target is required",
-    "Required target: nested search layout",
-    "Required target: custom visibility layout",
+    "Required target: nested mixed-controls layout",
+    "Combined provider with existing control imports",
+    "Why targets exist",
     "Scope providers deliberately",
     "Troubleshooting provider connections",
-    "Stable feature-specific APIs",
+    "Combined and stable feature-specific APIs",
   ]) {
     await expect(
       page.getByRole("heading", { level: 2, name: heading })
-    ).toBeAttached();
+    ).toBeVisible();
   }
 
   await expect(
@@ -35,26 +36,41 @@ test("documents provider requirements and conditional grid targets", async ({
       exact: true,
     })
   ).toBeAttached();
-  await expect(
-    page.getByRole("cell", {
+  const nestedLayoutRow = page.getByRole("row").filter({
+    has: page.getByRole("cell", {
       name: "Grid is inside a div, section, card, or panel",
       exact: true,
-    })
-  ).toBeAttached();
+    }),
+  });
+  await expect(nestedLayoutRow).toHaveCount(1);
   await expect(
-    page.getByRole("cell", { name: "Required", exact: true }).first()
-  ).toBeAttached();
+    nestedLayoutRow.getByRole("cell", { name: "Required", exact: true })
+  ).toBeVisible();
 
+  const stableApiSection = page.locator("#stable-provider-apis");
   for (const publicApi of [
+    "RDGProvider",
+    "RDGTarget",
     "RDGSearchProvider",
     "RDGSearchTarget",
     "RDGColumnVisibilityProvider",
     "RDGColumnVisibilityTarget",
   ]) {
     await expect(
-      page.getByRole("cell", { name: publicApi, exact: true })
-    ).toBeAttached();
+      stableApiSection.getByRole("cell", { name: publicApi, exact: true })
+    ).toBeVisible();
   }
+
+  const pageContent = page.locator("main");
+  await expect(pageContent).toContainText("@geovi/the-datagrid/components");
+  await expect(pageContent).toContainText("@geovi/the-datagrid/search");
+  await expect(pageContent).toContainText(
+    "@geovi/the-datagrid/column-visibility"
+  );
+  await expect(pageContent).toContainText(
+    "The four feature-specific APIs above remain available"
+  );
+  await expect(pageContent).toContainText("defaultSearchValue");
 
   await expect(
     page.getByRole("link", { name: "table search guide", exact: true })
@@ -65,4 +81,22 @@ test("documents provider requirements and conditional grid targets", async ({
       exact: true,
     })
   ).toHaveAttribute("href", "/docs/reference/column-visibility-toolbar");
+});
+
+test("documents column visibility initialization, remount, and semantics", async ({
+  page,
+}) => {
+  await page.goto("/docs/reference/column-visibility-toolbar");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Column visibility toolbar" })
+  ).toBeVisible();
+
+  const content = page.locator("main");
+  await expect(content).toContainText("visible: false");
+  await expect(content).toContainText("defaultHidden");
+  await expect(content).toContainText("real grid remount");
+  await expect(content).toContainText("level-two heading");
+  await expect(content).toContainText("aria-describedby");
+  await expect(content).toContainText("@geovi/the-datagrid/components");
 });

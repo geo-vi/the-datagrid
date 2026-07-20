@@ -3961,6 +3961,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [allInputColumns, getColumnIdCompat]
   );
 
+  const columnVisibilityIdsRef = React.useRef<ReadonlySet<string>>(new Set());
+  columnVisibilityIdsRef.current = new Set(
+    allInputColumns.map((column) => getColumnId(column))
+  );
+  const setColumnVisibleById = React.useCallback(
+    (columnId: string, visible: boolean) => {
+      if (!columnVisibilityIdsRef.current.has(columnId)) return;
+
+      setColumnVisibilityState((current) => {
+        if (current[columnId] === visible) return current;
+        return { ...current, [columnId]: visible };
+      });
+    },
+    []
+  );
+
   React.useLayoutEffect(() => {
     if (!columnVisibilityController) return;
 
@@ -3976,14 +3992,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
       columnOrder: columnOrderForDs,
       columnVisibilityMap: consumerColumnVisibilityMap,
       theme: String(theme),
-      setColumnVisible: setColumnVisibleCompat,
+      setColumnVisible: setColumnVisibleById,
     });
   }, [
     columnOrderForDs,
     columnVisibilityController,
     columnVisibilityMap,
     inputColumns,
-    setColumnVisibleCompat,
+    setColumnVisibleById,
     theme,
   ]);
 
@@ -5169,6 +5185,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 searchEnabled={!searchConnected}
+                columnPickerEnabled={columnVisibilityController == null}
                 authoritativeResultCount={searchConnected ? count : undefined}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}

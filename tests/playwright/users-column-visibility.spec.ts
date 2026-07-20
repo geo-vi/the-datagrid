@@ -27,7 +27,7 @@ function usersPreview(page: Page) {
 }
 
 function usersGrid(preview: Locator) {
-  return preview.locator(".InovuaReactDataGrid.tdg-root").first();
+  return preview.locator(".InovuaReactDataGrid.tdg-root");
 }
 
 function visibilityToolbar(preview: Locator) {
@@ -104,12 +104,26 @@ test.describe("external column visibility controls", () => {
     const toolbar = visibilityToolbar(preview);
     const group = toggleList(toolbar);
     const toggles = group.locator('[data-slot="rdg-column-toggle"]');
+    const description = toolbar.getByText(
+      "Toggle columns, export the current dataset shape, and show or hide the filter row.",
+      { exact: true }
+    );
 
     await expect(preview).toBeVisible();
+    await expect(grid).toHaveCount(1);
     await expect(grid).toBeVisible();
     await expect(toolbar).toBeVisible();
+    await expect(toolbar).toHaveRole("region");
+    await expect(toolbar).toHaveAccessibleName("Visible columns");
+    await expect(
+      toolbar.getByRole("heading", { level: 2, name: "Visible columns" })
+    ).toBeVisible();
     await expect(group).toHaveRole("group");
     await expect(group).toHaveAccessibleName("Visible column toggles");
+    const descriptionId = await description.getAttribute("id");
+    expect(descriptionId).toBeTruthy();
+    await expect(toolbar).toHaveAttribute("aria-describedby", descriptionId!);
+    await expect(group).toHaveAttribute("aria-describedby", descriptionId!);
     await expectColumnIds(toggles, ALL_COLUMN_IDS);
 
     const initiallyVisible = new Set(INITIALLY_VISIBLE_COLUMN_IDS);
@@ -139,6 +153,7 @@ test.describe("external column visibility controls", () => {
     const failedLoginsToggle = columnToggle(toolbar, "failed_login_attempts");
     const emailToggle = columnToggle(toolbar, "csemail");
 
+    await expect(grid).toHaveCount(1);
     await expect(failedLoginsToggle).toHaveAttribute("aria-pressed", "false");
     await expect(columnHeader(grid, "failed_login_attempts")).toHaveCount(0);
     await expect(emailToggle).toHaveAttribute("aria-pressed", "true");
@@ -177,6 +192,7 @@ test.describe("external column visibility controls", () => {
     const toolbar = visibilityToolbar(preview);
     const languageToggle = columnToggle(toolbar, "lang");
 
+    await expect(grid).toHaveCount(1);
     await expect(languageToggle).toHaveAccessibleName("Language");
     await languageToggle.focus();
     await expect(languageToggle).toBeFocused();
@@ -211,6 +227,7 @@ test.describe("external column visibility controls", () => {
       grid.locator('[data-slot="grid-header-cell"][data-column-id]')
     );
 
+    await expect(grid).toHaveCount(1);
     await expect(actions).toBeVisible();
     await expect(actions.getByRole("button", { name: "Export" })).toBeVisible();
     await expect(
@@ -256,6 +273,7 @@ test.describe("external column visibility controls", () => {
     const toolbar = visibilityToolbar(preview);
     const survivorId = "csuserid";
 
+    await expect(grid).toHaveCount(1);
     for (const columnId of INITIALLY_VISIBLE_COLUMN_IDS) {
       if (columnId === survivorId) continue;
 
@@ -293,6 +311,7 @@ test("an explicit nested target follows controlled order after a remount", async
   );
 
   await expect(scope).toBeVisible();
+  await expect(grid).toHaveCount(1);
   await expect(toolbar).toBeVisible();
   await expectColumnIds(toggles, ["id", "name", "city"]);
   await expectColumnIds(headers, ["id", "name"]);
@@ -339,6 +358,7 @@ test("auto-targets a direct grid and omits non-hideable columns", async ({
   const optionalToggle = columnToggle(toolbar, "optional");
 
   await expect(scope).toBeVisible();
+  await expect(grid).toHaveCount(1);
   await expect(toggles).toHaveCount(1);
   expect(await columnIds(toggles)).toEqual(["optional"]);
   await expect(columnToggle(toolbar, "locked")).toHaveCount(0);

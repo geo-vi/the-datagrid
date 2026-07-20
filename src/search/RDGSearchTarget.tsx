@@ -2,6 +2,11 @@
 
 import * as React from "react";
 import type { TypeColumn, TypeDataGridProps } from "../types";
+import {
+  findTargetGridElement,
+  markOptionalTargetType,
+  RDG_SEARCH_TARGET_COMPONENT_MARKER,
+} from "../optional-target";
 import { isMarkedGridType } from "./marker";
 import { filterRDGSearchIndex, getCachedRDGSearchIndex } from "./utils";
 import { useRDGSearchSnapshot, useRDGSearchStore } from "./store";
@@ -15,26 +20,13 @@ export type RDGSearchTargetProps = {
   children: React.ReactElement<TypeDataGridProps>;
 };
 
-function isMarkedGridElement(
-  child: React.ReactElement<unknown>
-): child is React.ReactElement<TypeDataGridProps> {
-  return isMarkedGridType(child.type);
-}
-
-function looksLikeGridElement(
-  child: React.ReactElement<unknown>
-): child is React.ReactElement<TypeDataGridProps> {
-  const props = child.props as Partial<TypeDataGridProps> | null;
-  return Boolean(
-    props &&
-    typeof props.idProperty === "string" &&
-    Array.isArray(props.columns) &&
-    props.dataSource != null
-  );
-}
-
 export function RDGSearchTarget(props: RDGSearchTargetProps) {
   const { children } = props;
+  const forwardedColumnVisibilityController = (
+    props as RDGSearchTargetProps & {
+      __rdgColumnVisibilityController?: unknown;
+    }
+  ).__rdgColumnVisibilityController;
   const store = useRDGSearchStore();
   const committedValue = useRDGSearchSnapshot();
   const query = committedValue.trim();
@@ -43,12 +35,13 @@ export function RDGSearchTarget(props: RDGSearchTargetProps) {
     throw new Error("RDGSearchTarget expects exactly one ReactDataGrid child.");
   }
 
-  if (!isMarkedGridElement(children) && !looksLikeGridElement(children)) {
+  const gridElement = findTargetGridElement(children, isMarkedGridType);
+  if (!gridElement) {
     throw new Error("RDGSearchTarget expects a ReactDataGrid child.");
   }
 
-  const targetColumns = children.props.columns;
-  const targetTheme = children.props.theme;
+  const targetColumns = gridElement.props.columns;
+  const targetTheme = gridElement.props.theme;
   React.useEffect(
     () => store.registerTarget(targetColumns, targetTheme),
     [store, targetColumns, targetTheme]
@@ -67,8 +60,18 @@ export function RDGSearchTarget(props: RDGSearchTargetProps) {
     [query]
   );
 
+  const injectedProps: Record<string, unknown> = {
+    __rdgSearchController: controller,
+  };
+  if (forwardedColumnVisibilityController !== undefined) {
+    injectedProps.__rdgColumnVisibilityController =
+      forwardedColumnVisibilityController;
+  }
+
   return React.cloneElement(
     children as React.ReactElement<Record<string, unknown>>,
-    { __rdgSearchController: controller }
+    injectedProps
   );
 }
+
+markOptionalTargetType(RDGSearchTarget, RDG_SEARCH_TARGET_COMPONENT_MARKER);

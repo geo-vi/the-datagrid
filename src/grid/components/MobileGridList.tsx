@@ -47,6 +47,7 @@ type MobileGridListProps = {
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
   searchEnabled?: boolean;
+  columnPickerEnabled?: boolean;
   authoritativeResultCount?: number;
   onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
@@ -78,6 +79,7 @@ export function MobileGridList({
   sortInfo,
   defaultSortDirection,
   searchEnabled = true,
+  columnPickerEnabled = true,
   authoritativeResultCount,
   onSortInfoChange,
   onFilteredRowsCountChange,
@@ -381,7 +383,7 @@ export function MobileGridList({
               <ArrowUpDown />
             </Button>
           ) : null}
-          {displayColumns.length ? (
+          {columnPickerEnabled && displayColumns.length ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

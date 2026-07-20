@@ -233,74 +233,62 @@ const nestedColumnVisibilityToolbarSnippet = `import {
 
 const directProviderChildrenSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGSearchBar,
-  RDGSearchProvider,
-} from "@geovi/the-datagrid/search";
-import {
-  RDGColumnVisibilityProvider,
   RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGProvider,
+  RDGSearchBar,
+} from "@geovi/the-datagrid/components";
 
-export function SearchableAccountsGrid() {
+export function SearchableConfigurableAccountsGrid() {
   return (
-    <RDGSearchProvider>
+    <RDGProvider>
       <RDGSearchBar />
-      {/* Direct provider child: RDGSearchTarget is not required. */}
-      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-    </RDGSearchProvider>
-  );
-}
+      <RDGColumnVisibilityToolbar>
+        <button type="button" onClick={exportRows}>Export CSV</button>
+      </RDGColumnVisibilityToolbar>
 
-export function ConfigurableAccountsGrid() {
-  return (
-    <RDGColumnVisibilityProvider>
-      <RDGColumnVisibilityToolbar />
-      {/* Direct provider child: RDGColumnVisibilityTarget is not required. */}
+      {/* Direct provider child: RDGTarget is not required. */}
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-    </RDGColumnVisibilityProvider>
+    </RDGProvider>
   );
 }`;
 
-const requiredSearchTargetSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+const requiredCombinedTargetSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
+  RDGColumnVisibilityToolbar,
+  RDGProvider,
   RDGSearchBar,
-  RDGSearchProvider,
-  RDGSearchTarget,
-} from "@geovi/the-datagrid/search";
+  RDGTarget,
+} from "@geovi/the-datagrid/components";
 
-<RDGSearchProvider>
+<RDGProvider>
   <RDGSearchBar />
+  <RDGColumnVisibilityToolbar />
 
-  {/* The section is an intervening child, so the target is required. */}
+  {/* The section is an intervening child, so RDGTarget is required. */}
   <section className="min-h-0 flex-1">
-    <RDGSearchTarget>
+    <RDGTarget>
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-    </RDGSearchTarget>
+    </RDGTarget>
   </section>
-</RDGSearchProvider>;`;
+</RDGProvider>;`;
 
-const requiredColumnVisibilityTargetSnippet = `import type { ReactNode } from "react";
-import ReactDataGrid from "@geovi/the-datagrid";
+const mixedProviderImportsSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import { RDGProvider, RDGTarget } from "@geovi/the-datagrid/components";
+import { RDGSearchBar } from "@geovi/the-datagrid/search";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
   RDGColumnVisibilityToolbar,
 } from "@geovi/the-datagrid/column-visibility";
 
-function GridCard({ children }: { children: ReactNode }) {
-  return <section className="min-h-0 rounded-xl border">{children}</section>;
-}
-
-<RDGColumnVisibilityProvider>
+<RDGProvider>
+  {/* Existing feature-entry controls consume the combined provider. */}
+  <RDGSearchBar />
   <RDGColumnVisibilityToolbar />
-
-  {/* GridCard hides the grid from the provider's direct child list. */}
-  <GridCard>
-    <RDGColumnVisibilityTarget>
+  <div className="min-h-0 flex-1">
+    <RDGTarget>
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-    </RDGColumnVisibilityTarget>
-  </GridCard>
-</RDGColumnVisibilityProvider>;`;
+    </RDGTarget>
+  </div>
+</RDGProvider>;`;
 
 const independentProviderScopesSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
@@ -311,26 +299,37 @@ import {
 function AccountsAndInvoices() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <RDGColumnVisibilityProvider>
-        <RDGColumnVisibilityToolbar title="Account columns" />
-        <ReactDataGrid
-          idProperty="id"
-          columns={accountColumns}
-          dataSource={accounts}
-        />
-      </RDGColumnVisibilityProvider>
+      {/* Providers add no DOM, so each scope gets a real layout wrapper. */}
+      <section className="flex min-h-0 flex-col gap-3">
+        <RDGColumnVisibilityProvider>
+          <RDGColumnVisibilityToolbar title="Account columns" />
+          <ReactDataGrid
+            idProperty="id"
+            columns={accountColumns}
+            dataSource={accounts}
+          />
+        </RDGColumnVisibilityProvider>
+      </section>
 
-      <RDGColumnVisibilityProvider>
-        <RDGColumnVisibilityToolbar title="Invoice columns" />
-        <ReactDataGrid
-          idProperty="id"
-          columns={invoiceColumns}
-          dataSource={invoices}
-        />
-      </RDGColumnVisibilityProvider>
+      <section className="flex min-h-0 flex-col gap-3">
+        <RDGColumnVisibilityProvider>
+          <RDGColumnVisibilityToolbar title="Invoice columns" />
+          <ReactDataGrid
+            idProperty="id"
+            columns={invoiceColumns}
+            dataSource={invoices}
+          />
+        </RDGColumnVisibilityProvider>
+      </section>
     </div>
   );
 }`;
+
+const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
+  { name: "id", header: "ID", hideable: false },
+  { name: "name", header: "Name" },
+  { name: "city", header: "City", visible: false },
+];`;
 
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
 
@@ -3578,6 +3577,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "The Inovua-compatible standalone TextInput path. It resolves as a default class component with TypeTextInputProps and automatically loads its small standalone stylesheet without loading the grid runtime.",
       },
       {
+        name: "@geovi/the-datagrid/components",
+        type: "optional combined entry",
+        defaultValue: "recommended for mixed controls",
+        description:
+          "RDGProvider, RDGTarget, RDGSearchBar, RDGColumnVisibilityToolbar, the four stable feature-specific provider/target APIs, and all corresponding prop types.",
+      },
+      {
         name: "@geovi/the-datagrid/search",
         type: "optional entry",
         defaultValue: "opt in",
@@ -3596,7 +3602,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "core / search / column visibility",
         defaultValue: "public",
         description:
-          "Every JavaScript entry imports its own compiled CSS automatically; explicit ./style.css, ./search/style.css, and ./column-visibility/style.css subpaths remain available for build systems that require manual CSS imports.",
+          "Every JavaScript entry imports its required compiled CSS automatically; the combined components entry reuses search and column-visibility CSS without duplicating it. Explicit ./style.css, ./search/style.css, and ./column-visibility/style.css subpaths remain available for build systems that require manual CSS imports.",
       },
     ],
   },
@@ -4333,7 +4339,10 @@ pnpm add @geovi/the-datagrid`}
               stylesheet. Importing <code>@geovi/the-datagrid/search</code>
               loads the isolated optional-search stylesheet, and importing{" "}
               <code>@geovi/the-datagrid/column-visibility</code> loads the
-              isolated toolbar stylesheet. The public{" "}
+              isolated toolbar stylesheet. The combined{" "}
+              <code>@geovi/the-datagrid/components</code> entry reuses both
+              optional entries and their singleton contexts, so it loads both
+              isolated styles without duplicating their rules. The public{" "}
               <code>@geovi/the-datagrid/style.css</code> and{" "}
               <code>@geovi/the-datagrid/search/style.css</code> and{" "}
               <code>@geovi/the-datagrid/column-visibility/style.css</code>
@@ -5141,9 +5150,9 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
     slug: "providers-and-targets",
     title: "Providers and targets",
     summary:
-      "Understand which external grid controls require provider context, when a direct grid connects automatically, and when an explicit target is mandatory.",
+      "Use one RDGProvider for search and column visibility, understand direct-grid auto-connection, and add RDGTarget only across a React layout boundary.",
     description:
-      "Search and column-visibility controls live outside ReactDataGrid so the core remains lightweight. Their providers own the feature scope; targets connect an exact nested grid without adding public grid props.",
+      "The optional components entry coordinates search and column visibility through one provider and one grid target. The original feature-specific providers and targets remain supported for granular imports and existing applications.",
     tags: ["Reference", "Providers", "Targets", "Composition"],
     sections: [
       {
@@ -5153,19 +5162,20 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               External contextual controls do not own a second copy of grid
-              state. They communicate with a grid through the nearest matching
-              provider. The provider establishes the state and lifecycle scope;
-              the control consumes that scope; and, when necessary, a target
-              identifies the exact <code>ReactDataGrid</code> that participates.
+              state. They communicate with a grid through the nearest provider.
+              Use <code>RDGProvider</code> when a grid has search, column
+              visibility, or both. It owns the shared connection scope while the
+              grid remains authoritative for column visibility and the provider
+              owns the search draft and committed query.
             </p>
             <ReferenceTable
               rows={[
                 {
                   name: "Provider",
                   type: "required context",
-                  defaultValue: "feature-specific",
+                  defaultValue: "RDGProvider",
                   description:
-                    "Owns the optional feature scope. RDGSearchBar requires RDGSearchProvider; RDGColumnVisibilityToolbar requires RDGColumnVisibilityProvider.",
+                    "RDGProvider from @geovi/the-datagrid/components is the recommended one-grid scope for one or both controls. Feature-specific providers remain supported.",
                 },
                 {
                   name: "Control",
@@ -5179,23 +5189,32 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   type: "grid connection",
                   defaultValue: "conditional",
                   description:
-                    "Wraps exactly one nested ReactDataGrid when that grid is not an immediate provider child. It renders no extra DOM element.",
+                    "RDGTarget wraps exactly one nested ReactDataGrid when that grid is not an immediate RDGProvider child. Providers and targets render no extra DOM element.",
                 },
               ]}
             />
             <Callout title="Provider required; target conditional">
               <p>
-                A matching provider is required whenever you render{" "}
+                A provider is required whenever you render{" "}
                 <code>RDGSearchBar</code> or{" "}
-                <code>RDGColumnVisibilityToolbar</code>. A target is required
-                only when an element, Fragment, Suspense or error boundary, or
-                custom component sits between that provider and the grid.
+                <code>RDGColumnVisibilityToolbar</code>. Prefer one{" "}
+                <code>RDGProvider</code> for mixed controls. A target is
+                required only when an element, Fragment, Suspense or error
+                boundary, or custom component sits between that provider and the
+                grid.
               </p>
               <p>
                 If a screen uses none of these external controls, render{" "}
                 <code>ReactDataGrid</code> normally with no provider or target.
               </p>
             </Callout>
+            <p>
+              <code>RDGProvider</code> requires <code>children</code> and
+              accepts <code>defaultSearchValue</code> to initialize its search
+              query.
+              <code>RDGTarget</code> requires exactly one grid element as its{" "}
+              <code>children</code> value.
+            </p>
           </div>
         ),
       },
@@ -5206,10 +5225,11 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               In the common layout, the grid element itself appears directly in
-              the provider&apos;s <code>children</code> list. Controls may be
-              siblings. The provider recognizes the marked grid and installs the
-              feature connection automatically, so adding a target would be
-              redundant.
+              <code>RDGProvider</code>&apos;s <code>children</code> list.
+              Search, column visibility, and application actions may be
+              siblings. The provider recognizes the marked grid and installs
+              both feature connections automatically, so adding{" "}
+              <code>RDGTarget</code> would be redundant.
             </p>
             <CodeBlock code={directProviderChildrenSnippet} language="tsx" />
             <Callout title="What direct means">
@@ -5231,8 +5251,10 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Use the feature-specific target as an explicit marker whenever
-              automatic direct-child detection cannot reach the grid.
+              Use <code>RDGTarget</code> as an explicit marker whenever
+              automatic direct-child detection cannot reach a grid under{" "}
+              <code>RDGProvider</code>. The same direct-child rule applies to
+              the stable feature-specific targets.
             </p>
             <ReferenceTable
               rows={[
@@ -5241,7 +5263,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   type: "target?",
                   defaultValue: "No",
                   description:
-                    "The provider connects the marked ReactDataGrid automatically.",
+                    "RDGProvider connects the marked ReactDataGrid automatically.",
                 },
                 {
                   name: "Grid is inside a div, section, card, or panel",
@@ -5275,45 +5297,43 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
             />
             <Callout title="A target must wrap the grid itself" tone="warning">
               <p>
-                Do not wrap a card, Fragment, or another target with a target.
-                Both <code>RDGSearchTarget</code> and{" "}
-                <code>RDGColumnVisibilityTarget</code> expect exactly one{" "}
-                <code>ReactDataGrid</code> child.
+                In application code, pass exactly one concrete{" "}
+                <code>ReactDataGrid</code> to <code>RDGTarget</code>,{" "}
+                <code>RDGSearchTarget</code>, or{" "}
+                <code>RDGColumnVisibilityTarget</code>. Put the target inside a
+                card or Fragment rather than wrapping that layout element.
               </p>
             </Callout>
           </div>
         ),
       },
       {
-        id: "nested-search-example",
-        title: "Required target: nested search layout",
+        id: "nested-combined-example",
+        title: "Required target: nested mixed-controls layout",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               Here the <code>section</code> is the provider&apos;s direct child,
-              not the grid. Without <code>RDGSearchTarget</code>, the search bar
-              would have context but the nested grid would not receive its
-              committed query.
+              not the grid. <code>RDGTarget</code> connects search and
+              visibility together, so both controls operate on the same nested
+              grid.
             </p>
-            <CodeBlock code={requiredSearchTargetSnippet} language="tsx" />
+            <CodeBlock code={requiredCombinedTargetSnippet} language="tsx" />
           </div>
         ),
       },
       {
-        id: "nested-visibility-example",
-        title: "Required target: custom visibility layout",
+        id: "mixed-provider-imports",
+        title: "Combined provider with existing control imports",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Application components are also boundaries. Put{" "}
-              <code>RDGColumnVisibilityTarget</code> at the point where the real
-              grid element is available. The toolbar may remain outside the card
-              as long as both stay inside the same provider.
+              Controls imported from the original <code>/search</code> and{" "}
+              <code>/column-visibility</code> entries consume the same singleton
+              contexts as <code>RDGProvider</code>. This lets applications adopt
+              the combined provider without rewriting every control import.
             </p>
-            <CodeBlock
-              code={requiredColumnVisibilityTargetSnippet}
-              language="tsx"
-            />
+            <CodeBlock code={mixedProviderImportsSnippet} language="tsx" />
           </div>
         ),
       },
@@ -5338,6 +5358,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
             </p>
             <ul className="list-disc space-y-2 pl-5">
               <li>The target renders no layout wrapper or DOM node.</li>
+              <li>The provider also renders no DOM layout wrapper.</li>
               <li>It does not replace or duplicate grid state.</li>
               <li>It does not require an id selector or global registry.</li>
               <li>
@@ -5355,18 +5376,20 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               Controls always use their nearest matching provider. Use separate
-              providers when grids need independent state. Column visibility is
-              intentionally one grid per provider because one toolbar must have
-              one unambiguous column model.
+              providers when grids need independent state.{" "}
+              <code>RDGProvider</code>
+              is intentionally one grid per provider because its visibility
+              toolbar must have one unambiguous column model.
             </p>
             <CodeBlock code={independentProviderScopesSnippet} language="tsx" />
             <Callout title="Search can intentionally share a query">
               <p>
-                One <code>RDGSearchProvider</code> may connect multiple search
-                targets when all of those grids should receive the same query.
-                Use separate search providers when each grid needs an
-                independent search value. In contrast, use a separate{" "}
-                <code>RDGColumnVisibilityProvider</code> for every grid.
+                The legacy search-only <code>RDGSearchProvider</code> may
+                connect multiple search targets when all grids should receive
+                the same query. Use separate <code>RDGProvider</code> scopes for
+                mixed controls, and a separate{" "}
+                <code>RDGColumnVisibilityProvider</code> for every visibility
+                grid.
               </p>
             </Callout>
           </div>
@@ -5384,7 +5407,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   type: "configuration error",
                   defaultValue: "wrap the scope",
                   description:
-                    "Move RDGSearchBar inside RDGSearchProvider or RDGColumnVisibilityToolbar inside RDGColumnVisibilityProvider.",
+                    "Move the controls inside RDGProvider, or inside their matching stable feature-specific provider.",
                 },
                 {
                   name: "Control renders but the nested grid does not react",
@@ -5394,18 +5417,18 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                     "An intervening React element is preventing direct-child discovery. Put the matching Target immediately around ReactDataGrid.",
                 },
                 {
-                  name: "Target rejects its child",
+                  name: "Target rejects or cannot connect its child",
                   type: "invalid nesting",
                   defaultValue: "wrap only the grid",
                   description:
-                    "A target accepts exactly one ReactDataGrid, not a div, Fragment, custom card, or another target.",
+                    "Pass exactly one concrete ReactDataGrid in application code, not a div, Fragment, custom card, or a consumer-assembled target stack. RDGTarget owns the internal mixed-feature composition.",
                 },
                 {
                   name: "Second visibility grid reports an ambiguous target",
                   type: "scope error",
                   defaultValue: "split providers",
                   description:
-                    "Give each grid its own RDGColumnVisibilityProvider and toolbar.",
+                    "Give each grid its own RDGProvider, or its own RDGColumnVisibilityProvider when only visibility is needed.",
                 },
                 {
                   name: "Remote search receives a query but rows do not change",
@@ -5416,29 +5439,45 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                 },
               ]}
             />
-            <Callout title="Do not nest feature targets">
+            <Callout title="Use the combined target for mixed controls">
               <p>
-                The current feature-specific targets each require the grid as
-                their direct child. Do not wrap <code>RDGSearchTarget</code>{" "}
-                around <code>RDGColumnVisibilityTarget</code>, or the reverse. A
-                future combined provider must supply its own shared bridge
-                before that composition can be documented as supported.
+                Do not assemble your own nested stack of{" "}
+                <code>RDGSearchTarget</code> and{" "}
+                <code>RDGColumnVisibilityTarget</code>. That bridge composition
+                is an implementation detail of <code>RDGTarget</code>. Use one{" "}
+                <code>RDGProvider</code> and one <code>RDGTarget</code> when
+                both controls share a grid.
               </p>
             </Callout>
           </div>
         ),
       },
       {
-        id: "stable-feature-specific-api",
-        title: "Stable feature-specific APIs",
+        id: "stable-provider-apis",
+        title: "Combined and stable feature-specific APIs",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              The current release uses feature-specific providers and targets.
-              These exports are supported public API and are not deprecated:
+              The components entry is the concise default for new mixed-control
+              integrations. The four original provider/target exports remain
+              supported public API and are not deprecated.
             </p>
             <ReferenceTable
               rows={[
+                {
+                  name: "RDGProvider",
+                  type: "@geovi/the-datagrid/components",
+                  defaultValue: "recommended",
+                  description:
+                    "Owns one grid scope shared by RDGSearchBar and RDGColumnVisibilityToolbar.",
+                },
+                {
+                  name: "RDGTarget",
+                  type: "@geovi/the-datagrid/components",
+                  defaultValue: "conditional",
+                  description:
+                    "Connects both contextual feature bridges to one nested ReactDataGrid.",
+                },
                 {
                   name: "RDGSearchProvider",
                   type: "@geovi/the-datagrid/search",
@@ -5471,15 +5510,15 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
             />
             <Callout title="Compatibility decision">
               <p>
-                If a convenience provider that combines multiple contextual
-                controls is added later, it will be additive. The four
-                feature-specific APIs above will remain available so existing
-                applications and granular optional imports keep working.
+                <code>RDGProvider</code> and <code>RDGTarget</code> are
+                additive. The four feature-specific APIs above remain available
+                so existing applications and granular optional imports keep
+                working.
               </p>
               <p>
-                A combined <code>RDGProvider</code>/<code>RDGTarget</code> is
-                not exported by the current release, so do not import or
-                document it as shipped behavior yet.
+                The <code>/components</code> entry also re-exports both
+                controls, all four feature-specific provider/target APIs, and
+                their prop types for one-import convenience.
               </p>
             </Callout>
             <p>
@@ -5632,6 +5671,16 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               and other application controls remain application-owned.
             </p>
             <CodeBlock code={columnVisibilityToolbarSnippet} language="tsx" />
+            <Callout title="Using search and visibility together">
+              <p>
+                Prefer <code>RDGProvider</code> from{" "}
+                <code>@geovi/the-datagrid/components</code> when this toolbar
+                and
+                <code>RDGSearchBar</code> control the same grid. The
+                feature-specific provider above remains supported for
+                visibility-only screens.
+              </p>
+            </Callout>
             <p>
               Read{" "}
               <DocsRouteLink
@@ -5700,6 +5749,32 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                 its scoped toolbar stylesheet.
               </li>
             </ul>
+            <CodeBlock code={columnVisibilityColumnsSnippet} language="tsx" />
+            <Callout title="Initialization and remounts">
+              <p>
+                Set <code>{"visible: false"}</code> for a column that starts
+                hidden and <code>{"hideable: false"}</code> for a column that
+                must not appear as a toggle. The compatibility fields{" "}
+                <code>defaultVisible</code> and <code>defaultHidden</code> are
+                currently ignored; they do not initialize this toolbar.
+              </p>
+              <p>
+                Visibility button clicks update grid-owned imperative state. A
+                real grid remount discards those runtime overrides and
+                initializes visibility again from the current column props.
+              </p>
+            </Callout>
+            <Callout title="Accessible title and description">
+              <p>
+                When <code>title</code> is present, the toolbar exposes it as a
+                level-two heading and labels the toolbar region with{" "}
+                <code>aria-labelledby</code>. The toggle group always keeps the
+                public <code>ariaLabel</code>, and the description is connected
+                to both region and group through <code>aria-describedby</code>.
+                Set <code>{"title={null}"}</code> to suppress the heading and
+                region label without changing the group&apos;s accessible name.
+              </p>
+            </Callout>
             <ReferenceTable
               rows={[
                 {
@@ -5721,7 +5796,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   type: "ReactNode",
                   defaultValue: '"Visible columns"',
                   description:
-                    "Heading above the controls; null suppresses the heading.",
+                    "Level-two heading that labels the toolbar region; null suppresses the heading while the toggle group keeps ariaLabel.",
                 },
                 {
                   name: "RDGColumnVisibilityToolbar.description",
@@ -5729,7 +5804,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
                   defaultValue:
                     '"Choose which columns are visible in the grid."',
                   description:
-                    "Supporting copy below the title; null suppresses it.",
+                    "Supporting copy associated with the toolbar region and toggle group through aria-describedby; null suppresses it.",
                 },
                 {
                   name: "RDGColumnVisibilityToolbar.children",
