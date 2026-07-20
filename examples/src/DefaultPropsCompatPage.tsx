@@ -1,10 +1,22 @@
 import * as React from "react";
 
-import ReactDataGrid, { type TypeColumns } from "../../src/main";
+import ReactDataGrid, {
+  filterTypes,
+  type CellProps,
+  type TypeColumns,
+  type TypeFilterTypes,
+} from "../../src/main";
+
+const exportedFilterTypes: TypeFilterTypes = filterTypes;
 
 const columns: TypeColumns = [
   { name: "id", header: "ID", defaultWidth: 72 },
-  { name: "name", header: "Name", defaultWidth: 180 },
+  {
+    name: "name",
+    header: "Name",
+    defaultWidth: 180,
+    render: (cellProps: CellProps) => String(cellProps.value ?? ""),
+  },
   { name: "team", header: "Team", defaultWidth: 160 },
 ];
 
@@ -103,6 +115,19 @@ export default function DefaultPropsCompatPage() {
             data-testid="default-props-filtered-count"
           >
             {filteredCount}
+          </div>
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="text-xs font-medium uppercase text-muted-foreground">
+            issue #21 exports
+          </div>
+          <div
+            className="mt-2 break-all font-mono text-sm"
+            data-testid="issue-21-runtime-exports"
+          >
+            {`${exportedFilterTypes.string.type}:${exportedFilterTypes.string.operators
+              .map((operator) => operator.name)
+              .join(",")}`}
           </div>
         </div>
       </section>
