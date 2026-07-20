@@ -448,6 +448,11 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
       const firstRow = element.querySelector<HTMLElement>(
         '[data-slot="grid-row"]'
       );
+      const surface = element.querySelector<HTMLElement>(
+        '[data-slot="grid-surface"]'
+      );
+      const rootRect = element.getBoundingClientRect();
+      const surfaceRect = surface?.getBoundingClientRect();
       return {
         theme: element.getAttribute("data-theme"),
         filterRowCount: element.querySelectorAll(".tdg-filter-row").length,
@@ -463,10 +468,17 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         ).length,
         hasConsumerClass: element.classList.contains("issue-31-consumer-root"),
         hasInternalClass: element.classList.contains("tdg-root"),
+        rootHeight: Math.round(rootRect.height),
+        rootWidthInset: Math.round(
+          (element.parentElement?.clientWidth ?? rootRect.width) -
+            rootRect.width
+        ),
+        surfaceMatchesRoot:
+          surfaceRect != null &&
+          Math.abs(surfaceRect.width - rootRect.width) <= 0.5 &&
+          Math.abs(surfaceRect.height - rootRect.height) <= 0.5,
         rootScrollMarginTop: element.style.scrollMarginTop || null,
-        surfaceScrollMarginTop:
-          element.querySelector<HTMLElement>('[data-slot="grid-surface"]')
-            ?.style.scrollMarginTop || null,
+        surfaceScrollMarginTop: surface?.style.scrollMarginTop || null,
       };
     });
     const inferredFilterState = await inferredFilterGrid.evaluate((element) => {
@@ -513,6 +525,9 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         columnMenuTools: 2,
         hasConsumerClass: true,
         hasInternalClass: true,
+        rootHeight: 211,
+        rootWidthInset: 17,
+        surfaceMatchesRoot: true,
         rootScrollMarginTop: "13px",
         surfaceScrollMarginTop: null,
         rootLifecycle: {

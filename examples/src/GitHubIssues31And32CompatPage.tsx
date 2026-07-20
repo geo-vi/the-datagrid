@@ -121,7 +121,11 @@ function Issue31Probe() {
           dataSource={defaultRows}
           virtualized={false}
           className="issue-31-consumer-root"
-          style={{ scrollMarginTop: "13px" }}
+          style={{
+            height: "211px",
+            width: "calc(100% - 17px)",
+            scrollMarginTop: "13px",
+          }}
           onFocus={() =>
             setRootLifecycle((current) => ({
               ...current,
