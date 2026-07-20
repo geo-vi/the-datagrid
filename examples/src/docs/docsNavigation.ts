@@ -90,9 +90,20 @@ export const docsNavigationSections: DocsNavigationSection[] = [
     id: "components",
     label: "Components",
     items: [
+      navigationItem(
+        "reference",
+        "providers-and-targets",
+        "Providers & targets"
+      ),
       navigationItem("reference", "date-filter", "Date filter"),
       navigationItem("reference", "number-filter", "Number filter"),
       navigationItem("reference", "select-filter", "Select filter"),
+      navigationItem("reference", "text-input", "Text input"),
+      navigationItem(
+        "reference",
+        "column-visibility-toolbar",
+        "Column visibility toolbar"
+      ),
       navigationItem("reference", "checkbox", "Checkbox"),
     ],
   },

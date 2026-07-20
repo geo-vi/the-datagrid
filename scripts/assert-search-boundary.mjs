@@ -95,7 +95,12 @@ const topLevelJavaScript = fs
   .sort();
 if (
   JSON.stringify(topLevelJavaScript) !==
-  JSON.stringify(["index.js", "search.js"])
+  JSON.stringify([
+    "column-visibility.js",
+    "components.js",
+    "index.js",
+    "search.js",
+  ])
 ) {
   console.error(
     `Unexpected JavaScript chunks in dist: ${topLevelJavaScript.join(", ")}`

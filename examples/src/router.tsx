@@ -9,6 +9,7 @@ import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ColumnsGridExample from "./ColumnsGridExample";
+import ColumnVisibilityCompatPage from "./ColumnVisibilityCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
@@ -17,6 +18,7 @@ import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
 import InovuaParityCompatPage from "./InovuaParityCompatPage";
 import InovuaParityExamplePage from "./InovuaParityExamplePage";
 import InovuaPendingParityCompatPage from "./InovuaPendingParityCompatPage";
+import Issue48CompatPage from "./Issue48CompatPage";
 import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
@@ -292,6 +294,12 @@ const compatComputedPropsRoute = createRoute({
   component: ComputedPropsCompatPage,
 });
 
+const compatColumnVisibilityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/column-visibility",
+  component: ColumnVisibilityCompatPage,
+});
+
 const compatDefaultPropsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/default-props",
@@ -322,6 +330,12 @@ const compatInovuaPendingParityRoute = createRoute({
   component: InovuaPendingParityCompatPage,
 });
 
+const compatIssue48Route = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/issue-48",
+  component: Issue48CompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -331,11 +345,13 @@ const compatSearchDataSourceRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
+  compatColumnVisibilityRoute,
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
   compatFilteredRowsCountRoute,
   compatInovuaParityRoute,
   compatInovuaPendingParityRoute,
+  compatIssue48Route,
   compatMemorySafetyRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,

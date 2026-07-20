@@ -192,6 +192,145 @@ const searchColumnsSnippet = `const columns: TypeColumns = [
   { name: "internalNote", searchable: false },
 ];`;
 
+const columnVisibilityToolbarSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityProvider,
+  RDGColumnVisibilityToolbar,
+} from "@geovi/the-datagrid/column-visibility";
+
+export function AccountsGrid() {
+  return (
+    <RDGColumnVisibilityProvider>
+      <RDGColumnVisibilityToolbar>
+        <button type="button" onClick={exportRows}>Export CSV</button>
+        <button type="button" onClick={toggleFilters}>Show filters</button>
+      </RDGColumnVisibilityToolbar>
+
+      <ReactDataGrid
+        idProperty="id"
+        columns={columns}
+        dataSource={rows}
+        columnOrder={columnOrder}
+      />
+    </RDGColumnVisibilityProvider>
+  );
+}`;
+
+const nestedColumnVisibilityToolbarSnippet = `import {
+  RDGColumnVisibilityProvider,
+  RDGColumnVisibilityTarget,
+  RDGColumnVisibilityToolbar,
+} from "@geovi/the-datagrid/column-visibility";
+
+<RDGColumnVisibilityProvider>
+  <RDGColumnVisibilityToolbar />
+  <section className="min-h-0 flex-1">
+    <RDGColumnVisibilityTarget>
+      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+    </RDGColumnVisibilityTarget>
+  </section>
+</RDGColumnVisibilityProvider>;`;
+
+const directProviderChildrenSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityToolbar,
+  RDGProvider,
+  RDGSearchBar,
+} from "@geovi/the-datagrid/components";
+
+export function SearchableConfigurableAccountsGrid() {
+  return (
+    <RDGProvider>
+      <RDGSearchBar />
+      <RDGColumnVisibilityToolbar>
+        <button type="button" onClick={exportRows}>Export CSV</button>
+      </RDGColumnVisibilityToolbar>
+
+      {/* Direct provider child: RDGTarget is not required. */}
+      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+    </RDGProvider>
+  );
+}`;
+
+const requiredCombinedTargetSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityToolbar,
+  RDGProvider,
+  RDGSearchBar,
+  RDGTarget,
+} from "@geovi/the-datagrid/components";
+
+<RDGProvider>
+  <RDGSearchBar />
+  <RDGColumnVisibilityToolbar />
+
+  {/* The section is an intervening child, so RDGTarget is required. */}
+  <section className="min-h-0 flex-1">
+    <RDGTarget>
+      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+    </RDGTarget>
+  </section>
+</RDGProvider>;`;
+
+const mixedProviderImportsSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import { RDGProvider, RDGTarget } from "@geovi/the-datagrid/components";
+import { RDGSearchBar } from "@geovi/the-datagrid/search";
+import {
+  RDGColumnVisibilityToolbar,
+} from "@geovi/the-datagrid/column-visibility";
+
+<RDGProvider>
+  {/* Existing feature-entry controls consume the combined provider. */}
+  <RDGSearchBar />
+  <RDGColumnVisibilityToolbar />
+  <div className="min-h-0 flex-1">
+    <RDGTarget>
+      <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+    </RDGTarget>
+  </div>
+</RDGProvider>;`;
+
+const independentProviderScopesSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+import {
+  RDGColumnVisibilityProvider,
+  RDGColumnVisibilityToolbar,
+} from "@geovi/the-datagrid/column-visibility";
+
+function AccountsAndInvoices() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* Providers add no DOM, so each scope gets a real layout wrapper. */}
+      <section className="flex min-h-0 flex-col gap-3">
+        <RDGColumnVisibilityProvider>
+          <RDGColumnVisibilityToolbar title="Account columns" />
+          <ReactDataGrid
+            idProperty="id"
+            columns={accountColumns}
+            dataSource={accounts}
+          />
+        </RDGColumnVisibilityProvider>
+      </section>
+
+      <section className="flex min-h-0 flex-col gap-3">
+        <RDGColumnVisibilityProvider>
+          <RDGColumnVisibilityToolbar title="Invoice columns" />
+          <ReactDataGrid
+            idProperty="id"
+            columns={invoiceColumns}
+            dataSource={invoices}
+          />
+        </RDGColumnVisibilityProvider>
+      </section>
+    </div>
+  );
+}`;
+
+const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
+  { name: "id", header: "ID", hideable: false },
+  { name: "name", header: "Name" },
+  { name: "city", header: "City", visible: false },
+];`;
+
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
 
 const dataSource = async (args: TypeDataSourceArgs) => {
@@ -1032,18 +1171,25 @@ const reactDataGridPropSections: ReferenceSection[] = [
         description: "Shows the header menu trigger for per-column actions.",
       },
       {
+        name: "onDidMount",
+        type: "(apiRef) => void",
+        defaultValue: "-",
+        description:
+          "Runs from the passive mount effect after the stable MutableRefObject has been hydrated, before handle and onReady. It does not repeat for grid updates or async data resolution; a real remount receives a new ref. React StrictMode can replay the mount effect in development, matching React and Inovua behavior.",
+      },
+      {
         name: "onReady",
         type: "(apiRef) => void",
         defaultValue: "-",
         description:
-          "Receives one stable MutableRefObject after mount; its TypeComputedProps target is refreshed in place as grid state changes.",
+          "Receives the hydrated stable MutableRefObject after onDidMount; its TypeComputedProps target is refreshed in place as grid state changes.",
       },
       {
         name: "handle",
         type: "(apiRef) => void",
         defaultValue: "-",
         description:
-          "Compatibility alias for onReady with the same stable-ref lifecycle.",
+          "Receives the same stable ref after onDidMount and before onReady. It is retained as a compatibility lifecycle hook rather than an alias with different timing.",
       },
     ],
   },
@@ -1079,7 +1225,7 @@ function createInovuaStatusPage(): DocsPage {
     summary:
       "A living, evidence-backed ledger of verified compatibility, remaining gaps, and behavior still being audited.",
     description:
-      "The status page is deliberately scoped: Issue 17 behaviors proven by executable tests are marked compatible, while the remaining Community surface is still audited independently.",
+      "The status page is deliberately evidence-based: verified Issue 17 and Issue 48 behaviors are marked compatible, while the remaining Community surface is still audited independently.",
     tags: ["Migration", "Inovua", "Parity status"],
     sections: [
       {
@@ -1099,10 +1245,10 @@ function createInovuaStatusPage(): DocsPage {
               </p>
             </Callout>
             <p>
-              This ledger covers the differences audited from Issue 17 and the
-              linked compatibility analysis. It is not exhaustive. The remaining
-              public Community surface is still being verified, and absence from
-              this table is not proof of compatibility.
+              This ledger covers the differences audited from Issue 17, Issue
+              48, and the linked compatibility analysis. It is not exhaustive.
+              The remaining public Community surface is still being verified,
+              and absence from this table is not proof of compatibility.
             </p>
             <p>
               The matching{" "}
@@ -1115,8 +1261,8 @@ function createInovuaStatusPage(): DocsPage {
                 executable parity specifications
               </a>{" "}
               become permanent green regression coverage as each behavior is
-              implemented. The Issue 17 rows marked compatible below are backed
-              by that focused suite.
+              implemented. The Issue 17 and Issue 48 rows marked compatible
+              below are backed by focused local suites.
             </p>
           </div>
         ),
@@ -1420,20 +1566,25 @@ function createInovuaStatusPage(): DocsPage {
       },
       {
         id: "text-input-boundary",
-        title: "TextInput boundary",
+        title: "Standalone TextInput compatibility",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Inovua's default cell editor is internally backed by a TextInput.
-              The observable editor behavior belongs to the compatibility
-              baseline; the internal component choice does not.
+              Issue 48 explicitly adopts Inovua&apos;s standalone toolkit input
+              as part of the migration surface. The compatible path is the
+              legacy default import{" "}
+              <code>@geovi/the-datagrid/packages/TextInput</code>; a named root
+              export is also available for discoverability.
             </p>
             <p>
-              Standalone <code>TextInput</code> was not documented as a
-              top-level Community grid API. It is therefore outside the public
-              baseline, not an approved technical-impossibility exception. A
-              compatible standalone export would become required only if this
-              project explicitly adopts support for Inovua toolkit deep imports.
+              Compatibility includes controlled and uncontrolled values,
+              value-first change callbacks, nested input-callback ordering,
+              stopped change propagation by default, the clear tool, and the
+              class-instance <code>focus()</code> and <code>setValue()</code>{" "}
+              methods. The public clear renderer keeps its original config shape
+              and remains subclassable. The legacy BEM hooks remain available
+              while the shipped visual treatment uses the library&apos;s
+              shadcn-compatible tokens.
             </p>
           </div>
         ),
@@ -1893,10 +2044,17 @@ const columnSections: ReferenceSection[] = [
 const computedPropsRows: ReferenceRow[] = [
   {
     name: "Lifecycle",
-    type: "onReady / handle",
-    defaultValue: "once after mount",
+    type: "onDidMount",
+    defaultValue: "passive mount effect",
     description:
-      "Both callbacks receive the same stable MutableRefObject<TypeComputedProps | null>. Its target refreshes in place and exposes initialProps/publicAPI; retain the ref rather than a state snapshot.",
+      "Receives the hydrated MutableRefObject<TypeComputedProps | null> before the currently implemented handle/onReady notifications. It follows React's passive mount-effect semantics, including StrictMode development replay; ordinary grid updates do not retrigger it. The ref target refreshes in place and exposes initialProps/publicAPI, so retain the ref rather than a state snapshot.",
+  },
+  {
+    name: "Existing lifecycle adapters",
+    type: "handle / onReady",
+    defaultValue: "once when present",
+    description:
+      "Both currently receive the same stable ref after onDidMount. Issue 48 certifies onDidMount only: Inovua's handle identity cleanup and onReady nonzero-width gate remain a separately recorded compatibility gap.",
   },
   {
     name: "Data and loading",
@@ -1973,7 +2131,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "getVirtualList()",
     defaultValue: "implemented subset",
     description:
-      "getVirtualList exposes getContainerNode/getScrollerNode/getScrollingElement, height/scroll/client-size reads, getRows/forEachRow/getRowAt, visible count/range, setRowIndex, scrollToIndex/smoothScrollTo, refresh/update, visibility/rendered-index checks, and max render count. Inovua's smoothScrollTo(value, config, callback) pixel contract is preserved, including vertical/horizontal orientation, duration, and completion value. Ranges include overscan and measured natural rows report zero-based offsets and their current sizes.",
+      "getVirtualList exposes getContainerNode/getScrollerNode/getScrollingElement, height/scroll/client-size reads, getRows/forEachRow/getRowAt, visible count/range, setRowIndex, scrollToIndex/smoothScrollTo, adjustHeights, refresh/update, visibility/rendered-index checks, and max render count. adjustHeights() synchronously reads scrollHeight from the currently instantiated variable-height rows, updates virtual or non-virtual measurements, and returns void; fixed numeric rowHeight is deliberately a no-op. Offset reindexing may settle on the next animation frame, matching the upstream manager. Inovua's smoothScrollTo(value, config, callback) pixel contract is preserved, including vertical/horizontal orientation, duration, and completion value. Ranges include overscan and measured natural rows report zero-based offsets and their current sizes.",
   },
   {
     name: "Editing",
@@ -2706,6 +2864,79 @@ const selectFilterRows: ReferenceRow[] = [
   },
 ];
 
+const textInputRows: ReferenceRow[] = [
+  {
+    name: "value / defaultValue",
+    type: "any",
+    defaultValue: 'undefined / ""',
+    description:
+      "value makes the input controlled; otherwise defaultValue seeds its owned value. A nullish default becomes an empty string.",
+  },
+  {
+    name: "onChange",
+    type: "(value: any, event?: any) => void",
+    defaultValue: "-",
+    description:
+      "Receives the proposed value first. inputProps.onChange runs before this callback with the same event; clearing reports an undefined event, matching Inovua.",
+  },
+  {
+    name: "inputProps / wrapperProps",
+    type: "input attributes | null / div attributes",
+    defaultValue: "-",
+    description:
+      "Routes native input attributes and outer-wrapper attributes without replacing the compatibility callback, focus, or class behavior. Explicit null inputProps is treated like omission for legacy spread-based callers.",
+  },
+  {
+    name: "stopChangePropagation",
+    type: "boolean | null",
+    defaultValue: "true",
+    description:
+      "Stops native input change propagation before the value-first callbacks when truthy. Set false or null when an ancestor intentionally observes change events.",
+  },
+  {
+    name: "enableClearButton / acceptClearToolFocus",
+    type: "boolean / boolean",
+    defaultValue: "true / false",
+    description:
+      "Controls the built-in clear tool and whether it participates in tab order. Legacy falsey-empty values (including empty string, 0, false, and null), disabled fields, and read-only fields keep its wrapper hidden.",
+  },
+  {
+    name: "clearButtonSize / clearButtonColor / renderClearIcon",
+    type: "number | [number, number] / string / function",
+    defaultValue: "10 / currentColor / built-in icon",
+    description:
+      "Configures the clear icon. renderClearIcon receives its resolved dimensions and color; undefined uses the default while null suppresses the icon.",
+  },
+  {
+    name: "focus() / setValue(value, event?)",
+    type: "instance methods",
+    defaultValue: "-",
+    description:
+      "A class-component ref exposes the legacy imperative methods. setValue updates uncontrolled state and always follows the nested-then-root callback order.",
+  },
+  {
+    name: "renderClearButton(config) / renderClearButtonWrapper(fieldProps)",
+    type: "bound instance/subclass hooks",
+    defaultValue: "built-in clear tool",
+    description:
+      "Preserves the public class hooks. renderClearButton receives clearButtonClassName, clearButtonColor, clearButtonSize, and clearButtonStyle, and can be detached from the ref or overridden by a subclass.",
+  },
+  {
+    name: "theme / rtl / rootClassName",
+    type: "string / boolean / string",
+    defaultValue: '"default-light" / false / "inovua-react-toolkit-text-input"',
+    description:
+      "Preserves the legacy theme, direction, and BEM hooks while using the packaged shadcn-compatible visual tokens.",
+  },
+  {
+    name: "standard input fields",
+    type: "type, name, placeholder, lengths, required, readOnly, disabled…",
+    defaultValue: 'type="text"',
+    description:
+      "Forwards the supported native input state. Clicking the wrapper focuses the input; focus and blur update the compatibility modifier and callbacks.",
+  },
+];
+
 const checkboxRows: ReferenceRow[] = [
   {
     name: "checked",
@@ -3074,23 +3305,116 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     feature: "Standalone TextInput export",
     upstreamContract: (
       <>
-        Inovua uses TextInput internally for its default editor, but does not
-        document it as a top-level Community grid export.
+        Inovua exposes a default class component from the toolkit deep path{" "}
+        <code>@inovua/reactdatagrid-community/packages/TextInput</code>. It owns
+        uncontrolled state, keeps controlled values prop-owned, reports{" "}
+        <code>(value, event)</code>, exposes <code>focus()</code> and{" "}
+        <code>setValue()</code>, and supplies a clear tool.
       </>
     ),
     currentBehavior: (
       <>
-        the-datagrid does not promise an Inovua-compatible standalone{" "}
-        <code>TextInput</code> or toolkit deep import.
+        The compatible default deep import is published and the root also
+        provides a named <code>TextInput</code>. Runtime behavior, callback
+        ordering, propagation, imperative methods, clear visibility, disabled
+        and read-only states, RTL/theme hooks, and standalone styling are
+        covered by executable tests.
       </>
     ),
     requiredOutcome: (
       <>
-        Match the observable default-editor behavior; no separate public export
-        is required unless deep-import compatibility is explicitly adopted.
+        Preserve the deep-import entry, class-instance TypeScript shape, and
+        observable interaction semantics as semver-sensitive compatibility
+        behavior.
       </>
     ),
-    status: "outside-public-baseline",
+    status: "compatible",
+  },
+  {
+    id: "on-did-mount",
+    feature: "onDidMount lifecycle callback",
+    upstreamContract: (
+      <>
+        <code>onDidMount</code> runs from a passive mount effect with the live{" "}
+        <code>MutableRefObject&lt;TypeComputedProps | null&gt;</code>. It
+        precedes the other imperative lifecycle notifications and is not tied to
+        grid width, data resolution, or subsequent rerenders.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The API ref is hydrated first, then callbacks run in{" "}
+        <code>onDidMount → handle → onReady</code> order. Ordinary updates
+        retain and refresh the same ref without repeating onDidMount; a real
+        remount creates another lifecycle. React StrictMode development replay
+        is preserved instead of hidden.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Keep the callback mount-scoped, hydrated, width-independent, ordered,
+        and typed with the same mutable computed-props ref.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "handle-on-ready-lifecycle-details",
+    feature: "handle/onReady lifecycle details",
+    upstreamContract: (
+      <>
+        Inovua reruns <code>handle</code> when its callback identity changes and
+        invokes the previous callback with <code>null</code> during cleanup. Its{" "}
+        <code>onReady</code> callback waits until the measured grid width is
+        nonzero.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The current feedback-safe adapters notify each callback once with the
+        live ref. They do not send the runtime <code>handle(null)</code>{" "}
+        cleanup, and <code>onReady</code> is not width-gated. These pre-existing
+        details are outside Issue 48&apos;s newly certified{" "}
+        <code>onDidMount</code> contract.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Reconcile callback replacement, cleanup, and zero-width readiness with
+        the upstream runtime without reintroducing callback-identity feedback
+        loops.
+      </>
+    ),
+    status: "known-gap",
+  },
+  {
+    id: "virtual-list-adjust-heights",
+    feature: "Virtual-list adjustHeights()",
+    upstreamContract: (
+      <>
+        <code>getVirtualList().adjustHeights()</code> is an argument-free,
+        synchronous command that asks currently instantiated variable-height
+        rows to remeasure themselves and returns <code>void</code>. Fixed
+        numeric row heights are unaffected.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The adapter reads <code>scrollHeight</code> from every instantiated row
+        for natural and function-valued heights, updates virtual and non-virtual
+        measurements, and leaves fixed numeric heights untouched. Virtual rows
+        use explicit cache updates instead of registering extra observers, so
+        scrolled-out function-height nodes are not retained.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Preserve the no-argument void signature, mounted-row scope, and fixed
+        row-height no-op while keeping offsets and total virtual height
+        contiguous after DOM content changes.
+      </>
+    ),
+    status: "compatible",
   },
   {
     id: "typed-column-fields",
@@ -3154,8 +3478,8 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        The rows above are the audited Issue 17 differences, not a certificate
-        that every other API has already been verified.
+        The rows above are the audited Issue 17 and Issue 48 differences, not a
+        certificate that every other API has already been verified.
       </>
     ),
     requiredOutcome: (
@@ -3216,20 +3540,48 @@ const implementedSurfaceSections: ReferenceSection[] = [
   {
     id: "package-exports",
     title: "Package entry points and exports",
+    body: (
+      <p className="text-sm text-muted-foreground">
+        For provider requirements, direct-child auto-connection, and explicit
+        target rules, read{" "}
+        <DocsRouteLink
+          group="reference"
+          slug="providers-and-targets"
+          className="font-medium text-foreground underline underline-offset-4"
+        >
+          Providers and targets
+        </DocsRouteLink>
+        .
+      </p>
+    ),
     rows: [
       {
         name: "@geovi/the-datagrid",
         type: "value exports",
         defaultValue: "main entry",
         description:
-          "Default and named ReactDataGrid, the readonly empty plugins compatibility list, DateFilter, NumberFilter, SelectFilter, CheckBox, DEFAULT_FILTER_TYPES, and filterTypes (the same registry object).",
+          "Default and named ReactDataGrid, the readonly empty plugins compatibility list, DateFilter, NumberFilter, SelectFilter, CheckBox, the discoverable named TextInput, DEFAULT_FILTER_TYPES, and filterTypes (the same registry object).",
       },
       {
         name: "Root type exports",
         type: "TypeScript",
         defaultValue: "main entry",
         description:
-          "CellProps, TypeCellProps, IColumn, SortDirection, TypeColumn, TypeColumns, TypeColumnEditorProps/Cell, TypeColumnFilterValueChangeArg, TypeColumnResizeInfo/Context, TypeComputedColumn, TypeComputedColumnsMap, TypeComputedProps, TypeDataGridProps, TypeDataSourceArgs, TypeDataSource, TypeEditInfo, TypeStartEditArgs, TypeTryStartEditArgs, TypeCompleteEditArgs, TypeCancelEditArgs, TypeFilterOperator, TypeFilterType, TypeFilterTypes, TypeFilterValue, TypeGetColumnByParam, TypeI18n, TypeOnSelectionChangeArg, TypePaginationMode, TypeRowStyle/Args/Props, TypeShowCellBorders, TypeRowSelection, TypeSize, TypeSingleFilterValue, TypeSingleSortInfo, TypeSortInfo, TypeCheckboxColumn, and TypeCheckboxProps.",
+          "The grid's Inovua-aligned CellProps, column, data-source, filter, sort, selection, row-style, editing, computed-props, and checkbox types, plus TextInputProps, TypeTextInputProps, and the TextInput callback/input/wrapper/clear-button helper types.",
+      },
+      {
+        name: "@geovi/the-datagrid/packages/TextInput",
+        type: "compatibility entry",
+        defaultValue: "default export",
+        description:
+          "The Inovua-compatible standalone TextInput path. It resolves as a default class component with TypeTextInputProps and automatically loads its small standalone stylesheet without loading the grid runtime.",
+      },
+      {
+        name: "@geovi/the-datagrid/components",
+        type: "optional combined entry",
+        defaultValue: "recommended for mixed controls",
+        description:
+          "RDGProvider, RDGTarget, RDGSearchBar, RDGColumnVisibilityToolbar, the four stable feature-specific provider/target APIs, and all corresponding prop types.",
       },
       {
         name: "@geovi/the-datagrid/search",
@@ -3239,11 +3591,18 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "RDGSearchProvider, RDGSearchBar, RDGSearchTarget, and their three prop types. Importing this entry also loads its isolated search stylesheet.",
       },
       {
+        name: "@geovi/the-datagrid/column-visibility",
+        type: "optional entry",
+        defaultValue: "opt in",
+        description:
+          "RDGColumnVisibilityProvider, RDGColumnVisibilityToolbar, RDGColumnVisibilityTarget, and their three prop types. Toolbar children form the independent right-side action area.",
+      },
+      {
         name: "CSS subpaths",
-        type: "./style.css / ./search/style.css",
+        type: "core / search / column visibility",
         defaultValue: "public",
         description:
-          "Both JavaScript entries import their own compiled CSS automatically; the explicit stylesheet subpaths remain available for build systems that require manual CSS imports.",
+          "Every JavaScript entry imports its required compiled CSS automatically; the combined components entry reuses search and column-visibility CSS without duplicating it. Explicit ./style.css, ./search/style.css, and ./column-visibility/style.css subpaths remain available for build systems that require manual CSS imports.",
       },
     ],
   },
@@ -3369,7 +3728,14 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "column.visible",
         defaultValue: "visible",
         description:
-          "visible=false removes a column. defaultVisible/defaultHidden are currently ignored, and hideable is enforced only by the transformed-mobile column picker.",
+          "visible=false removes a column. defaultVisible/defaultHidden are currently ignored; hideable is enforced by the transformed-mobile picker and optional external visibility toolbar.",
+      },
+      {
+        name: "External visibility toolbar",
+        type: "optional provider / toolbar / target",
+        defaultValue: "opt in",
+        description:
+          "Renders buttons in current grid order, reflects the live visibility map, honors hideable=false, and prevents hiding the final visible hideable column. Toolbar children render in a separate right-side actions region.",
       },
       {
         name: "Order normalization",
@@ -3971,15 +4337,23 @@ pnpm add @geovi/the-datagrid`}
             <p>
               Importing <code>@geovi/the-datagrid</code> loads the compiled core
               stylesheet. Importing <code>@geovi/the-datagrid/search</code>
-              loads the isolated optional-search stylesheet. The public{" "}
+              loads the isolated optional-search stylesheet, and importing{" "}
+              <code>@geovi/the-datagrid/column-visibility</code> loads the
+              isolated toolbar stylesheet. The combined{" "}
+              <code>@geovi/the-datagrid/components</code> entry reuses both
+              optional entries and their singleton contexts, so it loads both
+              isolated styles without duplicating their rules. The public{" "}
               <code>@geovi/the-datagrid/style.css</code> and{" "}
-              <code>@geovi/the-datagrid/search/style.css</code> subpaths are
-              available when a bundler requires explicit CSS imports.
+              <code>@geovi/the-datagrid/search/style.css</code> and{" "}
+              <code>@geovi/the-datagrid/column-visibility/style.css</code>
+              subpaths are available when a bundler requires explicit CSS
+              imports.
             </p>
             <p>
               Main grid styling is scoped to grid-owned roots, and search styles
-              are scoped to the search bar. This avoids leaking generic shadcn
-              token aliases into the host application.
+              and column-visibility styles are scoped to their respective
+              component roots. This avoids leaking generic shadcn token aliases
+              into the host application.
             </p>
           </div>
         ),
@@ -4109,6 +4483,18 @@ pnpm add @geovi/the-datagrid`}
               explicit without moving search state into the grid props.
             </p>
             <CodeBlock code={nestedTableSearchSnippet} language="tsx" />
+            <p>
+              See{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="providers-and-targets"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Providers and targets
+              </DocsRouteLink>{" "}
+              for the complete direct-child decision table, Fragment and
+              Suspense rules, and multiple-grid scoping guidance.
+            </p>
             <Callout title="Provider scope">
               <p>
                 A search bar updates targets in its nearest provider. Use
@@ -4761,6 +5147,406 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
   },
   {
     group: "reference",
+    slug: "providers-and-targets",
+    title: "Providers and targets",
+    summary:
+      "Use one RDGProvider for search and column visibility, understand direct-grid auto-connection, and add RDGTarget only across a React layout boundary.",
+    description:
+      "The optional components entry coordinates search and column visibility through one provider and one grid target. The original feature-specific providers and targets remain supported for granular imports and existing applications.",
+    tags: ["Reference", "Providers", "Targets", "Composition"],
+    sections: [
+      {
+        id: "provider-contract",
+        title: "The provider contract",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              External contextual controls do not own a second copy of grid
+              state. They communicate with a grid through the nearest provider.
+              Use <code>RDGProvider</code> when a grid has search, column
+              visibility, or both. It owns the shared connection scope while the
+              grid remains authoritative for column visibility and the provider
+              owns the search draft and committed query.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "Provider",
+                  type: "required context",
+                  defaultValue: "RDGProvider",
+                  description:
+                    "RDGProvider from @geovi/the-datagrid/components is the recommended one-grid scope for one or both controls. Feature-specific providers remain supported.",
+                },
+                {
+                  name: "Control",
+                  type: "context consumer",
+                  defaultValue: "optional",
+                  description:
+                    "Renders the external UI and reads the nearest provider. Rendering it outside its provider is a configuration error.",
+                },
+                {
+                  name: "Target",
+                  type: "grid connection",
+                  defaultValue: "conditional",
+                  description:
+                    "RDGTarget wraps exactly one nested ReactDataGrid when that grid is not an immediate RDGProvider child. Providers and targets render no extra DOM element.",
+                },
+              ]}
+            />
+            <Callout title="Provider required; target conditional">
+              <p>
+                A provider is required whenever you render{" "}
+                <code>RDGSearchBar</code> or{" "}
+                <code>RDGColumnVisibilityToolbar</code>. Prefer one{" "}
+                <code>RDGProvider</code> for mixed controls. A target is
+                required only when an element, Fragment, Suspense or error
+                boundary, or custom component sits between that provider and the
+                grid.
+              </p>
+              <p>
+                If a screen uses none of these external controls, render{" "}
+                <code>ReactDataGrid</code> normally with no provider or target.
+              </p>
+            </Callout>
+            <p>
+              <code>RDGProvider</code> requires <code>children</code> and
+              accepts <code>defaultSearchValue</code> to initialize its search
+              query.
+              <code>RDGTarget</code> requires exactly one grid element as its{" "}
+              <code>children</code> value.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "direct-grid-child",
+        title: "Direct grid children connect automatically",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              In the common layout, the grid element itself appears directly in
+              <code>RDGProvider</code>&apos;s <code>children</code> list.
+              Search, column visibility, and application actions may be
+              siblings. The provider recognizes the marked grid and installs
+              both feature connections automatically, so adding{" "}
+              <code>RDGTarget</code> would be redundant.
+            </p>
+            <CodeBlock code={directProviderChildrenSnippet} language="tsx" />
+            <Callout title="What direct means">
+              <p>
+                “Direct” describes the React element tree, not visual proximity
+                in the browser. The grid must be the provider&apos;s immediate
+                React child. A wrapping <code>div</code>, <code>section</code>,{" "}
+                <code>Fragment</code>, <code>Suspense</code>, error boundary, or
+                application component makes it nested even if no extra box is
+                visible.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "target-decision-table",
+        title: "When a target is required",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Use <code>RDGTarget</code> as an explicit marker whenever
+              automatic direct-child detection cannot reach a grid under{" "}
+              <code>RDGProvider</code>. The same direct-child rule applies to
+              the stable feature-specific targets.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "Grid is an immediate provider child",
+                  type: "target?",
+                  defaultValue: "No",
+                  description:
+                    "RDGProvider connects the marked ReactDataGrid automatically.",
+                },
+                {
+                  name: "Grid is inside a div, section, card, or panel",
+                  type: "target?",
+                  defaultValue: "Required",
+                  description:
+                    "Put the target inside the layout wrapper and wrap the grid directly.",
+                },
+                {
+                  name: "Grid is inside Fragment, Suspense, or an error boundary",
+                  type: "target?",
+                  defaultValue: "Required",
+                  description:
+                    "Those React elements are still boundaries in the provider's direct child list.",
+                },
+                {
+                  name: "A custom component renders the grid",
+                  type: "target?",
+                  defaultValue: "Required",
+                  description:
+                    "Place the target where the concrete ReactDataGrid element is created, while it remains under the provider context.",
+                },
+                {
+                  name: "No external contextual control is rendered",
+                  type: "provider / target?",
+                  defaultValue: "Neither",
+                  description:
+                    "ReactDataGrid remains a standalone component; optional providers are never global setup requirements.",
+                },
+              ]}
+            />
+            <Callout title="A target must wrap the grid itself" tone="warning">
+              <p>
+                In application code, pass exactly one concrete{" "}
+                <code>ReactDataGrid</code> to <code>RDGTarget</code>,{" "}
+                <code>RDGSearchTarget</code>, or{" "}
+                <code>RDGColumnVisibilityTarget</code>. Put the target inside a
+                card or Fragment rather than wrapping that layout element.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "nested-combined-example",
+        title: "Required target: nested mixed-controls layout",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Here the <code>section</code> is the provider&apos;s direct child,
+              not the grid. <code>RDGTarget</code> connects search and
+              visibility together, so both controls operate on the same nested
+              grid.
+            </p>
+            <CodeBlock code={requiredCombinedTargetSnippet} language="tsx" />
+          </div>
+        ),
+      },
+      {
+        id: "mixed-provider-imports",
+        title: "Combined provider with existing control imports",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Controls imported from the original <code>/search</code> and{" "}
+              <code>/column-visibility</code> entries consume the same singleton
+              contexts as <code>RDGProvider</code>. This lets applications adopt
+              the combined provider without rewriting every control import.
+            </p>
+            <CodeBlock code={mixedProviderImportsSnippet} language="tsx" />
+          </div>
+        ),
+      },
+      {
+        id: "why-targets-exist",
+        title: "Why targets exist",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              A provider can inspect its immediate React children, but it cannot
+              safely crawl through arbitrary components before React renders
+              them. Querying the DOM would be too late, would fail during server
+              rendering, and would make portals and multiple grids ambiguous.
+            </p>
+            <p>
+              The target solves that boundary explicitly. It clones the exact
+              grid element with an internal feature controller. That controller
+              is removed from consumer-facing prop mirrors and remote
+              data-source arguments, so targets do not expand{" "}
+              <code>TypeDataGridProps</code> or leak implementation details into
+              application business logic.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>The target renders no layout wrapper or DOM node.</li>
+              <li>The provider also renders no DOM layout wrapper.</li>
+              <li>It does not replace or duplicate grid state.</li>
+              <li>It does not require an id selector or global registry.</li>
+              <li>
+                It keeps the main package independent from optional provider UI
+                and styles.
+              </li>
+            </ul>
+          </div>
+        ),
+      },
+      {
+        id: "provider-scopes",
+        title: "Scope providers deliberately",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Controls always use their nearest matching provider. Use separate
+              providers when grids need independent state.{" "}
+              <code>RDGProvider</code>
+              is intentionally one grid per provider because its visibility
+              toolbar must have one unambiguous column model.
+            </p>
+            <CodeBlock code={independentProviderScopesSnippet} language="tsx" />
+            <Callout title="Search can intentionally share a query">
+              <p>
+                The legacy search-only <code>RDGSearchProvider</code> may
+                connect multiple search targets when all grids should receive
+                the same query. Use separate <code>RDGProvider</code> scopes for
+                mixed controls, and a separate{" "}
+                <code>RDGColumnVisibilityProvider</code> for every visibility
+                grid.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "provider-troubleshooting",
+        title: "Troubleshooting provider connections",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <ReferenceTable
+              rows={[
+                {
+                  name: "Control reports that its provider is missing",
+                  type: "configuration error",
+                  defaultValue: "wrap the scope",
+                  description:
+                    "Move the controls inside RDGProvider, or inside their matching stable feature-specific provider.",
+                },
+                {
+                  name: "Control renders but the nested grid does not react",
+                  type: "missing connection",
+                  defaultValue: "add a target",
+                  description:
+                    "An intervening React element is preventing direct-child discovery. Put the matching Target immediately around ReactDataGrid.",
+                },
+                {
+                  name: "Target rejects or cannot connect its child",
+                  type: "invalid nesting",
+                  defaultValue: "wrap only the grid",
+                  description:
+                    "Pass exactly one concrete ReactDataGrid in application code, not a div, Fragment, custom card, or a consumer-assembled target stack. RDGTarget owns the internal mixed-feature composition.",
+                },
+                {
+                  name: "Second visibility grid reports an ambiguous target",
+                  type: "scope error",
+                  defaultValue: "split providers",
+                  description:
+                    "Give each grid its own RDGProvider, or its own RDGColumnVisibilityProvider when only visibility is needed.",
+                },
+                {
+                  name: "Remote search receives a query but rows do not change",
+                  type: "remote ownership",
+                  defaultValue: "apply searchValue",
+                  description:
+                    "The provider connection is working; a function dataSource remains responsible for applying args.searchValue on the server.",
+                },
+              ]}
+            />
+            <Callout title="Use the combined target for mixed controls">
+              <p>
+                Do not assemble your own nested stack of{" "}
+                <code>RDGSearchTarget</code> and{" "}
+                <code>RDGColumnVisibilityTarget</code>. That bridge composition
+                is an implementation detail of <code>RDGTarget</code>. Use one{" "}
+                <code>RDGProvider</code> and one <code>RDGTarget</code> when
+                both controls share a grid.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: "stable-provider-apis",
+        title: "Combined and stable feature-specific APIs",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The components entry is the concise default for new mixed-control
+              integrations. The four original provider/target exports remain
+              supported public API and are not deprecated.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "RDGProvider",
+                  type: "@geovi/the-datagrid/components",
+                  defaultValue: "recommended",
+                  description:
+                    "Owns one grid scope shared by RDGSearchBar and RDGColumnVisibilityToolbar.",
+                },
+                {
+                  name: "RDGTarget",
+                  type: "@geovi/the-datagrid/components",
+                  defaultValue: "conditional",
+                  description:
+                    "Connects both contextual feature bridges to one nested ReactDataGrid.",
+                },
+                {
+                  name: "RDGSearchProvider",
+                  type: "@geovi/the-datagrid/search",
+                  defaultValue: "supported",
+                  description:
+                    "Owns search draft and committed state for its search controls and target grids.",
+                },
+                {
+                  name: "RDGSearchTarget",
+                  type: "@geovi/the-datagrid/search",
+                  defaultValue: "supported",
+                  description:
+                    "Explicitly connects one nested ReactDataGrid to the nearest search provider.",
+                },
+                {
+                  name: "RDGColumnVisibilityProvider",
+                  type: "@geovi/the-datagrid/column-visibility",
+                  defaultValue: "supported",
+                  description:
+                    "Owns the one-grid column visibility toolbar scope.",
+                },
+                {
+                  name: "RDGColumnVisibilityTarget",
+                  type: "@geovi/the-datagrid/column-visibility",
+                  defaultValue: "supported",
+                  description:
+                    "Explicitly connects one nested ReactDataGrid to the nearest visibility provider.",
+                },
+              ]}
+            />
+            <Callout title="Compatibility decision">
+              <p>
+                <code>RDGProvider</code> and <code>RDGTarget</code> are
+                additive. The four feature-specific APIs above remain available
+                so existing applications and granular optional imports keep
+                working.
+              </p>
+              <p>
+                The <code>/components</code> entry also re-exports both
+                controls, all four feature-specific provider/target APIs, and
+                their prop types for one-import convenience.
+              </p>
+            </Callout>
+            <p>
+              Continue with the{" "}
+              <DocsRouteLink
+                group="guides"
+                slug="table-search"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                table search guide
+              </DocsRouteLink>{" "}
+              or the{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="column-visibility-toolbar"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                column visibility toolbar reference
+              </DocsRouteLink>{" "}
+              for feature-specific behavior and props.
+            </p>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    group: "reference",
     slug: "date-filter",
     title: "DateFilter component",
     summary: "Date-oriented filter editor for single-date and range operators.",
@@ -4809,6 +5595,45 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
   },
   {
     group: "reference",
+    slug: "text-input",
+    title: "TextInput component",
+    summary:
+      "Inovua-compatible standalone text input with value-first callbacks, a clear tool, and imperative instance methods.",
+    description:
+      "Import the default class component from @geovi/the-datagrid/packages/TextInput when migrating a legacy toolkit deep import. A named root export is also available.",
+    tags: ["Reference", "Component", "TextInput", "Compatibility"],
+    sections: [
+      {
+        id: "textinput-import",
+        title: "Import",
+        body: (
+          <CodeBlock
+            code={
+              'import TextInput from "@geovi/the-datagrid/packages/TextInput";\n\n' +
+              "const inputRef = React.createRef<TextInput>();\n\n" +
+              "<TextInput\n" +
+              "  ref={inputRef}\n" +
+              '  defaultValue="Ada"\n' +
+              "  onChange={(value, event) => {\n" +
+              "    console.log(value, event);\n" +
+              "  }}\n" +
+              "/>;\n\n" +
+              "inputRef.current?.focus();\n" +
+              'inputRef.current?.setValue("Grace");'
+            }
+            language="tsx"
+          />
+        ),
+      },
+      {
+        id: "textinput-props",
+        title: "Props and instance API",
+        rows: textInputRows,
+      },
+    ],
+  },
+  {
+    group: "reference",
     slug: "checkbox",
     title: "CheckBox component",
     summary:
@@ -4821,6 +5646,184 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         id: "checkbox-props",
         title: "Props",
         rows: checkboxRows,
+      },
+    ],
+  },
+  {
+    group: "reference",
+    slug: "column-visibility-toolbar",
+    title: "Column visibility toolbar",
+    summary:
+      "Optional contextual controls for showing and hiding grid columns, with a right-side slot for application actions.",
+    description:
+      "Import the provider, toolbar, and optional nested target from @geovi/the-datagrid/column-visibility without adding visibility-control props to ReactDataGrid.",
+    tags: ["Reference", "Component", "Columns", "Visibility"],
+    sections: [
+      {
+        id: "column-visibility-composition",
+        title: "Compose the toolbar with a grid",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              A direct <code>ReactDataGrid</code> child connects automatically.
+              The toolbar reads the grid&apos;s current order and visibility;
+              its children render separately on the right, so export, filter,
+              and other application controls remain application-owned.
+            </p>
+            <CodeBlock code={columnVisibilityToolbarSnippet} language="tsx" />
+            <Callout title="Using search and visibility together">
+              <p>
+                Prefer <code>RDGProvider</code> from{" "}
+                <code>@geovi/the-datagrid/components</code> when this toolbar
+                and
+                <code>RDGSearchBar</code> control the same grid. The
+                feature-specific provider above remains supported for
+                visibility-only screens.
+              </p>
+            </Callout>
+            <p>
+              Read{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="providers-and-targets"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Providers and targets
+              </DocsRouteLink>{" "}
+              before introducing layout wrappers or scoping controls for more
+              than one grid.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "column-visibility-nested-target",
+        title: "Target a nested grid",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Wrap a grid in <code>RDGColumnVisibilityTarget</code> when layout
+              markup sits between it and the provider. Keep one grid per
+              provider so one toolbar always has an unambiguous column model.
+            </p>
+            <CodeBlock
+              code={nestedColumnVisibilityToolbarSnippet}
+              language="tsx"
+            />
+            <p>
+              The dedicated{" "}
+              <DocsRouteLink
+                group="reference"
+                slug="providers-and-targets"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Providers and targets
+              </DocsRouteLink>{" "}
+              page explains every layout boundary that requires an explicit
+              target and how to scope multiple grids.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "column-visibility-behavior",
+        title: "Behavior and public props",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                Toggle labels use a string or numeric header, then the stable
+                column <code>id</code> or <code>name</code>.
+              </li>
+              <li>
+                Columns with <code>{"hideable={false}"}</code> are omitted, and
+                the last visible column cannot be hidden because its toggle is
+                disabled.
+              </li>
+              <li>
+                Button <code>aria-pressed</code> state follows the live grid; no
+                eye icon or separate consumer visibility state is required.
+              </li>
+              <li>
+                The optional entry follows the target grid theme and loads only
+                its scoped toolbar stylesheet.
+              </li>
+            </ul>
+            <CodeBlock code={columnVisibilityColumnsSnippet} language="tsx" />
+            <Callout title="Initialization and remounts">
+              <p>
+                Set <code>{"visible: false"}</code> for a column that starts
+                hidden and <code>{"hideable: false"}</code> for a column that
+                must not appear as a toggle. The compatibility fields{" "}
+                <code>defaultVisible</code> and <code>defaultHidden</code> are
+                currently ignored; they do not initialize this toolbar.
+              </p>
+              <p>
+                Visibility button clicks update grid-owned imperative state. A
+                real grid remount discards those runtime overrides and
+                initializes visibility again from the current column props.
+              </p>
+            </Callout>
+            <Callout title="Accessible title and description">
+              <p>
+                When <code>title</code> is present, the toolbar exposes it as a
+                level-two heading and labels the toolbar region with{" "}
+                <code>aria-labelledby</code>. The toggle group always keeps the
+                public <code>ariaLabel</code>, and the description is connected
+                to both region and group through <code>aria-describedby</code>.
+                Set <code>{"title={null}"}</code> to suppress the heading and
+                region label without changing the group&apos;s accessible name.
+              </p>
+            </Callout>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "RDGColumnVisibilityProvider.children",
+                  type: "ReactNode",
+                  defaultValue: "required",
+                  description:
+                    "Contains the toolbar and one direct grid or explicit target.",
+                },
+                {
+                  name: "RDGColumnVisibilityToolbar.ariaLabel",
+                  type: "string",
+                  defaultValue: '"Visible column toggles"',
+                  description:
+                    "Accessible name for the group of visibility buttons.",
+                },
+                {
+                  name: "RDGColumnVisibilityToolbar.title",
+                  type: "ReactNode",
+                  defaultValue: '"Visible columns"',
+                  description:
+                    "Level-two heading that labels the toolbar region; null suppresses the heading while the toggle group keeps ariaLabel.",
+                },
+                {
+                  name: "RDGColumnVisibilityToolbar.description",
+                  type: "ReactNode",
+                  defaultValue:
+                    '"Choose which columns are visible in the grid."',
+                  description:
+                    "Supporting copy associated with the toolbar region and toggle group through aria-describedby; null suppresses it.",
+                },
+                {
+                  name: "RDGColumnVisibilityToolbar.children",
+                  type: "ReactNode",
+                  defaultValue: "none",
+                  description:
+                    "Application controls rendered in the right-side actions region.",
+                },
+                {
+                  name: "RDGColumnVisibilityTarget.children",
+                  type: "ReactElement<TypeDataGridProps>",
+                  defaultValue: "required",
+                  description:
+                    "The single nested ReactDataGrid connected to the nearest provider.",
+                },
+              ]}
+            />
+          </div>
+        ),
       },
     ],
   },
@@ -5002,10 +6005,12 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               The Issue 17 batch now verifies natural and functional row
               heights, resize remeasurement and <code>onColumnResize</code>,
               controlled/default widths and flex, zebra behavior, inline
-              editing, and data-dependent <code>rowStyle</code>. Other ledger
-              entries remain gaps or under verification, and the inventory is
-              not exhaustive until the remaining Community API has been audited
-              surface by surface.
+              editing, and data-dependent <code>rowStyle</code>. Issue 48 adds
+              the standalone TextInput deep entry, the <code>onDidMount</code>{" "}
+              lifecycle, and virtual-list <code>adjustHeights()</code>. Other
+              ledger entries remain gaps or under verification, and the
+              inventory is not exhaustive until the remaining Community API has
+              been audited surface by surface.
             </p>
           </div>
         ),

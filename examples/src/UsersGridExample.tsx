@@ -12,8 +12,12 @@ import ReactDataGrid, {
   type TypeI18n,
   type TypeShowCellBorders,
 } from "../../src/main";
+import {
+  RDGColumnVisibilityProvider,
+  RDGColumnVisibilityTarget,
+  RDGColumnVisibilityToolbar,
+} from "../../src/column-visibility";
 import { Button } from "../../src/components/ui/button";
-import { ButtonGroup } from "../../src/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../src/components/ui/dropdown-menu";
-
-const FILTER_RESERVED_COLNAME = "_filterColActive";
 
 const roleOptions = [
   "Administrator",
@@ -61,16 +63,6 @@ type UsersGridExampleProps = {
   i18n: TypeI18n;
   resizable: boolean;
   showCellBorders: TypeShowCellBorders;
-};
-
-type UsersToolbarProps = {
-  columns: TypeColumns;
-  selectedColumns: string[];
-  order: string[];
-  filtersActive: boolean;
-  onSelectedColumnsChange: (columns: string[]) => void;
-  onToggleFilters: () => void;
-  onExport: (format: ExportFormat) => void;
 };
 
 function getColumnId(column: TypeColumn): string {
@@ -194,118 +186,6 @@ function orderColumns(columns: TypeColumns, order: string[]) {
     (column) => !order.includes(getColumnId(column))
   );
   return [...ordered, ...remaining];
-}
-
-function UsersToolbar({
-  columns,
-  selectedColumns,
-  order,
-  filtersActive,
-  onSelectedColumnsChange,
-  onToggleFilters,
-  onExport,
-}: UsersToolbarProps) {
-  const orderedColumns = useMemo(
-    () => orderColumns(columns, order),
-    [columns, order]
-  );
-
-  const visibleColumnNames = selectedColumns.filter(
-    (name) => name !== FILTER_RESERVED_COLNAME
-  );
-  const visibleSet = new Set(visibleColumnNames);
-
-  function toggleColumn(columnName: string) {
-    const isVisible = visibleSet.has(columnName);
-
-    if (isVisible && visibleColumnNames.length === 1) {
-      return;
-    }
-
-    if (isVisible) {
-      onSelectedColumnsChange(
-        visibleColumnNames.filter((name) => name !== columnName)
-      );
-      return;
-    }
-
-    onSelectedColumnsChange([...visibleColumnNames, columnName]);
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-card/60 p-3 shadow-sm">
-      <div className="flex flex-col gap-1">
-        <div className="text-sm font-medium">Visible columns</div>
-        <div className="text-xs text-muted-foreground">
-          Toggle columns, export the current dataset shape, and show or hide the
-          filter row.
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <ButtonGroup
-          aria-label="Visible column toggles"
-          className="flex max-w-full flex-wrap gap-2"
-        >
-          {orderedColumns.map((column) => {
-            const columnId = getColumnId(column);
-            const isVisible = visibleSet.has(columnId);
-
-            return (
-              <Button
-                key={columnId}
-                type="button"
-                variant={isVisible ? "secondary" : "outline"}
-                size="sm"
-                className="rounded-md"
-                aria-pressed={isVisible}
-                onClick={() => toggleColumn(columnId)}
-              >
-                {getColumnLabel(column)}
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                <Download className="size-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Download example data</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={() => onExport("csv")}>
-                  Export CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onExport("json")}>
-                  Export JSON
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            type="button"
-            variant={filtersActive ? "secondary" : "outline"}
-            size="sm"
-            onClick={onToggleFilters}
-          >
-            {filtersActive ? (
-              <FilterX className="size-4" />
-            ) : (
-              <Filter className="size-4" />
-            )}
-            {filtersActive ? "Hide filters" : "Show filters"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function UsersGridExample({
@@ -508,19 +388,8 @@ export default function UsersGridExample({
   const [columnOrder, setColumnOrder] = useState<string[]>(() =>
     baseColumns.map(getColumnId)
   );
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(() => [
-    ...baseColumns
-      .filter((column) => column.defaultHidden !== true)
-      .map(getColumnId),
-    FILTER_RESERVED_COLNAME,
-  ]);
+  const [filtersActive, setFiltersActive] = useState(true);
   const [filteredRows, setFilteredRows] = useState(rows.length);
-
-  const filtersActive = selectedColumns.includes(FILTER_RESERVED_COLNAME);
-  const visibleColumnNames = useMemo(
-    () => selectedColumns.filter((name) => name !== FILTER_RESERVED_COLNAME),
-    [selectedColumns]
-  );
   const gridApiRef = useRef<TypeComputedProps | null>(null);
 
   const captureGridApi = useCallback(
@@ -530,32 +399,8 @@ export default function UsersGridExample({
     []
   );
 
-  function handleSelectedColumnsChange(nextColumns: string[]) {
-    const currentVisible = new Set(visibleColumnNames);
-    const nextVisible = new Set(nextColumns);
-
-    // Visibility is presentation state. Keep the complete column model stable
-    // so toggling one button does not recreate TanStack definitions, rerun the
-    // local data pipeline, or remount every filter editor.
-    for (const column of baseColumns) {
-      const columnId = getColumnId(column);
-      const wasVisible = currentVisible.has(columnId);
-      const willBeVisible = nextVisible.has(columnId);
-      if (wasVisible !== willBeVisible) {
-        gridApiRef.current?.setColumnVisible?.(columnId, willBeVisible);
-      }
-    }
-
-    const filtersMarker = filtersActive ? [FILTER_RESERVED_COLNAME] : [];
-    setSelectedColumns([...nextColumns, ...filtersMarker]);
-  }
-
   function handleToggleFilters() {
-    setSelectedColumns((current) =>
-      current.includes(FILTER_RESERVED_COLNAME)
-        ? current.filter((name) => name !== FILTER_RESERVED_COLNAME)
-        : [...current, FILTER_RESERVED_COLNAME]
-    );
+    setFiltersActive((current) => !current);
     setFilteredRows(rows.length);
   }
 
@@ -563,7 +408,11 @@ export default function UsersGridExample({
     const exportColumns = orderColumns(baseColumns, columnOrder).filter(
       (column) => {
         const columnId = getColumnId(column);
-        return selectedColumns.includes(columnId) && columnId !== "actions";
+        return (
+          columnId !== "actions" &&
+          (gridApiRef.current?.isColumnVisible?.(columnId) ??
+            column.visible !== false)
+        );
       }
     );
 
@@ -642,39 +491,73 @@ export default function UsersGridExample({
         </span>
       </div>
 
-      <UsersToolbar
-        columns={baseColumns}
-        selectedColumns={selectedColumns}
-        order={columnOrder}
-        filtersActive={filtersActive}
-        onSelectedColumnsChange={handleSelectedColumnsChange}
-        onToggleFilters={handleToggleFilters}
-        onExport={handleExport}
-      />
+      <RDGColumnVisibilityProvider>
+        <RDGColumnVisibilityToolbar
+          title="Visible columns"
+          description="Toggle columns, export the current dataset shape, and show or hide the filter row."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                <Download className="size-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Download example data</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => handleExport("csv")}>
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleExport("json")}>
+                  Export JSON
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      <div className="h-[32rem] min-h-0" data-testid="users-grid-viewport">
-        <ReactDataGrid
-          theme={theme}
-          idProperty="csuserid"
-          columns={baseColumns}
-          dataSource={rows}
-          columnOrder={columnOrder}
-          enableColumnFilterContextMenu
-          enableColumnAutosize
-          skipHeaderOnAutoSize={false}
-          resizable={resizable}
-          enableFiltering={filtersActive}
-          defaultFilterValue={defaultFilterValue}
-          filteredRowsCount={setFilteredRows}
-          onColumnOrderChange={setColumnOrder}
-          virtualized
-          columnUserSelect
-          showCellBorders={showCellBorders}
-          i18n={i18n}
-          showColumnMenuTool={false}
-          handle={captureGridApi}
-        />
-      </div>
+          <Button
+            type="button"
+            variant={filtersActive ? "secondary" : "outline"}
+            size="sm"
+            onClick={handleToggleFilters}
+          >
+            {filtersActive ? (
+              <FilterX className="size-4" />
+            ) : (
+              <Filter className="size-4" />
+            )}
+            {filtersActive ? "Hide filters" : "Show filters"}
+          </Button>
+        </RDGColumnVisibilityToolbar>
+
+        <div className="h-[32rem] min-h-0" data-testid="users-grid-viewport">
+          <RDGColumnVisibilityTarget>
+            <ReactDataGrid
+              theme={theme}
+              idProperty="csuserid"
+              columns={baseColumns}
+              dataSource={rows}
+              columnOrder={columnOrder}
+              enableColumnFilterContextMenu
+              enableColumnAutosize
+              skipHeaderOnAutoSize={false}
+              resizable={resizable}
+              enableFiltering={filtersActive}
+              defaultFilterValue={defaultFilterValue}
+              filteredRowsCount={setFilteredRows}
+              onColumnOrderChange={setColumnOrder}
+              virtualized
+              columnUserSelect
+              showCellBorders={showCellBorders}
+              i18n={i18n}
+              showColumnMenuTool={false}
+              handle={captureGridApi}
+            />
+          </RDGColumnVisibilityTarget>
+        </div>
+      </RDGColumnVisibilityProvider>
     </section>
   );
 }

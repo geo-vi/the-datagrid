@@ -1,6 +1,6 @@
 {
   "name": "@geovi/the-datagrid",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "A modern, feature-rich React data grid component built with shadcn/ui and TanStack Table",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,6 +8,15 @@
   "types": "./dist/main.d.ts",
   "typesVersions": {
     "*": {
+      "column-visibility": [
+        "./dist/column-visibility/index.d.ts"
+      ],
+      "components": [
+        "./dist/providers/index.d.ts"
+      ],
+      "packages/TextInput": [
+        "./dist/packages/TextInput/index.d.ts"
+      ],
       "search": [
         "./dist/search/index.d.ts"
       ]
@@ -22,6 +31,19 @@
       "types": "./dist/search/index.d.ts",
       "import": "./dist/search.js"
     },
+    "./column-visibility": {
+      "types": "./dist/column-visibility/index.d.ts",
+      "import": "./dist/column-visibility.js"
+    },
+    "./components": {
+      "types": "./dist/providers/index.d.ts",
+      "import": "./dist/components.js"
+    },
+    "./packages/TextInput": {
+      "types": "./dist/packages/TextInput/index.d.ts",
+      "import": "./dist/packages/TextInput/index.js"
+    },
+    "./column-visibility/style.css": "./dist/column-visibility.css",
     "./search/style.css": "./dist/search.css",
     "./style.css": "./dist/index.css"
   },
@@ -52,7 +74,7 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs",
+    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",

@@ -254,21 +254,35 @@ type InternalSearchController = {
   filterRows: <Row>(rows: Row[], columns: TypeColumn[]) => Row[];
 };
 
+type InternalColumnVisibilitySnapshot = {
+  columns: readonly TypeColumn[];
+  columnOrder: readonly string[];
+  columnVisibilityMap: Readonly<Record<string, boolean>>;
+  theme: string;
+  setColumnVisible: (columnId: string, visible: boolean) => void;
+};
+
+type InternalColumnVisibilityController = {
+  publish: (snapshot: InternalColumnVisibilitySnapshot) => void;
+};
+
 type InternalDataGridProps = TypeDataGridProps & {
   /** Injected by the optional search package; intentionally not public API. */
   __rdgSearchController?: InternalSearchController;
+  /** Injected by the optional column-visibility package; not public API. */
+  __rdgColumnVisibilityController?: InternalColumnVisibilityController;
 };
 
-let publicSearchPropsCache:
+let publicPropsCache:
   | WeakMap<InternalDataGridProps, InternalDataGridProps>
   | undefined;
 
-function getPublicSearchProps(
+function getPublicProps(
   internalProps: InternalDataGridProps
 ): InternalDataGridProps {
   const cache =
-    publicSearchPropsCache ??
-    (publicSearchPropsCache = new WeakMap<
+    publicPropsCache ??
+    (publicPropsCache = new WeakMap<
       InternalDataGridProps,
       InternalDataGridProps
     >());
@@ -277,6 +291,7 @@ function getPublicSearchProps(
 
   const publicProps = { ...internalProps };
   delete publicProps.__rdgSearchController;
+  delete publicProps.__rdgColumnVisibilityController;
   cache.set(internalProps, publicProps);
   return publicProps;
 }
@@ -426,11 +441,15 @@ function ensureLastColumnHeaderFits(args: {
 function ReactDataGrid(props: TypeDataGridProps) {
   const internalProps = props as InternalDataGridProps;
   const searchController = internalProps.__rdgSearchController;
+  const columnVisibilityController =
+    internalProps.__rdgColumnVisibilityController;
   const searchConnected = searchController != null;
-  // The optional search entry uses a private prop as its zero-dependency
-  // bridge. Keep that bridge out of every consumer-facing props mirror.
-  const publicProps: InternalDataGridProps = searchConnected
-    ? getPublicSearchProps(internalProps)
+  const optionalControllerConnected =
+    searchConnected || columnVisibilityController != null;
+  // Optional entries use private props as zero-dependency bridges. Keep those
+  // bridges out of every consumer-facing props mirror and remote-source args.
+  const publicProps: InternalDataGridProps = optionalControllerConnected
+    ? getPublicProps(internalProps)
     : internalProps;
   const searchValue = searchController?.value ?? "";
   const searchFilterRows = searchController?.filterRows;
@@ -3689,18 +3708,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
   const onReadyRef = React.useRef(props.onReady);
   const handleRef = React.useRef(props.handle);
+  const onDidMountRef = React.useRef(props.onDidMount);
   const onReadyNotifiedRef = React.useRef(false);
   const handleNotifiedRef = React.useRef(false);
 
   React.useLayoutEffect(() => {
     onReadyRef.current = props.onReady;
     handleRef.current = props.handle;
+    onDidMountRef.current = props.onDidMount;
 
     return () => {
       onReadyRef.current = undefined;
       handleRef.current = undefined;
+      onDidMountRef.current = undefined;
     };
-  }, [props.handle, props.onReady]);
+  }, [props.handle, props.onDidMount, props.onReady]);
 
   React.useLayoutEffect(() => {
     return () => {
@@ -3915,6 +3937,71 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [getColumnByCompat]
   );
+
+  const setColumnVisibleCompat = React.useCallback(
+    (column: TypeGetColumnByParam, visible: boolean) => {
+      const columnId = getColumnIdCompat(column);
+      if (!columnId) return;
+      if (
+        !allInputColumns.some(
+          (candidate) => getColumnId(candidate) === columnId
+        )
+      ) {
+        return;
+      }
+
+      // `hideable` constrains UI affordances, not the Inovua imperative API.
+      // Writing the sparse controlled override also avoids TanStack's
+      // `getCanHide()` gate for hideable:false columns.
+      setColumnVisibilityState((current) => {
+        if (current[columnId] === visible) return current;
+        return { ...current, [columnId]: visible };
+      });
+    },
+    [allInputColumns, getColumnIdCompat]
+  );
+
+  const columnVisibilityIdsRef = React.useRef<ReadonlySet<string>>(new Set());
+  columnVisibilityIdsRef.current = new Set(
+    allInputColumns.map((column) => getColumnId(column))
+  );
+  const setColumnVisibleById = React.useCallback(
+    (columnId: string, visible: boolean) => {
+      if (!columnVisibilityIdsRef.current.has(columnId)) return;
+
+      setColumnVisibilityState((current) => {
+        if (current[columnId] === visible) return current;
+        return { ...current, [columnId]: visible };
+      });
+    },
+    []
+  );
+
+  React.useLayoutEffect(() => {
+    if (!columnVisibilityController) return;
+
+    const consumerColumnVisibilityMap = Object.fromEntries(
+      inputColumns.map((column) => {
+        const columnId = getColumnId(column);
+        return [columnId, columnVisibilityMap[columnId] !== false];
+      })
+    );
+
+    columnVisibilityController.publish({
+      columns: inputColumns,
+      columnOrder: columnOrderForDs,
+      columnVisibilityMap: consumerColumnVisibilityMap,
+      theme: String(theme),
+      setColumnVisible: setColumnVisibleById,
+    });
+  }, [
+    columnOrderForDs,
+    columnVisibilityController,
+    columnVisibilityMap,
+    inputColumns,
+    setColumnVisibleById,
+    theme,
+  ]);
 
   const setColumnSortInfoCompat = React.useCallback(
     (column: TypeGetColumnByParam, dir: 1 | 0 | -1) => {
@@ -4274,21 +4361,44 @@ function ReactDataGrid(props: TypeDataGridProps) {
     );
   }, []);
 
-  const resolvedRowHeightLayout = React.useMemo(() => {
+  // Non-virtual rows still participate in Inovua's virtual-list compatibility
+  // API. Keep their explicit DOM measurements outside React state: the table
+  // already lays those rows out naturally, while the imperative getters need
+  // to report the same measured sizes immediately after `adjustHeights()`.
+  const nonVirtualRowHeightOverridesRef = React.useRef(
+    new Map<string, number>()
+  );
+  React.useEffect(() => {
+    const overrides = nonVirtualRowHeightOverridesRef.current;
+    if (typeof rowHeight === "number" || virtualized) {
+      overrides.clear();
+      return;
+    }
+    if (overrides.size === 0) return;
+
+    const currentRowIds = new Set(rowModel.map((row) => row.id));
+    for (const rowId of overrides.keys()) {
+      if (!currentRowIds.has(rowId)) overrides.delete(rowId);
+    }
+  }, [rowHeight, rowModel, virtualized]);
+  const getResolvedRowHeightLayout = React.useCallback(() => {
     let start = 0;
-    return rowModel.map((_, index) => {
-      const size = resolveRowHeight(index);
+    return rowModel.map((row, index) => {
+      const size =
+        (typeof rowHeight !== "number"
+          ? nonVirtualRowHeightOverridesRef.current.get(row.id)
+          : undefined) ?? resolveRowHeight(index);
       const item = { index, start, end: start + size, size };
       start += size;
       return item;
     });
-  }, [resolveRowHeight, rowModel]);
+  }, [resolveRowHeight, rowHeight, rowModel]);
 
   const getVirtualListRowsCompat =
     React.useCallback((): TypeComputedVirtualListRow[] => {
       const virtualRows = virtualized
         ? rowVirtualizer.getVirtualItems()
-        : resolvedRowHeightLayout;
+        : getResolvedRowHeightLayout();
 
       return virtualRows.map((virtualRow) => {
         const row = rowModel[virtualRow.index];
@@ -4310,7 +4420,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         };
       });
     }, [
-      resolvedRowHeightLayout,
+      getResolvedRowHeightLayout,
       rowModel,
       rowVirtualizer,
       stickyHeaderOffset,
@@ -4318,10 +4428,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ]);
 
   const getTotalRowHeightCompat = React.useCallback(() => {
-    return virtualized
-      ? rowVirtualizer.getTotalSize()
-      : (resolvedRowHeightLayout[resolvedRowHeightLayout.length - 1]?.end ?? 0);
-  }, [resolvedRowHeightLayout, rowVirtualizer, virtualized]);
+    if (virtualized) return rowVirtualizer.getTotalSize();
+
+    const resolvedRowHeightLayout = getResolvedRowHeightLayout();
+    return (
+      resolvedRowHeightLayout[resolvedRowHeightLayout.length - 1]?.end ?? 0
+    );
+  }, [getResolvedRowHeightLayout, rowVirtualizer, virtualized]);
 
   const getScrollHeightCompat = React.useCallback(() => {
     return Math.max(
@@ -4430,6 +4543,44 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
   }, [rowVirtualizer, virtualized]);
 
+  const adjustVirtualListHeightsCompat = React.useCallback((): void => {
+    // Inovua only performs manual measurement when row height is variable.
+    // A numeric value, including a non-finite one, selects fixed-height mode.
+    if (typeof rowHeight === "number") return;
+
+    const rowContainer = scrollRef.current ?? surfaceRef.current;
+    rowContainer
+      ?.querySelectorAll<HTMLElement>('[data-slot="grid-row"][data-row-index]')
+      .forEach((element) => {
+        const rowIndex = Number(element.dataset.rowIndex);
+        const measuredHeight = element.scrollHeight;
+        if (
+          !Number.isInteger(rowIndex) ||
+          rowIndex < 0 ||
+          rowIndex >= rowModel.length ||
+          !Number.isFinite(measuredHeight) ||
+          measuredHeight <= 0
+        ) {
+          return;
+        }
+
+        if (virtualized) {
+          // `measureElement()` also registers the node with TanStack's
+          // ResizeObserver/cache. Calling it imperatively for function-height
+          // rows (which have no ref cleanup) can retain disconnected DOM nodes
+          // after scrolling. Inovua reads `scrollHeight`; `resizeItem()` gives
+          // us the same explicit measurement without creating an observer.
+          rowVirtualizer.resizeItem(rowIndex, measuredHeight);
+          return;
+        }
+
+        const row = rowModel[rowIndex];
+        if (row) {
+          nonVirtualRowHeightOverridesRef.current.set(row.id, measuredHeight);
+        }
+      });
+  }, [rowHeight, rowModel, rowVirtualizer, virtualized]);
+
   const virtualListCompat = React.useMemo<TypeComputedVirtualList>(
     () => ({
       props: publicProps as unknown as Record<string, unknown>,
@@ -4485,6 +4636,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setRowIndex: (index) => scrollToIndexCompat(index),
       scrollToIndex: scrollToIndexCompat,
       smoothScrollTo: smoothScrollToCompat,
+      adjustHeights: adjustVirtualListHeightsCompat,
       refreshLayout: refreshVirtualListLayoutCompat,
       updateVisibleCount: getVirtualListVisibleCountCompat,
       isRowRendered: isRowRenderedCompat,
@@ -4496,6 +4648,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getMaxRenderCount: getVirtualListVisibleCountCompat,
     }),
     [
+      adjustVirtualListHeightsCompat,
       getClientSizeCompat,
       getScrollingElement,
       getScrollHeightCompat,
@@ -4586,19 +4739,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const columnId = getColumnIdCompat(column);
         return columnId ? columnVisibilityMap[columnId] !== false : false;
       },
-      setColumnVisible: (column, visible) => {
-        const columnId = getColumnIdCompat(column);
-        if (!columnId) return;
-        if (!table.getColumn(columnId)) return;
-
-        // `hideable` constrains UI affordances, not the Inovua imperative API.
-        // Writing the sparse controlled override also avoids TanStack's
-        // `getCanHide()` gate for hideable:false columns.
-        setColumnVisibilityState((current) => {
-          if (current[columnId] === visible) return current;
-          return { ...current, [columnId]: visible };
-        });
-      },
+      setColumnVisible: setColumnVisibleCompat,
       gridId: gridIdRef.current,
       size: {
         width: viewportWidth,
@@ -4861,18 +5002,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
     Object.assign(stableApiTarget, baseApi);
     apiRef.current = stableApi;
-
-    const handle = handleRef.current;
-    if (!handleNotifiedRef.current && handle) {
-      handleNotifiedRef.current = true;
-      handle(apiRef);
-    }
-
-    const onReady = onReadyRef.current;
-    if (!onReadyNotifiedRef.current && onReady) {
-      onReadyNotifiedRef.current = true;
-      onReady(apiRef);
-    }
   }, [
     allComputedColumns,
     canNext,
@@ -4935,6 +5064,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showZebraRows,
     setColumnFilterValueCompat,
     setColumnOrderCompat,
+    setColumnVisibleCompat,
     setColumnSortInfoCompat,
     setFilterValueAndResetPage,
     setLimitAndResetPage,
@@ -4971,6 +5101,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
     virtualItems.length,
     virtualized,
   ]);
+
+  // Preserve Inovua's mount lifecycle: the API is hydrated by the preceding
+  // passive effect, then onDidMount observes that live ref before the other
+  // imperative lifecycle callbacks. React StrictMode intentionally replays
+  // this mount effect in development, just as it does upstream.
+  React.useEffect(() => {
+    onDidMountRef.current?.(apiRef);
+  }, []);
+
+  React.useEffect(() => {
+    const handle = handleRef.current;
+    if (!handleNotifiedRef.current && handle) {
+      handleNotifiedRef.current = true;
+      handle(apiRef);
+    }
+
+    const onReady = onReadyRef.current;
+    if (!onReadyNotifiedRef.current && onReady) {
+      onReadyNotifiedRef.current = true;
+      onReady(apiRef);
+    }
+  }, [props.handle, props.onReady]);
 
   /** ---------------- render ---------------- */
 
@@ -5033,6 +5185,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
                 searchEnabled={!searchConnected}
+                columnPickerEnabled={columnVisibilityController == null}
                 authoritativeResultCount={searchConnected ? count : undefined}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
@@ -5232,6 +5385,12 @@ ReactDataGridWithDefaultProps.defaultProps = {
 Object.defineProperty(
   ReactDataGridWithDefaultProps,
   Symbol.for("@geovi/the-datagrid/search-target"),
+  { value: true }
+);
+
+Object.defineProperty(
+  ReactDataGridWithDefaultProps,
+  Symbol.for("@geovi/the-datagrid/column-visibility-target"),
   { value: true }
 );
 
