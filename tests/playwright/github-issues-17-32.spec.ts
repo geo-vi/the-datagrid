@@ -423,7 +423,7 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     ).toBe(callsBefore + 1);
   });
 
-  test("issue #31: core defaults, optional idProperty and DOM attributes match Inovua", async ({
+  test("issue #31: core defaults, optional idProperty and root lifecycle props match Inovua", async ({
     page,
   }) => {
     await page.goto("/compat/github-issues-31-32");
@@ -437,7 +437,10 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     await expect(defaultGrid).toBeVisible();
     await expect(inferredFilterGrid).toBeVisible();
 
-    await defaultGrid.locator('[data-slot="grid-row"]').first().click();
+    const surface = defaultGrid.locator('[data-slot="grid-surface"]');
+    await surface.focus();
+    await page.keyboard.press("q");
+    await probe.getByTestId("issue-31-lifecycle-focus-sink").focus();
     const defaults = await readJson<Record<string, unknown>>(
       probe.getByTestId("issue-31-default-props")
     );
@@ -458,7 +461,12 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         columnMenuTools: element.querySelectorAll(
           'button[aria-label="Column menu"]'
         ).length,
-        hostAttribute: element.getAttribute("data-host-attribute"),
+        hasConsumerClass: element.classList.contains("issue-31-consumer-root"),
+        hasInternalClass: element.classList.contains("tdg-root"),
+        rootScrollMarginTop: element.style.scrollMarginTop || null,
+        surfaceScrollMarginTop:
+          element.querySelector<HTMLElement>('[data-slot="grid-surface"]')
+            ?.style.scrollMarginTop || null,
       };
     });
     const inferredFilterState = await inferredFilterGrid.evaluate((element) => {
@@ -478,11 +486,11 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
       defaults,
       defaultGrid: {
         ...defaultGridState,
-        rootClicks: Number(
-          (
-            await probe.getByTestId("issue-31-root-clicks").textContent()
-          )?.trim()
-        ),
+        rootLifecycle: await readJson<{
+          focus: number;
+          blur: number;
+          keyDown: string[];
+        }>(probe.getByTestId("issue-31-root-lifecycle")),
       },
       inferredFilterGrid: inferredFilterState,
     }).toEqual({
@@ -492,6 +500,7 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         rowHeight: 40,
         filterRowHeight: 40,
         enableColumnFilterContextMenu: true,
+        enableFiltering: null,
         columnUserSelect: false,
         showColumnMenuTool: true,
       },
@@ -502,8 +511,15 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         firstRowHeight: 40,
         cellsUseSelectNone: true,
         columnMenuTools: 2,
-        hostAttribute: "forwarded",
-        rootClicks: 1,
+        hasConsumerClass: true,
+        hasInternalClass: true,
+        rootScrollMarginTop: "13px",
+        surfaceScrollMarginTop: null,
+        rootLifecycle: {
+          focus: 1,
+          blur: 1,
+          keyDown: ["q"],
+        },
       },
       inferredFilterGrid: {
         filterRowCount: 1,
@@ -511,6 +527,193 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         filterOperatorButtons: 1,
       },
     });
+  });
+
+  test("issue #31: filtering inference follows Inovua's explicit-override precedence", async ({
+    page,
+  }) => {
+    await page.goto("/compat/github-issues-31-32");
+    const probe = page.getByTestId("github-issue-31-probe");
+
+    const cases = [
+      {
+        testId: "issue-31-filter-omitted",
+        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+      },
+      {
+        testId: "issue-31-filter-default-active",
+        expected: { filterRows: 1, filterEditors: 1, dataRows: 1 },
+      },
+      {
+        testId: "issue-31-filter-controlled",
+        expected: { filterRows: 1, filterEditors: 1, dataRows: 2 },
+      },
+      {
+        testId: "issue-31-filter-explicit-true",
+        expected: { filterRows: 1, filterEditors: 0, dataRows: 2 },
+      },
+      {
+        testId: "issue-31-filter-explicit-false-default",
+        expected: { filterRows: 0, filterEditors: 0, dataRows: 1 },
+      },
+      {
+        testId: "issue-31-filter-explicit-false-controlled",
+        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+      },
+      {
+        testId: "issue-31-filter-empty-default",
+        expected: { filterRows: 0, filterEditors: 0, dataRows: 2 },
+      },
+      {
+        testId: "issue-31-filter-inactive-default",
+        expected: { filterRows: 1, filterEditors: 1, dataRows: 2 },
+      },
+    ] as const;
+
+    // Inovua 5.10.2 separates filter-row visibility from local data
+    // transformation. In particular, controlled filterValue is display state
+    // only, while an uncontrolled defaultFilterValue still transforms local
+    // data even when enableFiltering explicitly hides the filter row.
+    for (const filterCase of cases) {
+      const grid = probe.getByTestId(filterCase.testId).locator(".tdg-root");
+      await expect(grid, filterCase.testId).toBeVisible();
+      const state = await grid.evaluate((element) => ({
+        filterRows: element.querySelectorAll(".tdg-filter-row").length,
+        filterEditors: element.querySelectorAll(".tdg-filter-row input").length,
+        dataRows: element.querySelectorAll('[data-slot="grid-row"]').length,
+      }));
+
+      expect.soft(state, filterCase.testId).toEqual(filterCase.expected);
+    }
+  });
+
+  test("issue #31: 40px rows retain complete Latin and Cyrillic glyphs", async ({
+    page,
+  }) => {
+    await page.goto("/compat/github-issues-31-32");
+    const grid = page
+      .getByTestId("issue-31-40px-glyph-grid-shell")
+      .locator(".tdg-root");
+    await expect(grid).toBeVisible();
+
+    const measurements = await grid.evaluate((element) => {
+      return [
+        { rowId: "latin", sample: "ÁÉÍ" },
+        { rowId: "cyrillic", sample: "ЙЁЩ" },
+      ].map(({ rowId, sample }) => {
+        const row = Array.from(
+          element.querySelectorAll<HTMLElement>('[data-slot="grid-row"]')
+        ).find((candidate) => candidate.textContent?.includes(sample));
+        const cell = row?.querySelector<HTMLElement>('[data-column-id="name"]');
+        const walker = cell
+          ? document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+          : null;
+        let textNode: Node | null = null;
+        while (walker && (textNode = walker.nextNode())) {
+          if (textNode.textContent?.includes(sample)) break;
+        }
+        if (!row || !cell || !textNode) {
+          throw new Error(`Missing ${rowId} glyph measurement target`);
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(textNode);
+        const rowRect = row.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const textRect = range.getBoundingClientRect();
+        const cellStyle = getComputedStyle(cell);
+
+        return {
+          rowId,
+          rowHeight: rowRect.height,
+          cellHeight: cellRect.height,
+          textHeight: textRect.height,
+          textInsideRow:
+            textRect.top >= rowRect.top - 0.5 &&
+            textRect.bottom <= rowRect.bottom + 0.5,
+          textInsideCell:
+            textRect.top >= cellRect.top - 0.5 &&
+            textRect.bottom <= cellRect.bottom + 0.5,
+          cellHasNoVerticalOverflow: cell.scrollHeight <= cell.clientHeight,
+          rowHasNoVerticalOverflow: row.scrollHeight <= row.clientHeight,
+          overflowY: cellStyle.overflowY,
+        };
+      });
+    });
+
+    expect(measurements).toHaveLength(2);
+    for (const measurement of measurements) {
+      expect(measurement.rowHeight).toBeCloseTo(40, 0);
+      expect(measurement.cellHeight).toBeCloseTo(40, 0);
+      expect(measurement.textHeight).toBeGreaterThan(0);
+      expect(measurement.textInsideRow).toBe(true);
+      expect(measurement.textInsideCell).toBe(true);
+      expect(measurement.cellHasNoVerticalOverflow).toBe(true);
+      expect(measurement.rowHasNoVerticalOverflow).toBe(true);
+      expect(measurement.overflowY).not.toBe("scroll");
+    }
+  });
+
+  test("issue #31: a 40px filter row retains Cyrillic and Latin glyph metrics", async ({
+    page,
+  }) => {
+    await page.goto("/compat/github-issues-31-32");
+    const grid = page
+      .getByTestId("issue-31-40px-filter-glyph-grid-shell")
+      .locator(".tdg-root");
+    await expect(grid).toBeVisible();
+
+    const measurement = await grid.evaluate((element) => {
+      const filterRow = element.querySelector<HTMLElement>(".tdg-filter-row");
+      const input = filterRow?.querySelector<HTMLInputElement>("input");
+      const filterCell = input?.closest<HTMLElement>(".tdg-filter-cell");
+      if (!filterRow || !input || !filterCell) {
+        throw new Error("Missing 40px filter glyph measurement target");
+      }
+
+      const rowRect = filterRow.getBoundingClientRect();
+      const cellRect = filterCell.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
+      const inputStyle = getComputedStyle(input);
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas text metrics are unavailable");
+      context.font = inputStyle.font;
+      const glyphMetrics = context.measureText(input.value);
+      const glyphHeight =
+        glyphMetrics.actualBoundingBoxAscent +
+        glyphMetrics.actualBoundingBoxDescent;
+      const contentHeight =
+        input.clientHeight -
+        Number.parseFloat(inputStyle.paddingTop) -
+        Number.parseFloat(inputStyle.paddingBottom);
+
+      return {
+        value: input.value,
+        rowHeight: rowRect.height,
+        cellHeight: cellRect.height,
+        inputInsideRow:
+          inputRect.top >= rowRect.top - 0.5 &&
+          inputRect.bottom <= rowRect.bottom + 0.5,
+        inputInsideCell:
+          inputRect.top >= cellRect.top - 0.5 &&
+          inputRect.bottom <= cellRect.bottom + 0.5,
+        inputHasNoVerticalOverflow: input.scrollHeight <= input.clientHeight,
+        glyphHeight,
+        contentHeight,
+      };
+    });
+
+    expect(measurement.value).toBe("ЙЁЩЦДЪ gjpqy");
+    expect(measurement.rowHeight).toBeCloseTo(40, 0);
+    expect(measurement.cellHeight).toBeCloseTo(40, 0);
+    expect(measurement.inputInsideRow).toBe(true);
+    expect(measurement.inputInsideCell).toBe(true);
+    expect(measurement.inputHasNoVerticalOverflow).toBe(true);
+    expect(measurement.glyphHeight).toBeGreaterThan(0);
+    expect(measurement.glyphHeight).toBeLessThanOrEqual(
+      measurement.contentHeight + 0.5
+    );
   });
 
   test("issue #32: Promise data sources own remote paging and expose loading and toolbar hooks", async ({

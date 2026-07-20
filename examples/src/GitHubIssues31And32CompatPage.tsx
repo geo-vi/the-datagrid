@@ -22,6 +22,37 @@ const defaultRows = [
   { id: "row-2", name: "Grace Hopper" },
 ];
 
+const activeNameFilter = [
+  {
+    name: "name",
+    type: "string",
+    operator: "contains",
+    value: "Ada",
+  },
+];
+
+const inactiveNameFilter = [
+  {
+    ...activeNameFilter[0],
+    active: false,
+  },
+];
+
+const cyrillicGlyphFilter = [
+  {
+    ...activeNameFilter[0],
+    value: "ЙЁЩЦДЪ gjpqy",
+  },
+];
+
+const glyphRows = [
+  { id: "latin", name: "ÁÉÍÓÚ ÂĂÅÇÑ ĞŐŰÝ gjpqy" },
+  {
+    id: "cyrillic",
+    name: "ЙЁЩЦДЪ ФЫВАПРОЛДЖЭ ЯЧСМИТЬБЮ йцурфдщ",
+  },
+];
+
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -36,8 +67,29 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
+function Issue31FilterGrid({
+  testId,
+  ...filterProps
+}: { testId: string } & Record<string, unknown>) {
+  return (
+    <div className="h-[180px] min-h-0 rounded-lg border" data-testid={testId}>
+      <UntypedReactDataGrid
+        idProperty="id"
+        columns={columns}
+        dataSource={defaultRows}
+        virtualized={false}
+        {...filterProps}
+      />
+    </div>
+  );
+}
+
 function Issue31Probe() {
-  const [rootClicks, setRootClicks] = React.useState(0);
+  const [rootLifecycle, setRootLifecycle] = React.useState({
+    focus: 0,
+    blur: 0,
+    keyDown: [] as string[],
+  });
   const defaults = ReactDataGrid.defaultProps as Record<string, unknown>;
   const observedDefaults = {
     idProperty: defaults.idProperty ?? null,
@@ -46,6 +98,7 @@ function Issue31Probe() {
     filterRowHeight: defaults.filterRowHeight ?? null,
     enableColumnFilterContextMenu:
       defaults.enableColumnFilterContextMenu ?? null,
+    enableFiltering: defaults.enableFiltering ?? null,
     columnUserSelect: defaults.columnUserSelect ?? null,
     showColumnMenuTool: defaults.showColumnMenuTool ?? null,
   };
@@ -55,7 +108,9 @@ function Issue31Probe() {
       <output data-testid="issue-31-default-props">
         {JSON.stringify(observedDefaults)}
       </output>
-      <output data-testid="issue-31-root-clicks">{rootClicks}</output>
+      <output data-testid="issue-31-root-lifecycle">
+        {JSON.stringify(rootLifecycle)}
+      </output>
 
       <div
         className="h-[260px] min-h-0 rounded-lg border"
@@ -65,10 +120,32 @@ function Issue31Probe() {
           columns={columns}
           dataSource={defaultRows}
           virtualized={false}
-          data-host-attribute="forwarded"
-          onClick={() => setRootClicks((current) => current + 1)}
+          className="issue-31-consumer-root"
+          style={{ scrollMarginTop: "13px" }}
+          onFocus={() =>
+            setRootLifecycle((current) => ({
+              ...current,
+              focus: current.focus + 1,
+            }))
+          }
+          onBlur={() =>
+            setRootLifecycle((current) => ({
+              ...current,
+              blur: current.blur + 1,
+            }))
+          }
+          onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) =>
+            setRootLifecycle((current) => ({
+              ...current,
+              keyDown: [...current.keyDown, event.key],
+            }))
+          }
         />
       </div>
+
+      <button type="button" data-testid="issue-31-lifecycle-focus-sink">
+        Move focus outside the grid
+      </button>
 
       <div
         className="h-[260px] min-h-0 rounded-lg border"
@@ -77,14 +154,72 @@ function Issue31Probe() {
         <UntypedReactDataGrid
           columns={columns}
           dataSource={defaultRows}
-          defaultFilterValue={[
-            {
-              name: "name",
-              type: "string",
-              operator: "contains",
-              value: "",
-            },
-          ]}
+          defaultFilterValue={activeNameFilter}
+          virtualized={false}
+        />
+      </div>
+
+      <section
+        className="grid gap-4 lg:grid-cols-2"
+        data-testid="issue-31-filter-precedence"
+      >
+        <Issue31FilterGrid testId="issue-31-filter-omitted" />
+        <Issue31FilterGrid
+          testId="issue-31-filter-default-active"
+          defaultFilterValue={activeNameFilter}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-controlled"
+          filterValue={activeNameFilter}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-explicit-true"
+          enableFiltering
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-explicit-false-default"
+          enableFiltering={false}
+          defaultFilterValue={activeNameFilter}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-explicit-false-controlled"
+          enableFiltering={false}
+          filterValue={activeNameFilter}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-empty-default"
+          defaultFilterValue={[]}
+        />
+        <Issue31FilterGrid
+          testId="issue-31-filter-inactive-default"
+          defaultFilterValue={inactiveNameFilter}
+        />
+      </section>
+
+      <div
+        className="h-[180px] min-h-0 rounded-lg border"
+        data-testid="issue-31-40px-glyph-grid-shell"
+      >
+        <UntypedReactDataGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={glyphRows}
+          rowHeight={40}
+          virtualized={false}
+        />
+      </div>
+
+      <div
+        className="h-[180px] min-h-0 rounded-lg border"
+        data-testid="issue-31-40px-filter-glyph-grid-shell"
+      >
+        <UntypedReactDataGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={glyphRows}
+          defaultFilterValue={cyrillicGlyphFilter}
+          filterRowHeight={40}
+          rowHeight={40}
           virtualized={false}
         />
       </div>
