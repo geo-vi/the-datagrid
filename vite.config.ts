@@ -11,6 +11,7 @@ import type { OutputBundle } from "rollup";
 const DATAGRID_SCOPE_SELECTOR = ".tdg-root";
 const REACT_EXTERNAL_ID = "the-datagrid:react-external";
 const REACT_DOM_EXTERNAL_ID = "the-datagrid:react-dom-external";
+const REACT_RUNTIME_DEDUPE = ["react", "react-dom"];
 const DATAGRID_OWNED_SELECTOR_MARKERS = [
   ".tdg-",
   ".InovuaReactDataGrid",
@@ -293,6 +294,11 @@ export default defineConfig(({ command, mode }) => {
       plugins: [react(), tailwindcss(), scopeOptionalCssForSite()],
       resolve: {
         alias: resolveAlias,
+        // Keep the examples/docs application, linked source files, and UI
+        // dependencies on one hook dispatcher. This is intentionally scoped
+        // to the site runtime; library builds use the React 16.8 compatibility
+        // aliases below before externalizing React for consumers.
+        dedupe: REACT_RUNTIME_DEDUPE,
       },
       root: examplesRoot,
       base: isSiteBuild ? siteBase : "/",
