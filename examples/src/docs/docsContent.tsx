@@ -2393,12 +2393,13 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
             context-menu pair is functional.
           </p>
           <p>
-            Other fixed compatibility fields include no locked columns, no
-            column virtualization/live pagination, and empty unselected
-            tracking. <code>computedShowZebraRows</code> now reflects the
-            per-grid prop, while <code>columnFlexes</code> and column sizes
-            report the implemented allocation; their imperative setter methods
-            remain outside the supported allowlist.
+            Locked-column arrays, indexes, section widths, and presence flags
+            now reflect declarative <code>column.locked</code> geometry. Live
+            pagination and unselected tracking remain fixed compatibility
+            fields. <code>computedShowZebraRows</code> reflects the per-grid
+            prop, while <code>columnFlexes</code> and column sizes report the
+            implemented allocation; their imperative setter methods remain
+            outside the supported allowlist.
           </p>
         </Callout>
         <div className="space-y-2">
@@ -3414,9 +3415,10 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
       <>
         The root rowStyle object/function is evaluated and merged on each row.
         Functions receive a mutable base style with height/width/minWidth/LTR
-        direction, typed IDs, page-local and remote indexes, and fixed unlocked
-        sentinels; returning undefined preserves in-place mutations.{" "}
-        <code>TypeColumn.style</code> remains independently cell-scoped.
+        direction, typed IDs, page-local and remote indexes, and live
+        locked/unlocked section metadata; returning undefined preserves in-place
+        mutations. <code>TypeColumn.style</code> remains independently
+        cell-scoped.
       </>
     ),
     requiredOutcome: (
@@ -3886,6 +3888,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "A controlled parent must feed the proposed order back. If columnOrder is omitted but onColumnOrderChange exists, the grid retains its internal order and still emits proposals; no consumer array is mutated.",
       },
       {
+        name: "Locked columns",
+        type: 'column.locked: true | "start" | "end" | false',
+        defaultValue: "false",
+        description:
+          'true aliases "start". The rendered model groups locked-start, unlocked, and locked-end columns while preserving relative order inside each section. Cross-section drag drops are rejected; locked header, filter, and body cells share sticky offsets and remain mounted during horizontal virtualization.',
+      },
+      {
         name: "Checkbox column ordering",
         type: "synthetic fixed column",
         defaultValue: "44px",
@@ -4132,7 +4141,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "horizontal range",
         defaultValue: "15 visible columns with numeric rowHeight",
         description:
-          "The inclusive virtualizeColumnsThreshold mounts one overscanned horizontal range shared by header, filter row, and body while preserving total scroll geometry. virtualizeColumns overrides the threshold. Functional/natural row heights and transformed mobile layout keep columns unvirtualized; far columns remain filterable and editable after scrolling.",
+          "The inclusive virtualizeColumnsThreshold mounts one overscanned unlocked range shared by header, filter row, and body while preserving total scroll geometry. Locked-start/end columns remain mounted outside that range. virtualizeColumns overrides the threshold. Functional/natural row heights and transformed mobile layout keep columns unvirtualized; far columns remain filterable and editable after scrolling.",
       },
       {
         name: "Mobile transform",

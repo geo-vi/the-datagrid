@@ -16,6 +16,7 @@ import { t } from "../../utils/helpers";
 import { getColumnSortName } from "../../utils/column";
 import { isInteractiveClickTarget } from "../utils/gridUtils";
 import { getSortDir, toggleSortInfo } from "../../sorting/utils";
+import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 
 import { Button } from "../../components/ui/button";
 import {
@@ -92,6 +93,7 @@ export type HeaderCellProps = {
 
   headerHeight: number;
   width?: number;
+  lockedLayout?: TypeLockedColumnLayout;
 
   sortInfo: TypeSortInfo;
   setSortInfo: (s: TypeSortInfo) => void;
@@ -126,6 +128,7 @@ export function HeaderCell(props: HeaderCellProps) {
     columnIndex,
     headerHeight,
     width,
+    lockedLayout,
     sortInfo,
     setSortInfo,
     setSkip,
@@ -184,6 +187,16 @@ export function HeaderCell(props: HeaderCellProps) {
       className={cn(
         "tdg-header-cell InovuaReactDataGrid__column-header bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         "InovuaReactDataGrid__column-header--direction-ltr",
+        lockedLayout
+          ? [
+              "tdg-locked-column",
+              `tdg-locked-column--${lockedLayout.side}`,
+              `InovuaReactDataGrid__column-header--locked-${lockedLayout.side}`,
+              lockedLayout.boundary
+                ? `tdg-locked-column--${lockedLayout.side}-boundary`
+                : "",
+            ]
+          : "",
         headerAlignClass,
         canSort
           ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
@@ -207,6 +220,12 @@ export function HeaderCell(props: HeaderCellProps) {
         maxWidth: col?.maxWidth,
         height: headerHeight,
         ...col?.headerProps?.style,
+        ...(lockedLayout
+          ? ({
+              "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
+              "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
+            } as React.CSSProperties)
+          : {}),
       }}
       draggable={Boolean(canDrag)}
       onDragStart={(e) => {

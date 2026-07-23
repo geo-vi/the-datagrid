@@ -20,6 +20,10 @@ import { cn } from "../../lib/utils";
 import { buildEditCellProps } from "../utils/editing";
 import { resolveEmptyText } from "../utils/emptyText";
 import { resolveConfiguredRowHeight } from "../utils/rowHeight";
+import type {
+  TypeGridColumnRenderItem,
+  TypeLockedColumnLayout,
+} from "../utils/lockedColumns";
 
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 
@@ -189,13 +193,8 @@ export type GridBodyProps = {
 
   virtualized: boolean;
   virtualizeColumns: boolean;
-  columnRenderRange: {
-    firstIndex: number;
-    lastIndex: number;
-    beforeWidth: number;
-    afterWidth: number;
-    columnRenderCount: number;
-  };
+  columnRenderItems: TypeGridColumnRenderItem[];
+  lockedColumnLayout: Record<string, TypeLockedColumnLayout>;
   virtualItems: any[];
   paddingTop: number;
   paddingBottom: number;
@@ -231,6 +230,17 @@ export type GridBodyProps = {
     computedShowCellBorders: TypeShowCellBorders;
     editable: boolean;
     getItemId: (data: any) => unknown;
+    firstUnlockedIndex: number;
+    lastUnlockedIndex: number;
+    firstLockedStartIndex: number;
+    lastLockedStartIndex: number;
+    firstLockedEndIndex: number;
+    lastLockedEndIndex: number;
+    hasLockedStart: boolean;
+    hasLockedEnd: boolean;
+    totalUnlockedWidth: number;
+    totalLockedStartWidth: number;
+    totalLockedEndWidth: number;
   };
   showZebraRows: boolean;
 
@@ -260,7 +270,8 @@ export function GridBody(props: GridBodyProps) {
     showVerticalCellBorders,
     virtualized,
     virtualizeColumns,
-    columnRenderRange,
+    columnRenderItems,
+    lockedColumnLayout,
     virtualItems,
     paddingTop,
     paddingBottom,
@@ -294,11 +305,7 @@ export function GridBody(props: GridBodyProps) {
     },
     [measureElement]
   );
-  const renderedTableColumnCount = virtualizeColumns
-    ? columnRenderRange.columnRenderCount +
-      (columnRenderRange.beforeWidth > 0 ? 1 : 0) +
-      (columnRenderRange.afterWidth > 0 ? 1 : 0)
-    : orderedColumns.length;
+  const renderedTableColumnCount = columnRenderItems.length;
 
   function getRowThemeClasses(
     rowIndex: number,
@@ -401,21 +408,21 @@ export function GridBody(props: GridBodyProps) {
               columnsMap: rowStyleMetadata.columnsMap,
               columnRenderCount: rowStyleMetadata.columnRenderCount,
               totalColumnCount: rowStyleMetadata.totalColumnCount,
-              firstUnlockedIndex: rowStyleMetadata.columns.length > 0 ? 0 : -1,
-              lastUnlockedIndex: rowStyleMetadata.columns.length - 1,
-              firstLockedStartIndex: -1,
-              lastLockedStartIndex: -1,
-              firstLockedEndIndex: -1,
-              lastLockedEndIndex: -1,
-              hasLockedStart: false,
-              hasLockedEnd: false,
+              firstUnlockedIndex: rowStyleMetadata.firstUnlockedIndex,
+              lastUnlockedIndex: rowStyleMetadata.lastUnlockedIndex,
+              firstLockedStartIndex: rowStyleMetadata.firstLockedStartIndex,
+              lastLockedStartIndex: rowStyleMetadata.lastLockedStartIndex,
+              firstLockedEndIndex: rowStyleMetadata.firstLockedEndIndex,
+              lastLockedEndIndex: rowStyleMetadata.lastLockedEndIndex,
+              hasLockedStart: rowStyleMetadata.hasLockedStart,
+              hasLockedEnd: rowStyleMetadata.hasLockedEnd,
               availableWidth: rowStyleMetadata.availableWidth,
               width: rowStyleMetadata.totalComputedWidth,
               minWidth: rowStyleMetadata.totalComputedWidth,
               totalComputedWidth: rowStyleMetadata.totalComputedWidth,
-              totalUnlockedWidth: rowStyleMetadata.totalComputedWidth,
-              totalLockedStartWidth: 0,
-              totalLockedEndWidth: 0,
+              totalUnlockedWidth: rowStyleMetadata.totalUnlockedWidth,
+              totalLockedStartWidth: rowStyleMetadata.totalLockedStartWidth,
+              totalLockedEndWidth: rowStyleMetadata.totalLockedEndWidth,
               totalDataCount: rowStyleMetadata.dataSourceArray.length,
               maxVisibleRows: rowStyleMetadata.maxVisibleRows,
               rowHeight: resolvedHeight ?? minRowHeight,
@@ -668,35 +675,34 @@ export function GridBody(props: GridBodyProps) {
         : undefined;
 
     const allCells = row.getVisibleCells();
-    const renderedCells = virtualizeColumns
-      ? allCells.slice(
-          columnRenderRange.firstIndex,
-          columnRenderRange.lastIndex + 1
-        )
-      : allCells;
-
     return (
       <>
-        {columnRenderRange.beforeWidth > 0 && virtualizeColumns ? (
-          <TableCell
-            aria-hidden="true"
-            className="pointer-events-none !p-0"
-            style={{
-              width: columnRenderRange.beforeWidth,
-              minWidth: columnRenderRange.beforeWidth,
-              maxWidth: columnRenderRange.beforeWidth,
-            }}
-          />
-        ) : null}
-        {renderedCells.map((cell: any, renderedIndex: number) => {
-          const cellIndex = virtualizeColumns
-            ? columnRenderRange.firstIndex + renderedIndex
-            : renderedIndex;
+        {columnRenderItems.map((renderItem) => {
+          if (renderItem.type === "spacer") {
+            return (
+              <TableCell
+                key={renderItem.id}
+                aria-hidden="true"
+                className="pointer-events-none !p-0"
+                style={{
+                  width: renderItem.width,
+                  minWidth: renderItem.width,
+                  maxWidth: renderItem.width,
+                }}
+              />
+            );
+          }
+
+          const cellIndex = renderItem.index;
+          const cell = allCells[cellIndex];
+          if (!cell) return null;
+
           const columnId = cell.column.id;
           const column = (cell.column.columnDef as any)?.meta?.__column as
             | TypeColumn
             | undefined;
           const width = cell.column.getSize();
+          const lockedLayout = lockedColumnLayout[columnId];
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
           const isLastCell = cellIndex === allCells.length - 1;
@@ -771,6 +777,16 @@ export function GridBody(props: GridBodyProps) {
                 userSelectClass,
                 "InovuaReactDataGrid__cell",
                 "InovuaReactDataGrid__cell--direction-ltr",
+                lockedLayout
+                  ? [
+                      "tdg-locked-column",
+                      `tdg-locked-column--${lockedLayout.side}`,
+                      `InovuaReactDataGrid__cell--locked-${lockedLayout.side}`,
+                      lockedLayout.boundary
+                        ? `tdg-locked-column--${lockedLayout.side}-boundary`
+                        : "",
+                    ]
+                  : "",
                 showHorizontalCellBorders
                   ? "InovuaReactDataGrid__cell--show-border-bottom"
                   : "",
@@ -796,6 +812,12 @@ export function GridBody(props: GridBodyProps) {
                 maxWidth: column?.maxWidth,
                 ...(typeof column?.style === "object" && column?.style
                   ? column.style
+                  : {}),
+                ...(lockedLayout
+                  ? ({
+                      "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
+                      "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
+                    } as React.CSSProperties)
                   : {}),
                 ...(isEditingThisCell && rowHeight == null
                   ? {
@@ -844,17 +866,6 @@ export function GridBody(props: GridBodyProps) {
             </TableCell>
           );
         })}
-        {columnRenderRange.afterWidth > 0 && virtualizeColumns ? (
-          <TableCell
-            aria-hidden="true"
-            className="pointer-events-none !p-0"
-            style={{
-              width: columnRenderRange.afterWidth,
-              minWidth: columnRenderRange.afterWidth,
-              maxWidth: columnRenderRange.afterWidth,
-            }}
-          />
-        ) : null}
       </>
     );
   }

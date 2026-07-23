@@ -51,6 +51,7 @@ import {
   normalizeEditorOutput,
 } from "../utils/gridUtils";
 import { FilterOperatorMenu } from "./FilterOperatorMenu";
+import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 
 const DEFAULT_FILTER_CELL_PADDING = "0 0.25rem";
 
@@ -64,6 +65,7 @@ export type FilterCellProps = {
   filterRowHeight: number;
 
   width?: number;
+  lockedLayout?: TypeLockedColumnLayout;
 
   enableFiltering: boolean;
   enableColumnFilterContextMenu: boolean;
@@ -148,6 +150,7 @@ export function FilterCell(props: FilterCellProps) {
     columnIndex,
     filterRowHeight,
     width,
+    lockedLayout,
     enableFiltering,
     enableColumnFilterContextMenu,
     checkboxEnabled,
@@ -328,6 +331,16 @@ export function FilterCell(props: FilterCellProps) {
       data-column-id={colId}
       className={cn(
         "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] [color:var(--tdg-filter-color)]",
+        lockedLayout
+          ? [
+              "tdg-locked-column",
+              `tdg-locked-column--${lockedLayout.side}`,
+              `InovuaReactDataGrid__filter-cell--locked-${lockedLayout.side}`,
+              lockedLayout.boundary
+                ? `tdg-locked-column--${lockedLayout.side}-boundary`
+                : "",
+            ]
+          : "",
         showVerticalCellBorders
           ? "InovuaReactDataGrid__filter-cell--show-border-right"
           : "",
@@ -345,6 +358,12 @@ export function FilterCell(props: FilterCellProps) {
           maxWidth: col?.maxWidth,
           height: filterRowHeight,
           "--tdg-filter-cell-padding": filterCellPadding,
+          ...(lockedLayout
+            ? {
+                "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
+                "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
+              }
+            : {}),
         } as React.CSSProperties
       }
       onContextMenu={(e) => {

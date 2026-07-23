@@ -27,11 +27,11 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
     label: "Actions",
     title: "Actions example",
     summary:
-      "A focused actions grid that exercises row buttons, controlled checkbox selection, and bulk mutations.",
+      "A focused actions grid with a right-locked action column, controlled checkbox selection, and bulk mutations.",
     details:
-      "Shows semantic cell actions that mutate the current row, plus insert and delete-selected controls wired against the same grid state the issue used.",
+      'Shows Inovua-style locked: "end" geometry across the header, filter row, virtualized body, resizing, and controlled ordering while row and bulk actions mutate the same grid state.',
     sourcePath: "examples/src/ActionsGridExample.tsx",
-    tags: ["Actions", "Selection", "Mutation"],
+    tags: ["Actions", "Locked columns", "Virtualized"],
   },
   {
     id: "basic",

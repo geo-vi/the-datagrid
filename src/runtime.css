@@ -916,6 +916,53 @@
   position: relative !important;
 }
 
+/*
+ * Locked columns use the Inovua column contract (`locked: true | "start" |
+ * "end"`). Offsets are numeric layout data supplied by the grid; color and
+ * elevation continue to come from the shadcn-aligned theme tokens.
+ */
+.tdg-root .tdg-locked-column {
+  position: sticky !important;
+  z-index: 2 !important;
+  background: inherit !important;
+  background-clip: padding-box !important;
+}
+
+.tdg-root .tdg-header-cell.tdg-locked-column {
+  z-index: 4 !important;
+  background: var(--tdg-header-bg) !important;
+}
+
+.tdg-root .tdg-filter-cell.tdg-locked-column {
+  z-index: 3 !important;
+  background: var(--tdg-filter-bg) !important;
+}
+
+.tdg-root .tdg-locked-column--start {
+  right: auto !important;
+  left: var(--tdg-locked-column-offset, 0px) !important;
+}
+
+.tdg-root .tdg-locked-column--end {
+  right: var(--tdg-locked-column-offset, 0px) !important;
+  left: auto !important;
+  transform: translateX(
+    var(--tdg-locked-column-viewport-offset, 0px)
+  ) !important;
+}
+
+.tdg-root .tdg-locked-column--start-boundary {
+  box-shadow:
+    1px 0 0 var(--tdg-grid-border-color),
+    8px 0 12px -12px var(--tdg-color-foreground) !important;
+}
+
+.tdg-root .tdg-locked-column--end-boundary {
+  box-shadow:
+    -1px 0 0 var(--tdg-grid-border-color),
+    -8px 0 12px -12px var(--tdg-color-foreground) !important;
+}
+
 .tdg-root .InovuaReactDataGrid__column-header__sort-button {
   display: flex !important;
   min-width: 0 !important;

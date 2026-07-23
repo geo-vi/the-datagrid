@@ -753,8 +753,8 @@ A `rowStyle` callback receives the live Inovua-shaped base style, including
 `height`, `width`, `minWidth`, and LTR `direction`. It may mutate that object
 and return `undefined`, or return a style object to merge. `props.id` preserves
 numeric IDs, `rowIndex` is page-local, and `remoteRowIndex` includes the current
-pagination offset. Unsupported locking is represented by fixed unlocked
-sentinels (`-1`, `false`, and `0`).
+pagination offset. Locked-column indexes, presence flags, and section widths
+reflect the live rendered geometry.
 
 `disabledRows` follows the Inovua 5.10.2 index contract. A truthy entry such as
 `{ 1: true }` disables the second row in the current sorted, filtered, and
@@ -780,6 +780,12 @@ custom cell metadata. That callback value preserves upstream’s raw shape:
 | `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied   |
 | `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                           |
 | `showColumnMenuTool`   | `boolean`                   | `true`  | Show the header menu tool                                                     |
+
+Set `column.locked` to `"start"` or `"end"` to keep it visible at that
+horizontal edge; `true` is the Inovua-compatible alias for `"start"`. Locked
+columns keep their relative `columnOrder` within the start/unlocked/end
+sections, remain mounted during column virtualization, and use the same
+header, filter-row, body, resize, and controlled-reorder geometry.
 
 ### Filtering
 

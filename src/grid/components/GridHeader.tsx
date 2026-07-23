@@ -13,6 +13,10 @@ import type {
 import { TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { HeaderCell } from "./HeaderCell";
 import { FilterCell } from "./FilterCell";
+import type {
+  TypeGridColumnRenderItem,
+  TypeLockedColumnLayout,
+} from "../utils/lockedColumns";
 
 export type GridHeaderProps = {
   headerGroups: any[];
@@ -62,13 +66,8 @@ export type GridHeaderProps = {
   openFilterMenuColId: string | null;
   setOpenFilterMenuColId: (id: string | null) => void;
 
-  virtualizeColumns: boolean;
-  columnRenderRange: {
-    firstIndex: number;
-    lastIndex: number;
-    beforeWidth: number;
-    afterWidth: number;
-  };
+  columnRenderItems: TypeGridColumnRenderItem[];
+  lockedColumnLayout: Record<string, TypeLockedColumnLayout>;
 };
 
 function ColumnSpacerHeader(props: { width: number }) {
@@ -123,8 +122,8 @@ export function GridHeader(props: GridHeaderProps) {
     filterTypes,
     openFilterMenuColId,
     setOpenFilterMenuColId,
-    virtualizeColumns,
-    columnRenderRange,
+    columnRenderItems,
+    lockedColumnLayout,
   } = props;
 
   return (
@@ -136,68 +135,66 @@ export function GridHeader(props: GridHeaderProps) {
           className="tdg-header-row InovuaReactDataGrid__header-row bg-[var(--tdg-header-bg)]"
           style={{ height: headerHeight }}
         >
-          <ColumnSpacerHeader
-            width={virtualizeColumns ? columnRenderRange.beforeWidth : 0}
-          />
-          {hg.headers
-            .slice(
-              virtualizeColumns ? columnRenderRange.firstIndex : 0,
-              virtualizeColumns
-                ? columnRenderRange.lastIndex + 1
-                : hg.headers.length
-            )
-            .map((h: any, renderedIndex: number) => {
-              const columnIndex = virtualizeColumns
-                ? columnRenderRange.firstIndex + renderedIndex
-                : renderedIndex;
-              const colDef = h.column.columnDef as any;
-              const col: TypeColumn | undefined = colDef?.meta?.__column;
-              const colId = h.column.id;
-
-              const width = h.getSize();
-
-              const canDrag =
-                allowColumnReorder &&
-                (!checkboxEnabled || colId !== checkboxColId) &&
-                (col?.draggable ?? true);
-              const canResize =
-                allowColumnResize &&
-                (!checkboxEnabled || colId !== checkboxColId) &&
-                (col?.resizable ?? true);
-
+          {columnRenderItems.map((renderItem) => {
+            if (renderItem.type === "spacer") {
               return (
-                <HeaderCell
-                  key={h.id}
-                  header={h}
-                  col={col}
-                  colId={colId}
-                  columnIndex={columnIndex}
-                  width={width}
-                  headerHeight={headerHeight}
-                  sortInfo={sortInfo}
-                  setSortInfo={setSortInfo}
-                  setSkip={setSkip}
-                  allowUnsort={allowUnsort}
-                  defaultSortDir={defaultSortDir}
-                  showColumnMenuTool={showColumnMenuTool}
-                  showHorizontalCellBorders={showHorizontalCellBorders}
-                  showVerticalCellBorders={showVerticalCellBorders}
-                  i18n={i18n}
-                  canDrag={Boolean(canDrag)}
-                  onDragStart={onHeaderDragStart}
-                  onDragOver={onHeaderDragOver}
-                  onDrop={onHeaderDrop}
-                  canResize={canResize}
-                  isResizing={resizingColumnId === colId}
-                  onResizeStart={onColumnResizeStart}
-                  onResizeBy={onColumnResizeBy}
-                  onAutoResize={onColumnAutoResize}
+                <ColumnSpacerHeader
+                  key={`${hg.id}-${renderItem.id}`}
+                  width={renderItem.width}
                 />
               );
-            })}
-          <ColumnSpacerHeader
-            width={virtualizeColumns ? columnRenderRange.afterWidth : 0}
-          />
+            }
+
+            const h = hg.headers[renderItem.index];
+            if (!h) return null;
+
+            const columnIndex = renderItem.index;
+            const colDef = h.column.columnDef as any;
+            const col: TypeColumn | undefined = colDef?.meta?.__column;
+            const colId = h.column.id;
+
+            const width = h.getSize();
+
+            const canDrag =
+              allowColumnReorder &&
+              (!checkboxEnabled || colId !== checkboxColId) &&
+              (col?.draggable ?? true);
+            const canResize =
+              allowColumnResize &&
+              (!checkboxEnabled || colId !== checkboxColId) &&
+              (col?.resizable ?? true);
+
+            return (
+              <HeaderCell
+                key={h.id}
+                header={h}
+                col={col}
+                colId={colId}
+                columnIndex={columnIndex}
+                width={width}
+                lockedLayout={lockedColumnLayout[colId]}
+                headerHeight={headerHeight}
+                sortInfo={sortInfo}
+                setSortInfo={setSortInfo}
+                setSkip={setSkip}
+                allowUnsort={allowUnsort}
+                defaultSortDir={defaultSortDir}
+                showColumnMenuTool={showColumnMenuTool}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
+                i18n={i18n}
+                canDrag={Boolean(canDrag)}
+                onDragStart={onHeaderDragStart}
+                onDragOver={onHeaderDragOver}
+                onDrop={onHeaderDrop}
+                canResize={canResize}
+                isResizing={resizingColumnId === colId}
+                onResizeStart={onColumnResizeStart}
+                onResizeBy={onColumnResizeBy}
+                onAutoResize={onColumnAutoResize}
+              />
+            );
+          })}
         </TableRow>
       ))}
 
@@ -209,61 +206,57 @@ export function GridHeader(props: GridHeaderProps) {
             className="tdg-filter-row InovuaReactDataGrid__filter-row bg-[var(--tdg-filter-bg)]"
             style={{ height: filterRowHeight }}
           >
-            <ColumnSpacerHeader
-              width={virtualizeColumns ? columnRenderRange.beforeWidth : 0}
-            />
-            {hg.headers
-              .slice(
-                virtualizeColumns ? columnRenderRange.firstIndex : 0,
-                virtualizeColumns
-                  ? columnRenderRange.lastIndex + 1
-                  : hg.headers.length
-              )
-              .map((h: any, renderedIndex: number) => {
-                const columnIndex = virtualizeColumns
-                  ? columnRenderRange.firstIndex + renderedIndex
-                  : renderedIndex;
-                const colDef = h.column.columnDef as any;
-                const col: TypeColumn | undefined = colDef?.meta?.__column;
-                const colId = h.column.id;
-
-                const width = h.getSize();
-
+            {columnRenderItems.map((renderItem) => {
+              if (renderItem.type === "spacer") {
                 return (
-                  <FilterCell
-                    key={`${h.id}-filter`}
-                    header={h}
-                    col={col}
-                    colId={colId}
-                    columnIndex={columnIndex}
-                    width={width}
-                    headerHeight={headerHeight}
-                    filterRowHeight={filterRowHeight}
-                    enableFiltering={enableFiltering}
-                    enableColumnFilterContextMenu={
-                      enableColumnFilterContextMenu
-                    }
-                    checkboxEnabled={checkboxEnabled}
-                    checkboxColId={checkboxColId}
-                    filterControlled={filterControlled}
-                    filterValue={filterValue}
-                    draftFilterValue={draftFilterValue}
-                    setFilterValue={setFilterValue}
-                    setDraftFilterValue={setDraftFilterValue}
-                    onColumnFilterValueChange={onColumnFilterValueChange}
-                    setSkip={setSkip}
-                    filterTypes={filterTypes}
-                    i18n={i18n}
-                    showHorizontalCellBorders={showHorizontalCellBorders}
-                    showVerticalCellBorders={showVerticalCellBorders}
-                    openFilterMenuColId={openFilterMenuColId}
-                    setOpenFilterMenuColId={setOpenFilterMenuColId}
+                  <ColumnSpacerHeader
+                    key={`${hg.id}-filters-${renderItem.id}`}
+                    width={renderItem.width}
                   />
                 );
-              })}
-            <ColumnSpacerHeader
-              width={virtualizeColumns ? columnRenderRange.afterWidth : 0}
-            />
+              }
+
+              const h = hg.headers[renderItem.index];
+              if (!h) return null;
+
+              const columnIndex = renderItem.index;
+              const colDef = h.column.columnDef as any;
+              const col: TypeColumn | undefined = colDef?.meta?.__column;
+              const colId = h.column.id;
+
+              const width = h.getSize();
+
+              return (
+                <FilterCell
+                  key={`${h.id}-filter`}
+                  header={h}
+                  col={col}
+                  colId={colId}
+                  columnIndex={columnIndex}
+                  width={width}
+                  lockedLayout={lockedColumnLayout[colId]}
+                  headerHeight={headerHeight}
+                  filterRowHeight={filterRowHeight}
+                  enableFiltering={enableFiltering}
+                  enableColumnFilterContextMenu={enableColumnFilterContextMenu}
+                  checkboxEnabled={checkboxEnabled}
+                  checkboxColId={checkboxColId}
+                  filterControlled={filterControlled}
+                  filterValue={filterValue}
+                  draftFilterValue={draftFilterValue}
+                  setFilterValue={setFilterValue}
+                  setDraftFilterValue={setDraftFilterValue}
+                  onColumnFilterValueChange={onColumnFilterValueChange}
+                  setSkip={setSkip}
+                  filterTypes={filterTypes}
+                  i18n={i18n}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                  showVerticalCellBorders={showVerticalCellBorders}
+                  openFilterMenuColId={openFilterMenuColId}
+                  setOpenFilterMenuColId={setOpenFilterMenuColId}
+                />
+              );
+            })}
           </TableRow>
         ))}
     </TableHeader>
