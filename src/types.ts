@@ -325,19 +325,19 @@ export type TypeRowStyleProps = Record<string, unknown> & {
   totalColumnCount: number;
   firstUnlockedIndex: number;
   lastUnlockedIndex: number;
-  firstLockedStartIndex: -1;
-  lastLockedStartIndex: -1;
-  firstLockedEndIndex: -1;
-  lastLockedEndIndex: -1;
-  hasLockedStart: false;
-  hasLockedEnd: false;
+  firstLockedStartIndex: number;
+  lastLockedStartIndex: number;
+  firstLockedEndIndex: number;
+  lastLockedEndIndex: number;
+  hasLockedStart: boolean;
+  hasLockedEnd: boolean;
   availableWidth: number;
   width: number;
   minWidth: number;
   totalComputedWidth: number;
   totalUnlockedWidth: number;
-  totalLockedStartWidth: 0;
-  totalLockedEndWidth: 0;
+  totalLockedStartWidth: number;
+  totalLockedEndWidth: number;
   totalDataCount: number;
   maxVisibleRows: number;
   rowHeight: number;
@@ -424,6 +424,13 @@ export interface IColumn {
   hideable?: boolean;
   draggable?: boolean;
   resizable?: boolean;
+  /**
+   * Keeps the column visible at a horizontal edge.
+   *
+   * Inovua compatibility: `true` is an alias for `"start"`, while `"end"`
+   * pins action-style columns to the trailing edge.
+   */
+  locked?: "start" | "end" | true | false;
 
   sortable?: boolean;
   sortName?: string;
@@ -486,6 +493,7 @@ export type TypeGetColumnByParam =
 export type TypeComputedColumn = TypeColumn & {
   computedWidth?: number;
   computedVisibleIndex?: number;
+  computedLocked?: "start" | "end" | false;
   index?: number;
 };
 
@@ -662,6 +670,21 @@ export type TypeComputedProps = {
   visibleColumnsMap?: TypeComputedColumnsMap;
   allColumns?: TypeComputedColumn[];
   visibleColumns?: TypeComputedColumn[];
+  lockedStartColumns?: TypeComputedColumn[];
+  unlockedColumns?: TypeComputedColumn[];
+  lockedEndColumns?: TypeComputedColumn[];
+  hasLockedStart?: boolean;
+  hasLockedEnd?: boolean;
+  hasUnlocked?: boolean;
+  firstLockedStartIndex?: number;
+  lastLockedStartIndex?: number;
+  firstUnlockedIndex?: number;
+  lastUnlockedIndex?: number;
+  firstLockedEndIndex?: number;
+  lastLockedEndIndex?: number;
+  totalLockedStartWidth?: number;
+  totalUnlockedWidth?: number;
+  totalLockedEndWidth?: number;
   getColumnsInOrder?: () => TypeComputedColumn[];
   getColumnBy?: (
     column: TypeGetColumnByParam,

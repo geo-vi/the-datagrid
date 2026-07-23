@@ -106,9 +106,13 @@ back through `selected`, so the direct setter pattern is valid here.
 
 ## Things to avoid
 
-- Do not claim support for grouping, pivoting, tree data, locked columns, row
-  reorder, clipboard tooling, or full Inovua plugin parity unless you verify it
-  in this repo first.
+- Do not claim support for grouping, pivoting, tree data, row reorder, clipboard
+  tooling, or full Inovua plugin parity unless you verify it in this repo first.
+- Static `column.locked` supports declarative start/end pinned columns. Do not
+  claim the full mutable Inovua Enterprise contract: `defaultLocked`,
+  `lockable`, `autoLock`, `onColumnLockedChange`,
+  `showColumnMenuLockOptions`, `setColumnLocked`, lock/unlock menu actions,
+  cross-section drag mutation, and RTL edge mirroring remain unsupported.
 - Do not add styling props just to fix layout or theming.
 - Do not assume consumers need a separate stylesheet import in normal bundler
   setups.

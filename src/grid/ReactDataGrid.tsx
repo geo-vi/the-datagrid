@@ -97,6 +97,12 @@ import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
 import { allocateColumnWidths } from "./utils/columnSizing";
 import {
+  buildGridColumnRenderItems,
+  buildLockedColumnLayout,
+  groupColumnsByLock,
+  resolveColumnLock,
+} from "./utils/lockedColumns";
+import {
   DATA_GRID_SEARCH_RUNTIME_SYMBOL,
   getDataGridSearchRuntime,
 } from "./searchRuntime";
@@ -172,6 +178,16 @@ type LiveColumnResizePreview = {
     inlineWidth: string;
     renderedWidth: number;
   }[];
+  viewport: HTMLElement | null;
+  lockedColumns: {
+    side: "start" | "end";
+    columnId: string;
+    cells: {
+      element: HTMLElement;
+      inlineOffset: string;
+      inlineViewportOffset: string;
+    }[];
+  }[];
 };
 
 type ColumnResizeSession = {
@@ -210,6 +226,42 @@ function captureLiveColumnResizePreview(
     if (table instanceof HTMLTableElement) owningTables.add(table);
   }
 
+  const lockedColumnsByKey = new Map<
+    string,
+    LiveColumnResizePreview["lockedColumns"][number]
+  >();
+  for (const element of surface.querySelectorAll<HTMLElement>(
+    ".tdg-locked-column[data-column-id]"
+  )) {
+    const lockedColumnId = element.dataset.columnId;
+    const side = element.classList.contains("tdg-locked-column--start")
+      ? "start"
+      : element.classList.contains("tdg-locked-column--end")
+        ? "end"
+        : null;
+    if (!lockedColumnId || !side) continue;
+
+    const key = `${side}:${lockedColumnId}`;
+    let lockedColumn = lockedColumnsByKey.get(key);
+    if (!lockedColumn) {
+      lockedColumn = {
+        side,
+        columnId: lockedColumnId,
+        cells: [],
+      };
+      lockedColumnsByKey.set(key, lockedColumn);
+    }
+    lockedColumn.cells.push({
+      element,
+      inlineOffset: element.style.getPropertyValue(
+        "--tdg-locked-column-offset"
+      ),
+      inlineViewportOffset: element.style.getPropertyValue(
+        "--tdg-locked-column-viewport-offset"
+      ),
+    });
+  }
+
   return {
     baseColumnWidth,
     columns,
@@ -218,7 +270,50 @@ function captureLiveColumnResizePreview(
       inlineWidth: element.style.width,
       renderedWidth: element.getBoundingClientRect().width,
     })),
+    viewport: surface.querySelector<HTMLElement>(".tdg-body-viewport"),
+    lockedColumns: Array.from(lockedColumnsByKey.values()),
   };
+}
+
+function updateLiveLockedColumnLayout(preview: LiveColumnResizePreview) {
+  const root = preview.viewport?.closest<HTMLElement>(".tdg-root");
+  const fixedWidthMode = root?.dataset.columnWidthMode === "fixed";
+  const renderedTableWidth = preview.tables.reduce(
+    (width, table) =>
+      Math.max(width, table.element.getBoundingClientRect().width),
+    0
+  );
+  const viewportOffset =
+    fixedWidthMode && preview.viewport
+      ? Math.max(0, preview.viewport.clientWidth - renderedTableWidth)
+      : 0;
+
+  const updateSide = (side: "start" | "end") => {
+    const columns = preview.lockedColumns.filter(
+      (column) => column.side === side
+    );
+    const iteration = side === "end" ? [...columns].reverse() : columns;
+    let offset = 0;
+
+    for (const column of iteration) {
+      for (const cell of column.cells) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-offset",
+          `${offset}px`
+        );
+        cell.element.style.setProperty(
+          "--tdg-locked-column-viewport-offset",
+          side === "end" ? `${viewportOffset}px` : "0px"
+        );
+      }
+
+      const representativeCell = column.cells[0]?.element;
+      offset += representativeCell?.getBoundingClientRect().width ?? 0;
+    }
+  };
+
+  updateSide("start");
+  updateSide("end");
 }
 
 function applyLiveColumnResizePreview(
@@ -234,6 +329,7 @@ function applyLiveColumnResizePreview(
   for (const { element, renderedWidth } of session.preview.tables) {
     element.style.width = `${Math.max(1, renderedWidth + widthDelta)}px`;
   }
+  updateLiveLockedColumnLayout(session.preview);
   session.appliedPreviewWidth = nextWidth;
 }
 
@@ -245,6 +341,28 @@ function restoreLiveColumnResizePreview(session: ColumnResizeSession | null) {
   }
   for (const { element, inlineWidth } of session.preview.tables) {
     element.style.width = inlineWidth;
+  }
+  for (const column of session.preview.lockedColumns) {
+    for (const cell of column.cells) {
+      if (cell.inlineOffset) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-offset",
+          cell.inlineOffset
+        );
+      } else {
+        cell.element.style.removeProperty("--tdg-locked-column-offset");
+      }
+      if (cell.inlineViewportOffset) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-viewport-offset",
+          cell.inlineViewportOffset
+        );
+      } else {
+        cell.element.style.removeProperty(
+          "--tdg-locked-column-viewport-offset"
+        );
+      }
+    }
   }
   session.appliedPreviewWidth = null;
 }
@@ -905,7 +1023,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const paginationMode = props.pagination ?? false;
   const paginationEnabled = paginationMode !== false;
 
-  const orderedColumns = React.useMemo(() => {
+  const consumerOrderedColumns = React.useMemo(() => {
     const colById = new Map<string, TypeColumn>();
     for (const c of allInputColumns) colById.set(getColumnId(c), c);
 
@@ -920,10 +1038,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (!ordered.find((x) => getColumnId(x) === id)) ordered.push(c);
     }
 
-    return ordered.filter(
-      (column) => columnVisibilityMap[getColumnId(column)] !== false
-    );
-  }, [allInputColumns, columnVisibilityMap, effectiveColumnOrder]);
+    return ordered;
+  }, [allInputColumns, effectiveColumnOrder]);
+  const groupedColumns = React.useMemo(
+    () => groupColumnsByLock(consumerOrderedColumns),
+    [consumerOrderedColumns]
+  );
+  const orderedColumns = React.useMemo(
+    () =>
+      groupedColumns.filter(
+        (column) => columnVisibilityMap[getColumnId(column)] !== false
+      ),
+    [columnVisibilityMap, groupedColumns]
+  );
+  const renderColumnOrder = React.useMemo(
+    () => groupedColumns.map((column) => getColumnId(column)),
+    [groupedColumns]
+  );
 
   const tanstackSorting = React.useMemo(
     () => toTanStackSortingState(sortInfo, allInputColumns),
@@ -1739,7 +1870,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       sorting: tanstackSorting,
       columnFilters: tanstackColumnFilters,
       globalFilter: searchValue,
-      columnOrder: effectiveColumnOrder,
+      columnOrder: renderColumnOrder,
       columnVisibility: columnVisibilityMap,
       columnSizing: tanstackColumnSizing,
       rowSelection: tanstackRowSelection,
@@ -1767,7 +1898,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setFilterValue(nextFilterValue);
     },
     onColumnOrderChange: (updater) => {
-      setColumnOrder(resolveStateAction(updater, effectiveColumnOrder));
+      setColumnOrder(resolveStateAction(updater, renderColumnOrder));
     },
     onColumnVisibilityChange: (updater) => {
       const nextVisibility = resolveStateAction(updater, columnVisibilityMap);
@@ -2892,73 +3023,50 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }),
     [columnWidths, visibleTableColumns]
   );
-  const columnRenderRange = (() => {
-    const totalColumnCount = columnLayout.length;
-    if (!computedVirtualizeColumns || totalColumnCount === 0) {
-      return {
-        firstIndex: 0,
-        lastIndex: totalColumnCount - 1,
-        beforeWidth: 0,
-        afterWidth: 0,
-        columnRenderCount: totalColumnCount,
-      };
-    }
-
-    const virtualColumns = columnVirtualizer.getVirtualItems();
-    const firstColumn = virtualColumns[0];
-    const lastColumn = virtualColumns[virtualColumns.length - 1];
-
-    if (!firstColumn || !lastColumn) {
-      return {
-        firstIndex: 0,
-        lastIndex: totalColumnCount - 1,
-        beforeWidth: 0,
-        afterWidth: 0,
-        columnRenderCount: totalColumnCount,
-      };
-    }
-
-    return {
-      firstIndex: firstColumn.index,
-      lastIndex: lastColumn.index,
-      beforeWidth: firstColumn.start,
-      afterWidth: Math.max(
-        0,
-        columnVirtualizer.getTotalSize() - lastColumn.end
+  const virtualColumnIndexes = computedVirtualizeColumns
+    ? columnVirtualizer
+        .getVirtualItems()
+        .map((virtualColumn) => virtualColumn.index)
+    : [];
+  const columnRenderRange = buildGridColumnRenderItems({
+    columnLayout,
+    columns: orderedColumns,
+    virtualColumnIndexes,
+    virtualizeColumns: computedVirtualizeColumns,
+  });
+  const columnRenderItems = columnRenderRange.items;
+  const lockedEndViewportOffset =
+    hasManualColumnWidths && tableMinWidth
+      ? Math.max(0, columnViewportWidth - tableMinWidth)
+      : 0;
+  const lockedColumnLayout = React.useMemo(
+    () =>
+      buildLockedColumnLayout(
+        orderedColumns,
+        Object.fromEntries(
+          columnLayout.map((column) => [column.id, column.width])
+        ),
+        lockedEndViewportOffset
       ),
-      columnRenderCount: virtualColumns.length,
-    };
-  })();
+    [columnLayout, lockedEndViewportOffset, orderedColumns]
+  );
   const renderedColumnLayout = React.useMemo(() => {
-    if (!computedVirtualizeColumns) return columnLayout;
+    return columnRenderItems.flatMap((renderItem) => {
+      if (renderItem.type === "spacer") {
+        return [
+          {
+            id: renderItem.id,
+            width: renderItem.width,
+            minWidth: renderItem.width,
+            maxWidth: renderItem.width,
+          },
+        ];
+      }
 
-    return [
-      ...(columnRenderRange.beforeWidth > 0
-        ? [
-            {
-              id: "__tdg_virtual_columns_before__",
-              width: columnRenderRange.beforeWidth,
-              minWidth: columnRenderRange.beforeWidth,
-              maxWidth: columnRenderRange.beforeWidth,
-            },
-          ]
-        : []),
-      ...columnLayout.slice(
-        columnRenderRange.firstIndex,
-        columnRenderRange.lastIndex + 1
-      ),
-      ...(columnRenderRange.afterWidth > 0
-        ? [
-            {
-              id: "__tdg_virtual_columns_after__",
-              width: columnRenderRange.afterWidth,
-              minWidth: columnRenderRange.afterWidth,
-              maxWidth: columnRenderRange.afterWidth,
-            },
-          ]
-        : []),
-    ];
-  }, [columnLayout, columnRenderRange, computedVirtualizeColumns]);
+      const column = columnLayout[renderItem.index];
+      return column ? [column] : [];
+    });
+  }, [columnLayout, columnRenderItems]);
 
   const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(
     null
@@ -3046,6 +3154,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       table.inlineWidth = latestTableInlineWidth;
       table.renderedWidth =
         tableMinWidth ?? table.element.getBoundingClientRect().width;
+    }
+    for (const lockedColumn of preview.lockedColumns) {
+      for (const cell of lockedColumn.cells) {
+        cell.inlineOffset = cell.element.style.getPropertyValue(
+          "--tdg-locked-column-offset"
+        );
+        cell.inlineViewportOffset = cell.element.style.getPropertyValue(
+          "--tdg-locked-column-viewport-offset"
+        );
+      }
     }
 
     const appliedPreviewWidth = activeSession.appliedPreviewWidth;
@@ -3710,7 +3828,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
     dragIdRef.current = null;
     if (!sourceId || sourceId === targetId) return;
 
-    const next = [...effectiveColumnOrder];
+    const sourceColumn = orderedColumns.find(
+      (column) => getColumnId(column) === sourceId
+    );
+    const targetColumn = orderedColumns.find(
+      (column) => getColumnId(column) === targetId
+    );
+    if (
+      !sourceColumn ||
+      !targetColumn ||
+      resolveColumnLock(sourceColumn) !== resolveColumnLock(targetColumn)
+    ) {
+      return;
+    }
+
+    const next = [...renderColumnOrder];
     const from = next.indexOf(sourceId);
     const to = next.indexOf(targetId);
     if (from < 0 || to < 0) return;
@@ -3816,6 +3948,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           tanstackColumnSizing[columnId] ??
           columnWidths[columnId],
         computedVisibleIndex: layout?.visibleIndex,
+        computedLocked: resolveColumnLock(column),
         index,
       };
     });
@@ -3849,6 +3982,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
       visibleComputedColumns.map((column) => [getColumnId(column), column])
     );
   }, [visibleComputedColumns]);
+  const lockedStartColumns = React.useMemo(
+    () =>
+      visibleComputedColumns.filter(
+        (column) => column.computedLocked === "start"
+      ),
+    [visibleComputedColumns]
+  );
+  const lockedEndColumns = React.useMemo(
+    () =>
+      visibleComputedColumns.filter(
+        (column) => column.computedLocked === "end"
+      ),
+    [visibleComputedColumns]
+  );
+  const unlockedColumns = React.useMemo(
+    () =>
+      visibleComputedColumns.filter(
+        (column) => column.computedLocked === false
+      ),
+    [visibleComputedColumns]
+  );
   const columnWidthPrefixSums = React.useMemo(() => {
     const sums: number[] = [];
     let running = 0;
@@ -3860,6 +4014,55 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     return sums;
   }, [columnLayout]);
+  const lockedColumnMetrics = React.useMemo(() => {
+    const lockedStartCount = visibleComputedColumns.filter(
+      (column) => column.computedLocked === "start"
+    ).length;
+    const lockedEndCount = visibleComputedColumns.filter(
+      (column) => column.computedLocked === "end"
+    ).length;
+    const firstLockedEndIndex =
+      lockedEndCount > 0 ? visibleComputedColumns.length - lockedEndCount : -1;
+    const firstUnlockedIndex =
+      visibleComputedColumns.length - lockedStartCount - lockedEndCount > 0
+        ? lockedStartCount
+        : -1;
+    const lastUnlockedIndex =
+      firstUnlockedIndex >= 0
+        ? visibleComputedColumns.length - lockedEndCount - 1
+        : -1;
+    const totalLockedStartWidth = visibleComputedColumns.reduce(
+      (total, column) =>
+        total +
+        (column.computedLocked === "start" ? (column.computedWidth ?? 0) : 0),
+      0
+    );
+    const totalLockedEndWidth = visibleComputedColumns.reduce(
+      (total, column) =>
+        total +
+        (column.computedLocked === "end" ? (column.computedWidth ?? 0) : 0),
+      0
+    );
+    const totalComputedWidth =
+      columnWidthPrefixSums[columnWidthPrefixSums.length - 1] ?? 0;
+
+    return {
+      hasLockedStart: lockedStartCount > 0,
+      hasLockedEnd: lockedEndCount > 0,
+      hasUnlocked: firstUnlockedIndex >= 0,
+      firstLockedStartIndex: lockedStartCount > 0 ? 0 : -1,
+      lastLockedStartIndex: lockedStartCount - 1,
+      firstUnlockedIndex,
+      lastUnlockedIndex,
+      firstLockedEndIndex,
+      lastLockedEndIndex:
+        lockedEndCount > 0 ? visibleComputedColumns.length - 1 : -1,
+      totalLockedStartWidth,
+      totalLockedEndWidth,
+      totalUnlockedWidth:
+        totalComputedWidth - totalLockedStartWidth - totalLockedEndWidth,
+    };
+  }, [columnWidthPrefixSums, visibleComputedColumns]);
   const columnFlexes = React.useMemo<Record<string, number>>(() => {
     return { ...columnWidthAllocation.flexWeights };
   }, [columnWidthAllocation.flexWeights]);
@@ -4312,29 +4515,36 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const viewport = scrollRef.current;
       const column = visibleComputedColumns[index];
       if (!viewport || !column) return;
+      if (column.computedLocked) {
+        callback?.();
+        return;
+      }
       const columnStart =
         index === 0 ? 0 : (columnWidthPrefixSums[index - 1] ?? 0);
       const columnEnd = columnWidthPrefixSums[index] ?? columnStart;
       const offset = config?.offset ?? 0;
+      const lockedStartWidth = lockedColumnMetrics.totalLockedStartWidth;
+      const lockedEndWidth = lockedColumnMetrics.totalLockedEndWidth;
+      const visibleStart = viewport.scrollLeft + lockedStartWidth + offset;
+      const visibleEnd =
+        viewport.scrollLeft + viewport.clientWidth - lockedEndWidth - offset;
       let nextScrollLeft = viewport.scrollLeft;
 
-      if (
-        config?.direction === "left" ||
-        columnStart < viewport.scrollLeft + offset
-      ) {
-        nextScrollLeft = columnStart - offset;
-      } else if (
-        config?.direction === "right" ||
-        columnEnd > viewport.scrollLeft + viewport.clientWidth - offset
-      ) {
-        nextScrollLeft = columnEnd - viewport.clientWidth + offset;
+      if (config?.direction === "left" || columnStart < visibleStart) {
+        nextScrollLeft = columnStart - lockedStartWidth - offset;
+      } else if (config?.direction === "right" || columnEnd > visibleEnd) {
+        nextScrollLeft =
+          columnEnd - viewport.clientWidth + lockedEndWidth + offset;
       }
 
-      viewport.scrollLeft = Math.max(0, nextScrollLeft);
+      viewport.scrollLeft = Math.min(
+        Math.max(0, viewport.scrollWidth - viewport.clientWidth),
+        Math.max(0, nextScrollLeft)
+      );
 
       callback?.();
     },
-    [columnWidthPrefixSums, visibleComputedColumns]
+    [columnWidthPrefixSums, lockedColumnMetrics, visibleComputedColumns]
   );
 
   const scrollToCellCompat = React.useCallback(
@@ -4978,15 +5188,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       completeEdit: completeEditCompat,
       currentEditCompletePromise: currentEditCompletePromiseRef,
       computedShowEmptyRows: false,
-      hasLockedStart: false,
-      hasLockedEnd: false,
-      hasUnlocked: visibleComputedColumns.length > 0,
-      firstLockedStartIndex: -1,
-      firstLockedEndIndex: -1,
-      firstUnlockedIndex: visibleComputedColumns.length > 0 ? 0 : -1,
-      lastLockedStartIndex: -1,
-      lastUnlockedIndex: visibleComputedColumns.length - 1,
-      lastLockedEndIndex: -1,
+      lockedStartColumns,
+      unlockedColumns,
+      lockedEndColumns,
+      ...lockedColumnMetrics,
       computedOnColumnResize: ({
         index,
         diff,
@@ -5100,6 +5305,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     loadData,
     loading,
     loadSkip,
+    lockedColumnMetrics,
+    lockedEndColumns,
+    lockedStartColumns,
     openFilterMenuColId,
     orderedColumns,
     originalData,
@@ -5140,6 +5348,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     startEditCompat,
     toggleColumnSortCompat,
     tryStartEditCompat,
+    unlockedColumns,
     scrollToCellCompat,
     scrollToColumnCompat,
     scrollToIndexCompat,
@@ -5319,8 +5528,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           filterTypes={filterTypes}
                           openFilterMenuColId={openFilterMenuColId}
                           setOpenFilterMenuColId={setOpenFilterMenuColId}
-                          virtualizeColumns={computedVirtualizeColumns}
-                          columnRenderRange={columnRenderRange}
+                          columnRenderItems={columnRenderItems}
+                          lockedColumnLayout={lockedColumnLayout}
                         />
                       </table>
                     </div>
@@ -5352,7 +5561,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     showVerticalCellBorders={showVerticalCellBorders}
                     virtualized={virtualized}
                     virtualizeColumns={computedVirtualizeColumns}
-                    columnRenderRange={columnRenderRange}
+                    columnRenderItems={columnRenderItems}
+                    lockedColumnLayout={lockedColumnLayout}
                     virtualItems={virtualItems}
                     paddingTop={paddingTop}
                     paddingBottom={paddingBottom}
@@ -5387,6 +5597,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                       computedShowCellBorders: showCellBorders,
                       editable,
                       getItemId: (data) => (data as any)?.[idProperty],
+                      ...lockedColumnMetrics,
                     }}
                     showZebraRows={showZebraRows}
                     editingCell={coordinateEditingCell}

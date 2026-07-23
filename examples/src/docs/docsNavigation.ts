@@ -67,6 +67,7 @@ export const docsNavigationSections: DocsNavigationSection[] = [
     items: [
       navigationItem("guides", "filtering-and-sorting", "Filtering & sorting"),
       navigationItem("guides", "selection", "Selection"),
+      navigationItem("guides", "locked-columns", "Locked columns & actions"),
     ],
   },
   {

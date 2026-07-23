@@ -57,7 +57,11 @@ Do not promise parity for these areas unless you verify them in the codebase:
 - grouping
 - pivoting
 - tree data
-- locked columns
+- mutable/full Enterprise locked-column behavior (`defaultLocked`, `lockable`,
+  `autoLock`, `onColumnLockedChange`, `showColumnMenuLockOptions`,
+  `setColumnLocked`, lock/unlock menu actions, cross-section drag mutation, and
+  RTL mirroring). Static declarative `column.locked` start/end pinning is
+  supported.
 - row reorder
 - cell selection
 - clipboard systems

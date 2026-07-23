@@ -1,7 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import ReactDataGrid, {
   type TypeColumns,
+  type TypeComputedProps,
   type TypeFilterValue,
   type TypeRowSelection,
 } from "../../src/main";
@@ -158,13 +165,17 @@ const initialRows: WorkflowRow[] = [
 
 export default function ActionsGridExample() {
   const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
+  const gridApiInstanceRef = useRef<TypeComputedProps | null>(null);
   const [rows, setRows] = useState<WorkflowRow[]>(initialRows);
   const [selectedRows, setSelectedRows] = useState<TypeRowSelection>({});
   const [filteredRows, setFilteredRows] = useState(initialRows.length);
   const [eventLog, setEventLog] = useState<string[]>([
-    "Ready: use the row actions or bulk controls to mutate the queue.",
+    "Ready: scroll horizontally—the locked action column remains at the end edge.",
   ]);
   const [nextRowNumber, setNextRowNumber] = useState(206);
+  const [lockedMetadata, setLockedMetadata] = useState(
+    "Waiting for locked-column runtime metadata…"
+  );
   const [columnOrder, setColumnOrder] = useState<string[]>([
     "sample",
     "owner",
@@ -177,6 +188,37 @@ export default function ActionsGridExample() {
   const appendEvent = useCallback((message: string) => {
     setEventLog((current) => [message, ...current].slice(0, 6));
   }, []);
+  const reportLockedMetadata = useCallback(
+    (apiRef: MutableRefObject<TypeComputedProps | null>) => {
+      const api = apiRef.current;
+      gridApiInstanceRef.current = api;
+      const lockedEndIds = (api?.lockedEndColumns ?? []).map(
+        (column: { id?: string; name?: string }) =>
+          String(column.id ?? column.name)
+      );
+
+      setLockedMetadata(
+        api?.hasLockedEnd
+          ? `Runtime metadata: locked end contains ${lockedEndIds.join(", ")}.`
+          : "Runtime metadata: no locked-end columns."
+      );
+    },
+    []
+  );
+
+  const revealOpenedColumn = useCallback(() => {
+    const api = gridApiInstanceRef.current;
+    const openedAtIndex =
+      api
+        ?.getColumnsInOrder?.()
+        .findIndex(
+          (column) => String(column.id ?? column.name) === "openedAt"
+        ) ?? -1;
+    if (!api?.scrollToColumn || openedAtIndex < 0) return;
+
+    api.scrollToColumn(openedAtIndex);
+    appendEvent("Scrolled Opened into the unlocked center viewport.");
+  }, [appendEvent]);
 
   const advanceRow = useCallback(
     (rowId: string) => {
@@ -333,6 +375,7 @@ export default function ActionsGridExample() {
         filterable: false,
         textAlign: "end",
         headerAlign: "end",
+        locked: "end",
         render: ({ data }: { data: WorkflowRow }) => (
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -366,7 +409,11 @@ export default function ActionsGridExample() {
         <h2 className="text-lg font-semibold">Actions example</h2>
         <p className="text-sm text-muted-foreground">
           A focused actions grid with controlled checkbox selection, row-level
-          mutations, and bulk insert/delete operations.
+          mutations, bulk insert/delete operations, and an Inovua-style
+          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 text-xs">
+            locked: &quot;end&quot;
+          </code>
+          action column.
         </p>
       </div>
 
@@ -414,9 +461,24 @@ export default function ActionsGridExample() {
         >
           Delete selected
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="actions-reveal-opened"
+          onClick={revealOpenedColumn}
+        >
+          Reveal Opened column
+        </Button>
         <div className="flex items-center text-sm text-muted-foreground">
           First click should fire immediately, even when the grid is unfocused.
         </div>
+      </div>
+
+      <div
+        data-testid="actions-locked-metadata"
+        className="rounded-xl border bg-muted/35 px-3 py-2 text-sm text-muted-foreground"
+      >
+        {lockedMetadata}
       </div>
 
       <ReactDataGrid
@@ -434,12 +496,15 @@ export default function ActionsGridExample() {
         filteredRowsCount={setFilteredRows}
         onColumnOrderChange={setColumnOrder}
         virtualized
+        virtualizeColumns
+        liveColumnResize
         columnUserSelect
         i18n={i18n}
         showColumnMenuTool={false}
-        checkboxColumn
+        checkboxColumn={{ locked: "start" }}
         selected={selectedRows}
         onSelectionChange={setSelectedRows}
+        onReady={reportLockedMetadata}
         showCellBorders={showCellBorders}
       />
 
