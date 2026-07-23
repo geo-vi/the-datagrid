@@ -178,6 +178,16 @@ type LiveColumnResizePreview = {
     inlineWidth: string;
     renderedWidth: number;
   }[];
+  viewport: HTMLElement | null;
+  lockedColumns: {
+    side: "start" | "end";
+    columnId: string;
+    cells: {
+      element: HTMLElement;
+      inlineOffset: string;
+      inlineViewportOffset: string;
+    }[];
+  }[];
 };
 
 type ColumnResizeSession = {
@@ -216,6 +226,42 @@ function captureLiveColumnResizePreview(
     if (table instanceof HTMLTableElement) owningTables.add(table);
   }
 
+  const lockedColumnsByKey = new Map<
+    string,
+    LiveColumnResizePreview["lockedColumns"][number]
+  >();
+  for (const element of surface.querySelectorAll<HTMLElement>(
+    ".tdg-locked-column[data-column-id]"
+  )) {
+    const lockedColumnId = element.dataset.columnId;
+    const side = element.classList.contains("tdg-locked-column--start")
+      ? "start"
+      : element.classList.contains("tdg-locked-column--end")
+        ? "end"
+        : null;
+    if (!lockedColumnId || !side) continue;
+
+    const key = `${side}:${lockedColumnId}`;
+    let lockedColumn = lockedColumnsByKey.get(key);
+    if (!lockedColumn) {
+      lockedColumn = {
+        side,
+        columnId: lockedColumnId,
+        cells: [],
+      };
+      lockedColumnsByKey.set(key, lockedColumn);
+    }
+    lockedColumn.cells.push({
+      element,
+      inlineOffset: element.style.getPropertyValue(
+        "--tdg-locked-column-offset"
+      ),
+      inlineViewportOffset: element.style.getPropertyValue(
+        "--tdg-locked-column-viewport-offset"
+      ),
+    });
+  }
+
   return {
     baseColumnWidth,
     columns,
@@ -224,7 +270,50 @@ function captureLiveColumnResizePreview(
       inlineWidth: element.style.width,
       renderedWidth: element.getBoundingClientRect().width,
     })),
+    viewport: surface.querySelector<HTMLElement>(".tdg-body-viewport"),
+    lockedColumns: Array.from(lockedColumnsByKey.values()),
   };
+}
+
+function updateLiveLockedColumnLayout(preview: LiveColumnResizePreview) {
+  const root = preview.viewport?.closest<HTMLElement>(".tdg-root");
+  const fixedWidthMode = root?.dataset.columnWidthMode === "fixed";
+  const renderedTableWidth = preview.tables.reduce(
+    (width, table) =>
+      Math.max(width, table.element.getBoundingClientRect().width),
+    0
+  );
+  const viewportOffset =
+    fixedWidthMode && preview.viewport
+      ? Math.max(0, preview.viewport.clientWidth - renderedTableWidth)
+      : 0;
+
+  const updateSide = (side: "start" | "end") => {
+    const columns = preview.lockedColumns.filter(
+      (column) => column.side === side
+    );
+    const iteration = side === "end" ? [...columns].reverse() : columns;
+    let offset = 0;
+
+    for (const column of iteration) {
+      for (const cell of column.cells) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-offset",
+          `${offset}px`
+        );
+        cell.element.style.setProperty(
+          "--tdg-locked-column-viewport-offset",
+          side === "end" ? `${viewportOffset}px` : "0px"
+        );
+      }
+
+      const representativeCell = column.cells[0]?.element;
+      offset += representativeCell?.getBoundingClientRect().width ?? 0;
+    }
+  };
+
+  updateSide("start");
+  updateSide("end");
 }
 
 function applyLiveColumnResizePreview(
@@ -240,6 +329,7 @@ function applyLiveColumnResizePreview(
   for (const { element, renderedWidth } of session.preview.tables) {
     element.style.width = `${Math.max(1, renderedWidth + widthDelta)}px`;
   }
+  updateLiveLockedColumnLayout(session.preview);
   session.appliedPreviewWidth = nextWidth;
 }
 
@@ -251,6 +341,28 @@ function restoreLiveColumnResizePreview(session: ColumnResizeSession | null) {
   }
   for (const { element, inlineWidth } of session.preview.tables) {
     element.style.width = inlineWidth;
+  }
+  for (const column of session.preview.lockedColumns) {
+    for (const cell of column.cells) {
+      if (cell.inlineOffset) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-offset",
+          cell.inlineOffset
+        );
+      } else {
+        cell.element.style.removeProperty("--tdg-locked-column-offset");
+      }
+      if (cell.inlineViewportOffset) {
+        cell.element.style.setProperty(
+          "--tdg-locked-column-viewport-offset",
+          cell.inlineViewportOffset
+        );
+      } else {
+        cell.element.style.removeProperty(
+          "--tdg-locked-column-viewport-offset"
+        );
+      }
+    }
   }
   session.appliedPreviewWidth = null;
 }
@@ -3043,6 +3155,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       table.renderedWidth =
         tableMinWidth ?? table.element.getBoundingClientRect().width;
     }
+    for (const lockedColumn of preview.lockedColumns) {
+      for (const cell of lockedColumn.cells) {
+        cell.inlineOffset = cell.element.style.getPropertyValue(
+          "--tdg-locked-column-offset"
+        );
+        cell.inlineViewportOffset = cell.element.style.getPropertyValue(
+          "--tdg-locked-column-viewport-offset"
+        );
+      }
+    }
 
     const appliedPreviewWidth = activeSession.appliedPreviewWidth;
     if (appliedPreviewWidth == null) return;
@@ -4401,25 +4523,28 @@ function ReactDataGrid(props: TypeDataGridProps) {
         index === 0 ? 0 : (columnWidthPrefixSums[index - 1] ?? 0);
       const columnEnd = columnWidthPrefixSums[index] ?? columnStart;
       const offset = config?.offset ?? 0;
+      const lockedStartWidth = lockedColumnMetrics.totalLockedStartWidth;
+      const lockedEndWidth = lockedColumnMetrics.totalLockedEndWidth;
+      const visibleStart = viewport.scrollLeft + lockedStartWidth + offset;
+      const visibleEnd =
+        viewport.scrollLeft + viewport.clientWidth - lockedEndWidth - offset;
       let nextScrollLeft = viewport.scrollLeft;
 
-      if (
-        config?.direction === "left" ||
-        columnStart < viewport.scrollLeft + offset
-      ) {
-        nextScrollLeft = columnStart - offset;
-      } else if (
-        config?.direction === "right" ||
-        columnEnd > viewport.scrollLeft + viewport.clientWidth - offset
-      ) {
-        nextScrollLeft = columnEnd - viewport.clientWidth + offset;
+      if (config?.direction === "left" || columnStart < visibleStart) {
+        nextScrollLeft = columnStart - lockedStartWidth - offset;
+      } else if (config?.direction === "right" || columnEnd > visibleEnd) {
+        nextScrollLeft =
+          columnEnd - viewport.clientWidth + lockedEndWidth + offset;
       }
 
-      viewport.scrollLeft = Math.max(0, nextScrollLeft);
+      viewport.scrollLeft = Math.min(
+        Math.max(0, viewport.scrollWidth - viewport.clientWidth),
+        Math.max(0, nextScrollLeft)
+      );
 
       callback?.();
     },
-    [columnWidthPrefixSums, visibleComputedColumns]
+    [columnWidthPrefixSums, lockedColumnMetrics, visibleComputedColumns]
   );
 
   const scrollToCellCompat = React.useCallback(

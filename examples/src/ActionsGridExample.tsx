@@ -1,4 +1,10 @@
-import { type MutableRefObject, useCallback, useMemo, useState } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import ReactDataGrid, {
   type TypeColumns,
@@ -159,6 +165,7 @@ const initialRows: WorkflowRow[] = [
 
 export default function ActionsGridExample() {
   const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
+  const gridApiInstanceRef = useRef<TypeComputedProps | null>(null);
   const [rows, setRows] = useState<WorkflowRow[]>(initialRows);
   const [selectedRows, setSelectedRows] = useState<TypeRowSelection>({});
   const [filteredRows, setFilteredRows] = useState(initialRows.length);
@@ -182,8 +189,9 @@ export default function ActionsGridExample() {
     setEventLog((current) => [message, ...current].slice(0, 6));
   }, []);
   const reportLockedMetadata = useCallback(
-    (gridApiRef: MutableRefObject<TypeComputedProps | null>) => {
-      const api = gridApiRef.current;
+    (apiRef: MutableRefObject<TypeComputedProps | null>) => {
+      const api = apiRef.current;
+      gridApiInstanceRef.current = api;
       const lockedEndIds = (api?.lockedEndColumns ?? []).map(
         (column: { id?: string; name?: string }) =>
           String(column.id ?? column.name)
@@ -197,6 +205,20 @@ export default function ActionsGridExample() {
     },
     []
   );
+
+  const revealOpenedColumn = useCallback(() => {
+    const api = gridApiInstanceRef.current;
+    const openedAtIndex =
+      api
+        ?.getColumnsInOrder?.()
+        .findIndex(
+          (column) => String(column.id ?? column.name) === "openedAt"
+        ) ?? -1;
+    if (!api?.scrollToColumn || openedAtIndex < 0) return;
+
+    api.scrollToColumn(openedAtIndex);
+    appendEvent("Scrolled Opened into the unlocked center viewport.");
+  }, [appendEvent]);
 
   const advanceRow = useCallback(
     (rowId: string) => {
@@ -439,6 +461,14 @@ export default function ActionsGridExample() {
         >
           Delete selected
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="actions-reveal-opened"
+          onClick={revealOpenedColumn}
+        >
+          Reveal Opened column
+        </Button>
         <div className="flex items-center text-sm text-muted-foreground">
           First click should fire immediately, even when the grid is unfocused.
         </div>
@@ -467,10 +497,11 @@ export default function ActionsGridExample() {
         onColumnOrderChange={setColumnOrder}
         virtualized
         virtualizeColumns
+        liveColumnResize
         columnUserSelect
         i18n={i18n}
         showColumnMenuTool={false}
-        checkboxColumn
+        checkboxColumn={{ locked: "start" }}
         selected={selectedRows}
         onSelectionChange={setSelectedRows}
         onReady={reportLockedMetadata}

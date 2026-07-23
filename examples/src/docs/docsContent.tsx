@@ -1579,11 +1579,10 @@ function createInovuaStatusPage(): DocsPage {
               includes the available Inovua row metadata: local/remote indexes,
               selection and parity state, computed columns and widths,
               row-height state, totals, editing state, and theme. Unsupported
-              grouping data is not fabricated; unsupported locking is reported
-              through the stable unlocked sentinels (<code>-1</code>,{" "}
-              <code>false</code>, and <code>0</code>) used by the compatibility
-              surface. <code>TypeColumn.style</code> remains a separate
-              cell-level API.
+              grouping data is not fabricated. Locking metadata reflects the
+              live declarative start, unlocked, and end sections, including
+              their indexes, presence flags, and logical allocated widths.{" "}
+              <code>TypeColumn.style</code> remains a separate cell-level API.
             </p>
             <p>
               The callback receives the live base style with Inovua-shaped{" "}
@@ -1776,6 +1775,18 @@ const columnSections: ReferenceSection[] = [
           </DocsRouteLink>{" "}
           for the broader compatibility audit and remaining unverified areas.
         </p>
+        <p>
+          <code>column.locked</code> is an implemented, Enterprise-derived
+          extension rather than part of the Inovua Community 5.10.2 parity gate.
+          It supports declarative <code>true</code>,{" "}
+          <code>&quot;start&quot;</code>, <code>&quot;end&quot;</code>, and{" "}
+          <code>false</code>. It does not currently implement{" "}
+          <code>defaultLocked</code>, <code>lockable</code>,{" "}
+          <code>autoLock</code>, <code>onColumnLockedChange</code>,{" "}
+          <code>showColumnMenuLockOptions</code>, <code>setColumnLocked</code>,
+          lock/unlock menu actions, cross-section lock changes through dragging,
+          or RTL edge mirroring.
+        </p>
       </Callout>
     ),
   },
@@ -1956,6 +1967,13 @@ const columnSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "true",
         description: "Per-column resize opt-out.",
+      },
+      {
+        name: "locked",
+        type: 'true | "start" | "end" | false',
+        defaultValue: "false",
+        description:
+          'Keeps the column mounted and sticky at the horizontal start or end edge; true aliases "start". Relative order is preserved inside each locked/unlocked section. Cross-section drops are rejected. This Enterprise-derived extension does not yet include defaultLocked, lockable, autoLock, onColumnLockedChange, showColumnMenuLockOptions, setColumnLocked, lock-menu actions, or RTL mirroring.',
       },
     ],
   },
@@ -2394,12 +2412,17 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
           </p>
           <p>
             Locked-column arrays, indexes, section widths, and presence flags
-            now reflect declarative <code>column.locked</code> geometry. Live
-            pagination and unselected tracking remain fixed compatibility
-            fields. <code>computedShowZebraRows</code> reflects the per-grid
-            prop, while <code>columnFlexes</code> and column sizes report the
-            implemented allocation; their imperative setter methods remain
-            outside the supported allowlist.
+            now reflect declarative <code>column.locked</code> and its logical
+            column allocation. In a fixed-layout table that underfills and
+            stretches to the viewport, browser-distributed surplus space is not
+            included in those compatibility widths. Live pagination and
+            unselected tracking remain fixed compatibility fields.{" "}
+            <code>computedShowZebraRows</code> reflects the per-grid prop, while{" "}
+            <code>columnFlexes</code> and column sizes report the implemented
+            allocation; their imperative setter methods remain outside the
+            supported allowlist. In particular, <code>setColumnLocked</code> may
+            look callable through the compatibility Proxy but is unsupported and
+            does not mutate lock state.
           </p>
         </Callout>
         <div className="space-y-2">
@@ -3289,6 +3312,41 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     status: "compatible",
   },
   {
+    id: "locked-columns-extension",
+    feature: "Locked columns (Enterprise-derived extension)",
+    upstreamContract: (
+      <>
+        Inovua documents locked columns as an Enterprise feature. Its shared
+        column vocabulary accepts <code>locked</code> and{" "}
+        <code>defaultLocked</code>, supports <code>true</code> as the{" "}
+        <code>&quot;start&quot;</code> alias, and can report lock-state changes
+        when reordering crosses sections.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        Declarative <code>column.locked</code> supports <code>true</code>,{" "}
+        <code>&quot;start&quot;</code>, <code>&quot;end&quot;</code>, and{" "}
+        <code>false</code>. Header, filter, and body cells use shared sticky
+        offsets; locked columns stay mounted during horizontal virtualization
+        and retain their section while resizing or reordering. Cross-section
+        drops are rejected.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Treat this as an explicit extension outside the Community compatibility
+        gate. Do not claim complete Inovua locked-column parity until{" "}
+        <code>defaultLocked</code>, <code>lockable</code>, <code>autoLock</code>
+        , <code>onColumnLockedChange</code>,{" "}
+        <code>showColumnMenuLockOptions</code>, <code>setColumnLocked</code>,
+        lock/unlock menu actions, cross-section state transitions, and RTL edge
+        mirroring are implemented and covered.
+      </>
+    ),
+    status: "outside-public-baseline",
+  },
+  {
     id: "controlled-column-widths",
     feature: "Controlled and uncontrolled widths",
     upstreamContract: (
@@ -3892,7 +3950,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: 'column.locked: true | "start" | "end" | false',
         defaultValue: "false",
         description:
-          'true aliases "start". The rendered model groups locked-start, unlocked, and locked-end columns while preserving relative order inside each section. Cross-section drag drops are rejected; locked header, filter, and body cells share sticky offsets and remain mounted during horizontal virtualization.',
+          'true aliases "start". The rendered model groups locked-start, unlocked, and locked-end columns while preserving relative order inside each section. Cross-section drag drops are rejected; locked header, filter, and body cells share sticky offsets and remain mounted during horizontal virtualization. This is an Enterprise-derived extension, not complete Inovua locked-column parity: defaultLocked, lockable, autoLock, onColumnLockedChange, showColumnMenuLockOptions, setColumnLocked, lock-menu actions, and RTL mirroring remain unsupported.',
       },
       {
         name: "Checkbox column ordering",
@@ -5084,6 +5142,162 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
   },
   {
     group: "guides",
+    slug: "locked-columns",
+    title: "Guide: locked columns and row actions",
+    summary:
+      "Keep identity or action columns visible at a horizontal edge with the Inovua-shaped column.locked field.",
+    description:
+      "Use this opt-in extension for pinned row actions while keeping its deliberately narrower compatibility boundary explicit.",
+    tags: ["Guide", "Columns", "Actions", "Enterprise extension"],
+    sections: [
+      {
+        id: "locked-actions-example",
+        title: "Lock an actions column to the end",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Set <code>locked: &quot;end&quot;</code> on the column itself. No
+              root grid prop or application CSS override is required.
+            </p>
+            <CodeBlock
+              code={`import ReactDataGrid, { type TypeColumns } from "@geovi/the-datagrid";
+
+const columns: TypeColumns = [
+  { name: "account", header: "Account", defaultWidth: 260 },
+  { name: "owner", header: "Owner", defaultWidth: 220 },
+  {
+    name: "actions",
+    header: "Actions",
+    defaultWidth: 180,
+    locked: "end",
+    sortable: false,
+    filterable: false,
+    render: ({ data }) => (
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => openAccount(data.id)}>
+          Open
+        </button>
+        <button type="button" onClick={() => archiveAccount(data.id)}>
+          Archive
+        </button>
+      </div>
+    ),
+  },
+];
+
+<ReactDataGrid
+  idProperty="id"
+  columns={columns}
+  dataSource={rows}
+  virtualized
+  virtualizeColumns
+/>;`}
+              language="tsx"
+            />
+            <p>
+              <code>true</code> is an alias for <code>&quot;start&quot;</code>.
+              Multiple locked columns are supported on either edge, and their
+              relative declaration or <code>columnOrder</code> order is
+              preserved inside that section.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "runtime-behavior",
+        title: "Runtime behavior",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              Locked header, filter-row, and body cells use the same computed
+              offsets and remain aligned while scrolling.
+            </li>
+            <li>
+              Horizontal column virtualization slices only the unlocked middle
+              range; locked-start and locked-end columns remain mounted.
+            </li>
+            <li>
+              Width, min/max constraints, mouse/touch/keyboard resizing, and
+              live resizing use the normal column sizing contract.
+            </li>
+            <li>
+              Drag reordering is allowed only inside the same start, unlocked,
+              or end section. A cross-section drop is rejected.
+            </li>
+            <li>
+              Computed API and <code>rowStyle</code> metadata report the live
+              locked arrays, section indexes, presence flags, and logical
+              allocated widths. Browser-distributed surplus width in an
+              underfilled stretched table is not included in those metrics.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "compatibility-boundary",
+        title: "Compatibility boundary",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <Callout
+              title="Enterprise-derived extension, not complete Inovua parity"
+              tone="warning"
+            >
+              <p>
+                Inovua marks locked columns as an Enterprise feature, so this
+                capability is outside this package&apos;s Community 5.10.2
+                compatibility gate. The shared Inovua vocabulary is used to make
+                migrations familiar, but only the declarative{" "}
+                <code>column.locked</code> contract is implemented today.
+              </p>
+              <p>
+                Unsupported: <code>column.defaultLocked</code>,{" "}
+                <code>column.lockable</code>, <code>column.autoLock</code>, root{" "}
+                <code>onColumnLockedChange</code> and{" "}
+                <code>showColumnMenuLockOptions</code>, imperative{" "}
+                <code>setColumnLocked</code>, lock/unlock menu actions,
+                cross-section dragging that mutates lock state, and RTL edge
+                mirroring.
+              </p>
+            </Callout>
+            <p>
+              Declare the target section in the column definition up front.
+              Changing a column&apos;s locked section at runtime is not a
+              supported contract yet, and a rejected cross-section drag does not
+              change controlled application state.
+            </p>
+            <p>
+              Lock grouping affects rendered order only. Controlled{" "}
+              <code>columnOrder</code>, its callback, and remote data-source
+              arguments retain the application-owned sequence; read each
+              column&apos;s <code>locked</code> field to determine its rendered
+              section.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "live-example",
+        title: "Live example",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The Actions example combines a right-locked action column with a
+              filter row, horizontal virtualization, resizing, selection, and
+              real row mutations.
+            </p>
+            <Link
+              to="/examples/actions"
+              className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
+            >
+              Open the locked actions example
+            </Link>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    group: "guides",
     slug: "selection",
     title: "Guide: selection",
     summary:
@@ -5313,7 +5527,7 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
     title: "IColumn reference",
     summary: "Field-by-field reference for column definitions.",
     description:
-      "The grid uses Inovua-aligned naming for column configuration. This page covers identity, rendering, sizing, filtering, and alignment fields.",
+      "The grid uses Inovua-aligned naming for column configuration. This page covers identity, rendering, sizing, locking, filtering, and alignment fields.",
     tags: ["Reference", "Columns", "IColumn"],
     sections: columnSections,
   },

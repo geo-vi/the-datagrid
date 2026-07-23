@@ -787,6 +787,23 @@ columns keep their relative `columnOrder` within the start/unlocked/end
 sections, remain mounted during column virtualization, and use the same
 header, filter-row, body, resize, and controlled-reorder geometry.
 
+This is an opt-in, Enterprise-derived compatibility extension rather than part
+of the Inovua Community 5.10.2 release gate. The implemented contract is the
+declarative `column.locked` field above. Inovua's `column.defaultLocked`,
+`column.lockable`, `column.autoLock`, root `onColumnLockedChange` and
+`showColumnMenuLockOptions`, imperative `setColumnLocked`, lock/unlock menu
+actions, and RTL edge mirroring are not implemented. Dragging may reorder
+columns inside the same locked/unlocked section, but a cross-section drop is
+rejected instead of changing the column's locked state. Declare the target
+section in the column definition up front; changing a column's locked section
+at runtime is not a supported contract yet.
+The grid groups columns only for rendering: the controlled `columnOrder` and
+remote data-source argument keep the application-owned sequence, with lock
+state carried separately by each column. Computed locked-section widths report
+the grid's logical column allocation; when an underfilled fixed-layout table is
+stretched to the viewport, browser-distributed surplus space is not added to
+those compatibility metrics.
+
 ### Filtering
 
 | Prop                            | Type                               | Default           | Description                                               |
