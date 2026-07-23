@@ -10,12 +10,6 @@ function header(grid: Locator, columnId: string) {
   );
 }
 
-function rowCell(grid: Locator, rowId: string, columnId: string) {
-  return grid.locator(
-    `[data-slot="grid-row"][data-row-id="${rowId}"] [data-column-id="${columnId}"]`
-  );
-}
-
 async function renderedColumnIds(locator: Locator) {
   return locator.evaluateAll((elements) =>
     elements.map((element) => element.getAttribute("data-column-id"))
@@ -101,75 +95,121 @@ test.describe("TanStack column engine regression contracts", () => {
       COLUMN_COUNT * COLUMN_WIDTH + COLUMN_COUNT
     );
 
+    // Let the initial virtualizer measurement and its scroll-range clamp
+    // finish before synthesizing a scroll gesture. A user cannot interact
+    // between these pre-paint frames, while an automated evaluate call can.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
     await scrollToHorizontalEnd(viewport);
 
     const lastHeader = header(grid, "col-23");
-    const lastCell = rowCell(grid, "virtual-row-1", "col-23");
-    await expect(lastHeader).toBeVisible();
-    await expect(lastCell).toBeVisible();
-    await expect(header(grid, "col-00")).toHaveCount(0);
+    const readEndState = () =>
+      grid.evaluate(
+        (gridElement, expected) => {
+          const viewportElement = gridElement.querySelector<HTMLElement>(
+            '[data-slot="scroll-area-viewport"]'
+          );
+          const headerElements = Array.from(
+            gridElement.querySelectorAll<HTMLElement>(
+              '[data-slot="grid-header-cell"][data-column-id]'
+            )
+          );
+          const cellElements = Array.from(
+            gridElement.querySelectorAll<HTMLElement>(
+              '[data-slot="grid-row"][data-row-id="virtual-row-1"] [data-column-id]'
+            )
+          );
+          const lastHeaderElement = headerElements.find(
+            (element) => element.dataset.columnId === "col-23"
+          );
+          const neighbourHeaderElement = headerElements.find(
+            (element) => element.dataset.columnId === "col-22"
+          );
+          const lastCellElement = cellElements.find(
+            (element) => element.dataset.columnId === "col-23"
+          );
+          if (
+            !viewportElement ||
+            !lastHeaderElement ||
+            !neighbourHeaderElement ||
+            !lastCellElement
+          ) {
+            return {
+              mountedAtEnd: false,
+              idsAligned: false,
+              geometryAligned: false,
+              controlledWidthsStable: false,
+              scrollWidthStable: false,
+            };
+          }
 
-    const farIds = {
-      headers: await renderedColumnIds(renderedHeaders),
-      cells: await renderedColumnIds(renderedCells),
+          const viewportRect = viewportElement.getBoundingClientRect();
+          const lastHeaderRect = lastHeaderElement.getBoundingClientRect();
+          const neighbourHeaderRect =
+            neighbourHeaderElement.getBoundingClientRect();
+          const lastCellRect = lastCellElement.getBoundingClientRect();
+          const headerIds = headerElements.map(
+            (element) => element.dataset.columnId
+          );
+          const cellIds = cellElements.map(
+            (element) => element.dataset.columnId
+          );
+
+          return {
+            mountedAtEnd:
+              Math.abs(
+                viewportElement.scrollWidth -
+                  viewportElement.clientWidth -
+                  viewportElement.scrollLeft
+              ) <= 1 &&
+              !headerIds.includes("col-00") &&
+              headerIds.at(-1) === "col-23",
+            idsAligned: JSON.stringify(headerIds) === JSON.stringify(cellIds),
+            geometryAligned:
+              Math.abs(lastHeaderRect.right - lastCellRect.right) <=
+                expected.maxDrift &&
+              Math.abs(viewportRect.right - lastHeaderRect.right) <=
+                expected.maxDrift &&
+              Math.abs(viewportRect.right - lastCellRect.right) <=
+                expected.maxDrift,
+            controlledWidthsStable:
+              Math.abs(lastHeaderRect.width - expected.columnWidth) <= 1 &&
+              Math.abs(lastCellRect.width - expected.columnWidth) <= 1 &&
+              Math.abs(neighbourHeaderRect.width - expected.columnWidth) <= 1,
+            scrollWidthStable:
+              viewportElement.scrollWidth === expected.scrollWidth,
+          };
+        },
+        {
+          columnWidth: COLUMN_WIDTH,
+          maxDrift: MAX_GEOMETRY_DRIFT,
+          scrollWidth: initialScrollGeometry.scrollWidth,
+        }
+      );
+    const expectedEndState = {
+      mountedAtEnd: true,
+      idsAligned: true,
+      geometryAligned: true,
+      controlledWidthsStable: true,
+      scrollWidthStable: true,
     };
-    expect(farIds.headers).toEqual(farIds.cells);
-    expect(farIds.headers.at(-1)).toBe("col-23");
 
-    const endGeometry = await viewport.evaluate((element) => {
-      const viewportRect = element.getBoundingClientRect();
-      const lastHeaderElement = document.querySelector<HTMLElement>(
-        '[data-slot="grid-header-cell"][data-column-id="col-23"]'
-      );
-      const lastCellElement = element.querySelector<HTMLElement>(
-        '[data-slot="grid-row"][data-row-id="virtual-row-1"] [data-column-id="col-23"]'
-      );
-      const lastHeaderRect = lastHeaderElement?.getBoundingClientRect();
-      const lastCellRect = lastCellElement?.getBoundingClientRect();
-
-      return {
-        remainingScroll:
-          element.scrollWidth - element.clientWidth - element.scrollLeft,
-        headerBodyRightDrift:
-          (lastHeaderRect?.right ?? 0) - (lastCellRect?.right ?? 0),
-        headerViewportRightGap:
-          viewportRect.right - (lastHeaderRect?.right ?? 0),
-        bodyViewportRightGap: viewportRect.right - (lastCellRect?.right ?? 0),
-      };
-    });
-    expect(Math.abs(endGeometry.remainingScroll)).toBeLessThanOrEqual(1);
-    expect(Math.abs(endGeometry.headerBodyRightDrift)).toBeLessThanOrEqual(
-      MAX_GEOMETRY_DRIFT
-    );
-    expect(Math.abs(endGeometry.headerViewportRightGap)).toBeLessThanOrEqual(
-      MAX_GEOMETRY_DRIFT
-    );
-    expect(Math.abs(endGeometry.bodyViewportRightGap)).toBeLessThanOrEqual(
-      MAX_GEOMETRY_DRIFT
-    );
-
-    const neighbourWidthBefore = await width(header(grid, "col-22"));
-    const lastWidthBefore = await width(lastHeader);
-    const scrollWidthBeforeResize = await viewport.evaluate(
-      (element) => element.scrollWidth
-    );
+    await expect.poll(readEndState).toEqual(expectedEndState);
 
     const lastResizer = lastHeader.locator('[data-slot="column-resizer"]');
-    await lastResizer.focus();
-    await lastResizer.press("ArrowRight");
+    await lastResizer.evaluate((element) =>
+      element.focus({ preventScroll: true })
+    );
+    await page.keyboard.press("ArrowRight");
 
     // These fixture columns use controlled `width` values. A resize key press
     // may propose a new width, but rendered geometry must remain owned by the
     // controlled value and must not leak to the neighbouring virtual item.
-    expect(await width(lastHeader)).toBeCloseTo(lastWidthBefore, 1);
-    expect(await width(lastCell)).toBeCloseTo(lastWidthBefore, 1);
-    expect(await width(header(grid, "col-22"))).toBeCloseTo(
-      neighbourWidthBefore,
-      1
-    );
-    expect(await viewport.evaluate((element) => element.scrollWidth)).toBe(
-      scrollWidthBeforeResize
-    );
+    await expect.poll(readEndState).toEqual(expectedEndState);
 
     // Unmount and remount the resize target. Its controlled size must remain
     // attached to the stable column id rather than to a virtual item index.
@@ -177,9 +217,7 @@ test.describe("TanStack column engine regression contracts", () => {
     await expect(header(grid, "col-00")).toBeVisible();
     await expect(lastHeader).toHaveCount(0);
     await scope.getByTestId("scroll-last-column").click();
-    await expect(lastHeader).toBeVisible();
-    expect(await width(lastHeader)).toBeCloseTo(lastWidthBefore, 1);
-    expect(await width(lastCell)).toBeCloseTo(lastWidthBefore, 1);
+    await expect.poll(readEndState).toEqual(expectedEndState);
 
     expect(runtimeFailures).toEqual([]);
   });
