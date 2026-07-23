@@ -740,6 +740,7 @@ Note: this is a curated overview. For the complete contract, refer to the export
 | `minRowHeight`         | `number`                                         | `20`              | Minimum natural row height and virtualizer estimate               |
 | `maxRowHeight`         | `number`                                         | -                 | Optional upper bound for measured or functional row heights       |
 | `rowStyle`             | `CSSProperties \| ({ data, props, style }) => …` | -                 | Static or data-dependent style merged onto each row               |
+| `disabledRows`         | `{ [displayedIndex: string]: boolean } \| null`  | -                 | Dim and block pointer interaction for displayed row indexes       |
 | `showZebraRows`        | `boolean`                                        | `true`            | Show visible alternating row backgrounds                          |
 | `headerHeight`         | `number`                                         | `40`              | Header height in pixels                                           |
 | `filterRowHeight`      | `number`                                         | `40`              | Filter row height in pixels                                       |
@@ -754,6 +755,17 @@ and return `undefined`, or return a style object to merge. `props.id` preserves
 numeric IDs, `rowIndex` is page-local, and `remoteRowIndex` includes the current
 pagination offset. Unsupported locking is represented by fixed unlocked
 sentinels (`-1`, `false`, and `0`).
+
+`disabledRows` follows the Inovua 5.10.2 index contract. A truthy entry such as
+`{ 1: true }` disables the second row in the current sorted, filtered, and
+page-local view; keys are not row IDs. Disabled rows receive the legacy
+`InovuaReactDataGrid__row--disabled` hook, 50% opacity, and no pointer
+interaction. They are deliberately still included by controlled selection,
+header select-all, and imperative selection/editing APIs, matching upstream.
+The current state is also exposed as `props.disabledRow` to `rowStyle` and
+custom cell metadata. That callback value preserves upstream’s raw shape:
+`null` when the map is absent, `undefined` for a missing key, and the explicit
+`false` or `true` entry otherwise.
 
 ### Columns
 
@@ -806,15 +818,16 @@ Disable are explicit menu actions, and Clear All emits one aggregate update.
 
 ### Selection
 
-| Prop                           | Type                                         | Default                          | Description                                              |
-| ------------------------------ | -------------------------------------------- | -------------------------------- | -------------------------------------------------------- |
-| `checkboxColumn`               | `boolean \| IColumn`                         | `false`                          | Enable or customize the checkbox column                  |
-| `selected`                     | `TypeRowSelection`                           | -                                | Controlled selection                                     |
-| `defaultSelected`              | `TypeRowSelection`                           | `{}` for multi-select, else null | Uncontrolled initial selection                           |
-| `onSelectionChange`            | `(config: TypeOnSelectionChangeArg) => void` | -                                | Fired with the next selection and row metadata           |
-| `multiSelect`                  | `boolean`                                    | `true` with `checkboxColumn`     | Enable multi-row selection semantics                     |
-| `checkboxOnlyRowSelect`        | `boolean`                                    | `true` with `checkboxColumn`     | Require the checkbox instead of a plain row click        |
-| `checkboxSelectEnableShiftKey` | `boolean`                                    | `false`                          | Enable Shift-range selection through the checkbox column |
+| Prop                           | Type                                            | Default                          | Description                                                                     |
+| ------------------------------ | ----------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| `checkboxColumn`               | `boolean \| IColumn`                            | `false`                          | Enable or customize the checkbox column                                         |
+| `selected`                     | `TypeRowSelection`                              | -                                | Controlled selection                                                            |
+| `defaultSelected`              | `TypeRowSelection`                              | `{}` for multi-select, else null | Uncontrolled initial selection                                                  |
+| `onSelectionChange`            | `(config: TypeOnSelectionChangeArg) => void`    | -                                | Fired with the next selection and row metadata                                  |
+| `multiSelect`                  | `boolean`                                       | `true` with `checkboxColumn`     | Enable multi-row selection semantics                                            |
+| `checkboxOnlyRowSelect`        | `boolean`                                       | `true` with `checkboxColumn`     | Require the checkbox instead of a plain row click                               |
+| `checkboxSelectEnableShiftKey` | `boolean`                                       | `false`                          | Enable Shift-range selection through the checkbox column                        |
+| `disabledRows`                 | `{ [displayedIndex: string]: boolean } \| null` | -                                | Block pointer interaction by current view index without excluding API selection |
 
 ### Editing
 

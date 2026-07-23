@@ -153,11 +153,18 @@ export type TypeColumnRenderArgs = {
   rowIndex: number;
   column: IColumn;
   columnId: string;
+  /**
+   * Raw disabledRows entry for this displayed index. Inovua exposes `null`
+   * when the map is absent and `undefined` when this key is missing.
+   */
+  disabledRow?: boolean | null;
 };
 
 export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
+  /** Raw runtime row-disable state exposed to Inovua-style hooks. */
+  disabledRow?: boolean | null;
   /** Inovua-compatible column identifier aliases used by custom editors. */
   id?: string | number;
   name?: string;
@@ -304,6 +311,8 @@ export type TypeRowStyleProps = Record<string, unknown> & {
   /** Legacy alias retained from the first the-datagrid implementation. */
   index: number;
   selected: boolean;
+  /** Raw disabledRows entry for the current displayed row index. */
+  disabledRow?: boolean | null;
   selection: TypeRowSelection;
   multiSelect: boolean;
   even: boolean;
@@ -802,6 +811,7 @@ export type TypeCheckboxColumnCellProps = {
   headerCell: boolean;
   data: unknown;
   rowIndex?: number;
+  disabledRow?: boolean | null;
 };
 
 export type TypeCheckboxProps = {
@@ -995,6 +1005,16 @@ export type TypeDataGridProps = {
   multiSelect?: boolean;
   checkboxOnlyRowSelect?: boolean;
   checkboxSelectEnableShiftKey?: boolean;
+
+  /**
+   * Disables pointer interaction for rows at the specified zero-based
+   * displayed indexes.
+   *
+   * This follows Inovua 5.10.2: indexes are resolved after local
+   * sorting/filtering/pagination, not from `idProperty`. Disabled rows remain
+   * eligible for controlled, header, and imperative selection.
+   */
+  disabledRows?: { [key: string]: boolean } | null;
 
   /**
    * Invoked from the grid's mount effect after the imperative API has been

@@ -500,6 +500,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onColumnResize,
     headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
     filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
+    disabledRows,
 
     className,
     style,
@@ -507,6 +508,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onFocus,
     onBlur,
   } = props;
+  const disabledRowsRef = React.useRef(disabledRows);
+  disabledRowsRef.current = disabledRows;
+  const getDisabledRowState = React.useCallback(
+    (rowIndex: number) => (disabledRows ? disabledRows[rowIndex] : null),
+    [disabledRows]
+  );
+  const isRowDisabled = React.useCallback(
+    (rowIndex: number) => Boolean(getDisabledRowState(rowIndex)),
+    [getDisabledRowState]
+  );
 
   const [uncontrolledShowZebraRows, setUncontrolledShowZebraRows] =
     React.useState(
@@ -1545,6 +1556,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const rowIndex = ctx.row.index;
             const rowId = ctx.row.id;
             const runtime = selectionRuntimeRef.current;
+            const disabledRow = disabledRowsRef.current
+              ? disabledRowsRef.current[rowIndex]
+              : null;
 
             const isSelected = Boolean(runtime.selectedMap[rowId]);
 
@@ -1599,11 +1613,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 headerCell: false,
                 data: rowData,
                 rowIndex,
+                disabledRow,
               })
             ) : (
               <Checkbox
                 checked={checkboxProps.checked}
                 disabled={checkboxProps.disabled}
+                tabIndex={disabledRow ? -1 : undefined}
                 onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -1649,6 +1665,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
           const value = ctx.getValue();
           const rowData = ctx.row.original;
           const rowIndex = ctx.row.index;
+          const disabledRow = disabledRowsRef.current
+            ? disabledRowsRef.current[rowIndex]
+            : null;
 
           if (c.render) {
             const renderCell = c.render as (
@@ -1658,12 +1677,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 rowIndex: number;
                 column: TypeColumn;
                 columnId: string;
+                disabledRow?: boolean | null;
               }
             ) => React.ReactNode;
             const cellProps = {
               column: c,
               columnId: colId,
               rowIndex,
+              disabledRow,
               dateFormat: (c as any).dateFormat,
               ...(typeof (c as any).cellProps === "object"
                 ? (c as any).cellProps
@@ -1677,6 +1698,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 rowIndex,
                 column: c,
                 columnId: colId,
+                disabledRow,
                 cellProps,
               } as any);
             }
@@ -1686,6 +1708,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               rowIndex,
               column: c,
               columnId: colId,
+              disabledRow,
             });
           }
 
@@ -2110,6 +2133,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         remoteRowIndex: loadSkip + rowIndex,
         rowId,
         rowSelected: Boolean(selectedMap[String(row.id)]),
+        disabledRow: getDisabledRowState(rowIndex),
         selection: selected,
         multiSelect: Boolean(multiSelect),
         naturalRowHeight: rowHeight == null,
@@ -2149,6 +2173,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       editStartEvent,
       editable,
       idProperty,
+      getDisabledRowState,
       loadSkip,
       multiSelect,
       orderedColumns,
@@ -5210,6 +5235,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 checkboxColumnId={checkboxColId}
                 loading={loading}
                 selectedMap={selectedMap}
+                isRowDisabled={isRowDisabled}
                 i18n={i18n}
                 emptyText={props.emptyText}
                 sortInfo={sortInfo}
@@ -5335,6 +5361,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     i18n={i18n}
                     emptyText={props.emptyText}
                     selectedMap={selectedMap}
+                    getDisabledRowState={getDisabledRowState}
                     onRowClick={(id, data, e) => handleRowClick(id, data, e)}
                     rowHeight={rowHeight}
                     minRowHeight={computedMinRowHeight}

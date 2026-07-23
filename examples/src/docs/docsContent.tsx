@@ -1113,6 +1113,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         description:
           "Allows shift-range selection through the checkbox column.",
       },
+      {
+        name: "disabledRows",
+        type: "{ [displayedIndex: string]: boolean } | null",
+        defaultValue: "-",
+        description:
+          "Disables pointer interaction and applies 50% opacity at truthy zero-based indexes in the current sorted, filtered, page-local view. Keys are not row IDs. Controlled, header, and imperative selection continue to include these rows. Callback metadata preserves null for an absent map, undefined for a missing key, and explicit false/true entries.",
+      },
     ],
   },
   {
@@ -2499,6 +2506,10 @@ type TypeOnSelectionChangeArg = {
   originalData?: TypeDataSource;
 };
 
+type DisabledRowsProp = {
+  [displayedIndex: string]: boolean;
+} | null;
+
 type TypeCheckboxColumn =
   | boolean
   | (IColumn & {
@@ -2526,7 +2537,8 @@ type TypeSize = { width: number; height: number };`}
           Selection callbacks always include <code>selected</code> and{" "}
           <code>originalData</code>; built-in interactions normally include the
           affected row(s) in <code>data</code>, while <code>unselected</code>
-          remains optional.
+          remains optional. <code>disabledRows</code> uses current displayed
+          indexes rather than row IDs.
         </p>
       </div>
     ),
@@ -4075,6 +4087,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "A CSS object or ({ data, props, style }) callback is merged onto each row. The callback may mutate the Inovua-shaped base style and return undefined; IDs retain their type and remoteRowIndex includes the page offset. column.style stays cell-scoped.",
       },
       {
+        name: "Disabled rows",
+        type: "disabledRows index map",
+        defaultValue: "-",
+        description:
+          "Truthy current-view indexes receive the Inovua disabled class, 50% opacity, pointer blocking, and aria-disabled. Indexes are recomputed after sorting, filtering, and page slicing. Upstream-compatible header/API selection still includes them.",
+      },
+      {
         name: "Editing activation",
         type: "editable + editStartEvent",
         defaultValue: "off / dblclick",
@@ -5116,6 +5135,15 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               renderCheckbox receives normalized checkbox props plus
               headerCell/data/rowIndex metadata so a custom visual can preserve
               the built-in selection behavior.
+            </li>
+            <li>
+              disabledRows is a zero-based current-view index map, not an ID
+              map. It blocks pointer selection and pointer editing, but does not
+              remove rows from controlled state, header select-all, range
+              selection, or imperative selection/editing APIs. This
+              intentionally preserves Inovua 5.10.2 behavior. The raw{" "}
+              <code>disabledRow</code> value is available to rowStyle, cell
+              renderers, custom checkboxes, and editor metadata.
             </li>
             <li>
               onSelectionChange always includes selected and originalData; UI
@@ -6169,10 +6197,13 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               controlled/default widths and flex, zebra behavior, inline
               editing, and data-dependent <code>rowStyle</code>. Issue 48 adds
               the standalone TextInput deep entry, the <code>onDidMount</code>{" "}
-              lifecycle, and virtual-list <code>adjustHeights()</code>. Other
-              ledger entries remain gaps or under verification, and the
-              inventory is not exhaustive until the remaining Community API has
-              been audited surface by surface.
+              lifecycle, and virtual-list <code>adjustHeights()</code>. Issue
+              38&apos;s <code>disabledRows</code> contract is implemented for
+              desktop, virtualized, locally paginated, sorted, and transformed
+              mobile rows, including callback metadata and pointer-only
+              disabling. Other ledger entries remain gaps or under verification,
+              and the inventory is not exhaustive until the remaining Community
+              API has been audited surface by surface.
             </p>
           </div>
         ),

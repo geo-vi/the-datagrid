@@ -44,6 +44,7 @@ type MobileGridListProps = {
   checkboxColumnId: string;
   loading: boolean;
   selectedMap: Record<string, unknown>;
+  isRowDisabled: (rowIndex: number) => boolean;
   i18n: TypeDataGridProps["i18n"];
   emptyText: TypeDataGridProps["emptyText"];
   sortInfo: TypeSortInfo;
@@ -76,6 +77,7 @@ export function MobileGridList({
   checkboxColumnId,
   loading,
   selectedMap,
+  isRowDisabled,
   i18n,
   emptyText,
   sortInfo,
@@ -545,6 +547,7 @@ export function MobileGridList({
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = filteredRows[virtualRow.index]!;
+              const rowIsDisabled = isRowDisabled(virtualRow.index);
               const cells = row.getVisibleCells();
               const checkboxCell = cells.find(
                 (cell) => cell.column.id === checkboxColumnId
@@ -586,10 +589,19 @@ export function MobileGridList({
                   <article
                     className={cn(
                       "rounded-md border bg-background p-4 shadow-sm [border-color:var(--tdg-grid-border-color)]",
-                      Boolean(selectedMap[row.id]) && "ring-2 ring-ring"
+                      Boolean(selectedMap[row.id]) && "ring-2 ring-ring",
+                      rowIsDisabled &&
+                        "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
                     )}
                     data-row-id={row.id}
-                    onClick={(event) => onRowClick(row.id, row.original, event)}
+                    data-row-index={virtualRow.index}
+                    data-disabled={rowIsDisabled ? "true" : undefined}
+                    aria-disabled={rowIsDisabled || undefined}
+                    onClick={
+                      rowIsDisabled
+                        ? undefined
+                        : (event) => onRowClick(row.id, row.original, event)
+                    }
                   >
                     <header className="flex min-w-0 items-start gap-3">
                       {checkboxCell ? (

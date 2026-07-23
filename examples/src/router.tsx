@@ -12,6 +12,7 @@ import ColumnsGridExample from "./ColumnsGridExample";
 import ColumnVisibilityCompatPage from "./ColumnVisibilityCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
+import DisabledRowsCompatPage from "./DisabledRowsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
@@ -308,6 +309,12 @@ const compatDefaultPropsRoute = createRoute({
   component: DefaultPropsCompatPage,
 });
 
+const compatDisabledRowsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/disabled-rows",
+  component: DisabledRowsCompatPage,
+});
+
 const compatFilteredRowsCountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/filtered-rows-count",
@@ -362,6 +369,7 @@ const routeTree = rootRoute.addChildren([
   compatColumnVisibilityRoute,
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
+  compatDisabledRowsRoute,
   compatFilteredRowsCountRoute,
   compatGitHubIssues31And32Route,
   compatGitHubIssues33To48Route,

@@ -206,6 +206,7 @@ export type GridBodyProps = {
   emptyText: TypeDataGridProps["emptyText"];
 
   selectedMap: Record<string, any>;
+  getDisabledRowState: (rowIndex: number) => boolean | null | undefined;
   onRowClick?: (rowId: string, rowData: any, e: React.MouseEvent) => void;
 
   rowHeight: number | ((rowIndex: number) => number) | null;
@@ -268,6 +269,7 @@ export function GridBody(props: GridBodyProps) {
     i18n,
     emptyText,
     selectedMap,
+    getDisabledRowState,
     onRowClick,
     rowHeight,
     minRowHeight,
@@ -300,7 +302,8 @@ export function GridBody(props: GridBodyProps) {
 
   function getRowThemeClasses(
     rowIndex: number,
-    rowIsSelected: boolean
+    rowIsSelected: boolean,
+    rowIsDisabled: boolean
   ): string {
     const odd = rowIndex % 2 === 0;
     return cn(
@@ -316,6 +319,9 @@ export function GridBody(props: GridBodyProps) {
             ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
             : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
           : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+        : "",
+      rowIsDisabled
+        ? "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
         : ""
     );
   }
@@ -347,6 +353,7 @@ export function GridBody(props: GridBodyProps) {
     row: any,
     rowIndex: number,
     rowIsSelected: boolean,
+    disabledRow: boolean | null | undefined,
     virtualSize?: number
   ): React.CSSProperties {
     const resolvedHeight = getResolvedRowHeight(rowIndex);
@@ -383,6 +390,7 @@ export function GridBody(props: GridBodyProps) {
               realIndex: rowIndex,
               remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
               selected: rowIsSelected,
+              disabledRow,
               selection: rowStyleMetadata.selection,
               multiSelect: rowStyleMetadata.multiSelect,
               even: rowIndex % 2 === 1,
@@ -485,6 +493,7 @@ export function GridBody(props: GridBodyProps) {
       remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
       rowId,
       rowSelected: Boolean(selectedMap[String(row.id)]),
+      disabledRow: getDisabledRowState(rowIndex),
       selection: rowStyleMetadata.selection,
       multiSelect: rowStyleMetadata.multiSelect,
       naturalRowHeight: rowHeight == null,
@@ -649,6 +658,7 @@ export function GridBody(props: GridBodyProps) {
     virtualRowHeight?: number
   ): React.ReactNode {
     const resolvedRowHeight = getResolvedRowHeight(rowIndex);
+    const disabledRow = getDisabledRowState(rowIndex);
     const contentHeightLimit =
       rowHeight == null ? maxRowHeight : resolvedRowHeight;
     const contentStyle =
@@ -713,6 +723,7 @@ export function GridBody(props: GridBodyProps) {
               remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
               rowId,
               rowSelected: Boolean(selectedMap[String(row.id)]),
+              disabledRow,
               selection: rowStyleMetadata.selection,
               multiSelect: rowStyleMetadata.multiSelect,
               naturalRowHeight: rowHeight == null,
@@ -924,26 +935,40 @@ export function GridBody(props: GridBodyProps) {
           {virtualItems.map((vi) => {
             const row = rowModel[vi.index]!;
             const rowIsSelected = Boolean(selectedMap[row.id]);
+            const disabledRow = getDisabledRowState(vi.index);
+            const rowIsDisabled = Boolean(disabledRow);
 
             return (
               <TableRow
                 ref={rowHeight == null ? measureNaturalRow : undefined}
                 key={row.id}
                 className={cn(
-                  getRowThemeClasses(vi.index, rowIsSelected),
+                  getRowThemeClasses(vi.index, rowIsSelected, rowIsDisabled),
                   showHorizontalCellBorders
                     ? "InovuaReactDataGrid__row--show-horizontal-borders"
                     : "",
                   vi.index === 0 ? "InovuaReactDataGrid__row--first" : ""
                 )}
                 data-selected={rowIsSelected ? "true" : "false"}
+                data-disabled={rowIsDisabled ? "true" : undefined}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
                 data-row-id={row.id}
                 data-row-index={vi.index}
                 data-index={vi.index}
                 data-slot="grid-row"
-                style={getRowStyle(row, vi.index, rowIsSelected, vi.size)}
-                onClick={(e) => onRowClick?.(row.id, row.original, e)}
+                aria-disabled={rowIsDisabled || undefined}
+                style={getRowStyle(
+                  row,
+                  vi.index,
+                  rowIsSelected,
+                  disabledRow,
+                  vi.size
+                )}
+                onClick={
+                  rowIsDisabled
+                    ? undefined
+                    : (e) => onRowClick?.(row.id, row.original, e)
+                }
               >
                 {renderCells(row, vi.index, vi.size)}
               </TableRow>
@@ -969,28 +994,45 @@ export function GridBody(props: GridBodyProps) {
               />
             </TableRow>
           ) : null}
-          {rowModel.map((row) => {
+          {rowModel.map((row, displayIndex) => {
             const rowIsSelected = Boolean(selectedMap[row.id]);
+            const disabledRow = getDisabledRowState(displayIndex);
+            const rowIsDisabled = Boolean(disabledRow);
 
             return (
               <TableRow
                 key={row.id}
                 className={cn(
-                  getRowThemeClasses(row.index, rowIsSelected),
+                  getRowThemeClasses(
+                    displayIndex,
+                    rowIsSelected,
+                    rowIsDisabled
+                  ),
                   showHorizontalCellBorders
                     ? "InovuaReactDataGrid__row--show-horizontal-borders"
                     : "",
-                  row.index === 0 ? "InovuaReactDataGrid__row--first" : ""
+                  displayIndex === 0 ? "InovuaReactDataGrid__row--first" : ""
                 )}
                 data-selected={rowIsSelected ? "true" : "false"}
-                data-row-parity={row.index % 2 === 0 ? "odd" : "even"}
+                data-disabled={rowIsDisabled ? "true" : undefined}
+                data-row-parity={displayIndex % 2 === 0 ? "odd" : "even"}
                 data-row-id={row.id}
-                data-row-index={row.index}
+                data-row-index={displayIndex}
                 data-slot="grid-row"
-                style={getRowStyle(row, row.index, rowIsSelected)}
-                onClick={(e) => onRowClick?.(row.id, row.original, e)}
+                aria-disabled={rowIsDisabled || undefined}
+                style={getRowStyle(
+                  row,
+                  displayIndex,
+                  rowIsSelected,
+                  disabledRow
+                )}
+                onClick={
+                  rowIsDisabled
+                    ? undefined
+                    : (e) => onRowClick?.(row.id, row.original, e)
+                }
               >
-                {renderCells(row, row.index)}
+                {renderCells(row, displayIndex)}
               </TableRow>
             );
           })}
