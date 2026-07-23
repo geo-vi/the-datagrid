@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import ReactDataGrid, {
   type TypeColumns,
+  type TypeFilterValue,
   type TypeRowSelection,
 } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
@@ -25,6 +26,39 @@ const stageOrder: WorkflowStage[] = [
   "Reviewing",
   "Blocked",
   "Approved",
+];
+
+const defaultFilterValue: TypeFilterValue = [
+  {
+    name: "sample",
+    type: "string",
+    operator: "contains",
+    value: "",
+  },
+  {
+    name: "owner",
+    type: "string",
+    operator: "contains",
+    value: "",
+  },
+  {
+    name: "priority",
+    type: "select",
+    operator: "eq",
+    value: null,
+  },
+  {
+    name: "stage",
+    type: "select",
+    operator: "eq",
+    value: null,
+  },
+  {
+    name: "openedAt",
+    type: "date",
+    operator: "afterOrOn",
+    value: null,
+  },
 ];
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -265,7 +299,13 @@ export default function ActionsGridExample() {
         filterEditorProps: {
           options: stageOrder,
         },
-        render: ({ data, value }: { data: WorkflowRow; value: WorkflowStage }) => (
+        render: ({
+          data,
+          value,
+        }: {
+          data: WorkflowRow;
+          value: WorkflowStage;
+        }) => (
           <span
             data-testid={`actions-stage-${data.id}`}
             className={cn(
@@ -347,7 +387,9 @@ export default function ActionsGridExample() {
           <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Selected rows
           </div>
-          <div className="mt-2 text-3xl font-semibold">{selectedIds.length}</div>
+          <div className="mt-2 text-3xl font-semibold">
+            {selectedIds.length}
+          </div>
         </div>
         <div
           data-testid="actions-filtered-card"
@@ -388,6 +430,7 @@ export default function ActionsGridExample() {
         skipHeaderOnAutoSize={false}
         resizable={resizable}
         enableFiltering
+        defaultFilterValue={defaultFilterValue}
         filteredRowsCount={setFilteredRows}
         onColumnOrderChange={setColumnOrder}
         virtualized

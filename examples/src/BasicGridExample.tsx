@@ -1,8 +1,38 @@
 import { useMemo, useState } from "react";
 
-import ReactDataGrid, { type TypeColumns } from "../../src/main";
+import ReactDataGrid, {
+  type TypeColumns,
+  type TypeFilterValue,
+} from "../../src/main";
 import { RDGSearchBar, RDGSearchProvider } from "../../src/search";
 import { useExamplesUi } from "./App";
+
+const defaultFilterValue: TypeFilterValue = [
+  {
+    name: "cldomnr",
+    type: "number",
+    operator: "gte",
+    value: null,
+  },
+  {
+    name: "name",
+    type: "string",
+    operator: "contains",
+    value: "",
+  },
+  {
+    name: "city",
+    type: "select",
+    operator: "eq",
+    value: "",
+  },
+  {
+    name: "amount",
+    type: "number",
+    operator: "gte",
+    value: null,
+  },
+];
 
 export default function BasicGridExample() {
   const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
@@ -82,7 +112,7 @@ export default function BasicGridExample() {
             skipHeaderOnAutoSize={false}
             resizable={resizable}
             enableFiltering
-            defaultFilterValue={null}
+            defaultFilterValue={defaultFilterValue}
             filteredRowsCount={setFilteredCount}
             onColumnOrderChange={setColumnOrder}
             virtualized

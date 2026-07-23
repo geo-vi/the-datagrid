@@ -13,7 +13,7 @@ export type RDGProviderProps = {
   defaultSearchValue?: string;
 };
 
-export function RDGProvider(props: RDGProviderProps) {
+export function RDGProvider(props: RDGProviderProps): React.ReactElement {
   const { children, defaultSearchValue = "" } = props;
   const targets = React.useMemo(
     () =>

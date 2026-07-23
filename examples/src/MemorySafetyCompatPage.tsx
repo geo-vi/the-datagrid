@@ -4,6 +4,7 @@ import ReactDataGrid, {
   type TypeColumns,
   type TypeComputedProps,
   type TypeDataSource,
+  type TypeFilterValue,
 } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
 
@@ -14,6 +15,11 @@ const columns: TypeColumns = [
   { name: "team", header: "Team", defaultWidth: 160, filterable: true },
 ];
 const columnOrder = ["id", "name", "team"];
+const emptyFilterValue: TypeFilterValue = [
+  { name: "id", type: "number", operator: "gte", value: null },
+  { name: "name", type: "string", operator: "contains", value: "" },
+  { name: "team", type: "string", operator: "contains", value: "" },
+];
 const smallRows = [
   { id: 1, name: "Ada Lovelace", team: "Analytics" },
   { id: 2, name: "Grace Hopper", team: "Platform" },
@@ -167,7 +173,7 @@ function FilterScenario() {
         dataSource={smallRows}
         columnOrder={columnOrder}
         enableFiltering
-        defaultFilterValue={null}
+        defaultFilterValue={emptyFilterValue}
         onFilterValueChange={reportFilterChange}
         virtualized={false}
       />

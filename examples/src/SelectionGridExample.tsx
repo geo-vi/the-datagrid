@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import ReactDataGrid, {
   type TypeColumns,
+  type TypeFilterValue,
   type TypeRowSelection,
 } from "../../src/main";
 import { Button } from "../../src/components/ui/button";
@@ -33,6 +34,31 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
+
+const defaultFilterValue: TypeFilterValue = [
+  {
+    name: "account",
+    type: "string",
+    operator: "contains",
+    value: "",
+  },
+  {
+    name: "owner",
+    type: "string",
+    operator: "contains",
+    value: "",
+  },
+  { name: "region", type: "select", operator: "eq", value: null },
+  { name: "health", type: "select", operator: "eq", value: null },
+  { name: "seats", type: "number", operator: "gte", value: null },
+  { name: "arr", type: "number", operator: "gte", value: null },
+  {
+    name: "renewalDate",
+    type: "date",
+    operator: "afterOrOn",
+    value: null,
+  },
+];
 
 function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
@@ -142,7 +168,7 @@ export default function SelectionGridExample() {
         filterEditorProps: {
           options: ["Healthy", "Expansion", "Renewal", "At risk"],
         },
-        render: (value, _args) => {
+        render: (value: unknown) => {
           const health = String(value) as AccountHealth;
 
           return (
@@ -165,7 +191,7 @@ export default function SelectionGridExample() {
         filterable: true,
         textAlign: "end",
         headerAlign: "end",
-        render: (value, _args) => {
+        render: (value: unknown) => {
           const seats = typeof value === "number" ? value : Number(value);
           return Number.isFinite(seats)
             ? seats.toLocaleString("en-US")
@@ -180,7 +206,7 @@ export default function SelectionGridExample() {
         filterable: true,
         textAlign: "end",
         headerAlign: "end",
-        render: (value, _args) => {
+        render: (value: unknown) => {
           const amount = typeof value === "number" ? value : Number(value);
           return Number.isFinite(amount)
             ? formatCurrency(amount)
@@ -404,7 +430,7 @@ export default function SelectionGridExample() {
           columnOrder={columnOrder}
           enableColumnFilterContextMenu
           enableFiltering
-          defaultFilterValue={null}
+          defaultFilterValue={defaultFilterValue}
           filteredRowsCount={setFilteredCount}
           onColumnOrderChange={setColumnOrder}
           virtualized={false}

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 import type { TypeColumn } from "../types";
 
 const EMPTY_COLUMNS: readonly TypeColumn[] = [];
@@ -175,7 +176,7 @@ export function useRDGSearchStore(): RDGSearchStore {
 
 export function useRDGSearchSnapshot(): string {
   const store = useRDGSearchStore();
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
     store.getServerSnapshot
@@ -184,7 +185,7 @@ export function useRDGSearchSnapshot(): string {
 
 export function useRDGSearchDraftSnapshot(): string {
   const store = useRDGSearchStore();
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     store.subscribeDraft,
     store.getDraftSnapshot,
     store.getDraftServerSnapshot
@@ -193,7 +194,7 @@ export function useRDGSearchDraftSnapshot(): string {
 
 export function useRDGSearchColumnsSnapshot(): readonly TypeColumn[] {
   const store = useRDGSearchStore();
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     store.subscribeColumns,
     store.getColumnsSnapshot,
     store.getColumnsServerSnapshot
@@ -202,7 +203,7 @@ export function useRDGSearchColumnsSnapshot(): readonly TypeColumn[] {
 
 export function useRDGSearchThemeSnapshot(): string {
   const store = useRDGSearchStore();
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     store.subscribeTheme,
     store.getThemeSnapshot,
     store.getThemeServerSnapshot

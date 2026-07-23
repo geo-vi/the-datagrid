@@ -52,9 +52,11 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
   DEFAULT_FILTER_TYPES,
   applyLocalFilter,
+  clearAllFilters,
   clearFilter,
   getFilterEntry,
   hasActiveLocalFilter,
+  isFilterEntryEmptyValue,
   normalizeFilterValue,
   upsertFilterEntry,
 } from "../filters/utils";
@@ -105,13 +107,13 @@ import {
 export const plugins: readonly unknown[] = [] as const;
 
 type ReactDataGridDefaultPropName =
+  | "idProperty"
   | "theme"
   | "enableColumnFilterContextMenu"
   | "enableColumnAutosize"
   | "skipHeaderOnAutoSize"
   | "resizable"
   | "liveColumnResize"
-  | "enableFiltering"
   | "filterTypes"
   | "virtualized"
   | "virtualizeColumnsThreshold"
@@ -132,32 +134,30 @@ type ReactDataGridDefaultProps = Required<
 >;
 
 const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
-  theme: "default",
-  enableColumnFilterContextMenu: false,
+  idProperty: "id",
+  theme: "default-light",
+  enableColumnFilterContextMenu: true,
   enableColumnAutosize: true,
   skipHeaderOnAutoSize: false,
   resizable: true,
   liveColumnResize: false,
-  enableFiltering: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
   virtualizeColumnsThreshold: 15,
   allowMobileTransform: false,
-  columnUserSelect: true,
+  columnUserSelect: false,
   showCellBorders: true,
-  showColumnMenuTool: false,
-  rowHeight: 44,
+  showColumnMenuTool: true,
+  rowHeight: 40,
   minRowHeight: 20,
   defaultShowZebraRows: true,
   editStartEvent: "dblclick",
   emptyText: "noRecords",
   headerHeight: 40,
-  filterRowHeight: 44,
+  filterRowHeight: 40,
 };
 
-type ReactDataGridComponent = ((
-  props: TypeDataGridProps
-) => React.ReactElement) & {
+type ReactDataGridComponent = React.FunctionComponent<TypeDataGridProps> & {
   defaultProps: ReactDataGridDefaultProps;
 };
 
@@ -458,7 +458,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const {
     theme = REACT_DATA_GRID_DEFAULT_PROPS.theme,
-    idProperty,
+    idProperty = REACT_DATA_GRID_DEFAULT_PROPS.idProperty,
     columns: inputColumns,
     dataSource,
 
@@ -469,7 +469,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
     liveColumnResize = REACT_DATA_GRID_DEFAULT_PROPS.liveColumnResize,
 
-    enableFiltering = REACT_DATA_GRID_DEFAULT_PROPS.enableFiltering,
+    enableFiltering,
     onColumnFilterValueChange,
 
     filteredRowsCount,
@@ -500,10 +500,24 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onColumnResize,
     headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
     filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
+    disabledRows,
 
     className,
     style,
+    onKeyDown,
+    onFocus,
+    onBlur,
   } = props;
+  const disabledRowsRef = React.useRef(disabledRows);
+  disabledRowsRef.current = disabledRows;
+  const getDisabledRowState = React.useCallback(
+    (rowIndex: number) => (disabledRows ? disabledRows[rowIndex] : null),
+    [disabledRows]
+  );
+  const isRowDisabled = React.useCallback(
+    (rowIndex: number) => Boolean(getDisabledRowState(rowIndex)),
+    [getDisabledRowState]
+  );
 
   const [uncontrolledShowZebraRows, setUncontrolledShowZebraRows] =
     React.useState(
@@ -561,6 +575,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const themeBase = resolveThemeBase(themeName);
   const shouldUseLegacyThemeBridge =
     themeClassSuffix !== "default" &&
+    themeClassSuffix !== "default-light" &&
     themeClassSuffix !== "light" &&
     themeClassSuffix !== "dark";
   const gridIdRef = React.useRef<number>(nextGridId++);
@@ -592,12 +607,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => observer.disconnect();
   }, [mobileTransformActive]);
   const [showHeader, setShowHeader] = React.useState(true);
-  const [enableFilteringState, setEnableFilteringState] =
-    React.useState(enableFiltering);
-  React.useEffect(() => {
-    setEnableFilteringState(enableFiltering);
-  }, [enableFiltering]);
-  const effectiveEnableFiltering = enableFilteringState;
   const showHorizontalCellBorders =
     showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders =
@@ -790,10 +799,35 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const [filterValue, setFilterValue, filterControlled] =
     useControllableState<TypeFilterValue>({
-      value: props.filterValue,
+      value:
+        props.filterValue === undefined
+          ? undefined
+          : normalizeFilterValue(props.filterValue),
       defaultValue: normalizeFilterValue(props.defaultFilterValue) ?? null,
       onChange: props.onFilterValueChange,
     });
+
+  // Inovua treats `enableFiltering` as a tri-state visibility override. When
+  // omitted, the presence of a non-empty filter value makes the filter row
+  // visible. Keep an uncontrolled state so the imperative API can still show
+  // or hide the row without turning inference into a public default.
+  const [enableFilteringOverride, setEnableFilteringOverride] = React.useState<
+    boolean | undefined
+  >(undefined);
+  const resolvedEnableFiltering =
+    enableFiltering !== undefined ? enableFiltering : enableFilteringOverride;
+  const effectiveEnableFiltering =
+    resolvedEnableFiltering !== undefined
+      ? resolvedEnableFiltering
+      : Boolean(filterValue?.length);
+
+  // Inovua 5.10.2 only transforms a local data source with its uncontrolled
+  // filter state (`defaultFilterValue` and subsequent internal changes).
+  // A controlled `filterValue` is supplied to remote loaders and rendered in
+  // the filter row, but does not mutate an array data source. This predicate
+  // is deliberately independent from filter-row visibility: explicitly
+  // hiding the row does not discard an uncontrolled default filter.
+  const localFilterValue = filterControlled ? null : filterValue;
 
   const [draftFilterValue, setDraftFilterValue] =
     React.useState<TypeFilterValue>(filterValue);
@@ -950,8 +984,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
           data = searchFilterRows(data, inputColumns);
         }
 
-        if (effectiveEnableFiltering && computedFilterForFetch) {
-          data = applyLocalFilter(data, computedFilterForFetch, {
+        if (localFilterValue) {
+          data = applyLocalFilter(data, localFilterValue, {
             filterTypes,
             columns: orderedColumns,
           });
@@ -1017,8 +1051,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
         if (searchActive && searchFilterRows) {
           data = searchFilterRows(data, inputColumns);
         }
-        if (effectiveEnableFiltering && computedFilterForFetch) {
-          data = applyLocalFilter(data, computedFilterForFetch, {
+        if (localFilterValue) {
+          data = applyLocalFilter(data, localFilterValue, {
             filterTypes,
             columns: orderedColumns,
           });
@@ -1037,9 +1071,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const resultData = transformStaticPromiseRows(result.data);
         const staticPromiseHasLocalPredicate =
           !dsIsFn &&
-          (searchActive ||
-            (effectiveEnableFiltering &&
-              hasActiveLocalFilter(computedFilterForFetch, filterTypes)));
+          (searchActive || hasActiveLocalFilter(localFilterValue, filterTypes));
         const reportedCount = Number(
           staticPromiseHasLocalPredicate
             ? resultData.length
@@ -1081,7 +1113,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
   }, [
     dataSource,
-    effectiveEnableFiltering,
     computedFilterForFetch,
     computedSortForFetch,
     notifyFilteredRowsCount,
@@ -1095,6 +1126,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnOrderForDs,
     columnsForDs,
     filterTypes,
+    localFilterValue,
     searchActive,
     searchConnected,
     searchFilterRows,
@@ -1135,8 +1167,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       let data = dataSource;
 
-      if (effectiveEnableFiltering && computedFilterForFetch) {
-        data = applyLocalFilter(data, computedFilterForFetch, {
+      if (localFilterValue) {
+        data = applyLocalFilter(data, localFilterValue, {
           filterTypes,
           columns: orderedColumns,
         });
@@ -1147,10 +1179,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     return rows.slice(0, 25);
   }, [
-    computedFilterForFetch,
     dataSource,
-    effectiveEnableFiltering,
     filterTypes,
+    localFilterValue,
     orderedColumns,
     rows,
     searchActive,
@@ -1525,6 +1556,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const rowIndex = ctx.row.index;
             const rowId = ctx.row.id;
             const runtime = selectionRuntimeRef.current;
+            const disabledRow = disabledRowsRef.current
+              ? disabledRowsRef.current[rowIndex]
+              : null;
 
             const isSelected = Boolean(runtime.selectedMap[rowId]);
 
@@ -1579,11 +1613,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 headerCell: false,
                 data: rowData,
                 rowIndex,
+                disabledRow,
               })
             ) : (
               <Checkbox
                 checked={checkboxProps.checked}
                 disabled={checkboxProps.disabled}
+                tabIndex={disabledRow ? -1 : undefined}
                 onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -1629,6 +1665,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
           const value = ctx.getValue();
           const rowData = ctx.row.original;
           const rowIndex = ctx.row.index;
+          const disabledRow = disabledRowsRef.current
+            ? disabledRowsRef.current[rowIndex]
+            : null;
 
           if (c.render) {
             const renderCell = c.render as (
@@ -1638,12 +1677,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 rowIndex: number;
                 column: TypeColumn;
                 columnId: string;
+                disabledRow?: boolean | null;
               }
             ) => React.ReactNode;
             const cellProps = {
               column: c,
               columnId: colId,
               rowIndex,
+              disabledRow,
               dateFormat: (c as any).dateFormat,
               ...(typeof (c as any).cellProps === "object"
                 ? (c as any).cellProps
@@ -1657,6 +1698,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 rowIndex,
                 column: c,
                 columnId: colId,
+                disabledRow,
                 cellProps,
               } as any);
             }
@@ -1666,6 +1708,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
               rowIndex,
               column: c,
               columnId: colId,
+              disabledRow,
             });
           }
 
@@ -2090,6 +2133,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         remoteRowIndex: loadSkip + rowIndex,
         rowId,
         rowSelected: Boolean(selectedMap[String(row.id)]),
+        disabledRow: getDisabledRowState(rowIndex),
         selection: selected,
         multiSelect: Boolean(multiSelect),
         naturalRowHeight: rowHeight == null,
@@ -2129,6 +2173,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       editStartEvent,
       editable,
       idProperty,
+      getDisabledRowState,
       loadSkip,
       multiSelect,
       orderedColumns,
@@ -4117,10 +4162,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedOnColumnFilterValueChangeCompat({
         columnId,
         columnIndex,
-        filterValue: {
-          ...existing,
-          value: clearedEntry.value,
-        },
+        filterValue: clearedEntry,
       });
     },
     [
@@ -4715,7 +4757,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedFilterValueMap,
       getFilterValue: () => filterValue,
       setFilterValue: setFilterValueAndResetPage,
-      clearAllFilters: () => setFilterValueAndResetPage(null),
+      clearAllFilters: () =>
+        setFilterValueAndResetPage(
+          clearAllFilters(filterValue, { filterTypes })
+        ),
       clearColumnFilter: clearColumnFilterCompat,
       getColumnFilterValue: getColumnFilterValueCompat,
       setColumnFilterValue: setColumnFilterValueCompat,
@@ -4723,7 +4768,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         computedOnColumnFilterValueChangeCompat,
       isColumnFiltered: (column) => {
         const entry = getColumnFilterValueCompat(column);
-        return Boolean(entry && entry.active !== false);
+        return Boolean(entry && !isFilterEntryEmptyValue(entry, filterTypes));
       },
       computedColumnOrder: columnOrderForDs,
       getColumnOrder: () => columnOrderForDs,
@@ -4786,9 +4831,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedFilterable: effectiveEnableFiltering,
       computedIsFilterable: effectiveEnableFiltering,
       setEnableFiltering: (nextValue) => {
-        setEnableFilteringState((current) =>
-          resolveStateAction(nextValue, current)
-        );
+        if (enableFiltering === undefined) {
+          setEnableFilteringOverride((current) =>
+            resolveStateAction(
+              nextValue,
+              current ?? Boolean(filterValue?.length)
+            )
+          );
+        }
       },
       computedShowHeader: showHeader,
       setShowHeader: (nextValue) => {
@@ -5025,8 +5075,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     editable,
     editStartEvent,
     editingCell,
+    enableFiltering,
     effectiveEnableFiltering,
     filterControlled,
+    filterTypes,
     filterValue,
     getColumnByCompat,
     getColumnFilterValueCompat,
@@ -5145,6 +5197,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
       data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
+      style={style}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      onBlur={onBlur}
     >
       <DatagridThemeProvider
         theme={themeName}
@@ -5160,7 +5216,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
             className="tdg-surface relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col bg-[var(--tdg-grid-bg)] text-foreground"
             data-slot="grid-surface"
             tabIndex={-1}
-            style={style}
           >
             {!liveColumnResize && resizeProxyLeft != null ? (
               <div
@@ -5180,6 +5235,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 checkboxColumnId={checkboxColId}
                 loading={loading}
                 selectedMap={selectedMap}
+                isRowDisabled={isRowDisabled}
                 i18n={i18n}
                 emptyText={props.emptyText}
                 sortInfo={sortInfo}
@@ -5305,6 +5361,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     i18n={i18n}
                     emptyText={props.emptyText}
                     selectedMap={selectedMap}
+                    getDisabledRowState={getDisabledRowState}
                     onRowClick={(id, data, e) => handleRowClick(id, data, e)}
                     rowHeight={rowHeight}
                     minRowHeight={computedMinRowHeight}

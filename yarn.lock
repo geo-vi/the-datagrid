@@ -752,6 +752,7 @@ __metadata:
     "@types/prop-types": "npm:^15"
     "@types/react": "npm:^19.2.7"
     "@types/react-dom": "npm:^19.2.3"
+    "@types/use-sync-external-store": "npm:^0.0.6"
     "@vitejs/plugin-react": "npm:^5.1.2"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
@@ -775,11 +776,12 @@ __metadata:
     tw-animate-css: "npm:^1.4.0"
     typescript: "npm:^5.9.3"
     typescript-eslint: "npm:^8.51.0"
+    use-sync-external-store: "npm:^1.6.0"
     vite: "npm:^7.3.0"
     vite-plugin-dts: "npm:^4.5.4"
   peerDependencies:
-    react: ^18.0.0 || ^19.0.0
-    react-dom: ^18.0.0 || ^19.0.0
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
   languageName: unknown
   linkType: soft
 
@@ -3152,6 +3154,13 @@ __metadata:
   dependencies:
     csstype: "npm:^3.2.2"
   checksum: 10c0/a7b75f1f9fcb34badd6f84098be5e35a0aeca614bc91f93d2698664c0b2ba5ad128422bd470ada598238cebe4f9e604a752aead7dc6f5a92261d0c7f9b27cfd1
+  languageName: node
+  linkType: hard
+
+"@types/use-sync-external-store@npm:^0.0.6":
+  version: 0.0.6
+  resolution: "@types/use-sync-external-store@npm:0.0.6"
+  checksum: 10c0/77c045a98f57488201f678b181cccd042279aff3da34540ad242f893acc52b358bd0a8207a321b8ac09adbcef36e3236944390e2df4fcedb556ce7bb2a88f2a8
   languageName: node
   linkType: hard
 

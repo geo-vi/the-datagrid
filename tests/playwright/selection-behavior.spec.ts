@@ -62,6 +62,32 @@ test("selection example supports the direct Inovua-style setter flow", async ({
   ).toBeVisible();
 });
 
+test("selection example keeps its configured account filter interactive", async ({
+  page,
+}) => {
+  await page.goto("/selection");
+
+  const preview = page.getByTestId("example-preview-panel");
+  const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
+  // The checkbox column owns the first empty filter cell; Account follows it.
+  const accountFilterCell = grid.locator(".tdg-filter-cell").nth(1);
+  const accountFilter = accountFilterCell.getByRole("textbox");
+
+  await expect(accountFilter).toBeEnabled();
+  await accountFilter.fill("Atlas Freight");
+
+  await expect(grid.locator('tbody [data-slot="grid-row"]')).toHaveCount(1);
+  await expect(
+    grid.locator('[data-slot="grid-row"][data-row-id="acct-102"]')
+  ).toBeVisible();
+  await expect(
+    preview.getByText("1 matching rows in the current view.")
+  ).toBeVisible();
+
+  await accountFilterCell.getByRole("button", { name: "Clear" }).click();
+  await expect(grid.locator('tbody [data-slot="grid-row"]')).toHaveCount(8);
+});
+
 test("shows the indeterminate selector without a stale check icon in Ikarus Dark", async ({
   page,
 }) => {

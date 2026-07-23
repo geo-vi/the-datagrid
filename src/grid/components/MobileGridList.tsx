@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
+import { useDeferredValueCompat } from "../../hooks/useDeferredValueCompat";
+import { useStableId } from "../../hooks/useStableId";
 import { getColumnId, getColumnSortName } from "../../utils/column";
 import { t } from "../../utils/helpers";
 import { resolveEmptyText } from "../utils/emptyText";
@@ -42,6 +44,7 @@ type MobileGridListProps = {
   checkboxColumnId: string;
   loading: boolean;
   selectedMap: Record<string, unknown>;
+  isRowDisabled: (rowIndex: number) => boolean;
   i18n: TypeDataGridProps["i18n"];
   emptyText: TypeDataGridProps["emptyText"];
   sortInfo: TypeSortInfo;
@@ -74,6 +77,7 @@ export function MobileGridList({
   checkboxColumnId,
   loading,
   selectedMap,
+  isRowDisabled,
   i18n,
   emptyText,
   sortInfo,
@@ -84,7 +88,7 @@ export function MobileGridList({
   onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
-}: MobileGridListProps) {
+}: MobileGridListProps): React.ReactElement {
   const [query, setQuery] = React.useState("");
   const [committedQuery, setCommittedQuery] = React.useState("");
   const [sortPanelOpen, setSortPanelOpen] = React.useState(false);
@@ -92,7 +96,7 @@ export function MobileGridList({
   const [draftSortDirection, setDraftSortDirection] = React.useState<1 | -1>(
     defaultSortDirection
   );
-  const deferredQuery = React.useDeferredValue(committedQuery);
+  const deferredQuery = useDeferredValueCompat(committedQuery);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const searchIndexCache = React.useRef<{
@@ -100,7 +104,7 @@ export function MobileGridList({
     index: DataGridSearchIndex<Row<Record<string, unknown>>>;
     rows: Row<Record<string, unknown>>[];
   } | null>(null);
-  const sortPanelId = React.useId();
+  const sortPanelId = useStableId("tdg-mobile-sort-panel");
   const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
     Set<string>
   >(() => new Set());
@@ -543,6 +547,7 @@ export function MobileGridList({
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = filteredRows[virtualRow.index]!;
+              const rowIsDisabled = isRowDisabled(virtualRow.index);
               const cells = row.getVisibleCells();
               const checkboxCell = cells.find(
                 (cell) => cell.column.id === checkboxColumnId
@@ -584,10 +589,19 @@ export function MobileGridList({
                   <article
                     className={cn(
                       "rounded-md border bg-background p-4 shadow-sm [border-color:var(--tdg-grid-border-color)]",
-                      Boolean(selectedMap[row.id]) && "ring-2 ring-ring"
+                      Boolean(selectedMap[row.id]) && "ring-2 ring-ring",
+                      rowIsDisabled &&
+                        "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
                     )}
                     data-row-id={row.id}
-                    onClick={(event) => onRowClick(row.id, row.original, event)}
+                    data-row-index={virtualRow.index}
+                    data-disabled={rowIsDisabled ? "true" : undefined}
+                    aria-disabled={rowIsDisabled || undefined}
+                    onClick={
+                      rowIsDisabled
+                        ? undefined
+                        : (event) => onRowClick(row.id, row.original, event)
+                    }
                   >
                     <header className="flex min-w-0 items-start gap-3">
                       {checkboxCell ? (

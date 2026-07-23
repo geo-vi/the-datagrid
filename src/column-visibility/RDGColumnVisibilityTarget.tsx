@@ -17,7 +17,7 @@ export type RDGColumnVisibilityTargetProps = {
 
 export function RDGColumnVisibilityTarget(
   props: RDGColumnVisibilityTargetProps
-) {
+): React.ReactElement {
   const { children } = props;
   const forwardedSearchController = (
     props as RDGColumnVisibilityTargetProps & {

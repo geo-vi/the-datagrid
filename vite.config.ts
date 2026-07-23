@@ -9,6 +9,9 @@ import type { ChildNode } from "postcss";
 import type { OutputBundle } from "rollup";
 
 const DATAGRID_SCOPE_SELECTOR = ".tdg-root";
+const REACT_EXTERNAL_ID = "the-datagrid:react-external";
+const REACT_DOM_EXTERNAL_ID = "the-datagrid:react-dom-external";
+const REACT_RUNTIME_DEDUPE = ["react", "react-dom"];
 const DATAGRID_OWNED_SELECTOR_MARKERS = [
   ".tdg-",
   ".InovuaReactDataGrid",
@@ -265,6 +268,22 @@ export default defineConfig(({ command, mode }) => {
   const resolveAlias = {
     "@": path.resolve(__dirname, "./src"),
   };
+  const libraryResolveAlias = {
+    ...resolveAlias,
+    "react/jsx-runtime": path.resolve(
+      __dirname,
+      "./src/compat/react-jsx-runtime.ts"
+    ),
+    "react/jsx-dev-runtime": path.resolve(
+      __dirname,
+      "./src/compat/react-jsx-runtime.ts"
+    ),
+    "react-dom": path.resolve(
+      __dirname,
+      "./src/compat/react-dom-flush-sync.ts"
+    ),
+    react: path.resolve(__dirname, "./src/compat/react.ts"),
+  };
   const examplesRoot = path.resolve(__dirname, "./examples");
   const siteBase = process.env.SITE_BASE ?? "/the-datagrid/";
 
@@ -275,6 +294,11 @@ export default defineConfig(({ command, mode }) => {
       plugins: [react(), tailwindcss(), scopeOptionalCssForSite()],
       resolve: {
         alias: resolveAlias,
+        // Keep the examples/docs application, linked source files, and UI
+        // dependencies on one hook dispatcher. This is intentionally scoped
+        // to the site runtime; library builds use the React 16.8 compatibility
+        // aliases below before externalizing React for consumers.
+        dedupe: REACT_RUNTIME_DEDUPE,
       },
       root: examplesRoot,
       base: isSiteBuild ? siteBase : "/",
@@ -321,15 +345,8 @@ export default defineConfig(({ command, mode }) => {
             )
           : coreLibraryEntry;
   const externalDependencies = new Set([
-    "react",
-    "react-dom",
-    "react/jsx-runtime",
-    "@tanstack/react-table",
-    "@tanstack/react-virtual",
-    "@tabler/icons-react",
-    "@radix-ui/react-dropdown-menu",
-    "@radix-ui/react-select",
-    "@radix-ui/react-label",
+    REACT_EXTERNAL_ID,
+    REACT_DOM_EXTERNAL_ID,
   ]);
   const componentsSearchEntryIds = new Set([
     "../search",
@@ -355,7 +372,7 @@ export default defineConfig(({ command, mode }) => {
   // standalone.
   return {
     plugins: [
-      react(),
+      react({ jsxRuntime: "classic" }),
       tailwindcss(),
       ...(isSupplementalLibraryBuild
         ? []
@@ -370,7 +387,7 @@ export default defineConfig(({ command, mode }) => {
       injectLibraryCssEntry(),
     ],
     resolve: {
-      alias: resolveAlias,
+      alias: libraryResolveAlias,
     },
     build: {
       copyPublicDir: false,
@@ -397,6 +414,8 @@ export default defineConfig(({ command, mode }) => {
         output: {
           inlineDynamicImports: true,
           paths: (id) => {
+            if (id === REACT_EXTERNAL_ID) return "react";
+            if (id === REACT_DOM_EXTERNAL_ID) return "react-dom";
             if (
               isCoreDependentSupplementalBuild &&
               (id === "../main" ||

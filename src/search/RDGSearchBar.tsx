@@ -20,7 +20,7 @@ export type RDGSearchBarProps = {
   placeholder?: string;
 };
 
-export function RDGSearchBar(props: RDGSearchBarProps) {
+export function RDGSearchBar(props: RDGSearchBarProps): React.ReactElement {
   const {
     ariaLabel = "Search all fields",
     autoFocus = false,

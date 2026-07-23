@@ -10,7 +10,7 @@ export type RDGTargetProps = {
   children: React.ReactElement<TypeDataGridProps>;
 };
 
-export function RDGTarget(props: RDGTargetProps) {
+export function RDGTarget(props: RDGTargetProps): React.ReactElement {
   const columnVisibilityTarget = (
     <RDGColumnVisibilityTarget>{props.children}</RDGColumnVisibilityTarget>
   ) as unknown as React.ReactElement<TypeDataGridProps>;

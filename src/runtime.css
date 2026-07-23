@@ -308,39 +308,84 @@
   --tdg-radius-md: calc(var(--tdg-radius-base) - 2px);
   --tdg-radius-lg: var(--tdg-radius-base);
 
-  --tdg-color-background: var(--background, oklch(1 0 0));
-  --tdg-color-foreground: var(--foreground, oklch(0.145 0 0));
+  --tdg-color-background: var(
+    --tdg-theme-color-background,
+    var(--background, oklch(1 0 0))
+  );
+  --tdg-color-foreground: var(
+    --tdg-theme-color-foreground,
+    var(--foreground, oklch(0.145 0 0))
+  );
 
-  --tdg-color-card: var(--card, oklch(1 0 0));
-  --tdg-color-card-foreground: var(--card-foreground, oklch(0.145 0 0));
+  --tdg-color-card: var(--tdg-theme-color-card, var(--card, oklch(1 0 0)));
+  --tdg-color-card-foreground: var(
+    --tdg-theme-color-card-foreground,
+    var(--card-foreground, oklch(0.145 0 0))
+  );
 
-  --tdg-color-popover: var(--popover, oklch(1 0 0));
-  --tdg-color-popover-foreground: var(--popover-foreground, oklch(0.145 0 0));
+  --tdg-color-popover: var(
+    --tdg-theme-color-popover,
+    var(--popover, oklch(1 0 0))
+  );
+  --tdg-color-popover-foreground: var(
+    --tdg-theme-color-popover-foreground,
+    var(--popover-foreground, oklch(0.145 0 0))
+  );
 
-  --tdg-color-primary: var(--primary, oklch(0.205 0 0));
-  --tdg-color-primary-foreground: var(--primary-foreground, oklch(0.985 0 0));
+  --tdg-color-primary: var(
+    --tdg-theme-color-primary,
+    var(--primary, oklch(0.205 0 0))
+  );
+  --tdg-color-primary-foreground: var(
+    --tdg-theme-color-primary-foreground,
+    var(--primary-foreground, oklch(0.985 0 0))
+  );
 
-  --tdg-color-secondary: var(--secondary, oklch(0.97 0 0));
+  --tdg-color-secondary: var(
+    --tdg-theme-color-secondary,
+    var(--secondary, oklch(0.97 0 0))
+  );
   --tdg-color-secondary-foreground: var(
-    --secondary-foreground,
-    oklch(0.205 0 0)
+    --tdg-theme-color-secondary-foreground,
+    var(--secondary-foreground, oklch(0.205 0 0))
   );
 
-  --tdg-color-muted: var(--muted, oklch(0.97 0 0));
-  --tdg-color-muted-foreground: var(--muted-foreground, oklch(0.556 0 0));
+  --tdg-color-muted: var(
+    --tdg-theme-color-muted,
+    var(--muted, oklch(0.97 0 0))
+  );
+  --tdg-color-muted-foreground: var(
+    --tdg-theme-color-muted-foreground,
+    var(--muted-foreground, oklch(0.556 0 0))
+  );
 
-  --tdg-color-accent: var(--accent, oklch(0.97 0 0));
-  --tdg-color-accent-foreground: var(--accent-foreground, oklch(0.205 0 0));
+  --tdg-color-accent: var(
+    --tdg-theme-color-accent,
+    var(--accent, oklch(0.97 0 0))
+  );
+  --tdg-color-accent-foreground: var(
+    --tdg-theme-color-accent-foreground,
+    var(--accent-foreground, oklch(0.205 0 0))
+  );
 
-  --tdg-color-destructive: var(--destructive, oklch(0.577 0.245 27.325));
+  --tdg-color-destructive: var(
+    --tdg-theme-color-destructive,
+    var(--destructive, oklch(0.577 0.245 27.325))
+  );
   --tdg-color-destructive-foreground: var(
-    --destructive-foreground,
-    oklch(0.985 0 0)
+    --tdg-theme-color-destructive-foreground,
+    var(--destructive-foreground, oklch(0.985 0 0))
   );
 
-  --tdg-color-border: var(--border, oklch(0.922 0 0));
-  --tdg-color-input: var(--input, oklch(0.922 0 0));
-  --tdg-color-ring: var(--ring, oklch(0.708 0 0));
+  --tdg-color-border: var(
+    --tdg-theme-color-border,
+    var(--border, oklch(0.922 0 0))
+  );
+  --tdg-color-input: var(
+    --tdg-theme-color-input,
+    var(--input, oklch(0.922 0 0))
+  );
+  --tdg-color-ring: var(--tdg-theme-color-ring, var(--ring, oklch(0.708 0 0)));
 
   --tdg-grid-bg: var(--tdg-color-background);
   --tdg-grid-border-color: var(--tdg-color-border);
@@ -447,6 +492,32 @@
   color: var(--tdg-color-foreground);
 }
 
+/* Built-in light themes must not inherit a host application's dark shadcn
+   variables. Keep the fixed base behind internal theme slots so a named
+   custom theme can still override the documented --tdg-color-* hooks. */
+.tdg-root[data-theme-base="light"] {
+  --tdg-theme-color-background: oklch(1 0 0);
+  --tdg-theme-color-foreground: oklch(0.145 0 0);
+  --tdg-theme-color-card: oklch(1 0 0);
+  --tdg-theme-color-card-foreground: oklch(0.145 0 0);
+  --tdg-theme-color-popover: oklch(1 0 0);
+  --tdg-theme-color-popover-foreground: oklch(0.145 0 0);
+  --tdg-theme-color-primary: oklch(0.205 0 0);
+  --tdg-theme-color-primary-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-secondary: oklch(0.97 0 0);
+  --tdg-theme-color-secondary-foreground: oklch(0.205 0 0);
+  --tdg-theme-color-muted: oklch(0.97 0 0);
+  --tdg-theme-color-muted-foreground: oklch(0.556 0 0);
+  --tdg-theme-color-accent: oklch(0.97 0 0);
+  --tdg-theme-color-accent-foreground: oklch(0.205 0 0);
+  --tdg-theme-color-destructive: oklch(0.577 0.245 27.325);
+  --tdg-theme-color-destructive-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-border: oklch(0.922 0 0);
+  --tdg-theme-color-input: oklch(0.922 0 0);
+  --tdg-theme-color-ring: oklch(0.708 0 0);
+}
+
+.dark .tdg-root[data-theme="default"][data-theme-base="default"],
 .tdg-root[data-theme-base="dark"] {
   color-scheme: dark;
 }
@@ -514,7 +585,9 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
-  height: 100% !important;
+  /* Keep the fill-parent default, while allowing the public root `style`
+     prop to provide an explicit height just like Inovua. */
+  height: 100%;
   min-height: 0 !important;
   flex: 1 1 auto !important;
   background: transparent !important;

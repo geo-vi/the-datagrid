@@ -6,6 +6,7 @@ import ReactDataGrid, {
 import type { JSX } from "react";
 
 type AssertFalse<T extends false> = T;
+type AssertTrue<T extends true> = T;
 type IsOptional<T, K extends keyof T> =
   Partial<Record<K, never>> extends Pick<T, K> ? true : false;
 type ManagedGridProps = JSX.LibraryManagedAttributes<
@@ -13,7 +14,7 @@ type ManagedGridProps = JSX.LibraryManagedAttributes<
   TypeDataGridProps
 >;
 
-export type IdPropertyRemainsRequired = AssertFalse<
+export type IdPropertyIsJSXOptionalViaDefaultProps = AssertTrue<
   IsOptional<ManagedGridProps, "idProperty">
 >;
 export type ColumnsRemainRequired = AssertFalse<

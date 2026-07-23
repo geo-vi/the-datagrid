@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 
 import type {
   RDGColumnVisibilityController,
@@ -151,7 +152,7 @@ export function useRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
 
 export function useRDGColumnVisibilitySnapshot(): RDGColumnVisibilityPublishedSnapshot {
   const store = useRDGColumnVisibilityStore();
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
     store.getServerSnapshot

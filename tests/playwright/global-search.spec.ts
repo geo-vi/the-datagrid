@@ -1,5 +1,61 @@
 import { expect, test } from "@playwright/test";
 
+const INVALID_HOOK_RUNTIME_ERROR =
+  /Invalid hook call|Cannot read properties of null \(reading ['"]use(?:Callback|Context|Effect|Id|ImperativeHandle|InsertionEffect|LayoutEffect|Memo|Reducer|Ref|State|SyncExternalStore)['"]\)/i;
+
+test("keeps one React hook runtime across desktop and mobile dialogs", async ({
+  page,
+}) => {
+  const hookRuntimeErrors: string[] = [];
+
+  page.on("pageerror", (error) => {
+    if (INVALID_HOOK_RUNTIME_ERROR.test(error.message)) {
+      hookRuntimeErrors.push(error.message);
+    }
+  });
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      INVALID_HOOK_RUNTIME_ERROR.test(message.text())
+    ) {
+      hookRuntimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto("/examples");
+
+  await page.getByRole("button", { name: "Open global search" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Global search input" })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Mobile navigation" })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const runtimeResources = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .filter((name) => name.startsWith("http"))
+  );
+  const optimizedReactResources = runtimeResources.filter((name) =>
+    new URL(name).pathname.endsWith("/node_modules/.vite/deps/react.js")
+  );
+
+  expect(new Set(optimizedReactResources).size).toBe(1);
+  expect(
+    runtimeResources.some((name) =>
+      new URL(name).pathname.endsWith("/src/compat/react.ts")
+    )
+  ).toBe(false);
+  expect(hookRuntimeErrors).toEqual([]);
+});
+
 test("searches docs keys and example content from the shared header", async ({
   page,
 }) => {

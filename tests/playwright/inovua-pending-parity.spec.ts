@@ -161,6 +161,15 @@ async function waitForAggregateEvent(scope: Locator) {
     .toBe(true);
 }
 
+async function resetFilterEventLog(scope: Locator) {
+  await scope.getByTestId("reset-filter-event-log").click();
+  await expect
+    .poll(async () =>
+      readJson<FilterLogEvent[]>(scope.getByTestId("filter-event-log"))
+    )
+    .toEqual([]);
+}
+
 async function captureColumnState(
   scope: Locator
 ): Promise<ColumnStateSnapshot> {
@@ -286,6 +295,165 @@ test.describe("Inovua filtering contracts", () => {
       cellPropsId: null,
       cellPropsColumnIndex: null,
     });
+  });
+
+  test("isColumnFiltered compares value with the type empty value independent of activation", async ({
+    page,
+  }) => {
+    const { scope } = await openPendingScenario(page, "filter-callback");
+    const status = scope.getByTestId("column-filter-status");
+
+    await scope.getByTestId("capture-column-filter-status").click();
+    await expect
+      .poll(() => readJson<{ name: boolean; team: boolean }>(status))
+      .toEqual({
+        name: true,
+        // The Team descriptor has active:false but a non-empty value.
+        team: true,
+      });
+
+    await scope.getByTestId("clear-column-filter").click();
+    await scope.getByTestId("capture-column-filter-status").click();
+    await expect
+      .poll(() => readJson<{ name: boolean; team: boolean }>(status))
+      .toEqual({
+        // Clear leaves Name enabled but resets it to the type empty value.
+        name: false,
+        team: true,
+      });
+  });
+
+  test("filter activation, Clear and Clear All preserve Inovua descriptor semantics", async ({
+    page,
+  }) => {
+    const { scope, grid } = await openPendingScenario(page, "filter-callback");
+    const filterCell = nameFilterCell(grid);
+    const editor = filterCell.getByTestId("pending-name-filter");
+    const eventLog = scope.getByTestId("filter-event-log");
+    const rows = grid.locator('[data-slot="grid-row"]');
+
+    const readEvents = () => readJson<FilterLogEvent[]>(eventLog);
+    const openMenu = async () => {
+      await filterCell.getByRole("button", { name: "Filter" }).click();
+      const menu = page.getByRole("menu");
+      await expect(menu).toBeVisible();
+      return menu;
+    };
+
+    await resetFilterEventLog(scope);
+    await editor.fill("Grace");
+    await waitForAggregateEvent(scope);
+    await expect(rows).toHaveCount(1);
+    let events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["column", "aggregate"]);
+    expect(events[0]?.filterValue).toMatchObject({
+      value: "Grace",
+      active: null,
+    });
+
+    // Clear changes the value only. An implicitly enabled descriptor remains
+    // enabled/editable, and both callbacks report the same activation state.
+    await resetFilterEventLog(scope);
+    await filterCell.getByRole("button", { name: "Clear" }).click();
+    await waitForAggregateEvent(scope);
+    await expect(editor).toBeEnabled();
+    await expect(editor).toHaveValue("");
+    await expect(rows).toHaveCount(3);
+    events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["column", "aggregate"]);
+    expect(events[0]?.filterValue).toMatchObject({ value: "", active: null });
+    const clearAggregate = events[1]?.filterValue as Array<{
+      name: string;
+      active?: boolean;
+    }> | null;
+    expect(clearAggregate?.find((entry) => entry.name === "name")?.active).toBe(
+      undefined
+    );
+
+    await resetFilterEventLog(scope);
+    let menu = await openMenu();
+    expect(await menu.getByRole("menuitem").allTextContents()).toEqual([
+      "Enable",
+      "Disable",
+      "Clear",
+      "Clear All",
+    ]);
+    await expect(menu.getByRole("menuitem", { name: "Enable" })).toBeDisabled();
+    await expect(menu.getByRole("menuitem", { name: "Disable" })).toBeEnabled();
+    await expect(
+      menu.getByRole("menuitem", { name: "Clear", exact: true })
+    ).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Disable" }).click();
+    await waitForAggregateEvent(scope);
+    await expect(editor).toBeDisabled();
+    events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["column", "aggregate"]);
+    expect(events[0]?.filterValue).toMatchObject({ value: "", active: false });
+    expect(
+      (
+        events[1]?.filterValue as Array<{ name: string; active?: boolean }>
+      ).find((entry) => entry.name === "name")?.active
+    ).toBe(false);
+
+    await resetFilterEventLog(scope);
+    menu = await openMenu();
+    await expect(menu.getByRole("menuitem", { name: "Enable" })).toBeEnabled();
+    await expect(
+      menu.getByRole("menuitem", { name: "Disable" })
+    ).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Enable" }).click();
+    await waitForAggregateEvent(scope);
+    await expect(editor).toBeEnabled();
+    events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["column", "aggregate"]);
+    expect(events[0]?.filterValue).toMatchObject({ value: "", active: true });
+    expect(
+      (
+        events[1]?.filterValue as Array<{ name: string; active?: boolean }>
+      ).find((entry) => entry.name === "name")?.active
+    ).toBe(true);
+
+    await resetFilterEventLog(scope);
+    await editor.fill("Katherine");
+    await waitForAggregateEvent(scope);
+    await expect(rows).toHaveCount(1);
+    events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["column", "aggregate"]);
+    expect(events[0]?.filterValue).toMatchObject({
+      value: "Katherine",
+      active: true,
+    });
+
+    // Clear All updates every descriptor in one aggregate callback, emits no
+    // per-column callback, and preserves explicit activation fields.
+    await resetFilterEventLog(scope);
+    menu = await openMenu();
+    await menu.getByRole("menuitem", { name: "Clear All" }).click();
+    await waitForAggregateEvent(scope);
+    await expect(editor).toBeEnabled();
+    await expect(editor).toHaveValue("");
+    await expect(rows).toHaveCount(3);
+    events = await readEvents();
+    expect(events.map((event) => event.kind)).toEqual(["aggregate"]);
+    const clearedFilters = events[0]?.filterValue as Array<{
+      name: string;
+      value: unknown;
+      active?: boolean;
+    }>;
+    expect(clearedFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "name", value: "", active: true }),
+        expect.objectContaining({ name: "team", value: "", active: false }),
+      ])
+    );
+
+    menu = await openMenu();
+    await expect(
+      menu.getByRole("menuitem", { name: "Clear", exact: true })
+    ).toBeDisabled();
+    await expect(
+      menu.getByRole("menuitem", { name: "Clear All" })
+    ).toBeDisabled();
   });
 });
 

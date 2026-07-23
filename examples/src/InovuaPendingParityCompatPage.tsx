@@ -211,9 +211,21 @@ const defaultNameFilter: TypeSingleFilterValue = {
   value: "Ada",
 };
 
+const disabledTeamFilter: TypeSingleFilterValue = {
+  name: "team",
+  type: "string",
+  operator: "contains",
+  value: "Compilers",
+  active: false,
+};
+
 function FilterCallbackScenario() {
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [events, setEvents] = React.useState<FilterLogEvent[]>([]);
+  const [columnFilterStatus, setColumnFilterStatus] = React.useState({
+    name: null as boolean | null,
+    team: null as boolean | null,
+  });
   const columns = React.useMemo<TypeColumns>(
     () => [
       baseColumns[0]!,
@@ -221,6 +233,10 @@ function FilterCallbackScenario() {
         ...baseColumns[1]!,
         filterable: true,
         filterEditor: PendingNameFilterEditor,
+        filterEditorProps: {
+          disabled: false,
+          onChange: () => undefined,
+        },
       },
       { ...baseColumns[2]!, filterable: true },
     ],
@@ -246,8 +262,28 @@ function FilterCallbackScenario() {
         >
           Clear Name filter
         </Button>
+        <Button
+          type="button"
+          data-testid="reset-filter-event-log"
+          onClick={() => setEvents([])}
+        >
+          Reset filter event log
+        </Button>
+        <Button
+          type="button"
+          data-testid="capture-column-filter-status"
+          onClick={() =>
+            setColumnFilterStatus({
+              name: apiRef.current?.isColumnFiltered?.("name") ?? null,
+              team: apiRef.current?.isColumnFiltered?.("team") ?? null,
+            })
+          }
+        >
+          Capture column filter status
+        </Button>
       </div>
       <JsonOutput testId="filter-event-log" value={events} />
+      <JsonOutput testId="column-filter-status" value={columnFilterStatus} />
       <FixtureFrame>
         <CommonPendingGrid
           idProperty="id"
@@ -257,7 +293,7 @@ function FilterCallbackScenario() {
           virtualized={false}
           enableFiltering
           enableColumnFilterContextMenu
-          defaultFilterValue={[defaultNameFilter]}
+          defaultFilterValue={[defaultNameFilter, disabledTeamFilter]}
           onColumnFilterValueChange={(event) =>
             setEvents((current) => [
               ...current,
@@ -274,6 +310,9 @@ function FilterCallbackScenario() {
             noRecords: "No matching rows",
             filter: "Filter",
             clear: "Clear",
+            clearAll: "Clear All",
+            enable: "Enable",
+            disable: "Disable",
             contains: "Contains",
             eq: "Equals",
             operator: "Operator",
@@ -455,6 +494,20 @@ function ColumnVirtualizationScenario(props: { scenario: PendingScenario }) {
     [columns]
   );
   const lastColumnIndex = config.count - 1;
+  const lastColumnFilter = React.useMemo<TypeFilterValue>(
+    () =>
+      config.interactive
+        ? [
+            {
+              name: `col-${String(lastColumnIndex).padStart(2, "0")}`,
+              type: "string",
+              operator: "contains",
+              value: "",
+            },
+          ]
+        : null,
+    [config.interactive, lastColumnIndex]
+  );
 
   const rowStyle = React.useCallback((args: TypeRowStyleArgs) => {
     rowStyleSnapshotRef.current = {
@@ -517,6 +570,7 @@ function ColumnVirtualizationScenario(props: { scenario: PendingScenario }) {
           virtualizeColumnsThreshold={config.threshold}
           virtualizeColumns={config.force}
           enableFiltering={Boolean(config.interactive)}
+          defaultFilterValue={lastColumnFilter}
           editable={Boolean(config.interactive)}
           rowStyle={rowStyle}
           onEditStart={(info) => {

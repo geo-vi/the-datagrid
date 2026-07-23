@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import type { TypeColumn } from "../types";
+import { useStableId } from "../hooks/useStableId";
 import { normalizeThemeName, resolveThemeBase } from "../theme/context";
 import { useRDGColumnVisibilitySnapshot } from "./store";
 
@@ -50,15 +51,15 @@ function orderColumns(
 
 export function RDGColumnVisibilityToolbar(
   props: RDGColumnVisibilityToolbarProps
-) {
+): React.ReactElement {
   const {
     children,
     ariaLabel = "Visible column toggles",
     title = "Visible columns",
     description = "Choose which columns are visible in the grid.",
   } = props;
-  const titleId = React.useId();
-  const descriptionId = React.useId();
+  const titleId = useStableId("tdg-column-visibility-title");
+  const descriptionId = useStableId("tdg-column-visibility-description");
   const snapshot = useRDGColumnVisibilitySnapshot();
   const theme = normalizeThemeName(snapshot.theme);
   const themeBase = resolveThemeBase(theme);

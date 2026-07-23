@@ -153,11 +153,18 @@ export type TypeColumnRenderArgs = {
   rowIndex: number;
   column: IColumn;
   columnId: string;
+  /**
+   * Raw disabledRows entry for this displayed index. Inovua exposes `null`
+   * when the map is absent and `undefined` when this key is missing.
+   */
+  disabledRow?: boolean | null;
 };
 
 export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
+  /** Raw runtime row-disable state exposed to Inovua-style hooks. */
+  disabledRow?: boolean | null;
   /** Inovua-compatible column identifier aliases used by custom editors. */
   id?: string | number;
   name?: string;
@@ -304,6 +311,8 @@ export type TypeRowStyleProps = Record<string, unknown> & {
   /** Legacy alias retained from the first the-datagrid implementation. */
   index: number;
   selected: boolean;
+  /** Raw disabledRows entry for the current displayed row index. */
+  disabledRow?: boolean | null;
   selection: TypeRowSelection;
   multiSelect: boolean;
   even: boolean;
@@ -802,6 +811,7 @@ export type TypeCheckboxColumnCellProps = {
   headerCell: boolean;
   data: unknown;
   rowIndex?: number;
+  disabledRow?: boolean | null;
 };
 
 export type TypeCheckboxProps = {
@@ -834,6 +844,7 @@ export type TypeCheckboxColumn =
 export type TypeDataGridProps = {
   /**
    * Built-ins:
+   * - "default-light": the Inovua-compatible default; forces light tokens
    * - "default": follows the nearest `.dark` ancestor when present
    * - "light": forces the light theme tokens
    * - "dark": forces the dark theme tokens
@@ -843,6 +854,10 @@ export type TypeDataGridProps = {
    * Custom theme names ending in `-light`/`_light` inherit the light token base.
    */
   theme?: string;
+  /**
+   * Required by the raw Inovua-compatible props type. JSX consumers may omit
+   * it because `ReactDataGrid.defaultProps.idProperty` is `"id"`.
+   */
   idProperty: string;
 
   columns: TypeColumns;
@@ -872,6 +887,15 @@ export type TypeDataGridProps = {
   enableColumnAutosize?: boolean;
   skipHeaderOnAutoSize?: boolean;
 
+  /**
+   * Explicitly shows or hides the filter row. When omitted, a non-empty
+   * `filterValue` or `defaultFilterValue` makes the row visible.
+   *
+   * For local arrays, uncontrolled `defaultFilterValue` state performs the
+   * data transformation even when this row is hidden. Controlled
+   * `filterValue` is display/remote-request state and does not transform the
+   * supplied array, matching Inovua 5.10.2.
+   */
   enableFiltering?: boolean;
   filterValue?: TypeFilterValue;
   defaultFilterValue?: TypeFilterValue;
@@ -983,6 +1007,16 @@ export type TypeDataGridProps = {
   checkboxSelectEnableShiftKey?: boolean;
 
   /**
+   * Disables pointer interaction for rows at the specified zero-based
+   * displayed indexes.
+   *
+   * This follows Inovua 5.10.2: indexes are resolved after local
+   * sorting/filtering/pagination, not from `idProperty`. Disabled rows remain
+   * eligible for controlled, header, and imperative selection.
+   */
+  disabledRows?: { [key: string]: boolean } | null;
+
+  /**
    * Invoked from the grid's mount effect after the imperative API has been
    * hydrated and before `handle` / `onReady` are notified.
    */
@@ -998,4 +1032,7 @@ export type TypeDataGridProps = {
 
   className?: string;
   style?: React.CSSProperties;
+  onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
+  onFocus?: React.FocusEventHandler<HTMLDivElement>;
+  onBlur?: React.FocusEventHandler<HTMLDivElement>;
 };

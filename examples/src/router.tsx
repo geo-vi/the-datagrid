@@ -12,9 +12,12 @@ import ColumnsGridExample from "./ColumnsGridExample";
 import ColumnVisibilityCompatPage from "./ColumnVisibilityCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
+import DisabledRowsCompatPage from "./DisabledRowsCompatPage";
 import ExampleDetailPage from "./ExampleDetailPage";
 import ExamplesOverviewPage from "./ExamplesOverviewPage";
 import FilteredRowsCountCompatPage from "./FilteredRowsCountCompatPage";
+import GitHubIssues31And32CompatPage from "./GitHubIssues31And32CompatPage";
+import GitHubIssues33To48CompatPage from "./GitHubIssues33To48CompatPage";
 import InovuaParityCompatPage from "./InovuaParityCompatPage";
 import InovuaParityExamplePage from "./InovuaParityExamplePage";
 import InovuaPendingParityCompatPage from "./InovuaPendingParityCompatPage";
@@ -306,10 +309,28 @@ const compatDefaultPropsRoute = createRoute({
   component: DefaultPropsCompatPage,
 });
 
+const compatDisabledRowsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/disabled-rows",
+  component: DisabledRowsCompatPage,
+});
+
 const compatFilteredRowsCountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/filtered-rows-count",
   component: FilteredRowsCountCompatPage,
+});
+
+const compatGitHubIssues31And32Route = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/github-issues-31-32",
+  component: GitHubIssues31And32CompatPage,
+});
+
+const compatGitHubIssues33To48Route = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/github-issues-33-48",
+  component: GitHubIssues33To48CompatPage,
 });
 
 const compatMemorySafetyRoute = createRoute({
@@ -348,7 +369,10 @@ const routeTree = rootRoute.addChildren([
   compatColumnVisibilityRoute,
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
+  compatDisabledRowsRoute,
   compatFilteredRowsCountRoute,
+  compatGitHubIssues31And32Route,
+  compatGitHubIssues33To48Route,
   compatInovuaParityRoute,
   compatInovuaPendingParityRoute,
   compatIssue48Route,

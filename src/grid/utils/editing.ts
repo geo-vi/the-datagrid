@@ -7,6 +7,7 @@ export type TypeBuildEditCellPropsArgs = {
   remoteRowIndex: number;
   rowId: string | number;
   rowSelected: boolean;
+  disabledRow?: boolean | null;
   selection: unknown;
   multiSelect: boolean;
   naturalRowHeight: boolean;
@@ -38,6 +39,7 @@ export function buildEditCellProps({
   remoteRowIndex,
   rowId,
   rowSelected,
+  disabledRow,
   selection,
   multiSelect,
   naturalRowHeight,
@@ -72,6 +74,7 @@ export function buildEditCellProps({
     remoteRowIndex,
     rowActive: false,
     rowSelected,
+    disabledRow,
     selection,
     multiSelect,
     naturalRowHeight,
@@ -113,6 +116,7 @@ export function buildEditCellProps({
       columnIndex,
       rowIndex,
       remoteRowIndex,
+      disabledRow,
     },
   };
 }
