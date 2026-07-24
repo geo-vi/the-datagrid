@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import ReactDataGrid, {
+  type CellProps,
   type TypeColumns,
   type TypeFilterValue,
   type TypeRowSelection,
@@ -168,7 +169,7 @@ export default function SelectionGridExample() {
         filterEditorProps: {
           options: ["Healthy", "Expansion", "Renewal", "At risk"],
         },
-        render: (value: unknown) => {
+        render: ({ value }: CellProps) => {
           const health = String(value) as AccountHealth;
 
           return (
@@ -191,7 +192,7 @@ export default function SelectionGridExample() {
         filterable: true,
         textAlign: "end",
         headerAlign: "end",
-        render: (value: unknown) => {
+        render: ({ value }: CellProps) => {
           const seats = typeof value === "number" ? value : Number(value);
           return Number.isFinite(seats)
             ? seats.toLocaleString("en-US")
@@ -206,7 +207,7 @@ export default function SelectionGridExample() {
         filterable: true,
         textAlign: "end",
         headerAlign: "end",
-        render: (value: unknown) => {
+        render: ({ value }: CellProps) => {
           const amount = typeof value === "number" ? value : Number(value);
           return Number.isFinite(amount)
             ? formatCurrency(amount)

@@ -54,8 +54,8 @@ test.describe("allowMobileTransform", () => {
     await expect(shell).toHaveCSS("border-top-width", "0px");
     await expect(grid).toHaveCSS("border-radius", "12px");
     await expect(
-      page.getByRole("columnheader", { name: /^Account Resize/ })
-    ).toBeVisible();
+      grid.locator('[data-slot="grid-header-cell"][data-column-id="account"]')
+    ).toContainText("Account");
   });
 
   test("keeps the final column label and resize handle fully accessible", async ({

@@ -717,7 +717,7 @@ test.describe("Inovua column-virtualization contracts", () => {
       timeout: CONTRACT_ASSERTION_TIMEOUT,
     });
     await expect(lastCell).toBeVisible({ timeout: CONTRACT_ASSERTION_TIMEOUT });
-    expect.soft(await firstHeader.count()).toBe(0);
+    await expect(firstHeader).toHaveCount(0, { timeout: 5_000 });
 
     const scrollGeometry = await viewport.evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -729,18 +729,28 @@ test.describe("Inovua column-virtualization contracts", () => {
     expect.soft(scrollGeometry.scrollWidth).toBeGreaterThanOrEqual(24 * 140);
     expect.soft(scrollGeometry.scrollWidth).toBeLessThanOrEqual(24 * 140 + 24);
 
-    const [headerBox, cellBox] = await Promise.all([
-      lastHeader.boundingBox(),
-      lastCell.boundingBox(),
-    ]);
-    expect(headerBox).not.toBeNull();
-    expect(cellBox).not.toBeNull();
-    expect(
-      Math.abs((headerBox?.x ?? 0) - (cellBox?.x ?? 0))
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs((headerBox?.width ?? 0) - (cellBox?.width ?? 0))
-    ).toBeLessThanOrEqual(1);
+    await expect
+      .poll(
+        () =>
+          grid.evaluate((gridElement) => {
+            const renderedHeader = gridElement.querySelector<HTMLElement>(
+              '[data-slot="grid-header-cell"][data-column-id="col-23"]'
+            );
+            const renderedCell = gridElement.querySelector<HTMLElement>(
+              '[data-slot="grid-row"][data-row-id="virtual-row-1"] [data-column-id="col-23"]'
+            );
+            if (!renderedHeader || !renderedCell) return false;
+
+            const headerBox = renderedHeader.getBoundingClientRect();
+            const cellBox = renderedCell.getBoundingClientRect();
+            return (
+              Math.abs(headerBox.x - cellBox.x) <= 1 &&
+              Math.abs(headerBox.width - cellBox.width) <= 1
+            );
+          }),
+        { timeout: 5_000 }
+      )
+      .toBe(true);
 
     const state = await captureColumnState(scope);
     expect(state.computedVirtualizeColumns).toBe(true);

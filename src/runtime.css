@@ -892,6 +892,7 @@
 
 .tdg-root .InovuaReactDataGrid__cell {
   box-sizing: border-box !important;
+  color: var(--tdg-color-foreground) !important;
   padding: 0.5rem !important;
   position: relative !important;
 }
