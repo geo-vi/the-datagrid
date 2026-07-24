@@ -344,7 +344,8 @@ export function hydrateTanStackRowSelection<TRow>(
 /** Build complete, controlled visibility state for the current columns. */
 export function projectTanStackColumnVisibility(
   columns: readonly TypeColumn[],
-  overrides: Readonly<Record<string, boolean | undefined>> = {}
+  overrides: Readonly<Record<string, boolean | undefined>> = {},
+  initialDefaults: Readonly<Record<string, boolean | undefined>> = {}
 ): VisibilityState {
   const result: VisibilityState = {};
 
@@ -356,6 +357,11 @@ export function projectTanStackColumnVisibility(
       result[id] = overrides[id]!;
     } else if (typeof column.visible === "boolean") {
       result[id] = column.visible;
+    } else if (
+      hasOwn(initialDefaults, id) &&
+      typeof initialDefaults[id] === "boolean"
+    ) {
+      result[id] = initialDefaults[id]!;
     } else {
       result[id] = true;
     }

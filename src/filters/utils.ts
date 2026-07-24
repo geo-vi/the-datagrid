@@ -713,7 +713,10 @@ export function applyLocalFilter(
 
   const columnsMap: Record<string, TypeColumn> = {};
   for (const c of opts?.columns ?? []) {
-    columnsMap[getColumnId(c)] = c;
+    const id = getColumnId(c);
+    columnsMap[id] = c;
+    if (typeof c.name === "string") columnsMap[c.name] = c;
+    if (typeof c.filterName === "string") columnsMap[c.filterName] = c;
   }
 
   return data.filter((row) => {
@@ -723,7 +726,14 @@ export function applyLocalFilter(
 
       if (!isRunnableFilterEntry(f, allTypes)) return true;
 
-      const raw = (row as any)?.[f.name];
+      const column = columnsMap[f.name];
+      const resolvedName =
+        typeof column?.filterName === "string" ? column.filterName : f.name;
+      const rawValue = (row as any)?.[resolvedName];
+      const raw =
+        typeof column?.getFilterValue === "function"
+          ? column.getFilterValue({ data: row, value: rawValue })
+          : rawValue;
 
       const fn =
         opDef?.fn ??
@@ -735,7 +745,7 @@ export function applyLocalFilter(
         emptyValue: f.emptyValue ?? typeDef.emptyValue,
         data: row,
         _data: row,
-        column: columnsMap[f.name],
+        column,
       });
     });
   });

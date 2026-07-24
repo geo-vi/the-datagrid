@@ -85,16 +85,17 @@ Inovua compatibility audit is complete. The public docs contain the full
 including exact defaults, timing, transform order, exports, and imperative
 method allowlists.
 
-- **Data loading:** local arrays, static Promise snapshots, and function-backed
-  sources returning either an array or `{ data, count }`. Function sources
+- **Data loading:** local arrays, static Promises, and function-backed sources
+  returning either an array or `{ data, count }`. Function sources
   receive `sortInfo`, `filterValue`, `columnOrder`, `columns`, `idProperty`, and
   `theme`, plus `skip`/`limit` when remote pagination is active and the optional
   `searchValue` when connected to the search entry. Stale async responses are
   ignored; rejected requests preserve the last committed rows and clear their
   automatic loading state. `loading` can also be controlled by the application.
-- **Local and remote data flow:** local arrays and static Promise snapshots can
-  be searched, filtered, sorted, counted, and paged in the browser. Function
-  sources own their remote transforms and authoritative count.
+- **Local and remote data flow:** local arrays and bare-array Promise snapshots
+  can be searched, filtered, sorted, counted, and paged in the browser.
+  Count-bearing Promise results and function sources own their authoritative
+  remote page/count unless pagination is explicitly local.
   `filteredRowsCount` reports the post-search, post-filter count before local
   page slicing.
 - **Columns and cells:** stable `id`/`name` identity, controlled rendered order,
@@ -501,7 +502,7 @@ multiple-grid scoping.
 The normal-table bar and transformed-mobile search are two placements of the
 same internal component. They use the same shadcn-style Input and Button,
 column-prefix highlighting, IME handling, Escape behavior, and clear/refocus
-interaction. Local arrays and static Promise snapshots also use the same
+interaction. Local arrays and bare-array Promise snapshots also use the same
 normalization and matching engine. Function data sources receive the committed
 `searchValue` and remain responsible for remote matching. When
 `allowMobileTransform` is active under `RDGSearchProvider`, the external
@@ -546,10 +547,12 @@ not process package CSS imports, add
 stylesheet import.
 
 For local arrays, search is combined with column filters before local
-pagination and `filteredRowsCount` reports the combined result count. A static
-`Promise` data source is resolved as a locally searchable snapshot. A function
-data source remains remote and receives `searchValue` alongside its existing
-args; when remote pagination is active, a new search resets `skip` to `0`.
+pagination and `filteredRowsCount` reports the combined result count. A bare
+array from a static `Promise` is resolved as a locally searchable snapshot. A
+count-bearing `{ data, count }` Promise result is an authoritative remote page
+unless pagination is explicitly `"local"`. A function data source remains
+remote and receives `searchValue` alongside its existing args; when remote
+pagination is active, a new search resets `skip` to `0`.
 
 ```tsx
 import type { TypeDataSourceArgs } from "@geovi/the-datagrid";

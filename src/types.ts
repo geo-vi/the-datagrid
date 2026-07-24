@@ -438,6 +438,10 @@ export interface IColumn {
   filterable?: boolean;
   filterType?: string;
   filterName?: string;
+  getFilterValue?: (args: {
+    data: TypeColumnRenderArgs["data"];
+    value: unknown;
+  }) => unknown;
   filterEditor?: React.ComponentType<Record<string, unknown>>;
   filterEditorProps?: unknown;
   filterCellPadding?: React.CSSProperties["padding"];

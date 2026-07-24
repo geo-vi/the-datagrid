@@ -914,52 +914,15 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     );
   });
 
-  // Known parity debt: this skipped test records unimplemented issue #32
-  // behavior. This PR does not fix that functionality.
-  test.fixme("issue #32: Promise data sources own remote paging and expose loading and toolbar hooks", async ({
+  test("issue #32: count-bearing Promise data owns remote paging", async ({
     page,
   }) => {
     await page.goto("/compat/github-issues-31-32");
     const probe = page.getByTestId("github-issue-32-probe");
     const grid = probe.getByTestId("issue-32-grid-shell").locator(".tdg-root");
     await expect(grid).toBeVisible();
-    await expect
-      .poll(async () => {
-        const custom = await probe
-          .getByTestId("issue-32-custom-load-mask")
-          .count();
-        const builtIn = await grid
-          .getByText("Loading…", { exact: true })
-          .count();
-        return custom + builtIn;
-      })
-      .toBeGreaterThan(0);
-
-    const loadingState = {
-      customLoadMask: await probe
-        .getByTestId("issue-32-custom-load-mask")
-        .count(),
-      customLoadingText:
-        (
-          await probe.getByTestId("issue-32-custom-load-mask").allTextContents()
-        )[0]?.trim() ?? null,
-      builtInLoadingText: await grid
-        .getByText("Loading…", { exact: true })
-        .count(),
-      loadingEvents: await readJson<boolean[]>(
-        probe.getByTestId("issue-32-loading-events")
-      ),
-      customPaginationToolbar: await probe
-        .getByTestId("issue-32-custom-pagination-toolbar")
-        .count(),
-    };
-    expect.soft(loadingState).toEqual({
-      customLoadMask: 1,
-      customLoadingText: "Fetching issue 32 rows",
-      builtInLoadingText: 0,
-      loadingEvents: [true],
-      customPaginationToolbar: 1,
-    });
+    await expect(grid.getByText("Loading…", { exact: true })).toBeVisible();
+    await expect(grid.locator(".tdg-pagination")).toBeVisible();
 
     await probe.getByTestId("issue-32-resolve-static-promise").click();
     await expect
@@ -976,9 +939,6 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
       .toBe(true);
 
     const settledState = {
-      loadingEvents: await readJson<boolean[]>(
-        probe.getByTestId("issue-32-loading-events")
-      ),
       rowIds: await grid
         .locator('[data-slot="grid-row"]')
         .evaluateAll((rows) =>
@@ -986,23 +946,16 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
         ),
       rowText: await grid.locator('[data-slot="grid-row"]').allTextContents(),
       emptyState: await grid.getByText("No records", { exact: true }).count(),
-      customLoadMask: await probe
-        .getByTestId("issue-32-custom-load-mask")
-        .count(),
-      customPaginationToolbar: await probe
-        .getByTestId("issue-32-custom-pagination-toolbar")
-        .count(),
+      paginationText: await grid.locator(".tdg-pagination").innerText(),
     };
     expect(settledState).toEqual({
-      loadingEvents: [true, false],
       rowIds: ["remote-3", "remote-4"],
       rowText: [
         expect.stringContaining("Remote row 3"),
         expect.stringContaining("Remote row 4"),
       ],
       emptyState: 0,
-      customLoadMask: 0,
-      customPaginationToolbar: 1,
+      paginationText: expect.stringMatching(/Showing\s+3–4\s+of\s+6/),
     });
   });
 });

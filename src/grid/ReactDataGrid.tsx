@@ -934,6 +934,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const allInputColumns = React.useMemo(() => {
     return checkboxColumn ? [checkboxColumn, ...inputColumns] : inputColumns;
   }, [checkboxColumn, inputColumns]);
+  const initialColumnVisibilityRef = React.useRef<Record<string, boolean>>({});
+  for (const column of allInputColumns) {
+    const columnId = getColumnId(column);
+    if (
+      Object.prototype.hasOwnProperty.call(
+        initialColumnVisibilityRef.current,
+        columnId
+      )
+    ) {
+      continue;
+    }
+
+    initialColumnVisibilityRef.current[columnId] =
+      column.visible !== false &&
+      column.defaultVisible !== false &&
+      column.defaultHidden !== true;
+  }
   const [columnVisibilityState, setColumnVisibilityState] = React.useState<
     Record<string, boolean>
   >({});
@@ -952,7 +969,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [allInputColumns]);
   const columnVisibilityMap = React.useMemo(
     () =>
-      projectTanStackColumnVisibility(allInputColumns, columnVisibilityState),
+      projectTanStackColumnVisibility(
+        allInputColumns,
+        columnVisibilityState,
+        initialColumnVisibilityRef.current
+      ),
     [allInputColumns, columnVisibilityState]
   );
 
@@ -995,11 +1016,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [allInputColumns, columnOrder]
   );
 
-  const [sortInfo, setSortInfo] = useControllableState<TypeSortInfo>({
-    value: props.sortInfo,
-    defaultValue: props.defaultSortInfo ?? null,
-    onChange: props.onSortInfoChange,
-  });
+  const [sortInfo, setSortInfo, sortControlled] =
+    useControllableState<TypeSortInfo>({
+      value: props.sortInfo,
+      defaultValue: props.defaultSortInfo ?? null,
+      onChange: props.onSortInfoChange,
+    });
 
   const [filterValue, setFilterValue, filterControlled] =
     useControllableState<TypeFilterValue>({
@@ -1032,6 +1054,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
   // is deliberately independent from filter-row visibility: explicitly
   // hiding the row does not discard an uncontrolled default filter.
   const localFilterValue = filterControlled ? null : filterValue;
+  // Inovua 5.10.2 uses controlled sortInfo for the UI and remote request
+  // payload, but leaves an array dataSource in consumer order. Only
+  // uncontrolled/default sorting owns the local transformation.
+  const localSortInfo = sortControlled ? null : sortInfo;
 
   const [draftFilterValue, setDraftFilterValue] =
     React.useState<TypeFilterValue>(filterValue);
@@ -1229,8 +1255,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             columns: orderedColumns,
           });
         }
-        if (computedSortForFetch) {
-          data = applyLocalSort(data, computedSortForFetch, orderedColumns);
+        if (localSortInfo) {
+          data = applyLocalSort(data, localSortInfo, orderedColumns);
         }
 
         const totalCount = data.length;
@@ -1248,8 +1274,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const ds = dataSource;
 
       const dsIsFn = typeof ds === "function";
-      const sliceLocally =
-        paginationMode !== false && (paginationMode === "local" || !dsIsFn);
+      const sliceBareResultLocally =
+        paginationMode === "local" ||
+        (!dsIsFn && paginationMode !== false && paginationMode !== "remote");
 
       const dsArg = {
         ...(paginationMode !== false && paginationMode !== "local" && dsIsFn
@@ -1296,20 +1323,26 @@ function ReactDataGrid(props: TypeDataGridProps) {
             columns: orderedColumns,
           });
         }
-        if (computedSortForFetch) {
-          data = applyLocalSort(data, computedSortForFetch, orderedColumns);
+        if (localSortInfo) {
+          data = applyLocalSort(data, localSortInfo, orderedColumns);
         }
 
         return data;
       };
 
       if (result && typeof result === "object" && Array.isArray(result.data)) {
-        // Functions own remote search and return an authoritative count. A
-        // static Promise cannot receive args, so treat its resolved payload as
-        // a local snapshot before count and pagination are derived.
-        const resultData = transformStaticPromiseRows(result.data);
+        // A count-bearing Promise payload represents an authoritative remote
+        // page, just like a function result. In particular, pagination=true
+        // must not slice that page for a second time. Bare Promise arrays stay
+        // useful as locally composable snapshots in this implementation.
+        const resultData = dsIsFn
+          ? result.data
+          : paginationMode === "local"
+            ? transformStaticPromiseRows(result.data)
+            : result.data;
         const staticPromiseHasLocalPredicate =
           !dsIsFn &&
+          paginationMode === "local" &&
           (searchActive || hasActiveLocalFilter(localFilterValue, filterTypes));
         const reportedCount = Number(
           staticPromiseHasLocalPredicate
@@ -1319,9 +1352,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const totalCount = Number.isFinite(reportedCount)
           ? reportedCount
           : resultData.length;
-        const nextRows = sliceLocally
-          ? resultData.slice(loadSkip, loadSkip + limit)
-          : resultData;
+        const nextRows =
+          paginationMode === "local"
+            ? resultData.slice(loadSkip, loadSkip + limit)
+            : resultData;
 
         setRows(nextRows);
         setCount(totalCount);
@@ -1329,7 +1363,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       } else if (Array.isArray(result)) {
         const resultData = transformStaticPromiseRows(result);
         const totalCount = resultData.length;
-        const nextRows = sliceLocally
+        const nextRows = sliceBareResultLocally
           ? resultData.slice(loadSkip, loadSkip + limit)
           : resultData;
 
@@ -1354,6 +1388,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     dataSource,
     computedFilterForFetch,
     computedSortForFetch,
+    localSortInfo,
     notifyFilteredRowsCount,
     idProperty,
     inputColumns,

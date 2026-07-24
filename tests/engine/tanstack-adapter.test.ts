@@ -218,11 +218,17 @@ test("column state projections preserve controlled false/zero values", () => {
   ] as unknown as TypeColumn[];
 
   assert.deepEqual(
-    projectTanStackColumnVisibility(projectionColumns, {
-      "0": true,
-      false: false,
-    }),
-    { "0": true, false: false, plain: true }
+    projectTanStackColumnVisibility(
+      projectionColumns,
+      {
+        "0": true,
+        false: false,
+      },
+      {
+        plain: false,
+      }
+    ),
+    { "0": true, false: false, plain: false }
   );
   assert.deepEqual(
     projectTanStackColumnOrder(projectionColumns, [false, 0, "missing", 0]),
