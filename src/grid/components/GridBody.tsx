@@ -205,8 +205,20 @@ export type GridBodyProps = {
   emptyText: TypeDataGridProps["emptyText"];
 
   selectedMap: Record<string, any>;
+  activeIndex: number;
+  gridFocused: boolean;
+  selectionEnabled: boolean;
+  rowIdPrefix: string;
+  rowFocusClassName?: string;
+  showActiveRowIndicator: boolean;
+  activeRowIndicatorClassName?: string;
   getDisabledRowState: (rowIndex: number) => boolean | null | undefined;
-  onRowClick?: (rowId: string, rowData: any, e: React.MouseEvent) => void;
+  onRowClick?: (
+    rowId: string,
+    rowData: any,
+    rowIndex: number,
+    e: React.MouseEvent
+  ) => void;
 
   rowHeight: number | ((rowIndex: number) => number) | null;
   minRowHeight: number;
@@ -280,6 +292,13 @@ export function GridBody(props: GridBodyProps) {
     i18n,
     emptyText,
     selectedMap,
+    activeIndex,
+    gridFocused,
+    selectionEnabled,
+    rowIdPrefix,
+    rowFocusClassName,
+    showActiveRowIndicator,
+    activeRowIndicatorClassName,
     getDisabledRowState,
     onRowClick,
     rowHeight,
@@ -310,7 +329,8 @@ export function GridBody(props: GridBodyProps) {
   function getRowThemeClasses(
     rowIndex: number,
     rowIsSelected: boolean,
-    rowIsDisabled: boolean
+    rowIsDisabled: boolean,
+    rowIsActive: boolean
   ): string {
     const odd = rowIndex % 2 === 0;
     return cn(
@@ -323,9 +343,17 @@ export function GridBody(props: GridBodyProps) {
       rowIsSelected
         ? showZebraRows
           ? odd
-            ? "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-            : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-          : "tdg-row--selected InovuaReactDataGrid__row--selected tdg-row--active InovuaReactDataGrid__row--active bg-[var(--tdg-row-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+            ? "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+            : "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+          : "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+        : "",
+      rowIsActive ? "tdg-row--active InovuaReactDataGrid__row--active" : "",
+      rowIsActive && gridFocused
+        ? cn(
+            "tdg-row--focused InovuaReactDataGrid__row--focused",
+            rowFocusClassName,
+            showActiveRowIndicator ? activeRowIndicatorClassName : ""
+          )
         : "",
       rowIsDisabled
         ? "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
@@ -334,9 +362,11 @@ export function GridBody(props: GridBodyProps) {
   }
 
   function getRowThemeStyle(
-    rowIsSelected: boolean
+    rowIsActive: boolean
   ): React.CSSProperties | undefined {
-    if (!rowIsSelected) return undefined;
+    if (!rowIsActive || !gridFocused || !showActiveRowIndicator) {
+      return undefined;
+    }
 
     return {
       outline:
@@ -360,6 +390,7 @@ export function GridBody(props: GridBodyProps) {
     row: any,
     rowIndex: number,
     rowIsSelected: boolean,
+    rowIsActive: boolean,
     disabledRow: boolean | null | undefined,
     virtualSize?: number
   ): React.CSSProperties {
@@ -381,7 +412,7 @@ export function GridBody(props: GridBodyProps) {
       Number.isFinite(maxRowHeight)
         ? { maxHeight: maxRowHeight }
         : {}),
-      ...getRowThemeStyle(rowIsSelected),
+      ...getRowThemeStyle(rowIsActive),
     };
 
     const configuredStyle =
@@ -946,6 +977,7 @@ export function GridBody(props: GridBodyProps) {
           {virtualItems.map((vi) => {
             const row = rowModel[vi.index]!;
             const rowIsSelected = Boolean(selectedMap[row.id]);
+            const rowIsActive = vi.index === activeIndex;
             const disabledRow = getDisabledRowState(vi.index);
             const rowIsDisabled = Boolean(disabledRow);
 
@@ -954,13 +986,20 @@ export function GridBody(props: GridBodyProps) {
                 ref={rowHeight == null ? measureNaturalRow : undefined}
                 key={row.id}
                 className={cn(
-                  getRowThemeClasses(vi.index, rowIsSelected, rowIsDisabled),
+                  getRowThemeClasses(
+                    vi.index,
+                    rowIsSelected,
+                    rowIsDisabled,
+                    rowIsActive
+                  ),
                   showHorizontalCellBorders
                     ? "InovuaReactDataGrid__row--show-horizontal-borders"
                     : "",
                   vi.index === 0 ? "InovuaReactDataGrid__row--first" : ""
                 )}
+                id={`${rowIdPrefix}-${vi.index}`}
                 data-selected={rowIsSelected ? "true" : "false"}
+                data-active={rowIsActive ? "true" : "false"}
                 data-disabled={rowIsDisabled ? "true" : undefined}
                 data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
                 data-row-id={row.id}
@@ -968,17 +1007,20 @@ export function GridBody(props: GridBodyProps) {
                 data-index={vi.index}
                 data-slot="grid-row"
                 aria-disabled={rowIsDisabled || undefined}
+                aria-current={rowIsActive ? "true" : undefined}
+                aria-selected={selectionEnabled ? rowIsSelected : undefined}
                 style={getRowStyle(
                   row,
                   vi.index,
                   rowIsSelected,
+                  rowIsActive,
                   disabledRow,
                   vi.size
                 )}
                 onClick={
                   rowIsDisabled
                     ? undefined
-                    : (e) => onRowClick?.(row.id, row.original, e)
+                    : (e) => onRowClick?.(row.id, row.original, vi.index, e)
                 }
               >
                 {renderCells(row, vi.index, vi.size)}
@@ -1007,6 +1049,7 @@ export function GridBody(props: GridBodyProps) {
           ) : null}
           {rowModel.map((row, displayIndex) => {
             const rowIsSelected = Boolean(selectedMap[row.id]);
+            const rowIsActive = displayIndex === activeIndex;
             const disabledRow = getDisabledRowState(displayIndex);
             const rowIsDisabled = Boolean(disabledRow);
 
@@ -1017,30 +1060,36 @@ export function GridBody(props: GridBodyProps) {
                   getRowThemeClasses(
                     displayIndex,
                     rowIsSelected,
-                    rowIsDisabled
+                    rowIsDisabled,
+                    rowIsActive
                   ),
                   showHorizontalCellBorders
                     ? "InovuaReactDataGrid__row--show-horizontal-borders"
                     : "",
                   displayIndex === 0 ? "InovuaReactDataGrid__row--first" : ""
                 )}
+                id={`${rowIdPrefix}-${displayIndex}`}
                 data-selected={rowIsSelected ? "true" : "false"}
+                data-active={rowIsActive ? "true" : "false"}
                 data-disabled={rowIsDisabled ? "true" : undefined}
                 data-row-parity={displayIndex % 2 === 0 ? "odd" : "even"}
                 data-row-id={row.id}
                 data-row-index={displayIndex}
                 data-slot="grid-row"
                 aria-disabled={rowIsDisabled || undefined}
+                aria-current={rowIsActive ? "true" : undefined}
+                aria-selected={selectionEnabled ? rowIsSelected : undefined}
                 style={getRowStyle(
                   row,
                   displayIndex,
                   rowIsSelected,
+                  rowIsActive,
                   disabledRow
                 )}
                 onClick={
                   rowIsDisabled
                     ? undefined
-                    : (e) => onRowClick?.(row.id, row.original, e)
+                    : (e) => onRowClick?.(row.id, row.original, displayIndex, e)
                 }
               >
                 {renderCells(row, displayIndex)}

@@ -44,6 +44,13 @@ type MobileGridListProps = {
   checkboxColumnId: string;
   loading: boolean;
   selectedMap: Record<string, unknown>;
+  activeIndex: number;
+  gridFocused: boolean;
+  selectionEnabled: boolean;
+  rowIdPrefix: string;
+  rowFocusClassName?: string;
+  showActiveRowIndicator: boolean;
+  activeRowIndicatorClassName?: string;
   isRowDisabled: (rowIndex: number) => boolean;
   i18n: TypeDataGridProps["i18n"];
   emptyText: TypeDataGridProps["emptyText"];
@@ -57,6 +64,7 @@ type MobileGridListProps = {
   onRowClick: (
     id: string,
     data: Record<string, unknown>,
+    rowIndex: number,
     event: React.MouseEvent
   ) => void;
 };
@@ -77,6 +85,13 @@ export function MobileGridList({
   checkboxColumnId,
   loading,
   selectedMap,
+  activeIndex,
+  gridFocused,
+  selectionEnabled,
+  rowIdPrefix,
+  rowFocusClassName,
+  showActiveRowIndicator,
+  activeRowIndicatorClassName,
   isRowDisabled,
   i18n,
   emptyText,
@@ -329,6 +344,16 @@ export function MobileGridList({
     virtualizer.scrollToOffset(0);
   }, [deferredQuery, virtualizer]);
 
+  React.useLayoutEffect(() => {
+    if (!gridFocused || activeIndex < 0) return;
+    const displayIndex = filteredRows.findIndex(
+      (row) => row.index === activeIndex
+    );
+    if (displayIndex >= 0) {
+      virtualizer.scrollToIndex(displayIndex, { align: "auto" });
+    }
+  }, [activeIndex, filteredRows, gridFocused, virtualizer]);
+
   const emptyContent =
     !loading && filteredRows.length === 0
       ? resolveEmptyText(emptyText, i18n)
@@ -547,7 +572,10 @@ export function MobileGridList({
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = filteredRows[virtualRow.index]!;
-              const rowIsDisabled = isRowDisabled(virtualRow.index);
+              const rowIndex = row.index;
+              const rowIsDisabled = isRowDisabled(rowIndex);
+              const rowIsSelected = Boolean(selectedMap[row.id]);
+              const rowIsActive = rowIndex === activeIndex;
               const cells = row.getVisibleCells();
               const checkboxCell = cells.find(
                 (cell) => cell.column.id === checkboxColumnId
@@ -589,18 +617,38 @@ export function MobileGridList({
                   <article
                     className={cn(
                       "rounded-md border bg-background p-4 shadow-sm [border-color:var(--tdg-grid-border-color)]",
-                      Boolean(selectedMap[row.id]) && "ring-2 ring-ring",
+                      rowIsSelected && "ring-2 ring-ring",
+                      rowIsActive &&
+                        "tdg-row--active InovuaReactDataGrid__row--active",
+                      rowIsActive &&
+                        gridFocused &&
+                        cn(
+                          "tdg-row--focused InovuaReactDataGrid__row--focused",
+                          rowFocusClassName,
+                          showActiveRowIndicator &&
+                            "outline outline-2 outline-offset-[-2px] outline-ring",
+                          showActiveRowIndicator
+                            ? activeRowIndicatorClassName
+                            : ""
+                        ),
                       rowIsDisabled &&
                         "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
                     )}
+                    id={`${rowIdPrefix}-${rowIndex}`}
+                    data-slot="grid-row"
                     data-row-id={row.id}
-                    data-row-index={virtualRow.index}
+                    data-row-index={rowIndex}
+                    data-selected={rowIsSelected ? "true" : "false"}
+                    data-active={rowIsActive ? "true" : "false"}
                     data-disabled={rowIsDisabled ? "true" : undefined}
                     aria-disabled={rowIsDisabled || undefined}
+                    aria-current={rowIsActive ? "true" : undefined}
+                    aria-selected={selectionEnabled ? rowIsSelected : undefined}
                     onClick={
                       rowIsDisabled
                         ? undefined
-                        : (event) => onRowClick(row.id, row.original, event)
+                        : (event) =>
+                            onRowClick(row.id, row.original, rowIndex, event)
                     }
                   >
                     <header className="flex min-w-0 items-start gap-3">

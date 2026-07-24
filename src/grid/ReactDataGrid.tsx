@@ -18,6 +18,7 @@ import type {
   TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
+  TypeOnSelectionChangeArg,
   TypeRowSelection,
   TypeStartEditArgs,
   TypeSortInfo,
@@ -133,7 +134,13 @@ type ReactDataGridDefaultPropName =
   | "editStartEvent"
   | "emptyText"
   | "headerHeight"
-  | "filterRowHeight";
+  | "filterRowHeight"
+  | "enableKeyboardNavigation"
+  | "activateRowOnFocus"
+  | "keyPageStep"
+  | "allowRowTabNavigation"
+  | "toggleRowSelectOnClick"
+  | "showActiveRowIndicator";
 
 type ReactDataGridDefaultProps = Required<
   Pick<TypeDataGridProps, ReactDataGridDefaultPropName>
@@ -161,6 +168,12 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   emptyText: "noRecords",
   headerHeight: 40,
   filterRowHeight: 40,
+  enableKeyboardNavigation: true,
+  activateRowOnFocus: true,
+  keyPageStep: 10,
+  allowRowTabNavigation: false,
+  toggleRowSelectOnClick: false,
+  showActiveRowIndicator: true,
 };
 
 type ReactDataGridComponent = React.FunctionComponent<TypeDataGridProps> & {
@@ -619,12 +632,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
     headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
     filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
     disabledRows,
+    activeIndex: controlledActiveIndex,
+    defaultActiveIndex,
+    onActiveIndexChange,
+    activeIndexThrottle,
+    enableKeyboardNavigation = REACT_DATA_GRID_DEFAULT_PROPS.enableKeyboardNavigation,
+    activateRowOnFocus = REACT_DATA_GRID_DEFAULT_PROPS.activateRowOnFocus,
+    keyPageStep = REACT_DATA_GRID_DEFAULT_PROPS.keyPageStep,
+    allowRowTabNavigation = REACT_DATA_GRID_DEFAULT_PROPS.allowRowTabNavigation,
+    toggleRowSelectOnClick = REACT_DATA_GRID_DEFAULT_PROPS.toggleRowSelectOnClick,
+    rowFocusClassName,
+    focusedClassName,
+    showActiveRowIndicator = REACT_DATA_GRID_DEFAULT_PROPS.showActiveRowIndicator,
+    activeRowIndicatorClassName,
 
     className,
     style,
-    onKeyDown,
-    onFocus,
-    onBlur,
+    onKeyDown: onKeyDownProp,
+    onFocus: onFocusProp,
+    onBlur: onBlurProp,
   } = props;
   const disabledRowsRef = React.useRef(disabledRows);
   disabledRowsRef.current = disabledRows;
@@ -742,11 +768,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
     props.checkboxColumn;
   const checkboxEnabled = Boolean(checkboxColumnProp);
   const controlledSelected = props.selected !== undefined;
+  const controlledUnselected = props.unselected !== undefined;
   const selectionEnabled =
     props.enableSelection !== undefined
       ? Boolean(props.enableSelection)
       : controlledSelected ||
         props.defaultSelected !== undefined ||
+        controlledUnselected ||
+        props.defaultUnselected !== undefined ||
         checkboxEnabled;
 
   const checkboxColId = React.useMemo(() => {
@@ -766,7 +795,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         typeof selectionValue === "boolean" ||
         (!controlledSelected && checkboxEnabled)))
     : false;
-  const checkboxOnlyRowSelect = props.checkboxOnlyRowSelect ?? checkboxEnabled;
+  const checkboxOnlyRowSelect = props.checkboxOnlyRowSelect ?? false;
   const checkboxSelectEnableShiftKey =
     props.checkboxSelectEnableShiftKey ?? false;
 
@@ -781,32 +810,89 @@ function ReactDataGrid(props: TypeDataGridProps) {
       ? (props.selected as TypeRowSelection)
       : internalSelected
     : null;
-  const selectedMap = React.useMemo(() => toSelectionMap(selected), [selected]);
+  const normalizedSelected = unwrapSelectionState(selected);
+  const selectedWrapper =
+    selected &&
+    typeof selected === "object" &&
+    "selected" in selected &&
+    ("data" in selected ||
+      "unselected" in selected ||
+      "originalData" in selected)
+      ? (selected as TypeOnSelectionChangeArg)
+      : null;
+  const selectedWrapperUnselected = selectedWrapper?.unselected as
+    | Record<string, boolean>
+    | null
+    | undefined;
+
+  const [internalUnselected, setInternalUnselected] = React.useState<Record<
+    string,
+    boolean
+  > | null>(() => props.defaultUnselected ?? null);
+  const unselected =
+    selectionEnabled && multiSelect
+      ? controlledUnselected
+        ? (props.unselected ?? null)
+        : selectedWrapperUnselected !== undefined
+          ? selectedWrapperUnselected
+          : internalUnselected
+      : null;
+
+  const [activeIndexState, setActiveIndexState] = useControllableState<number>({
+    value: controlledActiveIndex,
+    defaultValue: defaultActiveIndex ?? -1,
+    onChange: onActiveIndexChange,
+  });
+  const [gridFocused, setGridFocused] = React.useState(false);
+  const lastActiveIndexRef = React.useRef<number | null>(null);
+  const pendingActiveIndexRef = React.useRef<number | null>(null);
+  const activeIndexThrottleTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(
+    () => () => {
+      if (activeIndexThrottleTimerRef.current != null) {
+        window.clearTimeout(activeIndexThrottleTimerRef.current);
+      }
+    },
+    []
+  );
 
   const lastSelectedIndexRef = React.useRef<number | null>(null);
+  const selectionRangeBaseRef = React.useRef<Record<string, any> | null>(null);
   const lastPointerRef = React.useRef<{ shiftKey: boolean }>({
     shiftKey: false,
   });
 
   const emitSelectionChange = React.useCallback(
     (
-      nextMap: Record<string, any>,
+      nextSelected: TypeRowSelection,
       meta?: { data?: unknown; unselected?: TypeRowSelection }
     ) => {
       if (!selectionEnabled) return;
 
-      const nextSelected: TypeRowSelection = nextMap;
+      const nextUnselected =
+        nextSelected === true
+          ? ((meta?.unselected as Record<string, boolean> | null | undefined) ??
+            null)
+          : null;
 
       if (!controlledSelected) setInternalSelected(nextSelected);
+      if (!controlledUnselected) setInternalUnselected(nextUnselected);
 
       props.onSelectionChange?.({
         selected: nextSelected,
         data: meta?.data,
-        unselected: meta?.unselected,
+        unselected: nextUnselected,
         originalData: dataSource,
       });
     },
-    [controlledSelected, dataSource, props, selectionEnabled]
+    [
+      controlledSelected,
+      controlledUnselected,
+      dataSource,
+      props,
+      selectionEnabled,
+    ]
   );
 
   /** ---------------- filter types ---------------- */
@@ -1064,15 +1150,37 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () => toTanStackColumnFiltersState(filterValue, allInputColumns),
     [allInputColumns, filterValue]
   );
-  const tanstackRowSelection = React.useMemo(
-    () => toTanStackRowSelectionState(selected),
-    [selected]
-  );
 
   /** ---------------- data loading ---------------- */
 
   const [rows, setRows] = React.useState<any[]>([]);
   const [count, setCount] = React.useState<number>(0);
+  const getRowKey = React.useCallback(
+    (row: any, index: number) => {
+      const value = row?.[idProperty];
+      return value == null ? String(index) : String(value);
+    },
+    [idProperty]
+  );
+  const selectedMap = React.useMemo(() => {
+    if (!selectionEnabled) return {};
+
+    if (normalizedSelected === true) {
+      const result: Record<string, any> = {};
+      rows.forEach((row, index) => {
+        const rowId = getRowKey(row, index);
+        if (!unselected?.[rowId]) result[rowId] = row;
+      });
+      return result;
+    }
+    if (normalizedSelected === false || normalizedSelected == null) return {};
+
+    return toSelectionMap(normalizedSelected);
+  }, [getRowKey, normalizedSelected, rows, selectionEnabled, unselected]);
+  const tanstackRowSelection = React.useMemo(
+    () => toTanStackRowSelectionState(selectedMap),
+    [selectedMap]
+  );
   const [internalLoading, setInternalLoading] = React.useState(false);
   const [loadingOverride, setLoadingOverride] = React.useState<boolean | null>(
     null
@@ -1506,38 +1614,252 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- selection helpers ---------------- */
 
-  const getRowKey = React.useCallback(
-    (row: any, index: number) => {
-      const v = row?.[idProperty];
-      return v == null ? String(index) : String(v);
+  const normalizedActiveIndex =
+    enableKeyboardNavigation && rows.length > 0
+      ? clamp(activeIndexState, -1, rows.length - 1)
+      : -1;
+
+  const setActiveIndexCompat = React.useCallback(
+    (nextActiveIndex: number) => {
+      if (!enableKeyboardNavigation || Number.isNaN(nextActiveIndex)) return;
+
+      const normalized =
+        rows.length === 0
+          ? -1
+          : nextActiveIndex < 0
+            ? -1
+            : clamp(Math.trunc(nextActiveIndex), 0, rows.length - 1);
+      pendingActiveIndexRef.current = normalized;
+      if (normalized === normalizedActiveIndex) return;
+      setActiveIndexState(normalized);
     },
-    [idProperty]
+    [
+      enableKeyboardNavigation,
+      normalizedActiveIndex,
+      rows.length,
+      setActiveIndexState,
+    ]
   );
 
-  const handleRowClick = React.useCallback(
-    (rowId: string, rowData: any, e: React.MouseEvent) => {
-      if (!selectionEnabled) return;
-      if (checkboxOnlyRowSelect) return;
-      if (isInteractiveClickTarget(e.target as any)) return;
+  const incrementActiveIndex = React.useCallback(
+    (increment: number) => {
+      if (!enableKeyboardNavigation || rows.length === 0) return;
 
-      const next = { ...selectedMap };
+      const base = pendingActiveIndexRef.current ?? normalizedActiveIndex;
+      const next = clamp(base + increment, 0, rows.length - 1);
+      const delay =
+        typeof activeIndexThrottle === "number" &&
+        Number.isFinite(activeIndexThrottle)
+          ? Math.max(0, activeIndexThrottle)
+          : 0;
 
-      if (multiSelect) {
-        if (next[rowId]) delete next[rowId];
-        else next[rowId] = rowData;
-      } else {
-        Object.keys(next).forEach((k) => delete next[k]);
-        next[rowId] = rowData;
+      pendingActiveIndexRef.current = next;
+      if (delay === 0) {
+        setActiveIndexCompat(next);
+        return;
       }
 
-      emitSelectionChange(next, { data: rowData });
+      if (activeIndexThrottleTimerRef.current != null) return;
+      activeIndexThrottleTimerRef.current = window.setTimeout(() => {
+        activeIndexThrottleTimerRef.current = null;
+        const pending = pendingActiveIndexRef.current;
+        if (pending != null) setActiveIndexCompat(pending);
+      }, delay);
+    },
+    [
+      activeIndexThrottle,
+      enableKeyboardNavigation,
+      normalizedActiveIndex,
+      rows.length,
+      setActiveIndexCompat,
+    ]
+  );
+
+  React.useEffect(() => {
+    pendingActiveIndexRef.current = normalizedActiveIndex;
+  }, [normalizedActiveIndex]);
+
+  const clearSelectionRange = React.useCallback(() => {
+    selectionRangeBaseRef.current = null;
+  }, []);
+
+  const commitRowSelection = React.useCallback(
+    (
+      rowIndex: number,
+      options: {
+        checked?: boolean;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+        shiftKey?: boolean;
+        fromCheckbox?: boolean;
+      } = {}
+    ) => {
+      if (!selectionEnabled) return;
+      const row = rows[rowIndex];
+      if (!row) return;
+
+      const rowId = getRowKey(row, rowIndex);
+      const isSelected = Boolean(selectedMap[rowId]);
+      const ctrlKey = Boolean(options.ctrlKey || options.metaKey);
+      const shiftKey = Boolean(options.shiftKey);
+
+      if (!multiSelect) {
+        const shouldSelect =
+          options.checked ??
+          (isSelected && (ctrlKey || toggleRowSelectOnClick) ? false : true);
+        emitSelectionChange(shouldSelect ? rowId : null, { data: row });
+        lastSelectedIndexRef.current = shouldSelect ? rowIndex : null;
+        clearSelectionRange();
+        return;
+      }
+
+      if (
+        shiftKey &&
+        lastSelectedIndexRef.current != null &&
+        (!options.fromCheckbox || checkboxSelectEnableShiftKey)
+      ) {
+        const base = selectionRangeBaseRef.current ?? { ...selectedMap };
+        selectionRangeBaseRef.current = { ...base };
+        const next = { ...base };
+        const from = Math.min(lastSelectedIndexRef.current, rowIndex);
+        const to = Math.max(lastSelectedIndexRef.current, rowIndex);
+        const checked = options.checked ?? true;
+
+        for (let index = from; index <= to; index += 1) {
+          const rangeRow = rows[index];
+          if (!rangeRow) continue;
+          const rangeId = getRowKey(rangeRow, index);
+          if (checked) next[rangeId] = rangeRow;
+          else delete next[rangeId];
+        }
+
+        emitSelectionChange(next, {
+          data: rows.slice(from, to + 1),
+        });
+        return;
+      }
+
+      clearSelectionRange();
+      lastSelectedIndexRef.current = rowIndex;
+
+      const shouldToggle =
+        options.checked === undefined &&
+        (ctrlKey ||
+          (toggleRowSelectOnClick &&
+            Object.keys(selectedMap).length === 1 &&
+            isSelected));
+      const shouldSelect =
+        options.checked ?? (shouldToggle ? !isSelected : true);
+
+      if (normalizedSelected === true && (ctrlKey || options.fromCheckbox)) {
+        const nextUnselected = { ...(unselected ?? {}) };
+        if (shouldSelect) delete nextUnselected[rowId];
+        else nextUnselected[rowId] = true;
+        emitSelectionChange(true, {
+          data: row,
+          unselected: nextUnselected,
+        });
+        return;
+      }
+
+      const next =
+        shouldToggle || options.fromCheckbox ? { ...selectedMap } : {};
+      if (shouldSelect) next[rowId] = row;
+      else delete next[rowId];
+      emitSelectionChange(next, { data: row });
+    },
+    [
+      checkboxSelectEnableShiftKey,
+      clearSelectionRange,
+      emitSelectionChange,
+      getRowKey,
+      multiSelect,
+      rows,
+      normalizedSelected,
+      selectedMap,
+      selectionEnabled,
+      toggleRowSelectOnClick,
+      unselected,
+    ]
+  );
+
+  const selectAllRows = React.useCallback(() => {
+    if (!selectionEnabled || rows.length === 0) return;
+
+    if (!multiSelect) {
+      emitSelectionChange(getRowKey(rows[0], 0), { data: rows[0] });
+      return;
+    }
+
+    clearSelectionRange();
+    if (paginationMode !== false || !Array.isArray(dataSource)) {
+      emitSelectionChange(true, { data: rows, unselected: null });
+      return;
+    }
+
+    const next: Record<string, any> = {};
+    rows.forEach((row, index) => {
+      next[getRowKey(row, index)] = row;
+    });
+    emitSelectionChange(next, { data: rows });
+  }, [
+    clearSelectionRange,
+    dataSource,
+    emitSelectionChange,
+    getRowKey,
+    multiSelect,
+    paginationMode,
+    rows,
+    selectionEnabled,
+  ]);
+
+  const deselectAllRows = React.useCallback(() => {
+    if (!selectionEnabled) return;
+    clearSelectionRange();
+    lastSelectedIndexRef.current = null;
+    emitSelectionChange(multiSelect ? {} : null, {
+      data: rows,
+      unselected: null,
+    });
+  }, [
+    clearSelectionRange,
+    emitSelectionChange,
+    multiSelect,
+    rows,
+    selectionEnabled,
+  ]);
+
+  const handleRowClick = React.useCallback(
+    (
+      rowId: string,
+      rowData: any,
+      rowIndex: number,
+      event: React.MouseEvent
+    ) => {
+      void rowId;
+      void rowData;
+
+      const interactiveTarget = isInteractiveClickTarget(event.target as any);
+      if (!interactiveTarget) {
+        surfaceRef.current?.focus({ preventScroll: true });
+      }
+      setActiveIndexCompat(rowIndex);
+
+      if (!selectionEnabled || checkboxOnlyRowSelect || interactiveTarget) {
+        return;
+      }
+
+      commitRowSelection(rowIndex, {
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+      });
     },
     [
       checkboxOnlyRowSelect,
-      emitSelectionChange,
-      multiSelect,
-      selectedMap,
+      commitRowSelection,
       selectionEnabled,
+      setActiveIndexCompat,
     ]
   );
 
@@ -1558,18 +1880,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
     selectedMap,
     selectionEnabled,
     multiSelect,
-    checkboxSelectEnableShiftKey,
     getRowKey,
-    emitSelectionChange,
+    commitRowSelection,
+    selectAllRows,
+    deselectAllRows,
+    setActiveIndexCompat,
   });
   selectionRuntimeRef.current = {
     rows,
     selectedMap,
     selectionEnabled,
     multiSelect,
-    checkboxSelectEnableShiftKey,
     getRowKey,
-    emitSelectionChange,
+    commitRowSelection,
+    selectAllRows,
+    deselectAllRows,
+    setActiveIndexCompat,
   };
 
   const columnDefs = React.useMemo<ColumnDef<any, any>[]>(() => {
@@ -1621,26 +1947,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
               const current = selectionRuntimeRef.current;
               if (!current.selectionEnabled) return;
 
-              if (!current.multiSelect) {
-                const next: Record<string, any> = {};
-                if (checked && current.rows[0]) {
-                  next[current.getRowKey(current.rows[0], 0)] = current.rows[0];
-                }
-                current.emitSelectionChange(next, { data: current.rows[0] });
-                return;
-              }
-
-              const next = { ...current.selectedMap };
-              if (checked) {
-                current.rows.forEach((r, idx) => {
-                  next[current.getRowKey(r, idx)] = r;
-                });
-              } else {
-                current.rows.forEach((r, idx) => {
-                  delete next[current.getRowKey(r, idx)];
-                });
-              }
-              current.emitSelectionChange(next, { data: current.rows });
+              if (checked) current.selectAllRows();
+              else current.deselectAllRows();
             };
 
             const checkboxProps: TypeCheckboxProps = {
@@ -1696,41 +2004,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
             const onChange = (checked: boolean) => {
               const current = selectionRuntimeRef.current;
               if (!current.selectionEnabled) return;
-
-              const shiftKey =
-                current.checkboxSelectEnableShiftKey &&
-                lastPointerRef.current.shiftKey === true;
-              const next = { ...current.selectedMap };
-
-              const rowModel = ctx.table.getRowModel().rows;
-
-              if (
-                shiftKey &&
-                current.multiSelect &&
-                lastSelectedIndexRef.current != null
-              ) {
-                const from = Math.min(lastSelectedIndexRef.current, rowIndex);
-                const to = Math.max(lastSelectedIndexRef.current, rowIndex);
-
-                for (let i = from; i <= to; i++) {
-                  const r = rowModel[i];
-                  if (!r) continue;
-                  if (checked) next[r.id] = r.original;
-                  else delete next[r.id];
-                }
-              } else {
-                if (checked) {
-                  if (!current.multiSelect) {
-                    Object.keys(next).forEach((k) => delete next[k]);
-                  }
-                  next[rowId] = rowData;
-                } else {
-                  delete next[rowId];
-                }
-              }
-
-              lastSelectedIndexRef.current = rowIndex;
-              current.emitSelectionChange(next, { data: rowData });
+              current.setActiveIndexCompat(rowIndex);
+              current.commitRowSelection(rowIndex, {
+                checked,
+                shiftKey: lastPointerRef.current.shiftKey,
+                fromCheckbox: true,
+              });
             };
 
             const checkboxProps: TypeCheckboxProps = {
@@ -4380,54 +4659,40 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const setSelectedCompat = React.useCallback(
     (nextSelected: TypeRowSelection) => {
-      emitSelectionChange(toSelectionMap(unwrapSelectionState(nextSelected)));
+      const normalized = unwrapSelectionState(nextSelected);
+      emitSelectionChange(normalized, {
+        unselected: normalized === true ? unselected : null,
+      });
     },
-    [emitSelectionChange]
+    [emitSelectionChange, unselected]
   );
 
-  const selectAllCompat = React.useCallback(() => {
-    const next: Record<string, any> = {};
-
-    if (!multiSelect) {
-      if (rows[0]) {
-        next[getRowKey(rows[0], 0)] = rows[0];
-      }
-    } else {
-      rows.forEach((row, index) => {
-        next[getRowKey(row, index)] = row;
-      });
-    }
-
-    emitSelectionChange(next, { data: rows });
-  }, [emitSelectionChange, getRowKey, multiSelect, rows]);
-
-  const deselectAllCompat = React.useCallback(() => {
-    emitSelectionChange({}, { data: rows });
-  }, [emitSelectionChange, rows]);
+  const selectAllCompat = selectAllRows;
+  const deselectAllCompat = deselectAllRows;
 
   const setSelectedByIdCompat = React.useCallback(
     (id: string, nextSelected: boolean) => {
-      const row = rows.find(
+      const rowIndex = rows.findIndex(
         (candidate, index) => getRowKey(candidate, index) === id
       );
-      const next = multiSelect ? { ...selectedMap } : {};
-
-      if (nextSelected && row) next[id] = row;
-      else delete next[id];
-
-      emitSelectionChange(next, { data: row });
+      if (rowIndex < 0) return;
+      commitRowSelection(rowIndex, {
+        checked: nextSelected,
+        fromCheckbox: true,
+      });
     },
-    [emitSelectionChange, getRowKey, multiSelect, rows, selectedMap]
+    [commitRowSelection, getRowKey, rows]
   );
 
   const setSelectedAtCompat = React.useCallback(
     (index: number, nextSelected: boolean) => {
-      const row = rows[index];
-      if (!row) return;
-
-      setSelectedByIdCompat(getRowKey(row, index), nextSelected);
+      if (!rows[index]) return;
+      commitRowSelection(index, {
+        checked: nextSelected,
+        fromCheckbox: true,
+      });
     },
-    [getRowKey, rows, setSelectedByIdCompat]
+    [commitRowSelection, rows]
   );
 
   const getItemIndexByIdCompat = React.useCallback(
@@ -4480,9 +4745,24 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (index < 0) return;
 
       if (virtualized) {
-        rowVirtualizer.scrollToIndex(index, {
-          align: config?.direction === "bottom" ? "end" : "start",
-        });
+        const viewport = scrollRef.current;
+        if (
+          viewport &&
+          typeof rowHeight === "number" &&
+          Number.isFinite(rowHeight)
+        ) {
+          const resolvedHeight = resolveRowHeight(index);
+          viewport.scrollTop =
+            config?.direction === "bottom"
+              ? stickyHeaderOffset +
+                (index + 1) * resolvedHeight -
+                viewport.clientHeight
+              : index * resolvedHeight;
+        } else {
+          rowVirtualizer.scrollToIndex(index, {
+            align: config?.direction === "bottom" ? "end" : "start",
+          });
+        }
       } else {
         const rowNode = surfaceRef.current?.querySelector<HTMLElement>(
           `[data-slot="grid-row"][data-row-index="${index}"]`
@@ -4498,7 +4778,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       callback?.();
     },
-    [rowVirtualizer, virtualized]
+    [
+      resolveRowHeight,
+      rowHeight,
+      rowVirtualizer,
+      stickyHeaderOffset,
+      virtualized,
+    ]
   );
 
   const scrollToColumnCompat = React.useCallback(
@@ -4612,6 +4898,170 @@ function ReactDataGrid(props: TypeDataGridProps) {
       rowRect.top >= viewportRect.top && rowRect.bottom <= viewportRect.bottom
     );
   }, []);
+
+  const handleGridFocus = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      onFocusProp?.(event);
+      if (event.defaultPrevented) return;
+
+      const relatedTarget = event.relatedTarget;
+      if (
+        relatedTarget instanceof Node &&
+        rootRef.current?.contains(relatedTarget)
+      ) {
+        return;
+      }
+
+      setGridFocused(true);
+      if (
+        enableKeyboardNavigation &&
+        activateRowOnFocus &&
+        normalizedActiveIndex < 0 &&
+        rows.length > 0
+      ) {
+        const visibleIndex = getRenderRangeCompat().from;
+        const restoredIndex = lastActiveIndexRef.current;
+        setActiveIndexCompat(
+          restoredIndex != null &&
+            restoredIndex >= 0 &&
+            restoredIndex < rows.length
+            ? restoredIndex
+            : clamp(visibleIndex, 0, rows.length - 1)
+        );
+      }
+    },
+    [
+      activateRowOnFocus,
+      enableKeyboardNavigation,
+      getRenderRangeCompat,
+      normalizedActiveIndex,
+      onFocusProp,
+      rows.length,
+      setActiveIndexCompat,
+    ]
+  );
+
+  const handleGridBlur = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const relatedTarget = event.relatedTarget;
+      if (
+        relatedTarget instanceof Node &&
+        rootRef.current?.contains(relatedTarget)
+      ) {
+        return;
+      }
+
+      onBlurProp?.(event);
+      if (event.defaultPrevented) return;
+
+      if (normalizedActiveIndex >= 0) {
+        lastActiveIndexRef.current = normalizedActiveIndex;
+      }
+      setGridFocused(false);
+      setActiveIndexCompat(-1);
+    },
+    [normalizedActiveIndex, onBlurProp, setActiveIndexCompat]
+  );
+
+  const handleGridKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      onKeyDownProp?.(event);
+      if (
+        event.defaultPrevented ||
+        !enableKeyboardNavigation ||
+        rows.length === 0 ||
+        isInteractiveClickTarget(event.target as HTMLElement | null)
+      ) {
+        return;
+      }
+
+      const currentIndex =
+        normalizedActiveIndex < 0 ? 0 : normalizedActiveIndex;
+      const pageStep =
+        typeof keyPageStep === "number" && Number.isFinite(keyPageStep)
+          ? Math.max(1, Math.trunc(keyPageStep))
+          : REACT_DATA_GRID_DEFAULT_PROPS.keyPageStep;
+      let handled = true;
+
+      switch (event.key) {
+        case "ArrowUp":
+          incrementActiveIndex(-1);
+          break;
+        case "ArrowDown":
+          incrementActiveIndex(1);
+          break;
+        case "Home":
+          setActiveIndexCompat(0);
+          break;
+        case "End":
+          setActiveIndexCompat(rows.length - 1);
+          break;
+        case "PageUp":
+          setActiveIndexCompat(currentIndex - pageStep);
+          break;
+        case "PageDown":
+          setActiveIndexCompat(currentIndex + pageStep);
+          break;
+        case "Enter":
+          commitRowSelection(currentIndex, {
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+          });
+          break;
+        case "Tab": {
+          if (!allowRowTabNavigation) {
+            handled = false;
+            break;
+          }
+
+          const nextIndex = currentIndex + (event.shiftKey ? -1 : 1);
+          if (nextIndex < 0 || nextIndex >= rows.length) {
+            handled = false;
+            break;
+          }
+          setActiveIndexCompat(nextIndex);
+          break;
+        }
+        default:
+          handled = false;
+      }
+
+      if (handled) event.preventDefault();
+    },
+    [
+      allowRowTabNavigation,
+      commitRowSelection,
+      enableKeyboardNavigation,
+      incrementActiveIndex,
+      keyPageStep,
+      normalizedActiveIndex,
+      onKeyDownProp,
+      rows.length,
+      setActiveIndexCompat,
+    ]
+  );
+
+  const previousScrolledActiveIndexRef = React.useRef(-1);
+  React.useLayoutEffect(() => {
+    if (!gridFocused || normalizedActiveIndex < 0) return;
+
+    const previousIndex = previousScrolledActiveIndexRef.current;
+    previousScrolledActiveIndexRef.current = normalizedActiveIndex;
+    if (isRowFullyVisibleCompat(normalizedActiveIndex)) return;
+
+    scrollToIndexCompat(normalizedActiveIndex, {
+      direction:
+        previousIndex >= 0 && normalizedActiveIndex < previousIndex
+          ? "top"
+          : "bottom",
+    });
+  }, [
+    gridFocused,
+    isRowFullyVisibleCompat,
+    normalizedActiveIndex,
+    scrollToIndexCompat,
+  ]);
 
   // Non-virtual rows still participate in Inovua's virtual-list compatibility
   // API. Keep their explicit DOM measurements outside React state: the table
@@ -5077,7 +5527,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getRowIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
       getItemIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
       computedSelected: selected,
-      computedUnselected: {},
+      computedUnselected: unselected,
+      computedRowSelectionEnabled: selectionEnabled,
+      computedRowMultiSelectionEnabled: Boolean(multiSelect),
       getSelectedMap: () => ({ ...selectedMap }),
       setSelected: setSelectedCompat,
       selectAll: selectAllCompat,
@@ -5090,18 +5542,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const rowId = (value as any)?.[idProperty];
         return rowId == null ? false : Boolean(selectedMap[String(rowId)]);
       },
-      getSelectedCount: (selectionArg) =>
-        selectionEnabled
-          ? Object.keys(
-              toSelectionMap(
-                unwrapSelectionState(
-                  selectionArg ?? selected
-                ) as TypeRowSelection
-              )
-            ).length
-          : 0,
-      computedSelectedCount: Object.keys(selectedMap).length,
-      computedUnselectedCount: 0,
+      getSelectedCount: (selectionArg, unselectedArg) => {
+        if (!selectionEnabled) return 0;
+        const normalized = unwrapSelectionState(selectionArg ?? selected);
+        if (normalized === true) {
+          return Math.max(
+            0,
+            count -
+              Object.keys(toSelectionMap(unselectedArg ?? unselected)).length
+          );
+        }
+        return Object.keys(toSelectionMap(normalized)).length;
+      },
+      computedSelectedCount:
+        unwrapSelectionState(selected) === true
+          ? Math.max(0, count - Object.keys(unselected ?? {}).length)
+          : Object.keys(selectedMap).length,
+      computedUnselectedCount: Object.keys(unselected ?? {}).length,
       setSelectedById: setSelectedByIdCompat,
       setSelectedAt: setSelectedAtCompat,
       setRowSelected: setSelectedAtCompat,
@@ -5168,12 +5625,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
           }
         : undefined,
       paginationCount: pageCount,
-      computedActiveIndex: -1,
-      computedLastActiveIndex: null,
-      doSetLastActiveIndex: () => undefined,
-      computedActiveItem: null,
-      getActiveItem: () => null,
-      computedHasRowNavigation: false,
+      computedActiveIndex: normalizedActiveIndex,
+      computedLastActiveIndex: lastActiveIndexRef.current,
+      doSetLastActiveIndex: (index: number | null) => {
+        lastActiveIndexRef.current = index;
+      },
+      computedActiveItem:
+        normalizedActiveIndex >= 0 ? rows[normalizedActiveIndex] : null,
+      getActiveItem: () =>
+        normalizedActiveIndex >= 0 ? rows[normalizedActiveIndex] : null,
+      computedHasRowNavigation: enableKeyboardNavigation && rows.length > 0,
+      computedFocused: gridFocused,
+      setActiveIndex: setActiveIndexCompat,
+      incrementActiveIndex,
       computedShowHoverRows: true,
       computedShowZebraRows: showZebraRows,
       setShowZebraRows,
@@ -5228,8 +5692,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
       columnSizes,
       setColumnFlexes: () => undefined,
       setColumnSizes: () => undefined,
-      setActiveIndex: () => undefined,
-      incrementActiveIndex: () => undefined,
       setReservedViewportWidth: (nextValue: React.SetStateAction<number>) => {
         const nextReservedViewportWidth = resolveStateAction(
           nextValue,
@@ -5280,6 +5742,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     editable,
     editStartEvent,
     editingCell,
+    enableKeyboardNavigation,
     enableFiltering,
     effectiveEnableFiltering,
     filterControlled,
@@ -5292,11 +5755,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getRenderRangeCompat,
     getRowKey,
     getScrollingElement,
+    gridFocused,
     cancelEditCompat,
     completeEditCompat,
     getCurrentEditInfoCompat,
     i18n,
     idProperty,
+    incrementActiveIndex,
     incrementScrollLeftCompat,
     incrementScrollTopCompat,
     isRowFullyVisibleCompat,
@@ -5308,6 +5773,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     lockedColumnMetrics,
     lockedEndColumns,
     lockedStartColumns,
+    multiSelect,
+    normalizedActiveIndex,
     openFilterMenuColId,
     orderedColumns,
     originalData,
@@ -5321,6 +5788,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     selected,
     selectedMap,
     selectionEnabled,
+    unselected,
     showZebraRows,
     setColumnFilterValueCompat,
     setColumnOrderCompat,
@@ -5331,6 +5799,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSelectedAtCompat,
     setSelectedByIdCompat,
     setSelectedCompat,
+    setActiveIndexCompat,
     setShowZebraRows,
     setSkip,
     setSortInfoAndResetPage,
@@ -5387,6 +5856,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- render ---------------- */
 
+  const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
+
   return (
     <div
       ref={attachRootRef}
@@ -5398,6 +5869,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
         themeBase === "dark" ? "dark" : "",
         showVerticalCellBorders ? "InovuaReactDataGrid--show-border-right" : "",
         effectiveEnableFiltering ? "InovuaReactDataGrid--filterable" : "",
+        gridFocused
+          ? cn(
+              "tdg-root--focused InovuaReactDataGrid--focused",
+              focusedClassName
+            )
+          : "",
         className
       )}
       data-theme={themeName}
@@ -5406,10 +5883,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
       data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
+      data-focused={gridFocused ? "true" : "false"}
+      data-active-index={
+        normalizedActiveIndex >= 0 ? normalizedActiveIndex : "none"
+      }
       style={style}
-      onKeyDown={onKeyDown}
-      onFocus={onFocus}
-      onBlur={onBlur}
+      onKeyDown={handleGridKeyDown}
+      onFocus={handleGridFocus}
+      onBlur={handleGridBlur}
     >
       <DatagridThemeProvider
         theme={themeName}
@@ -5424,7 +5905,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             ref={surfaceRef}
             className="tdg-surface relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col bg-[var(--tdg-grid-bg)] text-foreground"
             data-slot="grid-surface"
-            tabIndex={-1}
+            tabIndex={enableKeyboardNavigation ? 0 : -1}
+            aria-label="Data grid"
           >
             {!liveColumnResize && resizeProxyLeft != null ? (
               <div
@@ -5444,6 +5926,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 checkboxColumnId={checkboxColId}
                 loading={loading}
                 selectedMap={selectedMap}
+                activeIndex={normalizedActiveIndex}
+                gridFocused={gridFocused}
+                selectionEnabled={selectionEnabled}
+                rowIdPrefix={rowIdPrefix}
+                rowFocusClassName={rowFocusClassName}
+                showActiveRowIndicator={showActiveRowIndicator}
+                activeRowIndicatorClassName={activeRowIndicatorClassName}
                 isRowDisabled={isRowDisabled}
                 i18n={i18n}
                 emptyText={props.emptyText}
@@ -5454,8 +5943,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 authoritativeResultCount={searchConnected ? count : undefined}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
-                onRowClick={(id, data, event) =>
-                  handleRowClick(id, data, event)
+                onRowClick={(id, data, rowIndex, event) =>
+                  handleRowClick(id, data, rowIndex, event)
                 }
               />
             ) : (
@@ -5571,8 +6060,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     i18n={i18n}
                     emptyText={props.emptyText}
                     selectedMap={selectedMap}
+                    activeIndex={normalizedActiveIndex}
+                    gridFocused={gridFocused}
+                    selectionEnabled={selectionEnabled}
+                    rowIdPrefix={rowIdPrefix}
+                    rowFocusClassName={rowFocusClassName}
+                    showActiveRowIndicator={showActiveRowIndicator}
+                    activeRowIndicatorClassName={activeRowIndicatorClassName}
                     getDisabledRowState={getDisabledRowState}
-                    onRowClick={(id, data, e) => handleRowClick(id, data, e)}
+                    onRowClick={(id, data, rowIndex, e) =>
+                      handleRowClick(id, data, rowIndex, e)
+                    }
                     rowHeight={rowHeight}
                     minRowHeight={computedMinRowHeight}
                     maxRowHeight={computedMaxRowHeight}
