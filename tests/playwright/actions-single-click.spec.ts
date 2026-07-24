@@ -163,6 +163,75 @@ test("actions example keeps the locked-end column mounted and aligned while hori
     );
   }
 
+  const lockedChrome = await grid.evaluate((element) => {
+    const selector = (kind: "header" | "filter" | "cell", columnId: string) =>
+      kind === "header"
+        ? `.tdg-header-cell[data-column-id="${columnId}"]`
+        : kind === "filter"
+          ? `.tdg-filter-cell[data-column-id="${columnId}"]`
+          : `tbody .InovuaReactDataGrid__cell[data-column-id="${columnId}"]`;
+
+    const computedShadow = (kind: "header" | "filter" | "cell", id: string) => {
+      const node = element.querySelector<HTMLElement>(selector(kind, id));
+      return node ? getComputedStyle(node).boxShadow : null;
+    };
+
+    const checkbox = element.querySelector<HTMLElement>(".tdg-checkbox");
+    const sampleHeader = element.querySelector<HTMLElement>(
+      '.tdg-header-cell[data-column-id="sample"] span'
+    );
+    const sampleCell = element.querySelector<HTMLElement>(
+      'tbody .InovuaReactDataGrid__cell[data-column-id="sample"] .tdg-cell-content'
+    );
+    const sampleRenderer = sampleCell?.firstElementChild as HTMLElement | null;
+    const actionButton = element.querySelector<HTMLElement>(
+      'tbody .InovuaReactDataGrid__cell[data-column-id="actions"] button'
+    );
+    const actionContent =
+      actionButton?.closest<HTMLElement>(".tdg-cell-content");
+
+    return {
+      lockedShadows: [
+        computedShadow("header", "__checkbox__"),
+        computedShadow("filter", "__checkbox__"),
+        computedShadow("cell", "__checkbox__"),
+        computedShadow("header", "actions"),
+        computedShadow("filter", "actions"),
+        computedShadow("cell", "actions"),
+      ],
+      checkboxShadow: checkbox ? getComputedStyle(checkbox).boxShadow : null,
+      headerContentLeft: sampleHeader?.getBoundingClientRect().left ?? null,
+      bodyContentLeft: sampleCell?.getBoundingClientRect().left ?? null,
+      sampleContentFits:
+        sampleCell && sampleRenderer
+          ? sampleRenderer.getBoundingClientRect().height <=
+            sampleCell.getBoundingClientRect().height
+          : null,
+      actionButtonFits:
+        actionButton && actionContent
+          ? actionButton.getBoundingClientRect().height <=
+            actionContent.getBoundingClientRect().height
+          : null,
+    };
+  });
+
+  expect(lockedChrome.lockedShadows).toEqual([
+    "none",
+    "none",
+    "none",
+    "none",
+    "none",
+    "none",
+  ]);
+  expect(lockedChrome.checkboxShadow).toBe("none");
+  expect(lockedChrome.headerContentLeft).not.toBeNull();
+  expect(lockedChrome.bodyContentLeft).not.toBeNull();
+  expect(
+    Math.abs(lockedChrome.headerContentLeft! - lockedChrome.bodyContentLeft!)
+  ).toBeLessThan(1);
+  expect(lockedChrome.sampleContentFits).toBe(true);
+  expect(lockedChrome.actionButtonFits).toBe(true);
+
   const initialScrollGeometry = await viewport.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
@@ -172,6 +241,42 @@ test("actions example keeps the locked-end column mounted and aligned while hori
     initialScrollGeometry.clientWidth
   );
   expect(initialScrollGeometry.scrollLeft).toBe(0);
+
+  await header.scrollIntoViewIfNeeded();
+  await viewport.evaluate((element) => {
+    element.scrollLeft = 160;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
+
+  const lockedEndOwnsVisibleBoundary = await grid.evaluate((element) => {
+    const cells = [
+      element.querySelector<HTMLElement>(
+        '.tdg-header-cell[data-column-id="actions"]'
+      ),
+      element.querySelector<HTMLElement>(
+        '.tdg-filter-cell[data-column-id="actions"]'
+      ),
+    ];
+
+    return cells.every((cell) => {
+      if (!cell) return false;
+      const rect = cell.getBoundingClientRect();
+      return [2, rect.width / 2, rect.width - 2].every((offset) => {
+        const hit = document.elementFromPoint(
+          rect.left + offset,
+          rect.top + rect.height / 2
+        );
+        return (
+          hit?.closest("[data-column-id]")?.getAttribute("data-column-id") ===
+          "actions"
+        );
+      });
+    });
+  });
+  expect(lockedEndOwnsVisibleBoundary).toBe(true);
 
   await viewport.evaluate((element) => {
     element.scrollLeft = element.scrollWidth;

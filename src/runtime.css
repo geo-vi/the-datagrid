@@ -803,6 +803,7 @@
   position: static !important;
   inset: auto !important;
   padding: 0 0.5rem !important;
+  isolation: isolate !important;
 }
 
 .tdg-root .tdg-header-cell__inner {
@@ -886,6 +887,7 @@
   position: static !important;
   inset: auto !important;
   padding: var(--tdg-filter-cell-padding, 0 0.25rem) !important;
+  isolation: isolate !important;
 }
 
 .tdg-root .InovuaReactDataGrid__cell {
@@ -914,6 +916,10 @@
   gap: 0 !important;
   overflow: hidden !important;
   position: relative !important;
+}
+
+.tdg-root .tdg-checkbox {
+  box-shadow: none !important;
 }
 
 /*
@@ -952,15 +958,13 @@
 }
 
 .tdg-root .tdg-locked-column--start-boundary {
-  box-shadow:
-    1px 0 0 var(--tdg-grid-border-color),
-    8px 0 12px -12px var(--tdg-color-foreground) !important;
+  border-right: 1px solid var(--tdg-grid-border-color) !important;
+  box-shadow: none !important;
 }
 
 .tdg-root .tdg-locked-column--end-boundary {
-  box-shadow:
-    -1px 0 0 var(--tdg-grid-border-color),
-    -8px 0 12px -12px var(--tdg-color-foreground) !important;
+  border-left: 1px solid var(--tdg-grid-border-color) !important;
+  box-shadow: none !important;
 }
 
 .tdg-root .InovuaReactDataGrid__column-header__sort-button {
@@ -970,8 +974,8 @@
   align-items: center !important;
   justify-content: space-between !important;
   gap: 0.5rem !important;
-  padding-left: 0.5rem !important;
-  padding-right: 0.5rem !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .tdg-root .InovuaReactDataGrid__sort-icon-wrapper {

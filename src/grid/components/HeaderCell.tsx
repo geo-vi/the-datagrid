@@ -265,7 +265,7 @@ export function HeaderCell(props: HeaderCellProps) {
           style={{ zIndex: columnIndex + 1 }}
         >
           {header.isPlaceholder ? null : canSort ? (
-            <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between px-2">
+            <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between">
               <span className="truncate text-inherit">
                 {flexRender(
                   header.column.columnDef.header,
@@ -275,7 +275,7 @@ export function HeaderCell(props: HeaderCellProps) {
               {sortIcon(dir)}
             </div>
           ) : (
-            <div className="flex min-w-0 flex-1 items-center px-2">
+            <div className="flex min-w-0 flex-1 items-center">
               <span className="truncate">
                 {flexRender(
                   header.column.columnDef.header,
