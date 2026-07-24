@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test, type Locator } from "@playwright/test";
 
 import type { TypeColumns } from "../../src/types";
 import {
@@ -7,6 +7,193 @@ import {
   groupColumnsByLock,
   resolveColumnLock,
 } from "../../src/grid/utils/lockedColumns";
+
+async function readTrailingColumnCoverage(grid: Locator) {
+  return grid.evaluate((element) => {
+    const viewport = element.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    );
+    if (!viewport) return null;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const rows = [
+      {
+        name: "header",
+        element: element.querySelector<HTMLElement>(".tdg-header-row"),
+      },
+      {
+        name: "filter",
+        element: element.querySelector<HTMLElement>(".tdg-filter-row"),
+      },
+      {
+        name: "body",
+        element: element.querySelector<HTMLElement>(
+          '[data-slot="grid-row"][data-row-id]'
+        ),
+      },
+    ];
+
+    return {
+      scrollEndDistance: Math.abs(
+        viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft
+      ),
+      rows: rows.map((row) => {
+        const lockedEnd = row.element?.querySelector<HTMLElement>(
+          '[data-column-id="actions"]'
+        );
+        if (!row.element || !lockedEnd) {
+          return {
+            name: row.name,
+            centerWidth: 0,
+            maxUncoveredWidth: Number.POSITIVE_INFINITY,
+            visibleColumnIds: [] as string[],
+          };
+        }
+
+        const centerLeft = viewportRect.left;
+        const centerRight = Math.min(
+          viewportRect.right,
+          lockedEnd.getBoundingClientRect().left
+        );
+        const intervals = Array.from(
+          row.element.querySelectorAll<HTMLElement>("[data-column-id]")
+        )
+          .flatMap((cell) => {
+            const columnId = cell.dataset.columnId;
+            if (
+              !columnId ||
+              columnId === "__checkbox__" ||
+              columnId === "actions"
+            ) {
+              return [];
+            }
+
+            const rect = cell.getBoundingClientRect();
+            const left = Math.max(centerLeft, rect.left);
+            const right = Math.min(centerRight, rect.right);
+
+            return right > left ? [{ columnId, left, right }] : [];
+          })
+          .sort((a, b) => a.left - b.left);
+
+        let cursor = centerLeft;
+        let maxUncoveredWidth = 0;
+
+        for (const interval of intervals) {
+          maxUncoveredWidth = Math.max(
+            maxUncoveredWidth,
+            interval.left - cursor
+          );
+          cursor = Math.max(cursor, interval.right);
+        }
+        maxUncoveredWidth = Math.max(maxUncoveredWidth, centerRight - cursor);
+
+        return {
+          name: row.name,
+          centerWidth: Math.max(0, centerRight - centerLeft),
+          maxUncoveredWidth,
+          visibleColumnIds: intervals.map((interval) => interval.columnId),
+        };
+      }),
+    };
+  });
+}
+
+async function startTrailingSpacerGapMonitor(grid: Locator) {
+  await grid.evaluate((element) => {
+    const monitoredElement = element as HTMLElement & {
+      __tdgTrailingSpacerGapMonitor?: {
+        frameId: number;
+        maximumVisibleWidth: number;
+        observer: MutationObserver;
+      };
+    };
+    const existingMonitor = monitoredElement.__tdgTrailingSpacerGapMonitor;
+    if (existingMonitor) {
+      cancelAnimationFrame(existingMonitor.frameId);
+      existingMonitor.observer.disconnect();
+    }
+
+    const monitor = {
+      frameId: 0,
+      maximumVisibleWidth: 0,
+      observer: null as unknown as MutationObserver,
+    };
+    monitoredElement.__tdgTrailingSpacerGapMonitor = monitor;
+
+    const measure = () => {
+      const viewport = monitoredElement.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      );
+      if (viewport) {
+        const viewportRect = viewport.getBoundingClientRect();
+        const rows = [
+          monitoredElement.querySelector<HTMLElement>(".tdg-header-row"),
+          monitoredElement.querySelector<HTMLElement>(".tdg-filter-row"),
+          monitoredElement.querySelector<HTMLElement>(
+            '[data-slot="grid-row"][data-row-id]'
+          ),
+        ];
+
+        for (const row of rows) {
+          const lockedEnd = row?.querySelector<HTMLElement>(
+            '[data-column-id="actions"]'
+          );
+          if (!row || !lockedEnd) continue;
+
+          const centerRight = Math.min(
+            viewportRect.right,
+            lockedEnd.getBoundingClientRect().left
+          );
+          for (const child of Array.from(row.children)) {
+            if (!(child instanceof HTMLElement)) continue;
+            if (child.hasAttribute("data-column-id")) continue;
+
+            const rect = child.getBoundingClientRect();
+            const visibleWidth =
+              Math.min(centerRight, rect.right) -
+              Math.max(viewportRect.left, rect.left);
+            monitor.maximumVisibleWidth = Math.max(
+              monitor.maximumVisibleWidth,
+              visibleWidth
+            );
+          }
+        }
+      }
+    };
+
+    const tick = () => {
+      measure();
+      monitor.frameId = requestAnimationFrame(tick);
+    };
+    monitor.observer = new MutationObserver(measure);
+    monitor.observer.observe(monitoredElement, {
+      childList: true,
+      subtree: true,
+    });
+
+    tick();
+  });
+}
+
+async function stopTrailingSpacerGapMonitor(grid: Locator) {
+  return grid.evaluate((element) => {
+    const monitoredElement = element as HTMLElement & {
+      __tdgTrailingSpacerGapMonitor?: {
+        frameId: number;
+        maximumVisibleWidth: number;
+        observer: MutationObserver;
+      };
+    };
+    const monitor = monitoredElement.__tdgTrailingSpacerGapMonitor;
+    if (!monitor) return Number.POSITIVE_INFINITY;
+
+    cancelAnimationFrame(monitor.frameId);
+    monitor.observer.disconnect();
+    delete monitoredElement.__tdgTrailingSpacerGapMonitor;
+    return monitor.maximumVisibleWidth;
+  });
+}
 
 test("locked-column helpers normalize both start forms and accumulate offsets on each edge", () => {
   const columns: TypeColumns = [
@@ -87,6 +274,41 @@ test("locked-column helpers normalize both start forms and accumulate offsets on
     id: "__tdg_virtual_columns_after__",
     width: 130,
   });
+
+  const trailingCoverageColumns: TypeColumns = [
+    { name: "start", locked: "start" },
+    { name: "visible" },
+    { name: "middle" },
+    { name: "near-end" },
+    { name: "trailing" },
+    { name: "end", locked: "end" },
+  ];
+  const trailingCoverageItems = buildGridColumnRenderItems({
+    columns: trailingCoverageColumns,
+    columnLayout: trailingCoverageColumns.map((column) => ({
+      id: String(column.name),
+      width: column.name === "start" ? 40 : 100,
+    })),
+    virtualColumnIndexes: [1],
+    virtualizeColumns: true,
+    trailingViewportWidth: 180,
+  });
+
+  expect(
+    trailingCoverageItems.items
+      .filter((item) => item.type === "column")
+      .map((item) => item.id)
+  ).toEqual(["start", "near-end", "trailing", "end"]);
+  expect(trailingCoverageItems.items).toContainEqual({
+    type: "spacer",
+    id: "__tdg_virtual_columns_before__",
+    width: 200,
+  });
+  expect(trailingCoverageItems.items).not.toContainEqual(
+    expect.objectContaining({
+      id: "__tdg_virtual_columns_after__",
+    })
+  );
 });
 
 test("actions example keeps the locked-end column mounted and aligned while horizontally virtualized", async ({
@@ -333,6 +555,67 @@ test("actions example keeps the locked-end column mounted and aligned while hori
   await expect(preview.getByTestId("actions-stage-wf-201")).toHaveText(
     "Reviewing"
   );
+});
+
+test("narrow resize does not leave a virtual spacer gap at full horizontal scroll", async () => {
+  // Use a fresh browser process so the resize + full-scroll sequence runs
+  // before a reused worker page can settle the column virtualizer.
+  const regressionBrowser = await chromium.launch();
+  const page = await regressionBrowser.newPage({
+    baseURL: String(test.info().project.use.baseURL),
+    viewport: { width: 348, height: 844 },
+  });
+  await page.goto("/actions");
+
+  const preview = page.getByTestId("example-preview-panel");
+  const grid = preview.locator(".InovuaReactDataGrid.tdg-root").first();
+  const viewport = grid.locator(".tdg-body-viewport");
+  const actionsHeader = grid.locator(
+    '.tdg-header-cell[data-column-id="actions"]'
+  );
+  const resizer = actionsHeader.getByRole("button", {
+    name: "Resize Actions",
+  });
+
+  await grid.waitFor({ state: "visible" });
+  await actionsHeader.scrollIntoViewIfNeeded();
+  await startTrailingSpacerGapMonitor(grid);
+
+  const initialWidth = (await actionsHeader.boundingBox())?.width ?? 0;
+  const resizerBox = await resizer.boundingBox();
+  expect(resizerBox).not.toBeNull();
+
+  const startX = resizerBox!.x + resizerBox!.width / 2;
+  const startY = resizerBox!.y + resizerBox!.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - 90, startY);
+  await page.mouse.up();
+
+  await viewport.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+
+  // The broken range was published asynchronously after the scroll event and
+  // could later recover. Keep the in-page frame monitor running beyond that
+  // update so even a transient painted spacer is observable.
+  await page.waitForTimeout(500);
+  const maximumVisibleSpacerWidth = await stopTrailingSpacerGapMonitor(grid);
+  const coverage = await readTrailingColumnCoverage(grid);
+
+  await expect(grid).toHaveAttribute("data-column-resizing", "false");
+  expect((await actionsHeader.boundingBox())?.width ?? 0).toBeLessThan(
+    initialWidth - 70
+  );
+  expect(coverage?.scrollEndDistance).toBeLessThanOrEqual(1);
+  expect(maximumVisibleSpacerWidth).toBeLessThanOrEqual(1);
+  expect(coverage).not.toBeNull();
+  for (const row of coverage!.rows) {
+    expect(row.centerWidth).toBeGreaterThan(100);
+    expect(row.visibleColumnIds).toContain("openedAt");
+  }
+  await regressionBrowser.close();
 });
 
 test("imperative column scrolling reveals unlocked cells between both locked sections", async ({

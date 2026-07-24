@@ -114,6 +114,7 @@ export function buildGridColumnRenderItems(args: {
   columns: readonly TypeColumn[];
   virtualColumnIndexes: readonly number[];
   virtualizeColumns: boolean;
+  trailingViewportWidth?: number;
 }): {
   items: TypeGridColumnRenderItem[];
   firstIndex: number;
@@ -122,8 +123,13 @@ export function buildGridColumnRenderItems(args: {
   afterWidth: number;
   columnRenderCount: number;
 } {
-  const { columnLayout, columns, virtualColumnIndexes, virtualizeColumns } =
-    args;
+  const {
+    columnLayout,
+    columns,
+    virtualColumnIndexes,
+    virtualizeColumns,
+    trailingViewportWidth = 0,
+  } = args;
   const totalColumnCount = columnLayout.length;
 
   if (
@@ -179,10 +185,39 @@ export function buildGridColumnRenderItems(args: {
     );
   }
 
-  const firstIndex =
+  const virtualFirstIndex =
     unlockedVirtualIndexes[0] ?? Math.min(lockedStartCount, totalColumnCount);
-  const lastIndex =
-    unlockedVirtualIndexes[unlockedVirtualIndexes.length - 1] ?? firstIndex - 1;
+  const virtualLastIndex =
+    unlockedVirtualIndexes[unlockedVirtualIndexes.length - 1] ??
+    virtualFirstIndex - 1;
+
+  // A resize can change the maximum scroll offset before TanStack Virtual
+  // publishes its refreshed range. At the trailing edge, preserve enough real
+  // unlocked columns to cover the viewport in front of the locked-end
+  // section. Any stale virtual gap remains offscreen instead of becoming a
+  // painted empty spacer beside the locked column.
+  const normalizedTrailingViewportWidth =
+    Number.isFinite(trailingViewportWidth) && trailingViewportWidth > 0
+      ? trailingViewportWidth
+      : 0;
+  let firstIndex = virtualFirstIndex;
+  let lastIndex = virtualLastIndex;
+  let trailingCoverageWidth = 0;
+  if (normalizedTrailingViewportWidth > 0) {
+    lastIndex = lockedEndStartIndex - 1;
+    firstIndex = lastIndex + 1;
+
+    for (
+      let index = lastIndex;
+      index >= lockedStartCount &&
+      trailingCoverageWidth < normalizedTrailingViewportWidth;
+      index -= 1
+    ) {
+      firstIndex = index;
+      trailingCoverageWidth += columnLayout[index]?.width ?? 0;
+    }
+  }
+
   const beforeWidth =
     unlockedCount > 0
       ? sumWidths(columnLayout, lockedStartCount, firstIndex)
