@@ -846,11 +846,27 @@ Disable are explicit menu actions, and Clear All emits one aggregate update.
 | `checkboxColumn`               | `boolean \| IColumn`                            | `false`                          | Enable or customize the checkbox column                                         |
 | `selected`                     | `TypeRowSelection`                              | -                                | Controlled selection                                                            |
 | `defaultSelected`              | `TypeRowSelection`                              | `{}` for multi-select, else null | Uncontrolled initial selection                                                  |
+| `unselected`                   | `{ [rowId: string]: boolean }`                  | -                                | Controlled exclusions while `selected === true`                                 |
+| `defaultUnselected`            | `{ [rowId: string]: boolean }`                  | -                                | Initial uncontrolled select-all exclusions                                      |
 | `onSelectionChange`            | `(config: TypeOnSelectionChangeArg) => void`    | -                                | Fired with the next selection and row metadata                                  |
 | `multiSelect`                  | `boolean`                                       | `true` with `checkboxColumn`     | Enable multi-row selection semantics                                            |
-| `checkboxOnlyRowSelect`        | `boolean`                                       | `true` with `checkboxColumn`     | Require the checkbox instead of a plain row click                               |
+| `checkboxOnlyRowSelect`        | `boolean`                                       | `false`                          | Require the checkbox instead of a plain row click                               |
 | `checkboxSelectEnableShiftKey` | `boolean`                                       | `false`                          | Enable Shift-range selection through the checkbox column                        |
+| `toggleRowSelectOnClick`       | `boolean`                                       | `false`                          | Toggle off the sole selected row on an unmodified click                         |
+| `activeIndex`                  | `number`                                        | -                                | Controlled active-row index                                                     |
+| `defaultActiveIndex`           | `number`                                        | `-1`                             | Initial uncontrolled active-row index                                           |
+| `onActiveIndexChange`          | `(index: number) => void`                       | -                                | Fired when pointer, keyboard, or focus changes the active row                   |
+| `enableKeyboardNavigation`     | `boolean`                                       | `true`                           | Enable Arrow, Home, End, Page, Enter, and optional Tab row navigation           |
+| `activateRowOnFocus`           | `boolean`                                       | `true`                           | Restore the last active row when grid focus returns                             |
+| `keyPageStep`                  | `number`                                        | `10`                             | Row distance for Page Up and Page Down                                          |
+| `allowRowTabNavigation`        | `boolean`                                       | `false`                          | Move the active row with Tab while another row remains available                |
 | `disabledRows`                 | `{ [displayedIndex: string]: boolean } \| null` | -                                | Block pointer interaction by current view index without excluding API selection |
+
+Shift-click selects an inclusive range from the previous row anchor. Ctrl/Cmd
+click toggles one row, while an unmodified multi-select click selects only that
+row. Enter applies the same selection rules to the active row. Focus leaving
+the grid clears the live active index and restores the last index when focus
+returns; virtualized navigation scrolls the active row into view.
 
 ### Editing
 

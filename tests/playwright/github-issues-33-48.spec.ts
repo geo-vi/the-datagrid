@@ -25,8 +25,10 @@ function collectExportTargets(value: PackageExportValue | undefined): string[] {
   );
 }
 
-async function openIssue(page: Page, issue: number) {
-  await page.goto(`${issueFixturePath}?issue=${issue}`);
+async function openIssue(page: Page, issue: number, query = "") {
+  await page.goto(
+    `${issueFixturePath}?issue=${issue}${query ? `&${query}` : ""}`
+  );
 
   const scope = page.getByTestId("github-issues-33-48-scenario");
   await expect(scope).toHaveAttribute("data-issue", String(issue));
@@ -117,6 +119,136 @@ test("GitHub issue #38: ArrowDown advances defaultActiveIndex and emits the call
   await expect(surface).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(scope.getByTestId("issue-38-active-index")).toHaveText("1");
+});
+
+test("GitHub issue #38: controlled activeIndex and throttled navigation remain authoritative", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38, "activeMode=controlled");
+  const root = scope.locator(".tdg-root");
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  const activeIndex = scope.getByTestId("issue-38-active-index");
+
+  await surface.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(activeIndex).toHaveText("3");
+  await expect(root).toHaveAttribute("data-active-index", "3");
+
+  await scope.locator('[data-slot="grid-row"][data-row-index="6"]').click();
+  await expect(activeIndex).toHaveText("6");
+  await expect(root).toHaveAttribute("data-active-index", "6");
+
+  await scope.getByTestId("issue-38-outside-focus").focus();
+  await expect(activeIndex).toHaveText("-1");
+  await surface.focus();
+  await expect(activeIndex).toHaveText("6");
+  await expect(root).toHaveAttribute("data-active-index", "6");
+});
+
+test("GitHub issue #38: keyboard navigation, focus restoration, and virtual scrolling stay synchronized", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38);
+  const root = scope.locator(".tdg-root");
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  const activeIndex = scope.getByTestId("issue-38-active-index");
+  const rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await surface.focus();
+  await expect(surface).toBeFocused();
+  await expect(root).toHaveAttribute("data-focused", "true");
+  await expect(root).toHaveClass(/issue-38-grid-focused/);
+  await expect(root).toHaveAttribute("data-active-index", "0");
+  await expect(rowAt(0)).toHaveAttribute("data-active", "true");
+  await expect(rowAt(0)).toHaveAttribute("aria-current", "true");
+  await expect(rowAt(0)).toHaveClass(/issue-38-row-focused/);
+  await expect(rowAt(0)).toHaveClass(/issue-38-active-indicator/);
+  await expect(rowAt(0)).not.toHaveClass(/tdg-row--selected/);
+
+  await page.keyboard.press("End");
+  await expect(activeIndex).toHaveText("39");
+  await expect(rowAt(39)).toBeVisible();
+  await expect(rowAt(39)).toHaveAttribute("data-active", "true");
+
+  await page.keyboard.press("Home");
+  await expect(activeIndex).toHaveText("0");
+  await expect(rowAt(0)).toBeVisible();
+
+  await page.keyboard.press("PageDown");
+  await expect(activeIndex).toHaveText("5");
+  await page.keyboard.press("PageUp");
+  await expect(activeIndex).toHaveText("0");
+  await page.keyboard.press("Tab");
+  await expect(activeIndex).toHaveText("1");
+  await page.keyboard.press("Shift+Tab");
+  await expect(activeIndex).toHaveText("0");
+
+  await scope.getByTestId("issue-38-outside-focus").focus();
+  await expect(root).toHaveAttribute("data-focused", "false");
+  await expect(root).toHaveAttribute("data-active-index", "none");
+  await expect(activeIndex).toHaveText("-1");
+  await expect(
+    root.locator('[data-slot="grid-row"][data-active="true"]')
+  ).toHaveCount(0);
+
+  await surface.focus();
+  await expect(root).toHaveAttribute("data-active-index", "0");
+  await expect(activeIndex).toHaveText("0");
+});
+
+test("GitHub issue #38: pointer and keyboard selection match Inovua multi-select semantics", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38);
+  const selection = scope.getByTestId("issue-38-selection");
+  const rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(1).click();
+  await expect(selection).toHaveText(
+    '{"selected":["active-1"],"unselected":[]}'
+  );
+  await expect(rowAt(1)).toHaveAttribute("aria-selected", "true");
+
+  await rowAt(4).click({ modifiers: ["Shift"] });
+  await expect(selection).toHaveText(
+    '{"selected":["active-1","active-2","active-3","active-4"],"unselected":[]}'
+  );
+
+  await rowAt(7).click({ modifiers: ["Meta"] });
+  await expect(selection).toHaveText(
+    '{"selected":["active-1","active-2","active-3","active-4","active-7"],"unselected":[]}'
+  );
+
+  await rowAt(7).click();
+  await expect(selection).toHaveText(
+    '{"selected":["active-7"],"unselected":[]}'
+  );
+  await rowAt(7).click({ modifiers: ["Meta"] });
+  await expect(selection).toHaveText('{"selected":[],"unselected":[]}');
+
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(selection).toHaveText(
+    '{"selected":["active-0"],"unselected":[]}'
+  );
+  await page.keyboard.press("Meta+Enter");
+  await expect(selection).toHaveText('{"selected":[],"unselected":[]}');
+
+  await scope.getByTestId("issue-38-select-all-mode").click();
+  await expect(selection).toHaveText('{"selected":true,"unselected":[]}');
+  const firstRowCheckbox = rowAt(0).getByRole("checkbox");
+  await firstRowCheckbox.click();
+  await expect(selection).toHaveText(
+    '{"selected":true,"unselected":["active-0"]}'
+  );
+  await firstRowCheckbox.click();
+  await expect(selection).toHaveText('{"selected":true,"unselected":[]}');
 });
 
 test("GitHub issue #39: clicking a cell emits the active tuple and stable id selection key", async ({

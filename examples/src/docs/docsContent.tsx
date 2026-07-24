@@ -1086,11 +1086,18 @@ const reactDataGridPropSections: ReferenceSection[] = [
         description: "Initial uncontrolled selection state.",
       },
       {
+        name: "unselected / defaultUnselected",
+        type: "TypeBoolMap",
+        defaultValue: "-",
+        description:
+          "Controlled or uncontrolled exclusions used while selected is true.",
+      },
+      {
         name: "onSelectionChange",
         type: "(config: TypeOnSelectionChangeArg) => void",
         defaultValue: "-",
         description:
-          "Observes enabled selection but does not enable it by itself. Emissions contain selected and originalData; UI actions also include the relevant row(s) in data. unselected is optional and built-in toggles do not currently populate it. Direct React setter wiring is supported.",
+          "Observes enabled selection but does not enable it by itself. Emissions contain selected and originalData; UI actions also include the relevant row(s) in data. selected=true toggles emit unselected exclusions. Direct React setter wiring is supported.",
       },
       {
         name: "multiSelect",
@@ -1102,7 +1109,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
       {
         name: "checkboxOnlyRowSelect",
         type: "boolean",
-        defaultValue: "checkboxColumn ? true : false",
+        defaultValue: "false",
         description:
           "Prevents plain row clicks from toggling selection when true.",
       },
@@ -1112,6 +1119,41 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "false",
         description:
           "Allows shift-range selection through the checkbox column.",
+      },
+      {
+        name: "toggleRowSelectOnClick",
+        type: "boolean",
+        defaultValue: "false",
+        description:
+          "Makes an unmodified click on the sole selected row toggle it off.",
+      },
+      {
+        name: "activeIndex / defaultActiveIndex",
+        type: "number",
+        defaultValue: "-1",
+        description:
+          "Controlled or uncontrolled active-row index used by focus and keyboard navigation.",
+      },
+      {
+        name: "enableKeyboardNavigation",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Enables Arrow, Home, End, Page, Enter, and optional Tab row navigation.",
+      },
+      {
+        name: "activateRowOnFocus / keyPageStep",
+        type: "boolean / number",
+        defaultValue: "true / 10",
+        description:
+          "Restores an active row when focus enters and controls Page Up/Down distance.",
+      },
+      {
+        name: "row focus styling",
+        type: "class-name hooks",
+        defaultValue: "active indicator on",
+        description:
+          "focusedClassName, rowFocusClassName, showActiveRowIndicator, and activeRowIndicatorClassName expose focus styling hooks.",
       },
       {
         name: "disabledRows",
@@ -2405,24 +2447,27 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
             are supported.
           </p>
           <p>
-            Column/row context-menu methods, flex and column-size setters,
-            active-row/navigation setters, and reserved-viewport setters are
-            explicit no-ops or fixed placeholders. Only the filter operator
-            context-menu pair is functional.
+            Column/row context-menu methods, flex and column-size setters, and
+            reserved-viewport setters are explicit no-ops or fixed placeholders.
+            Active-row/navigation state and the filter operator context-menu
+            pair are functional.
           </p>
           <p>
             Locked-column arrays, indexes, section widths, and presence flags
             now reflect declarative <code>column.locked</code> and its logical
             column allocation. In a fixed-layout table that underfills and
             stretches to the viewport, browser-distributed surplus space is not
-            included in those compatibility widths. Live pagination and
-            unselected tracking remain fixed compatibility fields.{" "}
+            included in those compatibility widths. Live pagination remains a
+            fixed compatibility field; <code>selected === true</code> and
+            unselected exclusions are tracked by built-in selection.{" "}
             <code>computedShowZebraRows</code> reflects the per-grid prop, while{" "}
             <code>columnFlexes</code> and column sizes report the implemented
             allocation; their imperative setter methods remain outside the
-            supported allowlist. In particular, <code>setColumnLocked</code> may
-            look callable through the compatibility Proxy but is unsupported and
-            does not mutate lock state.
+            supported allowlist. Active index, active item, focus state, and
+            row-navigation methods report and update live state. In particular,{" "}
+            <code>setColumnLocked</code> may look callable through the
+            compatibility Proxy but is unsupported and does not mutate lock
+            state.
           </p>
         </Callout>
         <div className="space-y-2">
@@ -3641,9 +3686,9 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     currentBehavior: (
       <>
         A substantial documented subset works, but column/row context menus,
-        flex/size setters, and active-row/navigation entries are no-ops or fixed
-        placeholders. The Proxy also fabricates no-op functions for many unknown
-        method-like names.
+        flex/size setters, and reserved-viewport mutation remain no-ops or fixed
+        placeholders. Active-row/navigation entries are live. The Proxy also
+        fabricates no-op functions for many unknown method-like names.
       </>
     ),
     requiredOutcome: (
@@ -4129,9 +4174,9 @@ const implementedSurfaceSections: ReferenceSection[] = [
       {
         name: "Selection ranges and payload",
         type: "current loaded rows/page",
-        defaultValue: "shift range off",
+        defaultValue: "row Shift-range on",
         description:
-          "When enabled, Shift check/uncheck applies the inclusive last-anchor range. Header select-all preserves off-page map entries. Emissions always include selected/originalData, usually data, while unselected is optional and not populated by built-ins.",
+          "Shift-click applies the inclusive last-anchor range; checkbox Shift-ranges require checkboxSelectEnableShiftKey. Local select-all emits the loaded row map, while paginated or remote select-all uses selected=true plus unselected exclusions. Emissions always include selected/originalData and usually data.",
       },
     ],
   },
@@ -5319,9 +5364,9 @@ const columns: TypeColumns = [
                 persist only the raw selection map.
               </p>
               <p>
-                The supported long-term model is the row-id object map. Inovua's{" "}
+                Row-id object maps and Inovua&apos;s{" "}
                 <code>selected === true</code> plus <code>unselected</code>{" "}
-                pattern is not the primary path in this library.
+                exclusions are both supported.
               </p>
             </Callout>
           </div>
@@ -5336,19 +5381,19 @@ const columns: TypeColumns = [
               enableSelection has explicit precedence. When omitted, selected,
               defaultSelected, or checkboxColumn enables selection;
               onSelectionChange alone does not. With checkboxColumn enabled,
-              multiSelect and checkboxOnlyRowSelect default to true; without it,
-              both default false unless inferred or explicitly enabled.
+              multiSelect defaults to true for uncontrolled state, while
+              checkboxOnlyRowSelect defaults to false.
             </li>
             <li>
-              checkboxSelectEnableShiftKey enables contiguous range selection
-              from the most recent checkbox anchor through the current row,
-              inclusive, in the currently loaded row model/page.
+              Shift-click selects the contiguous range from the most recent row
+              anchor through the current row. checkboxSelectEnableShiftKey
+              enables the same behavior through the checkbox column.
             </li>
             <li>
-              Header select-all and imperative selectAll operate on the current
-              loaded page while preserving off-page map entries. The header
-              reports checked, indeterminate, and disabled state to a custom
-              renderCheckbox.
+              Local select-all emits the loaded row map. Paginated and remote
+              select-all use selected=true, with later toggles recorded in
+              unselected. The header reports checked, indeterminate, and
+              disabled state to a custom renderCheckbox.
             </li>
             <li>
               Buttons, links, inputs, and other interactive descendants do not
@@ -5371,7 +5416,7 @@ const columns: TypeColumns = [
             <li>
               onSelectionChange always includes selected and originalData; UI
               actions normally include the affected row(s) in data. unselected
-              is optional and built-in toggles do not populate it.
+              contains exclusions while selected is true.
             </li>
           </ul>
         ),
@@ -6424,9 +6469,12 @@ const columns: TypeColumns = [
               38&apos;s <code>disabledRows</code> contract is implemented for
               desktop, virtualized, locally paginated, sorted, and transformed
               mobile rows, including callback metadata and pointer-only
-              disabling. Other ledger entries remain gaps or under verification,
-              and the inventory is not exhaustive until the remaining Community
-              API has been audited surface by surface.
+              disabling. Issue 38 also includes controlled/uncontrolled active
+              index state, keyboard and page navigation, focus restoration,
+              virtualized active-row scrolling, pointer/keyboard selection, and
+              Shift ranges. Other ledger entries remain gaps or under
+              verification, and the inventory is not exhaustive until the
+              remaining Community API has been audited surface by surface.
             </p>
           </div>
         ),

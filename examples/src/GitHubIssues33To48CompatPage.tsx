@@ -269,37 +269,103 @@ function Issue37RowContextMenu() {
 
 function Issue38ActiveRowNavigation() {
   const [activeIndex, setActiveIndex] = React.useState<number | null>(null);
+  const [controlledActiveIndex, setControlledActiveIndex] = React.useState(0);
+  const [selected, setSelected] = React.useState<TypeDataGridProps["selected"]>(
+    {}
+  );
+  const [unselected, setUnselected] = React.useState<Record<string, boolean>>(
+    {}
+  );
+  const rows = React.useMemo(
+    () =>
+      Array.from({ length: 40 }, (_, index) => ({
+        id: `active-${index}`,
+        name: `Person ${index}`,
+        city: `City ${index}`,
+      })),
+    []
+  );
+  const selectionSummary =
+    selected === true
+      ? {
+          selected: true,
+          unselected: Object.keys(unselected).sort(),
+        }
+      : {
+          selected:
+            selected && typeof selected === "object"
+              ? Object.keys(selected).sort()
+              : selected,
+          unselected: [],
+        };
+  const controlledActiveMode =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("activeMode") ===
+      "controlled";
 
   return (
     <>
       <output data-testid="issue-38-active-index">
         {activeIndex == null ? "none" : activeIndex}
       </output>
+      <output data-testid="issue-38-selection">
+        {JSON.stringify(selectionSummary)}
+      </output>
       <GridFrame>
-        <CompatibilityGrid
+        <ReactDataGrid
           idProperty="id"
           columns={baseColumns}
-          dataSource={baseRows}
+          dataSource={rows}
           columnOrder={["id", "name", "city"]}
-          virtualized={false}
+          virtualized
+          rowHeight={36}
           enableFiltering={false}
           enableSelection
+          multiSelect
+          checkboxColumn
+          checkboxSelectEnableShiftKey
+          selected={selected}
+          unselected={unselected}
+          onSelectionChange={(change) => {
+            setSelected(change.selected);
+            setUnselected(
+              change.unselected &&
+                typeof change.unselected === "object" &&
+                !Array.isArray(change.unselected)
+                ? (change.unselected as Record<string, boolean>)
+                : {}
+            );
+          }}
           enableKeyboardNavigation
+          activeIndex={controlledActiveMode ? controlledActiveIndex : undefined}
           defaultActiveIndex={0}
-          onActiveIndexChange={(next: unknown) => {
-            if (typeof next === "number") {
-              setActiveIndex(next);
-              return;
+          activeIndexThrottle={controlledActiveMode ? 40 : undefined}
+          keyPageStep={5}
+          allowRowTabNavigation
+          rowFocusClassName="issue-38-row-focused"
+          focusedClassName="issue-38-grid-focused"
+          activeRowIndicatorClassName="issue-38-active-indicator"
+          onActiveIndexChange={(nextActiveIndex) => {
+            setActiveIndex(nextActiveIndex);
+            if (controlledActiveMode) {
+              setControlledActiveIndex(nextActiveIndex);
             }
-
-            const candidate = next as {
-              activeIndex?: number;
-              index?: number;
-            } | null;
-            setActiveIndex(candidate?.activeIndex ?? candidate?.index ?? null);
           }}
         />
       </GridFrame>
+      <button
+        type="button"
+        data-testid="issue-38-select-all-mode"
+        onClick={() => {
+          setSelected(true);
+          setUnselected({});
+        }}
+      >
+        Use selected=true
+      </button>
+      <button type="button" data-testid="issue-38-outside-focus">
+        Outside grid
+      </button>
     </>
   );
 }

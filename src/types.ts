@@ -476,6 +476,8 @@ export type TypeRowSelection =
   | { [key: string]: any }
   | null;
 
+export type TypeBoolMap = { [key: string]: boolean };
+
 export type TypeOnSelectionChangeArg = {
   selected: TypeRowSelection;
   data?: unknown;
@@ -751,7 +753,9 @@ export type TypeComputedProps = {
   getItemIndexById?: (rowId: string | number, data?: unknown[]) => number;
 
   computedSelected?: TypeRowSelection;
-  computedUnselected?: Record<string, boolean>;
+  computedUnselected?: TypeBoolMap | null;
+  computedRowSelectionEnabled?: boolean;
+  computedRowMultiSelectionEnabled?: boolean;
   getSelectedMap?: () => Record<string, unknown>;
   setSelected?: (selected: TypeRowSelection, ...args: unknown[]) => void;
   selectAll?: () => void;
@@ -766,6 +770,15 @@ export type TypeComputedProps = {
   setSelectedById?: (id: string, selected: boolean) => void;
   setSelectedAt?: (index: number, selected: boolean) => void;
   setRowSelected?: (index: number, selected: boolean, event?: unknown) => void;
+
+  computedActiveIndex?: number;
+  computedLastActiveIndex?: number | null;
+  computedActiveItem?: unknown;
+  computedHasRowNavigation?: boolean;
+  computedFocused?: boolean;
+  setActiveIndex?: (activeIndex: number) => void;
+  incrementActiveIndex?: (increment: number) => void;
+  getActiveItem?: () => unknown;
 
   setScrollLeft?: (scrollLeft: number) => void;
   incrementScrollLeft?: (scrollLeft: number) => void;
@@ -1023,11 +1036,27 @@ export type TypeDataGridProps = {
 
   selected?: TypeRowSelection;
   defaultSelected?: TypeRowSelection;
+  unselected?: TypeBoolMap;
+  defaultUnselected?: TypeBoolMap;
   onSelectionChange?: (config: TypeOnSelectionChangeArg) => void;
 
   multiSelect?: boolean;
   checkboxOnlyRowSelect?: boolean;
   checkboxSelectEnableShiftKey?: boolean;
+  toggleRowSelectOnClick?: boolean;
+
+  activeIndex?: number;
+  defaultActiveIndex?: number;
+  onActiveIndexChange?: (activeIndex: number) => void;
+  activeIndexThrottle?: number;
+  enableKeyboardNavigation?: boolean;
+  activateRowOnFocus?: boolean;
+  keyPageStep?: number;
+  allowRowTabNavigation?: boolean;
+  rowFocusClassName?: string;
+  focusedClassName?: string;
+  showActiveRowIndicator?: boolean;
+  activeRowIndicatorClassName?: string;
 
   /**
    * Disables pointer interaction for rows at the specified zero-based

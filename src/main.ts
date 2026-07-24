@@ -52,6 +52,7 @@ export type {
   TypeColumnResizeInfo,
   TypePaginationMode,
   TypeShowCellBorders,
+  TypeBoolMap,
   TypeRowSelection,
   TypeRowStyle,
   TypeRowStyleArgs,
