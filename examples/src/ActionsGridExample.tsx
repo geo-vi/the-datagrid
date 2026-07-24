@@ -498,6 +498,7 @@ export default function ActionsGridExample() {
         virtualized
         virtualizeColumns
         liveColumnResize
+        rowHeight={56}
         columnUserSelect
         i18n={i18n}
         showColumnMenuTool={false}

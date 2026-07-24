@@ -2342,7 +2342,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     const frameId = window.requestAnimationFrame(() => {
       const maxScrollLeft = Math.max(
         0,
-        columnVirtualizer.getTotalSize() - viewport.clientWidth
+        viewport.scrollWidth - viewport.clientWidth
       );
       if (viewport.scrollLeft > maxScrollLeft + 1) {
         viewport.scrollLeft = maxScrollLeft;
@@ -3307,11 +3307,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
         .getVirtualItems()
         .map((virtualColumn) => virtualColumn.index)
     : [];
+  const columnViewport = scrollRef.current;
+  const isAtTrailingColumnEdge =
+    computedVirtualizeColumns &&
+    columnViewport != null &&
+    columnViewport.scrollWidth -
+      columnViewport.clientWidth -
+      columnViewport.scrollLeft <=
+      1;
+  const lockedEndWidth = columnLayout.reduce((total, column, index) => {
+    return resolveColumnLock(orderedColumns[index]!) === "end"
+      ? total + column.width
+      : total;
+  }, 0);
   const columnRenderRange = buildGridColumnRenderItems({
     columnLayout,
     columns: orderedColumns,
     virtualColumnIndexes,
     virtualizeColumns: computedVirtualizeColumns,
+    trailingViewportWidth: isAtTrailingColumnEdge
+      ? Math.max(0, columnViewportWidth - lockedEndWidth)
+      : 0,
   });
   const columnRenderItems = columnRenderRange.items;
   const lockedEndViewportOffset =
