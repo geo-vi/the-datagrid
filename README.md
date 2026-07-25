@@ -161,6 +161,25 @@ method allowlists.
   compatibility-shaped placeholder methods are not a claim of working
   behavior.
 
+### Migration: data-transform ownership
+
+This release makes one component responsible for each sort/page transform:
+
+- A controlled `sortInfo` supplies indicators and callback/request state but
+  does not reorder a local array. Use `defaultSortInfo` for grid-owned local
+  sorting, or sort the rows in the parent before passing them to `dataSource`.
+- A static `Promise<{ data, count }>` is an authoritative remote page and is
+  not sliced a second time. Set `pagination="local"` to opt that result into
+  local composition.
+- A static `Promise<rows[]>` remains a complete local snapshot and keeps the
+  existing local search/filter/sort/page behavior.
+
+These are intentional compatibility changes for consumers that relied on the
+previous implicit transforms. They align the grid with React controlled-state
+ownership, TanStack manual sorting/pagination, and Inovua 5.10.2. See the
+[source-backed architecture evaluation](docs/inovua-parity-issues-32-37.md#architecture-evaluation-one-owner-per-transform)
+for rationale and migration examples.
+
 ### Public package entries and exports
 
 The main entry, `@geovi/the-datagrid`, exports:

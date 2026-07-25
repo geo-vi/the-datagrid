@@ -76,13 +76,18 @@ test("GitHub issue #34: filterName and getFilterValue resolve the same local fie
   ).toHaveCount(0);
 });
 
-test("GitHub issue #35: defaultVisible=false initializes a hidden column", async ({
+test("GitHub issue #35: visibility defaults initialize hidden columns", async ({
   page,
 }) => {
   const scope = await openIssue(page, 35);
 
   await expect(
     scope.locator('[data-slot="grid-header-cell"][data-column-id="secret"]')
+  ).toHaveCount(0);
+  await expect(
+    scope.locator(
+      '[data-slot="grid-header-cell"][data-column-id="legacySecret"]'
+    )
   ).toHaveCount(0);
 });
 

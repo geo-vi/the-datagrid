@@ -303,6 +303,41 @@ function Issue32Probe() {
           virtualized={false}
         />
       </div>
+
+      <div
+        className="h-[320px] min-h-0 rounded-lg border"
+        data-testid="issue-32-render-hooks-grid-shell"
+      >
+        <UntypedReactDataGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={deferred.promise}
+          pagination
+          skip={2}
+          limit={2}
+          virtualized={false}
+          loadingText="Fetching issue 32 rows"
+          renderLoadMask={(loadMaskProps: {
+            visible: boolean;
+            loadingText: React.ReactNode | (() => React.ReactNode);
+          }) => {
+            if (!loadMaskProps.visible) return null;
+            const loadingText =
+              typeof loadMaskProps.loadingText === "function"
+                ? loadMaskProps.loadingText()
+                : loadMaskProps.loadingText;
+
+            return (
+              <div data-testid="issue-32-custom-load-mask">{loadingText}</div>
+            );
+          }}
+          renderPaginationToolbar={() => (
+            <div data-testid="issue-32-custom-pagination-toolbar">
+              Custom pagination toolbar
+            </div>
+          )}
+        />
+      </div>
     </section>
   );
 }

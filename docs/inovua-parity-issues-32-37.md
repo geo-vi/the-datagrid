@@ -51,6 +51,54 @@ The grid now treats controlled sorting like its existing controlled-filter
 compatibility: the descriptor controls UI and remote request state, while the
 consumer remains responsible for transforming a local array.
 
+## Architecture evaluation: one owner per transform
+
+The two ownership changes were evaluated through the requested four-part
+framework:
+
+| Lens                           | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Consequence for this grid                                                                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Senior developer documentation | [React controlled-component guidance](https://react.dev/learn/sharing-state-between-components) makes the parent the source of truth. [TanStack manual sorting](https://tanstack.com/table/v8/docs/guide/sorting#manual-server-side-sorting) expects already-sorted rows, and [manual pagination](https://tanstack.com/table/v8/docs/guide/pagination#manual-server-side-pagination) expects an already-paged result plus its total count.                                                                                                                  | A controlled descriptor must not silently apply a second local transform. A remote page must not be sliced again.                                |
+| Wiki and project ledger        | The installed Inovua 5.10.2 implementation classifies Promise/function sources as remote, skips local sorting for controlled `sortInfo`, and treats `default*` state as grid-owned. The repository's issues [#32](https://github.com/geo-vi/the-datagrid/issues/32), [#33](https://github.com/geo-vi/the-datagrid/issues/33), [#34](https://github.com/geo-vi/the-datagrid/issues/34), and [#35](https://github.com/geo-vi/the-datagrid/issues/35) record the remaining compatibility work instead of treating a narrow passing fixture as complete parity. | Keep the upstream ownership boundary, while documenting the project's explicit bare-array Promise extension and remaining debt.                  |
+| Books                          | Martin Fowler's [_Patterns of Enterprise Application Architecture_](https://martinfowler.com/books/eaa.html) separates data-source responsibilities from presentation concerns. Martin Kleppmann's [_Designing Data-Intensive Applications_](https://dataintensive.net/) treats derived views as outputs of an authoritative source. Applied here, both support avoiding two independent writers for the same derived ordering/page.                                                                                                                        | Use one owner for each search/filter/sort/page transform. The result shape and controlled/default convention make that owner observable.         |
+| Conventions                    | React's `value`/`defaultValue` convention distinguishes parent ownership from initialization. `{ data, count }` is the repository's count-bearing remote-result shape. [Semantic Versioning](https://semver.org/) requires incompatible behavior changes to be identified to consumers.                                                                                                                                                                                                                                                                     | Preserve `defaultSortInfo` for grid-owned local sorting, require the parent to supply controlled ordering, and publish the migration note below. |
+
+The alternatives were rejected:
+
+- applying controlled sorting locally creates two possible owners and can
+  reorder already-sorted consumer data;
+- slicing `{ data, count }` locally by default can turn a valid remote page into
+  an empty page;
+- treating all Promises identically would remove the existing bare-array local
+  composition extension.
+
+The selected design therefore uses a stable rule: controlled state and
+count-bearing results are authoritative; `default*` state and explicitly local
+pagination are grid-owned.
+
+## Migration note
+
+### Controlled `sortInfo` with a local array
+
+Previously, a controlled descriptor also reordered the array inside the grid.
+The grid now renders the array in consumer order while retaining the controlled
+indicator and callback state.
+
+- Use `defaultSortInfo` when the grid should own local sorting.
+- Keep `sortInfo` controlled when the parent or data layer owns sorting, and
+  pass the resulting ordered rows back through `dataSource`.
+
+### Static Promise results
+
+Previously, every static Promise result was treated as a complete local
+snapshot. The result shape now determines ownership:
+
+- `Promise<{ data, count }>` is an authoritative remote page and is not sliced
+  again;
+- set `pagination="local"` to opt a count-bearing result into local
+  search/filter/sort/page composition;
+- `Promise<rows[]>` retains the project's existing local-snapshot extension.
+
 ### Do not pass a narrow fixture by inventing a partial public contract
 
 Issues #36 and #37 require root props that are absent from the repository's
@@ -68,8 +116,9 @@ either:
 
 ## Executable debt
 
-The Playwright issue ledger keeps 10 `fixme` tests enabled as known parity debt:
-issues #36–#37 and #39–#46. They are not functionality fixed by this draft.
-Issues #32–#35 have active regression tests for the specific behavior changed
-here, but their wider umbrella issues should remain open until their remaining
-acceptance criteria are implemented.
+The Playwright issue ledger keeps 11 `fixme` tests enabled as known parity debt:
+the upstream loading/pagination render hooks from #32, plus issues #36–#37 and
+#39–#46. They are not functionality fixed by this draft. Issues #32–#35 have
+active regression tests for the specific behavior changed here, but their
+wider umbrella issues should remain open until their remaining acceptance
+criteria are implemented.
