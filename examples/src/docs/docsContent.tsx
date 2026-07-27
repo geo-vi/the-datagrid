@@ -142,13 +142,16 @@ const remoteDataSnippet = `type RemoteArgs = {
   skip?: number;
   limit?: number;
   searchValue?: string;
+  signal?: AbortSignal;
 };
 
 const dataSource = async (args: RemoteArgs) => {
+  const { signal, ...request } = args;
   const response = await fetch("/api/accounts/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(args),
+    body: JSON.stringify(request),
+    signal,
   });
 
   return response.json() as Promise<{ data: AccountRow[]; count: number }>;
@@ -348,10 +351,12 @@ const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
 
 const dataSource = async (args: TypeDataSourceArgs) => {
+  const { signal, ...request } = args;
   const response = await fetch("/api/accounts/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(args),
+    body: JSON.stringify(request),
+    signal,
   });
 
   return response.json() as Promise<{ data: AccountRow[]; count: number }>;
@@ -1052,6 +1057,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "[10, 50, 100, 1000]",
         description: "Selectable page size options for the built-in pager.",
       },
+      {
+        name: "renderPaginationToolbar",
+        type: "(props: TypePaginationProps) => ReactNode",
+        defaultValue: "built-in toolbar",
+        description:
+          "Receives the upstream-compatible page state plus navigation, reload, refresh, skip, and limit helpers. Returning undefined uses the built-in toolbar; null suppresses it.",
+      },
     ],
   },
   {
@@ -1228,6 +1240,26 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "internal async state",
         description:
           "Overrides the loading state shown while async data is resolving.",
+      },
+      {
+        name: "loadingText",
+        type: "ReactNode | (() => ReactNode)",
+        defaultValue: '"Loading"',
+        description: "Content used by the built-in and custom loading mask.",
+      },
+      {
+        name: "renderLoadMask",
+        type: "(props: TypeLoadMaskProps) => ReactNode | null",
+        defaultValue: "built-in mask",
+        description:
+          "Receives visible, livePagination, loadingText, zIndex, and theme. Returning undefined uses the built-in mask; null suppresses it.",
+      },
+      {
+        name: "onLoadingChange",
+        type: "(loading: boolean) => void",
+        defaultValue: "-",
+        description:
+          "Behavior-backed extension fired once for each effective automatic or controlled loading transition.",
       },
       {
         name: "i18n",
@@ -2208,7 +2240,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "computed fields",
     defaultValue: "implemented readout",
     description:
-      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, virtualizeColumns, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array source flags classify static Promises as remote; bare-array Promise results retain the project's local-snapshot extension.",
+      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, virtualizeColumns, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array sources are remote; pagination=true classifies their returned pages as authoritative while explicit local pagination opts into slicing.",
   },
   {
     name: "Row lookup",
@@ -2284,25 +2316,28 @@ const typesSections: ReferenceSection[] = [
   skip?: number;
   limit?: number;
   searchValue?: string;
+  signal?: AbortSignal;
 };
+
+type TypeDataSourceResult =
+  | unknown[]
+  | { data: unknown[]; count: number };
 
 type TypeDataSource =
   | unknown[]
-  | Promise<unknown[]>
-  | Promise<{ data: unknown[]; count: number }>
+  | Promise<TypeDataSourceResult>
   | ((props: TypeDataSourceArgs) =>
-      | unknown[]
-      | Promise<unknown[]>
-      | Promise<{ data: unknown[]; count: number }>);`}
+      | TypeDataSourceResult
+      | Promise<TypeDataSourceResult>);`}
           language="ts"
         />
         <CodeBlock code={remoteDataSnippet} language="tsx" />
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Local arrays and bare-array Promise snapshots compose optional
-            search, local filtering, sorting, count, and optional local
-            pagination in that order. Count-bearing Promise results are
-            authoritative remote pages unless pagination is explicitly local.
+            Local arrays compose search, local filtering, sorting, count, and
+            local pagination in that order. With pagination=true/remote, every
+            Promise result is an authoritative remote page. Explicit local
+            pagination opts Promise results into local slicing.
           </li>
           <li>
             Function sources receive the stable args object and own remote
@@ -2310,15 +2345,17 @@ type TypeDataSource =
             authoritative.
           </li>
           <li>
-            pagination=true/remote sends skip/limit without local reslicing;
-            pagination=local omits them and slices the result locally. columns
-            contains visible ordered user columns and excludes the synthetic
-            checkbox column.
+            pagination=true/remote sends skip/limit to functions without local
+            reslicing; pagination=local omits them and slices the result
+            locally. columns contains visible ordered user columns and excludes
+            the synthetic checkbox column.
           </li>
           <li>
-            Only the latest async request may commit. Rejections preserve the
-            last rows and clear automatic loading because there is no public
-            error callback or AbortSignal/cancellation hook.
+            Only the latest async request may commit. Replacements abort the
+            previous optional, non-enumerable signal without changing the
+            established enumerable request keys. Rejections preserve the last
+            rows and clear automatic loading; sources may ignore cancellation
+            because the stale-result guard remains authoritative.
           </li>
         </ul>
       </div>
@@ -3911,16 +3948,16 @@ const implementedSurfaceSections: ReferenceSection[] = [
       {
         name: "Static promises",
         type: "Promise<rows | { data, count }>",
-        defaultValue: "shape-dependent",
+        defaultValue: "pagination-mode ownership",
         description:
-          "A bare row array is a local snapshot and receives search/filter/sort/page composition. A count-bearing { data, count } result is an authoritative remote page unless pagination is explicitly local.",
+          "With pagination=true/remote, either result shape is an authoritative remote page. pagination=local slices the resolved full result; without pagination, bare row arrays retain local search/filter/sort composition.",
       },
       {
         name: "Function sources",
         type: "(args) => rows | Promise<rows | { data, count }>",
         defaultValue: "remote transforms",
         description:
-          "Receives sortInfo, filterValue, normalized user order and visible ordered columns, idProperty, theme, optional skip/limit, and optional external searchValue. It owns remote transforms/count and may return rows synchronously or Promise<rows | { data, count }>.",
+          "Receives sortInfo, filterValue, normalized user order and visible ordered columns, idProperty, theme, optional skip/limit, optional external searchValue, and a replacement AbortSignal. It owns remote transforms/count and may return rows or { data, count } synchronously or asynchronously.",
       },
       {
         name: "Function pagination modes",
@@ -3934,7 +3971,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "latest request wins",
         defaultValue: "automatic",
         description:
-          "Latest-request and unmount guards ignore stale results. Rejections preserve committed rows and only the matching request clears auto-loading. There is no AbortSignal/cancellation or public error callback; explicit loading overrides display state.",
+          "Latest-request and unmount guards ignore stale results. Replacement requests abort the previous non-enumerable signal without changing established enumerable request keys. Rejections preserve committed rows and only the matching request clears auto-loading; explicit loading overrides display state.",
       },
       {
         name: "Invalid async payloads",
@@ -4815,12 +4852,13 @@ pnpm add @geovi/the-datagrid`}
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Local arrays and bare-array Promise snapshots use the shared
-              case-, whitespace-, and diacritic-insensitive matching engine.
-              Multiple terms use AND semantics. Prefix a query with a column id,
-              name, string header, or configured alias to scope it, such as{" "}
-              <code>city:paris</code>. Function data sources receive the
-              committed <code>searchValue</code> and own remote matching.
+              Local arrays and bare Promise snapshots under disabled or
+              explicitly local pagination use the shared case-, whitespace-, and
+              diacritic-insensitive matching engine. Multiple terms use AND
+              semantics. Prefix a query with a column id, name, string header,
+              or configured alias to scope it, such as <code>city:paris</code>.
+              Function data sources receive the committed{" "}
+              <code>searchValue</code> and own remote matching.
             </p>
             <CodeBlock code={searchColumnsSnippet} language="tsx" />
             <p>
@@ -4921,10 +4959,11 @@ pnpm add @geovi/the-datagrid`}
                 sorting, filteredRowsCount, and local pagination.
               </li>
               <li>
-                A bare Promise array is resolved as a complete locally
-                searchable snapshot. A count-bearing {"{ data, count }"} result
-                is an authoritative remote page unless pagination is explicitly
-                local.
+                With <code>pagination=true</code> or <code>"remote"</code>,
+                every Promise result is an authoritative remote page. Explicit{" "}
+                <code>"local"</code> pagination opts the resolved result into
+                local slicing; bare arrays retain local composition when
+                pagination is disabled.
               </li>
               <li>
                 Function data sources receive the committed query as the
@@ -5021,16 +5060,16 @@ pnpm add @geovi/the-datagrid`}
               from both values.
             </li>
             <li>
-              Promise arrays are treated as complete, locally searchable
-              snapshots. Count-bearing Promise objects are authoritative remote
-              pages unless pagination is explicitly local; their returned page
-              is not sliced a second time.
+              pagination=true/remote treats both Promise arrays and
+              count-bearing Promise objects as authoritative pages. Explicit
+              local pagination slices the full resolved result; bare arrays
+              retain local composition when pagination is disabled.
             </li>
             <li>
               A function may return rows synchronously, or a Promise of rows or
               a {`{ data, count }`} object when total count differs from the
-              current slice. The public type does not include a synchronous
-              object return.
+              current slice. Synchronous {`{ data, count }`} returns are part of
+              the public type.
             </li>
             <li>
               Requests are sequenced: only the latest async result may commit,
@@ -5039,9 +5078,10 @@ pnpm add @geovi/the-datagrid`}
             <li>
               Rejected functions and Promises are contained because there is no
               public error callback. The last committed rows remain visible and
-              the matching automatic loading state is cleared. There is no
-              AbortSignal/cancellation hook; an explicit loading prop overrides
-              the displayed automatic state.
+              the matching automatic loading state is cleared. Function args
+              receive an AbortSignal that fires on replacement/unmount; the
+              latest-request guard still protects against sources that ignore
+              it. An explicit loading prop overrides displayed automatic state.
             </li>
             <li>
               filteredRowsCount is deduplicated. It reports again only when the

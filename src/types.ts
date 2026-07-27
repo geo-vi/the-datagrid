@@ -24,18 +24,26 @@ export type TypeDataSourceArgs = {
   skip?: number;
   limit?: number;
   searchValue?: string;
+  /**
+   * Aborted when a newer request replaces this one or the grid unmounts.
+   *
+   * This is a backwards-compatible extension to the Inovua request payload:
+   * consumers that do not need cancellation can ignore it. Runtime defines
+   * it as non-enumerable so existing Object.keys/JSON payloads stay stable.
+   */
+  signal?: AbortSignal;
 };
+
+export type TypeDataSourceResult =
+  | unknown[]
+  | { data: unknown[]; count: number };
 
 export type TypeDataSource =
   | unknown[]
-  | Promise<unknown[]>
-  | Promise<{ data: unknown[]; count: number }>
+  | Promise<TypeDataSourceResult>
   | ((
       props: TypeDataSourceArgs
-    ) =>
-      | unknown[]
-      | Promise<unknown[]>
-      | Promise<{ data: unknown[]; count: number }>);
+    ) => TypeDataSourceResult | Promise<TypeDataSourceResult>);
 
 export type SortDirection = 1 | -1 | 0;
 
@@ -842,6 +850,55 @@ export type TypeComputedProps = {
 };
 
 export type TypePaginationMode = true | false | "remote" | "local";
+
+/**
+ * Pagination toolbar contract aligned with Inovua ReactDataGrid 5.10.2.
+ *
+ * Pages passed to `gotoPage` are one-based, matching the upstream API.
+ */
+export type TypePaginationProps = {
+  skip: number;
+  limit: number;
+  /** Number of rows in the currently rendered page. */
+  count: number;
+  pagination: boolean;
+  livePagination?: boolean;
+  remotePagination: boolean;
+  localPagination: boolean;
+  /** Authoritative row count across all pages. */
+  totalCount: number;
+  pageSizes?: number[];
+  gotoNextPage: () => void;
+  reload: () => void;
+  onRefresh: () => void;
+  gotoFirstPage: () => void;
+  gotoLastPage: () => void;
+  gotoPrevPage: () => void;
+  hasNextPage: () => boolean;
+  hasPrevPage: () => boolean;
+  onSkipChange: (skip: number) => void;
+  onLimitChange: (limit: number) => void;
+  gotoPage: (page: number, config?: { force: boolean }) => void;
+  onClick?: (event: { stopPropagation?: () => void }) => unknown;
+  theme?: string;
+  className?: string;
+  perPageText?: React.ReactNode;
+  pageText?: React.ReactNode;
+  ofText?: React.ReactNode;
+  showingText?: React.ReactNode;
+  rtl?: boolean;
+  bordered?: boolean;
+};
+
+export type TypeLoadMaskProps = {
+  visible: boolean;
+  livePagination: boolean;
+  loadingText: React.ReactNode | (() => React.ReactNode);
+  zIndex: number;
+  /** Runtime extension already supplied by Inovua's implementation. */
+  theme: string;
+};
+
 export type TypeShowCellBorders = true | false | "vertical" | "horizontal";
 
 /**
@@ -962,6 +1019,9 @@ export type TypeDataGridProps = {
   onSkipChange?: (skip: number) => void;
   onLimitChange?: (limit: number) => void;
   pageSizes?: number[];
+  renderPaginationToolbar?: (
+    paginationProps: TypePaginationProps
+  ) => React.ReactNode;
 
   virtualized?: boolean;
 
@@ -1026,6 +1086,13 @@ export type TypeDataGridProps = {
   filterRowHeight?: number;
 
   loading?: boolean;
+  loadingText?: React.ReactNode | (() => React.ReactNode);
+  renderLoadMask?: (loadMaskProps: TypeLoadMaskProps) => React.ReactNode | null;
+  /**
+   * Extension callback fired exactly once for each effective loading-state
+   * transition. This also observes a controlled `loading` prop.
+   */
+  onLoadingChange?: (loading: boolean) => void;
 
   /**
    * Selection / checkbox column (Inovua-compatible).

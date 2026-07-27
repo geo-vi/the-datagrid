@@ -921,14 +921,14 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     const probe = page.getByTestId("github-issue-32-probe");
     const grid = probe.getByTestId("issue-32-grid-shell").locator(".tdg-root");
     await expect(grid).toBeVisible();
-    await expect(grid.getByText("Loading…", { exact: true })).toBeVisible();
+    await expect(grid.getByText("Loading", { exact: true })).toBeVisible();
     await expect(grid.locator(".tdg-pagination")).toBeVisible();
 
     await probe.getByTestId("issue-32-resolve-static-promise").click();
     await expect
       .poll(async () => {
         const loadingCount = await grid
-          .getByText("Loading…", { exact: true })
+          .getByText("Loading", { exact: true })
           .count();
         const rows = await grid.locator('[data-slot="grid-row"]').count();
         const empty = await grid
@@ -959,11 +959,7 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     });
   });
 
-  // Known parity debt: Inovua 5.10.2 exposes these two render hooks, but the
-  // repository's fixed root prop contract does not currently include them.
-  // Keep the missing behavior executable without conflating it with the
-  // count-bearing Promise paging contract above.
-  test.fixme("issue #32: loading and pagination render hooks remain parity debt", async ({
+  test("issue #32: loading and pagination render hooks are executable public contracts", async ({
     page,
   }) => {
     await page.goto("/compat/github-issues-31-32");
@@ -978,7 +974,7 @@ test.describe("GitHub issue implementation audit: #17–#32", () => {
     await expect(
       probe.getByTestId("issue-32-custom-pagination-toolbar")
     ).toBeVisible();
-    await expect(grid.getByText("Loading…", { exact: true })).toHaveCount(0);
+    await expect(grid.getByText("Loading", { exact: true })).toHaveCount(0);
 
     await probe.getByTestId("issue-32-resolve-static-promise").click();
     await expect(probe.getByTestId("issue-32-custom-load-mask")).toHaveCount(0);

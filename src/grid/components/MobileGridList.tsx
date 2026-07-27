@@ -555,12 +555,8 @@ export function MobileGridList({
         role="list"
         aria-label="Grid results"
       >
-        {loading ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            Loading...
-          </div>
-        ) : filteredRows.length === 0 ? (
-          emptyContent == null ? null : (
+        {filteredRows.length === 0 ? (
+          loading || emptyContent == null ? null : (
             <div className="p-6 text-center text-sm text-muted-foreground">
               {emptyContent}
             </div>

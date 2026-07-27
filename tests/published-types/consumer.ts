@@ -5,6 +5,9 @@ import ReactDataGrid, {
   type TypeColumns,
   type TypeDataGridProps,
   type TypeDataSourceArgs,
+  type TypeDataSourceResult,
+  type TypeLoadMaskProps,
+  type TypePaginationProps,
 } from "@geovi/the-datagrid";
 import {
   RDGSearchBar,
@@ -61,6 +64,33 @@ export const remoteArgs: TypeDataSourceArgs = {
   theme: "default",
   searchValue: "one",
 };
+
+export const countBearingResult: TypeDataSourceResult = {
+  data: [{ id: 1 }],
+  count: 1,
+};
+
+export const issue32PublishedProps = {
+  idProperty: "id",
+  columns,
+  dataSource: () => countBearingResult,
+  pagination: true,
+  loadingText: "Loading",
+  onLoadingChange(loading) {
+    void loading;
+  },
+  renderLoadMask(props: TypeLoadMaskProps) {
+    return props.visible
+      ? typeof props.loadingText === "function"
+        ? props.loadingText()
+        : props.loadingText
+      : null;
+  },
+  renderPaginationToolbar(props: TypePaginationProps) {
+    props.reload();
+    return props.totalCount;
+  },
+} satisfies TypeDataGridProps;
 
 export type PublishedSearchBarProps = ComponentProps<typeof RDGSearchBar>;
 export type PublishedDataGridProps = ComponentProps<typeof ReactDataGrid>;

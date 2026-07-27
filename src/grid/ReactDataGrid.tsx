@@ -13,12 +13,15 @@ import type {
   TypeComputedVirtualListRow,
   TypeCompleteEditArgs,
   TypeCancelEditArgs,
+  TypeDataSourceArgs,
   TypeDataGridProps,
   TypeEditInfo,
   TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
   TypeOnSelectionChangeArg,
+  TypeLoadMaskProps,
+  TypePaginationProps,
   TypeRowSelection,
   TypeStartEditArgs,
   TypeSortInfo,
@@ -586,6 +589,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const searchFilterRows = searchController?.filterRows;
   const searchActive = searchValue.trim().length > 0;
   const loadRequestIdRef = React.useRef(0);
+  const loadAbortControllerRef = React.useRef<AbortController | null>(null);
 
   const {
     theme = REACT_DATA_GRID_DEFAULT_PROPS.theme,
@@ -1071,56 +1075,94 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return unique.length ? unique : [10, 50, 100, 1000];
   }, [props.pageSizes]);
 
-  const [skip, setSkipState] = useControllableState<number>({
+  const paginationMode = props.pagination ?? false;
+  const paginationEnabled = paginationMode !== false;
+  const remoteDataSource = !Array.isArray(dataSource);
+  const remotePagination =
+    paginationMode === "remote" ||
+    (paginationMode === true && remoteDataSource);
+  const localPagination =
+    paginationMode === "local" ||
+    (paginationMode === true && !remoteDataSource);
+
+  const [skip, setSkipState, skipControlled] = useControllableState<number>({
     value: props.skip,
     defaultValue: props.defaultSkip ?? 0,
     onChange: props.onSkipChange,
   });
 
-  // Treat a committed global query like any other filter: start from page one.
-  // Keep an override until a controlled parent acknowledges the reset (or
-  // intentionally moves to another page), so loading-state renders cannot
-  // bounce a remote request back to the stale controlled skip.
+  // Filtering, sorting, and global search all own a page-one reset. For a
+  // controlled skip, retain an optimistic request value until the parent
+  // acknowledges the reset (or intentionally supplies another page). This
+  // prevents replacement renders from loading the stale page in between the
+  // callback and the controlled prop update.
   const previousSearchValueRef = React.useRef("");
-  const [searchSkipOverride, setSearchSkipOverride] = React.useState<{
-    searchValue: string;
+  const previousSortInfoRef = React.useRef<TypeSortInfo>(sortInfo);
+  const previousFilterValueRef = React.useRef<TypeFilterValue>(filterValue);
+  const [skipResetOverride, setSkipResetOverride] = React.useState<{
     previousSkip: number;
   } | null>(null);
-  const searchValueChanged = previousSearchValueRef.current !== searchValue;
-  const searchSkipOverrideActive = Boolean(
-    searchSkipOverride?.searchValue === searchValue &&
-    searchSkipOverride.previousSkip === skip
+  const paginationInputChanged =
+    previousSearchValueRef.current !== searchValue ||
+    !Object.is(previousSortInfoRef.current, sortInfo) ||
+    !Object.is(previousFilterValueRef.current, filterValue);
+  const skipResetOverrideActive = Boolean(
+    skipResetOverride?.previousSkip === skip
   );
-  const loadSkip = searchValueChanged || searchSkipOverrideActive ? 0 : skip;
+  const loadSkip =
+    paginationEnabled && (paginationInputChanged || skipResetOverrideActive)
+      ? 0
+      : skip;
   const setSkip = React.useCallback(
     (nextSkip: number) => {
-      if (nextSkip !== 0) setSearchSkipOverride(null);
+      setSkipResetOverride(null);
       setSkipState(nextSkip);
     },
     [setSkipState]
   );
-  React.useLayoutEffect(() => {
-    if (previousSearchValueRef.current !== searchValue) {
-      previousSearchValueRef.current = searchValue;
-      loadRequestIdRef.current += 1;
+  const resetSkip = React.useCallback(() => {
+    if (skip === 0) return;
 
-      if (skip !== 0) {
-        setSearchSkipOverride({ searchValue, previousSkip: skip });
-        setSkipState(0);
-      } else {
-        setSearchSkipOverride(null);
-      }
+    loadRequestIdRef.current += 1;
+    if (skipControlled) {
+      setSkipResetOverride({ previousSkip: skip });
+    }
+    setSkipState(0);
+  }, [setSkipState, skip, skipControlled]);
+
+  React.useLayoutEffect(() => {
+    const inputsChanged =
+      previousSearchValueRef.current !== searchValue ||
+      !Object.is(previousSortInfoRef.current, sortInfo) ||
+      !Object.is(previousFilterValueRef.current, filterValue);
+
+    previousSearchValueRef.current = searchValue;
+    previousSortInfoRef.current = sortInfo;
+    previousFilterValueRef.current = filterValue;
+
+    if (
+      paginationEnabled &&
+      inputsChanged &&
+      skip !== 0 &&
+      !skipResetOverrideActive
+    ) {
+      resetSkip();
       return;
     }
 
-    if (
-      searchSkipOverride &&
-      (searchSkipOverride.searchValue !== searchValue ||
-        searchSkipOverride.previousSkip !== skip)
-    ) {
-      setSearchSkipOverride(null);
+    if (skipResetOverride && skipResetOverride.previousSkip !== skip) {
+      setSkipResetOverride(null);
     }
-  }, [searchSkipOverride, searchValue, setSkipState, skip]);
+  }, [
+    filterValue,
+    paginationEnabled,
+    resetSkip,
+    searchValue,
+    skip,
+    skipResetOverride,
+    skipResetOverrideActive,
+    sortInfo,
+  ]);
 
   const [limit, setLimit] = useControllableState<number>({
     value: props.limit,
@@ -1131,9 +1173,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const allowUnsort = props.allowUnsort ?? true;
   const defaultSortingDirection = props.defaultSortingDirection ?? "asc";
   const defaultSortDir: 1 | -1 = defaultSortingDirection === "desc" ? -1 : 1;
-
-  const paginationMode = props.pagination ?? false;
-  const paginationEnabled = paginationMode !== false;
 
   const consumerOrderedColumns = React.useMemo(() => {
     const colById = new Map<string, TypeColumn>();
@@ -1213,6 +1252,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
   );
   const loadMountedRef = React.useRef(false);
   const loading = props.loading ?? loadingOverride ?? internalLoading;
+  const onLoadingChangeRef = React.useRef(props.onLoadingChange);
+  const previousLoadingRef = React.useRef(false);
+  React.useLayoutEffect(() => {
+    onLoadingChangeRef.current = props.onLoadingChange;
+
+    return () => {
+      onLoadingChangeRef.current = undefined;
+    };
+  }, [props.onLoadingChange]);
+  React.useEffect(() => {
+    if (Object.is(previousLoadingRef.current, loading)) return;
+
+    previousLoadingRef.current = loading;
+    onLoadingChangeRef.current?.(loading);
+  }, [loading]);
 
   const computedFilterForFetch = filterValue;
   const computedSortForFetch = sortInfo;
@@ -1233,7 +1287,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     if (!loadMountedRef.current) return;
 
     const requestId = ++loadRequestIdRef.current;
-    const remoteDataSource = !Array.isArray(dataSource);
+    loadAbortControllerRef.current?.abort();
+    const requestAbortController =
+      remoteDataSource && typeof AbortController !== "undefined"
+        ? new AbortController()
+        : null;
+    loadAbortControllerRef.current = requestAbortController;
 
     if (remoteDataSource) {
       setInternalLoading(true);
@@ -1261,9 +1320,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
         const totalCount = data.length;
 
-        const doPage = paginationMode !== false && paginationMode !== "remote";
-
-        const sliced = doPage ? data.slice(loadSkip, loadSkip + limit) : data;
+        const sliced = localPagination
+          ? data.slice(loadSkip, loadSkip + limit)
+          : data;
 
         setRows(sliced);
         setCount(totalCount);
@@ -1274,14 +1333,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const ds = dataSource;
 
       const dsIsFn = typeof ds === "function";
-      const sliceBareResultLocally =
-        paginationMode === "local" ||
-        (!dsIsFn && paginationMode !== false && paginationMode !== "remote");
-
-      const dsArg = {
-        ...(paginationMode !== false && paginationMode !== "local" && dsIsFn
-          ? { skip: loadSkip, limit }
-          : {}),
+      const dsArg: TypeDataSourceArgs = {
+        ...(remotePagination && dsIsFn ? { skip: loadSkip, limit } : {}),
         sortInfo: computedSortForFetch,
         filterValue: computedFilterForFetch,
         columnOrder: columnOrderForDs,
@@ -1290,6 +1343,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
         theme: themeName,
         ...(searchConnected ? { searchValue } : {}),
       };
+      if (requestAbortController) {
+        // Preserve the long-standing enumerable request-key contract while
+        // exposing cancellation as an opt-in extension.
+        Object.defineProperty(dsArg, "signal", {
+          configurable: true,
+          enumerable: false,
+          value: requestAbortController.signal,
+        });
+      }
 
       let result: any;
 
@@ -1310,7 +1372,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
 
       const transformStaticPromiseRows = <Row,>(snapshot: Row[]): Row[] => {
-        if (dsIsFn) return snapshot;
+        // A bare static Promise can still act as a locally composable snapshot
+        // when pagination is disabled or explicitly local. With
+        // pagination=true/"remote", all Promise/function results are
+        // authoritative remote pages and must not be transformed or sliced.
+        if (
+          dsIsFn ||
+          (paginationMode !== false && paginationMode !== "local")
+        ) {
+          return snapshot;
+        }
 
         let data = snapshot;
 
@@ -1332,17 +1403,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       if (result && typeof result === "object" && Array.isArray(result.data)) {
         // A count-bearing Promise payload represents an authoritative remote
-        // page, just like a function result. In particular, pagination=true
-        // must not slice that page for a second time. Bare Promise arrays stay
-        // useful as locally composable snapshots in this implementation.
+        // page unless pagination is explicitly local.
         const resultData = dsIsFn
           ? result.data
-          : paginationMode === "local"
+          : localPagination
             ? transformStaticPromiseRows(result.data)
             : result.data;
         const staticPromiseHasLocalPredicate =
           !dsIsFn &&
-          paginationMode === "local" &&
+          localPagination &&
           (searchActive || hasActiveLocalFilter(localFilterValue, filterTypes));
         const reportedCount = Number(
           staticPromiseHasLocalPredicate
@@ -1352,10 +1421,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         const totalCount = Number.isFinite(reportedCount)
           ? reportedCount
           : resultData.length;
-        const nextRows =
-          paginationMode === "local"
-            ? resultData.slice(loadSkip, loadSkip + limit)
-            : resultData;
+        const nextRows = localPagination
+          ? resultData.slice(loadSkip, loadSkip + limit)
+          : resultData;
 
         setRows(nextRows);
         setCount(totalCount);
@@ -1363,7 +1431,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       } else if (Array.isArray(result)) {
         const resultData = transformStaticPromiseRows(result);
         const totalCount = resultData.length;
-        const nextRows = sliceBareResultLocally
+        const nextRows = localPagination
           ? resultData.slice(loadSkip, loadSkip + limit)
           : resultData;
 
@@ -1381,6 +1449,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         loadMountedRef.current &&
         requestId === loadRequestIdRef.current
       ) {
+        loadAbortControllerRef.current = null;
         setInternalLoading(false);
       }
     }
@@ -1393,9 +1462,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     idProperty,
     inputColumns,
     limit,
+    localPagination,
     loadSkip,
     orderedColumns,
     paginationMode,
+    remoteDataSource,
+    remotePagination,
     themeName,
     columnOrderForDs,
     columnsForDs,
@@ -1413,10 +1485,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => {
       loadMountedRef.current = false;
       loadRequestIdRef.current += 1;
+      loadAbortControllerRef.current?.abort();
+      loadAbortControllerRef.current = null;
     };
   }, []);
 
   React.useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const reload = React.useCallback(() => {
     void loadData();
   }, [loadData]);
 
@@ -2191,7 +2269,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     onSortingChange: (updater) => {
       const nextSorting = resolveStateAction(updater, tanstackSorting);
-      setSkip(0);
+      resetSkip();
       setSortInfo(
         fromTanStackSortingState(nextSorting, allInputColumns, sortInfo)
       );
@@ -2207,7 +2285,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         filterValue
       );
 
-      setSkip(0);
+      resetSkip();
       if (!filterControlled) setDraftFilterValue(nextFilterValue);
       setFilterValue(nextFilterValue);
     },
@@ -4404,29 +4482,116 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const setLimitAndResetPage = React.useCallback(
     (next: number) => {
-      setSkip(0);
+      resetSkip();
       setLimit(next);
     },
-    [setLimit, setSkip]
+    [resetSkip, setLimit]
   );
 
   const setSortInfoAndResetPage = React.useCallback(
     (next: TypeSortInfo) => {
-      setSkip(0);
+      resetSkip();
       setSortInfo(next);
     },
-    [setSkip, setSortInfo]
+    [resetSkip, setSortInfo]
   );
 
   const setFilterValueAndResetPage = React.useCallback(
     (next: TypeFilterValue) => {
-      setSkip(0);
+      resetSkip();
       if (!filterControlled) {
         setDraftFilterValue(next);
       }
       setFilterValue(next);
     },
-    [filterControlled, setDraftFilterValue, setFilterValue, setSkip]
+    [filterControlled, resetSkip, setDraftFilterValue, setFilterValue]
+  );
+
+  const gotoPage = React.useCallback(
+    (page: number, config?: { force: boolean }) => {
+      const nextPage = Math.min(
+        pageCount,
+        Math.max(1, Math.trunc(Number.isFinite(page) ? page : 1))
+      );
+      const nextSkip = (nextPage - 1) * safeLimit;
+
+      if (nextSkip === loadSkip) {
+        if (config?.force) reload();
+        return;
+      }
+      setSkip(nextSkip);
+    },
+    [loadSkip, pageCount, reload, safeLimit, setSkip]
+  );
+  const gotoFirstPage = React.useCallback(() => gotoPage(1), [gotoPage]);
+  const gotoLastPage = React.useCallback(
+    () => gotoPage(pageCount),
+    [gotoPage, pageCount]
+  );
+  const gotoNextPage = React.useCallback(
+    () => gotoPage(pageIndex + 2),
+    [gotoPage, pageIndex]
+  );
+  const gotoPrevPage = React.useCallback(
+    () => gotoPage(pageIndex),
+    [gotoPage, pageIndex]
+  );
+  const hasNextPage = React.useCallback(() => canNext, [canNext]);
+  const hasPrevPage = React.useCallback(() => canPrev, [canPrev]);
+  const paginationProps = React.useMemo<TypePaginationProps>(
+    () => ({
+      skip: loadSkip,
+      limit: safeLimit,
+      count: rows.length,
+      pagination: paginationEnabled,
+      livePagination: false,
+      remotePagination,
+      localPagination,
+      totalCount: count,
+      pageSizes,
+      gotoNextPage,
+      reload,
+      onRefresh: reload,
+      gotoFirstPage,
+      gotoLastPage,
+      gotoPrevPage,
+      hasNextPage,
+      hasPrevPage,
+      onSkipChange: setSkip,
+      onLimitChange: setLimit,
+      gotoPage,
+      onClick: (event: { stopPropagation?: () => void }) =>
+        event.stopPropagation?.(),
+      theme: themeName,
+      perPageText: t(i18n, "perPageText", "Rows"),
+      pageText: t(i18n, "pageText", "Page"),
+      ofText: t(i18n, "ofText", "of"),
+      showingText: t(i18n, "showingText", "Showing"),
+      rtl: false,
+      bordered: false,
+    }),
+    [
+      count,
+      gotoFirstPage,
+      gotoLastPage,
+      gotoNextPage,
+      gotoPage,
+      gotoPrevPage,
+      hasNextPage,
+      hasPrevPage,
+      i18n,
+      loadSkip,
+      localPagination,
+      pageSizes,
+      paginationEnabled,
+      reload,
+      remotePagination,
+      rows.length,
+      safeLimit,
+      setLimit,
+      setSkip,
+      themeName,
+    ]
   );
 
   const computedOnColumnFilterValueChangeCompat = React.useCallback(
@@ -5444,7 +5609,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     const baseApi: TypeComputedProps = {
       ...publicProps,
-      reload: () => void loadData(),
+      reload,
       initialProps: publicProps,
       data: rows,
       originalData,
@@ -5559,12 +5724,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       showVerticalCellBorders,
       computedShowCellBorders: showCellBorders,
       computedRemoteData: !Array.isArray(dataSource),
-      computedRemotePagination:
-        !Array.isArray(dataSource) && paginationMode === "remote",
+      computedRemotePagination: remotePagination,
       computedRemoteFilter:
         !Array.isArray(dataSource) && effectiveEnableFiltering,
-      computedLocalPagination:
-        paginationMode !== false && paginationMode !== "remote",
+      computedLocalPagination: localPagination,
       computedPagination: paginationMode !== false,
       computedLivePagination: false,
       remoteSort: !Array.isArray(dataSource),
@@ -5675,7 +5838,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             setSkip(loadSkip + safeLimit);
           }
         : undefined,
-      paginationCount: pageCount,
+      paginationCount: count,
       computedActiveIndex: normalizedActiveIndex,
       computedLastActiveIndex: lastActiveIndexRef.current,
       doSetLastActiveIndex: (index: number | null) => {
@@ -5818,7 +5981,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     isRowFullyVisibleCompat,
     isRowRenderedCompat,
     limit,
-    loadData,
+    localPagination,
     loading,
     loadSkip,
     lockedColumnMetrics,
@@ -5829,9 +5992,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     openFilterMenuColId,
     orderedColumns,
     originalData,
-    pageCount,
     paginationMode,
     publicProps,
+    reload,
+    remotePagination,
     reservedViewportWidth,
     rowModel.length,
     rows,
@@ -5908,6 +6072,53 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- render ---------------- */
 
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
+  const loadingText = props.loadingText ?? "Loading";
+  const loadMaskProps: TypeLoadMaskProps = {
+    visible: loading,
+    livePagination: false,
+    loadingText,
+    zIndex: 10000,
+    theme: themeName,
+  };
+  const customLoadMask = props.renderLoadMask?.(loadMaskProps);
+  const loadMask =
+    customLoadMask === undefined ? (
+      loading ? (
+        <div
+          className="tdg-load-mask absolute inset-0 flex items-center justify-center bg-background/75 text-sm text-muted-foreground backdrop-blur-[1px]"
+          style={{ zIndex: loadMaskProps.zIndex }}
+          role="status"
+          aria-live="polite"
+          data-slot="grid-load-mask"
+        >
+          {typeof loadingText === "function" ? loadingText() : loadingText}
+        </div>
+      ) : null
+    ) : (
+      customLoadMask
+    );
+  const customPaginationToolbar =
+    paginationEnabled && props.renderPaginationToolbar
+      ? props.renderPaginationToolbar(paginationProps)
+      : undefined;
+  const paginationToolbar =
+    customPaginationToolbar === undefined ? (
+      <GridPagination
+        count={count}
+        skip={loadSkip}
+        limit={limit}
+        pageIndex={pageIndex}
+        pageCount={pageCount}
+        canPrev={canPrev}
+        canNext={canNext}
+        pageSizes={pageSizes}
+        setSkip={setSkip}
+        setLimit={setLimitAndResetPage}
+        i18n={i18n}
+      />
+    ) : (
+      customPaginationToolbar
+    );
 
   return (
     <div
@@ -5949,7 +6160,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         portalContainer={portalContainer}
       >
         <div
-          className="tdg-frame flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg"
+          className="tdg-frame relative flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg"
           data-slot="grid-frame"
         >
           <div
@@ -5958,6 +6169,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             data-slot="grid-surface"
             tabIndex={enableKeyboardNavigation ? 0 : -1}
             aria-label="Data grid"
+            aria-busy={loading}
           >
             {!liveColumnResize && resizeProxyLeft != null ? (
               <div
@@ -6163,23 +6375,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
             )}
           </div>
 
-          {paginationEnabled ? (
+          {paginationEnabled && paginationToolbar != null ? (
             <div className="tdg-pagination-shell border-t py-2 [border-color:var(--tdg-grid-border-color)]">
-              <GridPagination
-                count={count}
-                skip={loadSkip}
-                limit={limit}
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                canPrev={canPrev}
-                canNext={canNext}
-                pageSizes={pageSizes}
-                setSkip={setSkip}
-                setLimit={setLimit}
-                i18n={i18n}
-              />
+              {paginationToolbar}
             </div>
           ) : null}
+          {loadMask}
         </div>
       </DatagridThemeProvider>
     </div>
