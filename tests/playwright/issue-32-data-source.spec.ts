@@ -106,7 +106,23 @@ test.describe("issue #32 complete data-source ownership", () => {
     await expect(
       grid.getByText("Loading authoritative page", { exact: true })
     ).toBeVisible();
+    await expect(grid.locator('[data-slot="grid-surface"]')).toHaveAttribute(
+      "aria-busy",
+      "true"
+    );
     await expect.poll(() => readJson(eventsOutput)).toEqual([true]);
+    await expect
+      .poll(async () => {
+        const metrics = await readJson<{
+          computedLoading: boolean;
+          isLoading: boolean;
+        }>(metricsOutput);
+        return {
+          computedLoading: metrics.computedLoading,
+          isLoading: metrics.isLoading,
+        };
+      })
+      .toEqual({ computedLoading: true, isLoading: true });
 
     const initial = await readJson<{ latestRequest: number }>(metricsOutput);
     await scope.getByTestId("lifecycle-resolve").click();
@@ -115,7 +131,23 @@ test.describe("issue #32 complete data-source ownership", () => {
         exact: true,
       })
     ).toBeVisible();
+    await expect(grid.locator('[data-slot="grid-surface"]')).toHaveAttribute(
+      "aria-busy",
+      "false"
+    );
     await expect.poll(() => readJson(eventsOutput)).toEqual([true, false]);
+    await expect
+      .poll(async () => {
+        const metrics = await readJson<{
+          computedLoading: boolean;
+          isLoading: boolean;
+        }>(metricsOutput);
+        return {
+          computedLoading: metrics.computedLoading,
+          isLoading: metrics.isLoading,
+        };
+      })
+      .toEqual({ computedLoading: false, isLoading: false });
 
     await scope.getByTestId("lifecycle-reload").click();
     await expect(

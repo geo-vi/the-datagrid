@@ -179,6 +179,114 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   showActiveRowIndicator: true,
 };
 
+type LoadingStore = {
+  getEffective: (controlledLoading: boolean | undefined) => boolean;
+  getOverride: () => boolean | null;
+  setAutomatic: (loading: boolean) => void;
+  setOverride: (loading: boolean) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+function createLoadingStore(): LoadingStore {
+  let automaticLoading = false;
+  let loadingOverride: boolean | null = null;
+  const listeners = new Set<() => void>();
+
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+
+  return {
+    getEffective(controlledLoading) {
+      return controlledLoading ?? loadingOverride ?? automaticLoading;
+    },
+    getOverride() {
+      return loadingOverride;
+    },
+    setAutomatic(loading) {
+      if (Object.is(automaticLoading, loading)) return;
+      automaticLoading = loading;
+      notify();
+    },
+    setOverride(loading) {
+      if (Object.is(loadingOverride, loading)) return;
+      loadingOverride = loading;
+      notify();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+type GridLoadingLayerProps = {
+  controlledLoading: boolean | undefined;
+  loadingText: React.ReactNode | (() => React.ReactNode);
+  onLoadingChange: ((loading: boolean) => void) | undefined;
+  renderLoadMask: TypeDataGridProps["renderLoadMask"];
+  store: LoadingStore;
+  surfaceRef: React.MutableRefObject<HTMLElement | null>;
+  theme: string;
+};
+
+const GridLoadingLayer = React.memo(function GridLoadingLayer(
+  props: GridLoadingLayerProps
+): React.ReactElement | null {
+  const {
+    controlledLoading,
+    loadingText,
+    onLoadingChange,
+    renderLoadMask,
+    store,
+    surfaceRef,
+    theme,
+  } = props;
+  const [, forceRender] = React.useState(0);
+  const loading = store.getEffective(controlledLoading);
+  const previousLoadingRef = React.useRef(false);
+
+  React.useLayoutEffect(
+    () => store.subscribe(() => forceRender((revision) => revision + 1)),
+    [store]
+  );
+  React.useLayoutEffect(() => {
+    surfaceRef.current?.setAttribute("aria-busy", String(loading));
+  }, [loading, surfaceRef]);
+  React.useEffect(() => {
+    if (Object.is(previousLoadingRef.current, loading)) return;
+
+    previousLoadingRef.current = loading;
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
+  const loadMaskProps: TypeLoadMaskProps = {
+    visible: loading,
+    livePagination: false,
+    loadingText,
+    zIndex: 10000,
+    theme,
+  };
+  const customLoadMask = renderLoadMask?.(loadMaskProps);
+
+  if (customLoadMask !== undefined) {
+    return <>{customLoadMask}</>;
+  }
+  if (!loading) return null;
+
+  return (
+    <div
+      className="tdg-load-mask absolute inset-0 flex items-center justify-center bg-background/75 text-sm text-muted-foreground backdrop-blur-[1px]"
+      style={{ zIndex: loadMaskProps.zIndex }}
+      role="status"
+      aria-live="polite"
+      data-slot="grid-load-mask"
+    >
+      {typeof loadingText === "function" ? loadingText() : loadingText}
+    </div>
+  );
+});
+
 type ReactDataGridComponent = React.FunctionComponent<TypeDataGridProps> & {
   defaultProps: ReactDataGridDefaultProps;
 };
@@ -590,6 +698,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const searchActive = searchValue.trim().length > 0;
   const loadRequestIdRef = React.useRef(0);
   const loadAbortControllerRef = React.useRef<AbortController | null>(null);
+  const apiRef = React.useRef<TypeComputedProps | null>(null);
 
   const {
     theme = REACT_DATA_GRID_DEFAULT_PROPS.theme,
@@ -1246,27 +1355,24 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () => toTanStackRowSelectionState(selectedMap),
     [selectedMap]
   );
-  const [internalLoading, setInternalLoading] = React.useState(false);
-  const [loadingOverride, setLoadingOverride] = React.useState<boolean | null>(
-    null
-  );
+  const [loadingStore] = React.useState(createLoadingStore);
+  const controlledLoadingRef = React.useRef(props.loading);
   const loadMountedRef = React.useRef(false);
-  const loading = props.loading ?? loadingOverride ?? internalLoading;
-  const onLoadingChangeRef = React.useRef(props.onLoadingChange);
-  const previousLoadingRef = React.useRef(false);
+  const loading = loadingStore.getEffective(props.loading);
   React.useLayoutEffect(() => {
-    onLoadingChangeRef.current = props.onLoadingChange;
-
-    return () => {
-      onLoadingChangeRef.current = undefined;
-    };
-  }, [props.onLoadingChange]);
-  React.useEffect(() => {
-    if (Object.is(previousLoadingRef.current, loading)) return;
-
-    previousLoadingRef.current = loading;
-    onLoadingChangeRef.current?.(loading);
-  }, [loading]);
+    controlledLoadingRef.current = props.loading;
+  }, [props.loading]);
+  const setInternalLoading = React.useCallback(
+    (nextLoading: boolean) => {
+      loadingStore.setAutomatic(nextLoading);
+      if (apiRef.current) {
+        apiRef.current.computedLoading = loadingStore.getEffective(
+          controlledLoadingRef.current
+        );
+      }
+    },
+    [loadingStore]
+  );
 
   const computedFilterForFetch = filterValue;
   const computedSortForFetch = sortInfo;
@@ -1477,6 +1583,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     searchConnected,
     searchFilterRows,
     searchValue,
+    setInternalLoading,
   ]);
 
   React.useLayoutEffect(() => {
@@ -4268,7 +4375,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- imperative API / compat surface ---------------- */
 
-  const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [stableApiTarget] = React.useState<TypeComputedProps>(
     () => ({}) as TypeComputedProps
   );
@@ -5698,11 +5804,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
         surfaceNode?.blur();
       },
       computedLoading: loading,
-      isLoading: () => loading,
+      isLoading: () => loadingStore.getEffective(controlledLoadingRef.current),
       setLoading: (nextLoading) => {
-        setLoadingOverride((current) =>
-          resolveStateAction(nextLoading, current ?? false)
+        loadingStore.setOverride(
+          resolveStateAction(nextLoading, loadingStore.getOverride() ?? false)
         );
+        if (apiRef.current) {
+          apiRef.current.computedLoading = loadingStore.getEffective(
+            controlledLoadingRef.current
+          );
+        }
       },
       computedFilterable: effectiveEnableFiltering,
       computedIsFilterable: effectiveEnableFiltering,
@@ -5983,6 +6094,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     limit,
     localPagination,
     loading,
+    loadingStore,
     loadSkip,
     lockedColumnMetrics,
     lockedEndColumns,
@@ -6073,30 +6185,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
   const loadingText = props.loadingText ?? "Loading";
-  const loadMaskProps: TypeLoadMaskProps = {
-    visible: loading,
-    livePagination: false,
-    loadingText,
-    zIndex: 10000,
-    theme: themeName,
-  };
-  const customLoadMask = props.renderLoadMask?.(loadMaskProps);
-  const loadMask =
-    customLoadMask === undefined ? (
-      loading ? (
-        <div
-          className="tdg-load-mask absolute inset-0 flex items-center justify-center bg-background/75 text-sm text-muted-foreground backdrop-blur-[1px]"
-          style={{ zIndex: loadMaskProps.zIndex }}
-          role="status"
-          aria-live="polite"
-          data-slot="grid-load-mask"
-        >
-          {typeof loadingText === "function" ? loadingText() : loadingText}
-        </div>
-      ) : null
-    ) : (
-      customLoadMask
-    );
   const customPaginationToolbar =
     paginationEnabled && props.renderPaginationToolbar
       ? props.renderPaginationToolbar(paginationProps)
@@ -6380,7 +6468,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
               {paginationToolbar}
             </div>
           ) : null}
-          {loadMask}
+          <GridLoadingLayer
+            controlledLoading={props.loading}
+            loadingText={loadingText}
+            onLoadingChange={props.onLoadingChange}
+            renderLoadMask={props.renderLoadMask}
+            store={loadingStore}
+            surfaceRef={surfaceRef}
+            theme={themeName}
+          />
         </div>
       </DatagridThemeProvider>
     </div>

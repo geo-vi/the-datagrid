@@ -325,6 +325,8 @@ function LifecycleScenario(): React.ReactElement {
       latestRequest: latest?.id ?? null,
       latestSkip: latest?.args.skip ?? null,
       latestLimit: latest?.args.limit ?? null,
+      computedLoading: apiRef.current?.computedLoading ?? null,
+      isLoading: apiRef.current?.isLoading?.() ?? null,
     });
   }, [latestPending]);
   const syncOutputs = React.useCallback(() => {
