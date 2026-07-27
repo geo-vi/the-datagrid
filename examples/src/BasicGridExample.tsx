@@ -39,7 +39,13 @@ export default function BasicGridExample() {
 
   const columns: TypeColumns = useMemo(
     () => [
-      { name: "cldomnr", header: "ID", sortable: true, filterable: true },
+      {
+        name: "cldomnr",
+        header: "ID",
+        type: "number",
+        sortable: true,
+        filterable: true,
+      },
       { name: "name", header: "Name", sortable: true, filterable: true },
       {
         name: "city",
@@ -54,6 +60,7 @@ export default function BasicGridExample() {
       {
         name: "amount",
         header: "Amount",
+        type: "number",
         sortable: true,
         filterable: true,
         textAlign: "end",

@@ -63,6 +63,11 @@ export type {
   TypeSize,
   TypeSingleFilterValue,
   TypeSingleSortInfo,
+  TypeSortFunction,
+  TypeSortFunctions,
+  TypeColumnSort,
+  TypeRenderSortTool,
+  TypeSortToolProps,
   TypeSortInfo,
   // plus your checkbox/selection compat types if you added them
   TypeCheckboxColumn,

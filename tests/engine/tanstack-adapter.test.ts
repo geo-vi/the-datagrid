@@ -71,11 +71,31 @@ test("sorting restores sort names, metadata, unknown IDs, and controlled shape",
     },
     { name: "external", dir: 1 },
   ]);
-  assert.equal(fromTanStackSortingState([], columns, current), null);
+  assert.deepEqual(fromTanStackSortingState([], columns, current), []);
   assert.deepEqual(
     fromTanStackSortingState([{ id: "false", desc: false }], columns),
     { name: "enabledSort", dir: 1 }
   );
+});
+
+test("sorting preserves id-only descriptors and persistent empty array mode", () => {
+  const idOnlyColumns = [{ id: "whole", sort: () => 0 }] as TypeColumn[];
+  const current = [
+    { id: "whole", name: "", dir: 1 as const },
+  ] satisfies TypeSortInfo;
+
+  assert.deepEqual(toTanStackSortingState(current, idOnlyColumns), [
+    { id: "whole", desc: false },
+  ]);
+  assert.deepEqual(
+    fromTanStackSortingState(
+      [{ id: "whole", desc: true }],
+      idOnlyColumns,
+      current
+    ),
+    [{ id: "whole", name: "", dir: -1 }]
+  );
+  assert.deepEqual(fromTanStackSortingState([], idOnlyColumns, current), []);
 });
 
 test("filter projection stores and restores complete compatibility entries", () => {

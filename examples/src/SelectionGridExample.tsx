@@ -187,6 +187,7 @@ export default function SelectionGridExample() {
       {
         name: "seats",
         header: "Seats",
+        type: "number",
         defaultWidth: 110,
         sortable: true,
         filterable: true,
@@ -202,6 +203,7 @@ export default function SelectionGridExample() {
       {
         name: "arr",
         header: "ARR",
+        type: "number",
         defaultWidth: 130,
         sortable: true,
         filterable: true,

@@ -119,9 +119,10 @@ method allowlists.
 - **Filtering and sorting:** inferred or explicitly controlled filter-row
   visibility, uncontrolled local filters, externally owned controlled filter
   state, custom filter registries and editors, filter operator menus, single
-  sorting, Shift-assisted multi-sorting, configurable initial direction, and
-  optional unsorting. Filter and sort changes reset pagination to the first
-  page.
+  sorting, persistent array-valued multi-sorting, custom comparator registries
+  and sort tools, configurable initial direction, optional unsorting, and
+  configurable scroll reset behavior. Filter and sort changes reset pagination
+  to the first page.
 - **Pagination:** controlled or uncontrolled `skip` and `limit`, local and remote
   modes, configurable page sizes, a built-in accessible pager, an
   Inovua-shaped `renderPaginationToolbar` contract, and reload/refresh/page
@@ -209,9 +210,11 @@ The main entry, `@geovi/the-datagrid`, exports:
   `TypeGetColumnByParam`, `TypeI18n`, `TypeOnSelectionChangeArg`,
   `TypePaginationMode`, `TypeRowSelection`, `TypeRowStyle`, `TypeRowStyleArgs`,
   `TypeRowStyleProps`, `TypeShowCellBorders`, `TypeSize`, `TypeSingleFilterValue`,
-  `TypeSingleSortInfo`, `TypeSortInfo`, `TypeCheckboxColumn`,
-  `TypeCheckboxProps`, `TextInputProps`, `TypeTextInputProps`, and the
-  TextInput callback/input/wrapper/clear-button helper types.
+  `TypeSingleSortInfo`, `TypeSortInfo`, `TypeSortFunction`,
+  `TypeSortFunctions`, `TypeColumnSort`, `TypeSortToolProps`,
+  `TypeRenderSortTool`, `TypeCheckboxColumn`, `TypeCheckboxProps`,
+  `TextInputProps`, `TypeTextInputProps`, and the TextInput
+  callback/input/wrapper/clear-button helper types.
 
 The optional `@geovi/the-datagrid/search` entry exports `RDGSearchProvider`,
 `RDGSearchBar`, `RDGSearchTarget`, and their prop types. The explicit stylesheet
@@ -869,13 +872,42 @@ Disable are explicit menu actions, and Clear All emits one aggregate update.
 
 ### Sorting
 
-| Prop                      | Type                           | Default | Description                   |
-| ------------------------- | ------------------------------ | ------- | ----------------------------- |
-| `sortInfo`                | `TypeSortInfo`                 | -       | Controlled sort state         |
-| `defaultSortInfo`         | `TypeSortInfo`                 | -       | Uncontrolled initial sort     |
-| `onSortInfoChange`        | `(info: TypeSortInfo) => void` | -       | Fired on sort change          |
-| `allowUnsort`             | `boolean`                      | `true`  | Allow returning to “unsorted” |
-| `defaultSortingDirection` | `"asc" \| "desc"`              | `"asc"` | Default sort direction        |
+| Prop                      | Type                           | Default       | Description                                                    |
+| ------------------------- | ------------------------------ | ------------- | -------------------------------------------------------------- |
+| `sortInfo`                | `TypeSortInfo`                 | -             | Controlled sort state                                          |
+| `defaultSortInfo`         | `TypeSortInfo`                 | -             | Uncontrolled initial sort                                      |
+| `onSortInfoChange`        | `(info: TypeSortInfo) => void` | -             | Fired on sort change                                           |
+| `sortable`                | `boolean`                      | `true`        | Root sorting switch; `column.sortable` can override it         |
+| `allowUnsort`             | `boolean`                      | `true`        | Allow a single sort to return to “unsorted”                    |
+| `defaultSortingDirection` | `"asc" \| "desc"`              | `"asc"`       | Default sort direction                                         |
+| `sortFunctions`           | `TypeSortFunctions`            | date registry | Comparator registry addressed by `column.type`                 |
+| `renderSortTool`          | `TypeRenderSortTool`           | built-in icon | Root sort-indicator renderer; `column.renderSortTool` wins     |
+| `scrollTopOnSort`         | `boolean \| "always"`          | `true`        | Reset vertical scroll on sort, never, or on every data refresh |
+
+An object-valued `sortInfo` is single-sort mode. An array-valued sort state is
+persistent multi-sort mode, including when the array contains zero or one
+descriptor; ordinary click, Enter, Space, header-menu, mobile, and imperative
+sort actions retain that array shape without requiring Shift. Descriptor order
+is sort priority, and retoggling a descriptor preserves its position until it
+is removed.
+
+Local sorting uses `column.sort` first, then a descriptor `fn`, a
+`sortFunctions[column.type]` registry entry, and finally the built-in
+`number`/`date`/`string` comparator. A named column comparator receives
+`(value1, value2, column, data1, data2, sortInfo)`. An id-only column receives
+the complete rows as `value1` and `value2`. Controlled `sortInfo` remains
+externally owned and is not applied again to local array order.
+
+Migration notes for the completed Inovua sorting contract:
+
+- Previous releases inferred numeric ordering when both values were
+  number-like. Untyped columns now use Inovua's string comparator; declare
+  `type: "number"` (or provide a comparator) for numeric ordering.
+- Shift no longer changes a single descriptor into multi-sort mode. Initialize
+  `sortInfo` or `defaultSortInfo` as an array to opt into persistent multi-sort.
+- `TypeSingleSortInfo.fn`, `column.sort`, and registered sort functions now
+  expose their exact comparator argument lists while retaining Inovua's
+  `number | boolean` result compatibility.
 
 ### Selection
 

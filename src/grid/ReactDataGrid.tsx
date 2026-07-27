@@ -24,6 +24,7 @@ import type {
   TypePaginationProps,
   TypeRowSelection,
   TypeStartEditArgs,
+  TypeSortFunctions,
   TypeSortInfo,
   TypeTryStartEditArgs,
 } from "../types";
@@ -43,7 +44,7 @@ import {
 } from "../theme/context";
 import { useLegacyThemeBridge } from "../theme/use-legacy-theme-bridge";
 
-import { getColumnId, getColumnSortName } from "../utils/column";
+import { getColumnId } from "../utils/column";
 import {
   clamp,
   coerceUserSelect,
@@ -64,7 +65,11 @@ import {
   normalizeFilterValue,
   upsertFilterEntry,
 } from "../filters/utils";
-import { applyLocalSort, toggleSortInfo } from "../sorting/utils";
+import {
+  applyLocalSort,
+  setColumnSortInfo,
+  toggleSortInfo,
+} from "../sorting/utils";
 
 import {
   fromTanStackColumnFiltersState,
@@ -131,6 +136,9 @@ type ReactDataGridDefaultPropName =
   | "columnUserSelect"
   | "showCellBorders"
   | "showColumnMenuTool"
+  | "sortable"
+  | "sortFunctions"
+  | "scrollTopOnSort"
   | "rowHeight"
   | "minRowHeight"
   | "defaultShowZebraRows"
@@ -149,6 +157,10 @@ type ReactDataGridDefaultProps = Required<
   Pick<TypeDataGridProps, ReactDataGridDefaultPropName>
 >;
 
+const DEFAULT_SORT_FUNCTIONS: TypeSortFunctions = {
+  date: (value1, value2) => Number(value1) - Number(value2),
+};
+
 const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   idProperty: "id",
   theme: "default-light",
@@ -164,6 +176,9 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   columnUserSelect: false,
   showCellBorders: true,
   showColumnMenuTool: true,
+  sortable: true,
+  sortFunctions: DEFAULT_SORT_FUNCTIONS,
+  scrollTopOnSort: true,
   rowHeight: 40,
   minRowHeight: 20,
   defaultShowZebraRows: true,
@@ -705,6 +720,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     idProperty = REACT_DATA_GRID_DEFAULT_PROPS.idProperty,
     columns: inputColumns,
     dataSource,
+    sortable = REACT_DATA_GRID_DEFAULT_PROPS.sortable,
+    sortFunctions = REACT_DATA_GRID_DEFAULT_PROPS.sortFunctions,
+    renderSortTool,
+    scrollTopOnSort = REACT_DATA_GRID_DEFAULT_PROPS.scrollTopOnSort,
 
     enableColumnFilterContextMenu = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnFilterContextMenu,
 
@@ -1421,7 +1440,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           });
         }
         if (localSortInfo) {
-          data = applyLocalSort(data, localSortInfo, orderedColumns);
+          data = applyLocalSort(
+            data,
+            localSortInfo,
+            orderedColumns,
+            sortFunctions
+          );
         }
 
         const totalCount = data.length;
@@ -1501,7 +1525,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
           });
         }
         if (localSortInfo) {
-          data = applyLocalSort(data, localSortInfo, orderedColumns);
+          data = applyLocalSort(
+            data,
+            localSortInfo,
+            orderedColumns,
+            sortFunctions
+          );
         }
 
         return data;
@@ -1584,6 +1613,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     searchFilterRows,
     searchValue,
     setInternalLoading,
+    sortFunctions,
   ]);
 
   React.useLayoutEffect(() => {
@@ -2276,7 +2306,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       return {
         id: colId,
         accessorFn: (row) => (row as any)?.[colId],
-        enableSorting: c.sortable ?? true,
+        enableSorting: c.sortable ?? sortable,
         enableColumnFilter: c.filterable ?? true,
         enableHiding: c.hideable ?? true,
         enableResizing: resizable && (c.resizable ?? true),
@@ -2360,6 +2390,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     checkboxEnabled,
     allInputColumns,
     resizable,
+    sortable,
   ]);
 
   const table = useReactTable({
@@ -2458,6 +2489,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const previousSortForScrollRef = React.useRef(sortInfo);
+  const previousRowsForSortScrollRef = React.useRef(rows);
+  React.useLayoutEffect(() => {
+    const sortChanged = !Object.is(previousSortForScrollRef.current, sortInfo);
+    const rowsChanged = !Object.is(previousRowsForSortScrollRef.current, rows);
+
+    previousSortForScrollRef.current = sortInfo;
+    previousRowsForSortScrollRef.current = rows;
+
+    const shouldScroll =
+      (scrollTopOnSort === true && sortChanged) ||
+      (scrollTopOnSort === "always" && (sortChanged || rowsChanged));
+    if (shouldScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [rows, scrollTopOnSort, sortInfo]);
   const smoothScrollFrameIdsRef = React.useRef<Set<number>>(new Set());
   React.useEffect(
     () => () => {
@@ -4857,17 +4904,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const resolved = getColumnByCompat(column, { initial: true });
       if (!resolved) return;
 
-      const sortName = getColumnSortName(resolved);
       setSortInfoAndResetPage(
-        dir === 0
-          ? null
-          : {
-              name: sortName,
-              dir,
-            }
+        setColumnSortInfo({
+          sortInfo,
+          col: resolved,
+          dir,
+          sortFunctions,
+        })
       );
     },
-    [getColumnByCompat, setSortInfoAndResetPage]
+    [getColumnByCompat, setSortInfoAndResetPage, sortFunctions, sortInfo]
   );
 
   const toggleColumnSortCompat = React.useCallback(
@@ -4880,7 +4926,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         col: resolved,
         allowUnsort,
         defaultDir: defaultSortDir,
-        multi: false,
+        sortFunctions,
       });
 
       setSortInfoAndResetPage(next);
@@ -4890,6 +4936,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       defaultSortDir,
       getColumnByCompat,
       setSortInfoAndResetPage,
+      sortFunctions,
       sortInfo,
     ]
   );
@@ -6289,6 +6336,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 emptyText={props.emptyText}
                 sortInfo={sortInfo}
                 defaultSortDirection={defaultSortDir}
+                sortable={sortable}
+                sortFunctions={sortFunctions}
                 searchEnabled={!searchConnected}
                 columnPickerEnabled={columnVisibilityController == null}
                 authoritativeResultCount={searchConnected ? count : undefined}
@@ -6337,9 +6386,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           filterRowHeight={filterRowHeight}
                           sortInfo={sortInfo}
                           setSortInfo={setSortInfo}
-                          setSkip={setSkip}
+                          setSkip={resetSkip}
                           allowUnsort={allowUnsort}
                           defaultSortDir={defaultSortDir}
+                          sortable={sortable}
+                          sortFunctions={sortFunctions}
+                          renderSortTool={renderSortTool}
                           showColumnMenuTool={showColumnMenuTool}
                           showHorizontalCellBorders={showHorizontalCellBorders}
                           showVerticalCellBorders={showVerticalCellBorders}

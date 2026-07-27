@@ -54,9 +54,7 @@ function getColumnId(column: TypeColumn): string {
 
 function getColumnSortName(column: TypeColumn): string {
   const runtimeColumn = column as RuntimeColumn;
-  return String(
-    runtimeColumn.sortName ?? runtimeColumn.name ?? runtimeColumn.id ?? ""
-  );
+  return String(runtimeColumn.sortName ?? runtimeColumn.name ?? "");
 }
 
 function getColumnFilterAliases(column: TypeColumn): string[] {
@@ -83,7 +81,7 @@ function buildColumnLookups(columns: readonly TypeColumn[]) {
     const sortName = getColumnSortName(column);
 
     if (!columnIds.includes(id)) columnIds.push(id);
-    if (!idToSortName.has(id)) idToSortName.set(id, sortName || id);
+    if (!idToSortName.has(id)) idToSortName.set(id, sortName);
     if (!sortNameToId.has(id)) sortNameToId.set(id, id);
     if (sortName && !sortNameToId.has(sortName)) {
       sortNameToId.set(sortName, id);
@@ -115,9 +113,19 @@ export function toTanStackSortingState(
     if (item.dir !== 1 && item.dir !== -1) continue;
 
     const sourceName = toStateKey(item.name);
-    if (sourceName === null || sourceName.length === 0) continue;
+    const sourceId = toStateKey(item.id);
+    if (
+      (sourceName === null || sourceName.length === 0) &&
+      (sourceId === null || sourceId.length === 0)
+    ) {
+      continue;
+    }
 
-    const id = sortNameToId.get(sourceName) ?? sourceName;
+    const id =
+      (sourceId == null ? undefined : sortNameToId.get(sourceId)) ??
+      (sourceName == null ? undefined : sortNameToId.get(sourceName)) ??
+      sourceId ??
+      sourceName!;
     if (seen.has(id)) continue;
 
     seen.add(id);
@@ -143,8 +151,13 @@ export function fromTanStackSortingState(
 
   for (const item of currentList) {
     const name = toStateKey(item.name);
-    if (name === null) continue;
-    const id = sortNameToId.get(name) ?? name;
+    const itemId = toStateKey(item.id);
+    if (name === null && itemId === null) continue;
+    const id =
+      (itemId == null ? undefined : sortNameToId.get(itemId)) ??
+      (name == null ? undefined : sortNameToId.get(name)) ??
+      itemId ??
+      name!;
     if (!currentById.has(id)) currentById.set(id, item);
   }
 
@@ -156,14 +169,19 @@ export function fromTanStackSortingState(
     if (id === null || id.length === 0 || seen.has(id)) continue;
     seen.add(id);
 
+    const currentItem = currentById.get(id);
+    const name = idToSortName.get(id) ?? currentItem?.name ?? id;
     next.push({
-      ...(currentById.get(id) ?? {}),
-      name: idToSortName.get(id) ?? id,
+      ...currentItem,
+      ...(currentItem?.id != null || name === ""
+        ? { id: currentItem?.id ?? id }
+        : {}),
+      name,
       dir: item.desc ? -1 : 1,
     });
   }
 
-  if (next.length === 0) return null;
+  if (next.length === 0) return Array.isArray(current) ? [] : null;
   if (next.length > 1 || Array.isArray(current)) return next;
   return next[0]!;
 }

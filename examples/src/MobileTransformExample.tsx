@@ -56,10 +56,16 @@ export default function MobileTransformExample() {
           </span>
         ),
       },
-      { name: "seats", header: "Seats", textAlign: "end" },
+      {
+        name: "seats",
+        header: "Seats",
+        type: "number",
+        textAlign: "end",
+      },
       {
         name: "revenue",
         header: "Revenue",
+        type: "number",
         textAlign: "end",
         searchValue: (row) => [row.revenue, `ledger-${row.id}`],
         render: ({ value }: CellProps) => (

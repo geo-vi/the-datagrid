@@ -9,13 +9,23 @@ import {
   IconDotsVertical,
 } from "@tabler/icons-react";
 
-import type { TypeColumn, TypeI18n, TypeSortInfo } from "../../types";
+import type {
+  TypeColumn,
+  TypeI18n,
+  TypeRenderSortTool,
+  TypeSortFunctions,
+  TypeSortInfo,
+} from "../../types";
 
 import { cn } from "../../lib/utils";
 import { t } from "../../utils/helpers";
-import { getColumnSortName } from "../../utils/column";
 import { isInteractiveClickTarget } from "../utils/gridUtils";
-import { getSortDir, toggleSortInfo } from "../../sorting/utils";
+import {
+  getColumnSortInfo,
+  getSortDir,
+  setColumnSortInfo,
+  toggleSortInfo,
+} from "../../sorting/utils";
 import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 
 import { Button } from "../../components/ui/button";
@@ -51,24 +61,23 @@ function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
   );
 }
 
-function applySort(
-  event: React.MouseEvent | React.KeyboardEvent,
-  options: {
-    sortInfo: TypeSortInfo;
-    col?: TypeColumn;
-    colId: string;
-    allowUnsort: boolean;
-    defaultSortDir: 1 | -1;
-    setSkip: (n: number) => void;
-    setSortInfo: (s: TypeSortInfo) => void;
-  }
-) {
+function applySort(options: {
+  sortInfo: TypeSortInfo;
+  col?: TypeColumn;
+  colId: string;
+  allowUnsort: boolean;
+  defaultSortDir: 1 | -1;
+  sortFunctions?: TypeSortFunctions | null;
+  setSkip: (n: number) => void;
+  setSortInfo: (s: TypeSortInfo) => void;
+}) {
   const {
     sortInfo,
     col,
     colId,
     allowUnsort,
     defaultSortDir,
+    sortFunctions,
     setSkip,
     setSortInfo,
   } = options;
@@ -78,7 +87,7 @@ function applySort(
     col: col ?? { name: colId },
     allowUnsort,
     defaultDir: defaultSortDir,
-    multi: (event as React.MouseEvent).shiftKey === true,
+    sortFunctions,
   });
 
   setSkip(0);
@@ -100,6 +109,9 @@ export type HeaderCellProps = {
   setSkip: (n: number) => void;
   allowUnsort: boolean;
   defaultSortDir: 1 | -1;
+  sortable: boolean;
+  sortFunctions?: TypeSortFunctions | null;
+  renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
   showHorizontalCellBorders: boolean;
@@ -134,6 +146,9 @@ export function HeaderCell(props: HeaderCellProps) {
     setSkip,
     allowUnsort,
     defaultSortDir,
+    sortable,
+    sortFunctions,
+    renderSortTool,
     showColumnMenuTool,
     showHorizontalCellBorders,
     showVerticalCellBorders,
@@ -149,10 +164,27 @@ export function HeaderCell(props: HeaderCellProps) {
     onAutoResize,
   } = props;
 
-  const canSort = (col?.sortable ?? true) && header.column.getCanSort();
-  const sortName = col ? getColumnSortName(col) : colId;
-  const dir = getSortDir(sortInfo, sortName);
+  const canSort = (col?.sortable ?? sortable) && header.column.getCanSort();
+  const sortColumn = React.useMemo<TypeColumn>(
+    () => col ?? { name: colId },
+    [col, colId]
+  );
+  const dir = getSortDir(sortInfo, sortColumn);
+  const columnSortInfo = getColumnSortInfo(sortInfo, sortColumn);
   const [hovered, setHovered] = React.useState(false);
+  const customSortTool = col?.renderSortTool ?? renderSortTool;
+  const renderedSortTool = canSort
+    ? customSortTool
+      ? customSortTool(dir, {
+          column: sortColumn,
+          columnId: colId,
+          computedSortable: canSort,
+          computedSortInfo: columnSortInfo,
+          sortInfo,
+          headerCell: true,
+        })
+      : sortIcon(dir)
+    : null;
 
   const headerAlign = col?.headerAlign ?? col?.textAlign;
   const headerAlignClass =
@@ -162,19 +194,41 @@ export function HeaderCell(props: HeaderCellProps) {
         ? "InovuaReactDataGrid__column-header--align-center"
         : "InovuaReactDataGrid__column-header--align-start";
 
-  const handleSort = React.useCallback(
-    (event: React.MouseEvent | React.KeyboardEvent) => {
-      applySort(event, {
-        sortInfo,
-        col,
-        colId,
-        allowUnsort,
-        defaultSortDir,
-        setSkip,
-        setSortInfo,
-      });
+  const handleSort = React.useCallback(() => {
+    applySort({
+      sortInfo,
+      col,
+      colId,
+      allowUnsort,
+      defaultSortDir,
+      sortFunctions,
+      setSkip,
+      setSortInfo,
+    });
+  }, [
+    allowUnsort,
+    col,
+    colId,
+    defaultSortDir,
+    setSkip,
+    setSortInfo,
+    sortFunctions,
+    sortInfo,
+  ]);
+
+  const setColumnDirection = React.useCallback(
+    (nextDir: -1 | 0 | 1) => {
+      setSkip(0);
+      setSortInfo(
+        setColumnSortInfo({
+          sortInfo,
+          col: sortColumn,
+          dir: nextDir,
+          sortFunctions,
+        })
+      );
     },
-    [allowUnsort, col, colId, defaultSortDir, setSkip, setSortInfo, sortInfo]
+    [setSkip, setSortInfo, sortColumn, sortFunctions, sortInfo]
   );
 
   return (
@@ -238,7 +292,7 @@ export function HeaderCell(props: HeaderCellProps) {
           return;
         }
 
-        canDrag && onDragStart(e, colId);
+        if (canDrag) onDragStart(e, colId);
       }}
       onDragOver={(e) => canDrag && onDragOver(e)}
       onDrop={(e) => canDrag && onDrop(e, colId)}
@@ -248,13 +302,13 @@ export function HeaderCell(props: HeaderCellProps) {
         if (!canSort) return;
         if (isInteractiveClickTarget(event.target as HTMLElement | null))
           return;
-        handleSort(event);
+        handleSort();
       }}
       onKeyDown={(event) => {
         if (!canSort) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        handleSort(event);
+        handleSort();
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -272,7 +326,7 @@ export function HeaderCell(props: HeaderCellProps) {
                   header.getContext()
                 )}
               </span>
-              {sortIcon(dir)}
+              {renderedSortTool}
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center">
@@ -300,28 +354,26 @@ export function HeaderCell(props: HeaderCellProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
-                  onSelect={() => {
-                    setSkip(0);
-                    setSortInfo({ name: sortName, dir: 1 });
-                  }}
+                  disabled={!canSort}
+                  onSelect={() => setColumnDirection(1)}
                 >
                   {t(i18n, "sortAsc", "Sort A→Z")}
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
-                  onSelect={() => {
-                    setSkip(0);
-                    setSortInfo({ name: sortName, dir: -1 });
-                  }}
+                  disabled={!canSort}
+                  onSelect={() => setColumnDirection(-1)}
                 >
                   {t(i18n, "sortDesc", "Sort Z→A")}
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
-                  onSelect={() => {
-                    setSkip(0);
-                    setSortInfo(null);
-                  }}
+                  disabled={
+                    !canSort ||
+                    dir === 0 ||
+                    (!allowUnsort && !Array.isArray(sortInfo))
+                  }
+                  onSelect={() => setColumnDirection(0)}
                 >
                   {t(i18n, "unsort", "Unsort")}
                 </DropdownMenuItem>
