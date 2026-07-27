@@ -2136,14 +2136,14 @@ const columnSections: ReferenceSection[] = [
         type: "string",
         defaultValue: "-",
         description:
-          "Alternate local filter field. Filter descriptors can resolve the column through id, name, or filterName.",
+          "Alternate filter field. Local evaluation and remote data-source descriptors project through id/name to this alias.",
       },
       {
         name: "getFilterValue",
         type: "({ data, value }) => unknown",
         defaultValue: "-",
         description:
-          "Derives the local value tested by filter operators after filterName resolution.",
+          "Derives the local value tested by filter operators and is attached to projected remote filter descriptors.",
       },
       {
         name: "filterEditor",
@@ -2156,7 +2156,14 @@ const columnSections: ReferenceSection[] = [
         type: "object | ((columnContext, indexContext) => object)",
         defaultValue: "-",
         description:
-          "Object props, or a function called as ({ column, columnId }, { index: 0 }). They are resolved first; grid-owned filterValue, value, onChange, column, columnId, and disabled props take precedence so activation and state callbacks cannot be bypassed.",
+          "Static props are merged into the editor. Function values are passed through so range editors can resolve each input with the complete editor contract and { index, value } metadata.",
+      },
+      {
+        name: "filterDelay",
+        type: "boolean | number",
+        defaultValue: "250",
+        description:
+          "Per-column aggregate filter debounce in milliseconds. false or 0 commits immediately.",
       },
       {
         name: "filterCellPadding",
@@ -3758,15 +3765,17 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
         <code>defaultVisible=false</code> and <code>defaultHidden=true</code>{" "}
         seed grid-owned visibility. Local filtering resolves id/name/filterName
         aliases and invokes <code>{"getFilterValue({ data, value })"}</code>.
+        Remote arguments receive the same alias/type/getter projection and only
+        include visible rendered columns in <code>columnOrder</code>.
       </>
     ),
     requiredOutcome: (
       <>
-        Complete exact remote filter-descriptor projection before considering
-        the broader issue #34 contract closed.
+        Preserve local and remote projection, including inferred types,
+        descriptor getters, aliases, and visible rendered column order.
       </>
     ),
-    status: "known-gap",
+    status: "compatible",
   },
   {
     id: "imperative-placeholders",
@@ -4151,9 +4160,8 @@ const implementedSurfaceSections: ReferenceSection[] = [
             {
               name: "bool / boolean",
               type: "operators",
-              defaultValue: "seed eq or neq",
-              description:
-                "eq and neq. Current unseeded resolution falls back to contains, which this registry does not define, so initialize an eq/neq entry until that gap is corrected.",
+              defaultValue: "eq",
+              description: "eq and neq, with null as the empty value.",
             },
             {
               name: "number",
@@ -4189,11 +4197,10 @@ const implementedSurfaceSections: ReferenceSection[] = [
             no input editor.
           </li>
           <li>
-            Uncontrolled editor typing commits after 300ms; controlled changes
-            call onFilterValueChange immediately but render the supplied prop
-            until the parent updates it. Operator selection and clear are
-            immediate. Every edit requests skip 0; controlled pagination must
-            honor onSkipChange(0).
+            Editor typing commits after the column&apos;s filterDelay, or 250ms
+            by default; false and 0 commit immediately. Operator selection and
+            clear are immediate. Every edit requests skip 0; controlled
+            pagination must honor onSkipChange(0).
           </li>
           <li>
             <code>onColumnFilterValueChange</code> runs before the aggregate
@@ -4208,12 +4215,11 @@ const implementedSurfaceSections: ReferenceSection[] = [
             the descriptor&apos;s activation state; Clear All emits one
             aggregate update without per-column callbacks. Object/function{" "}
             <code>filterEditorProps</code> and custom editors are supported as
-            described in IColumn; resolved props are applied first and
-            grid-owned state, identity, callback, and disabled props win on
-            conflicts. Without a custom editor, only select +
-            filterEditorProps.options renders a select; other types use generic
-            text input. Use exported DateFilter, NumberFilter, or SelectFilter
-            explicitly when needed.
+            described in IColumn. Function-valued props remain available to the
+            editor, including per-input metadata for exported range editors.
+            Without a custom editor, only select + filterEditorProps.options
+            renders a select; other types use generic text input. Use exported
+            DateFilter, NumberFilter, or SelectFilter explicitly when needed.
           </li>
         </ul>
       </div>
@@ -4453,9 +4459,8 @@ const implementedSurfaceSections: ReferenceSection[] = [
         tone="warning"
       >
         <p>
-          Current partials include exact remote filterName projection, the
-          bool/boolean unseeded filter-operator mismatch, and broad imperative
-          placeholder methods. See the{" "}
+          Current partials are broad imperative placeholder methods and the
+          lifecycle details called out in the ledger. See the{" "}
           <DocsRouteLink
             group="migration"
             slug="inovua-status"
@@ -5208,10 +5213,9 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              Uncontrolled text/editor changes update the draft immediately and
-              commit after 300ms. Controlled changes call onFilterValueChange
-              immediately, while the rendered value stays on the supplied prop
-              until the parent updates it.
+              Text/editor changes update the draft immediately and commit after
+              the column&apos;s filterDelay, or 250ms by default. false and 0
+              commit immediately.
             </li>
             <li>
               Operator changes and clear actions commit immediately. Every edit
@@ -5226,10 +5230,10 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
             <li>
               empty and notEmpty run without an input while their descriptor is
               enabled. Custom filterEditor components receive
-              descriptor/value/change, column identity, disabled state, and
-              resolved filterEditorProps; those user props are applied first,
-              then grid-owned state and lifecycle props take precedence. Without
-              one, only select + options gets a select UI; use exported
+              descriptor/value/change, column identity, disabled state, theme,
+              localization, cell context, and the original filterEditorProps.
+              Function-valued editor props can resolve individual range inputs.
+              Without one, only select + options gets a select UI; use exported
               DateFilter/NumberFilter/SelectFilter explicitly.
             </li>
           </ul>
@@ -5273,8 +5277,8 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               The complete operator registry, default-operator behavior,
-              custom-registry merge rules, and the current bool/boolean default
-              caveat are catalogued in the{" "}
+              custom-registry merge rules, and bool/boolean defaults are
+              catalogued in the{" "}
               <DocsRouteLink
                 group="reference"
                 slug="implemented-surface"

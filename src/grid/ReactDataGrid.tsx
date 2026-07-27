@@ -63,6 +63,7 @@ import {
   hasActiveLocalFilter,
   isFilterEntryEmptyValue,
   normalizeFilterValue,
+  resolveFilterValueForColumns,
   upsertFilterEntry,
 } from "../filters/utils";
 import {
@@ -138,7 +139,12 @@ type ReactDataGridDefaultPropName =
   | "showColumnMenuTool"
   | "sortable"
   | "sortFunctions"
+  | "scrollTopOnFilter"
   | "scrollTopOnSort"
+  | "columnFilterContextMenuAlignPositions"
+  | "columnFilterContextMenuConstrainTo"
+  | "columnFilterContextMenuPosition"
+  | "updateMenuPositionOnScroll"
   | "rowHeight"
   | "minRowHeight"
   | "defaultShowZebraRows"
@@ -178,7 +184,12 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   showColumnMenuTool: true,
   sortable: true,
   sortFunctions: DEFAULT_SORT_FUNCTIONS,
+  scrollTopOnFilter: true,
   scrollTopOnSort: true,
+  columnFilterContextMenuAlignPositions: ["tl-bl", "tr-br", "bl-tl", "br-tr"],
+  columnFilterContextMenuConstrainTo: true,
+  columnFilterContextMenuPosition: "absolute",
+  updateMenuPositionOnScroll: true,
   rowHeight: 40,
   minRowHeight: 20,
   defaultShowZebraRows: true,
@@ -588,6 +599,7 @@ function resolveDefaultFilterOperator(
   if (entry?.operator) return entry.operator;
   if (filterType === "number") return "gte";
   if (filterType === "select") return "eq";
+  if (filterType === "bool" || filterType === "boolean") return "eq";
   if (filterType === "date" || filterType === "time") return "afterOrOn";
   return "contains";
 }
@@ -724,8 +736,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortFunctions = REACT_DATA_GRID_DEFAULT_PROPS.sortFunctions,
     renderSortTool,
     scrollTopOnSort = REACT_DATA_GRID_DEFAULT_PROPS.scrollTopOnSort,
+    scrollTopOnFilter = REACT_DATA_GRID_DEFAULT_PROPS.scrollTopOnFilter,
 
     enableColumnFilterContextMenu = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnFilterContextMenu,
+    renderColumnFilterContextMenu,
+    columnFilterContextMenuAlignPositions = REACT_DATA_GRID_DEFAULT_PROPS.columnFilterContextMenuAlignPositions,
+    columnFilterContextMenuConstrainTo = REACT_DATA_GRID_DEFAULT_PROPS.columnFilterContextMenuConstrainTo,
+    columnFilterContextMenuPosition = REACT_DATA_GRID_DEFAULT_PROPS.columnFilterContextMenuPosition,
+    updateMenuPositionOnScroll = REACT_DATA_GRID_DEFAULT_PROPS.updateMenuPositionOnScroll,
 
     enableColumnAutosize = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnAutosize,
     skipHeaderOnAutoSize = REACT_DATA_GRID_DEFAULT_PROPS.skipHeaderOnAutoSize,
@@ -1393,20 +1411,26 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [loadingStore]
   );
 
-  const computedFilterForFetch = filterValue;
-  const computedSortForFetch = sortInfo;
-
   const columnsForDs = React.useMemo(() => {
     return checkboxEnabled
       ? orderedColumns.filter((c) => getColumnId(c) !== checkboxColId)
       : orderedColumns;
   }, [checkboxColId, checkboxEnabled, orderedColumns]);
+  const computedFilterForFetch = React.useMemo(
+    () => resolveFilterValueForColumns(filterValue, columnsForDs),
+    [columnsForDs, filterValue]
+  );
+  const computedSortForFetch = sortInfo;
 
   const columnOrderForDs = React.useMemo(() => {
     return checkboxEnabled
       ? stripFromOrder(effectiveColumnOrder, checkboxColId)
       : effectiveColumnOrder;
   }, [checkboxColId, checkboxEnabled, effectiveColumnOrder]);
+  const dataSourceColumnOrder = React.useMemo(
+    () => columnsForDs.map((column) => getColumnId(column)),
+    [columnsForDs]
+  );
 
   const loadData = React.useCallback(async () => {
     if (!loadMountedRef.current) return;
@@ -1467,7 +1491,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         ...(remotePagination && dsIsFn ? { skip: loadSkip, limit } : {}),
         sortInfo: computedSortForFetch,
         filterValue: computedFilterForFetch,
-        columnOrder: columnOrderForDs,
+        columnOrder: dataSourceColumnOrder,
         columns: columnsForDs,
         idProperty,
         theme: themeName,
@@ -1604,7 +1628,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     remoteDataSource,
     remotePagination,
     themeName,
-    columnOrderForDs,
+    dataSourceColumnOrder,
     columnsForDs,
     filterTypes,
     localFilterValue,
@@ -1635,15 +1659,54 @@ function ReactDataGrid(props: TypeDataGridProps) {
     void loadData();
   }, [loadData]);
 
+  const filterCommitDelay = React.useMemo(() => {
+    const committedEntries = new Map(
+      (filterValue ?? []).map((entry) => [entry.name, entry])
+    );
+    const changedEntry = (draftFilterValue ?? []).find((entry) => {
+      const committed = committedEntries.get(entry.name);
+      return (
+        !committed ||
+        committed.operator !== entry.operator ||
+        committed.type !== entry.type ||
+        committed.active !== entry.active ||
+        !Object.is(committed.value, entry.value)
+      );
+    });
+    const removedEntry = (filterValue ?? []).find(
+      (entry) =>
+        !(draftFilterValue ?? []).some(
+          (draftEntry) => draftEntry.name === entry.name
+        )
+    );
+    const changedName = changedEntry?.name ?? removedEntry?.name;
+    const changedColumn = changedName
+      ? orderedColumns.find((column) => {
+          const columnId = getColumnId(column);
+          return (
+            columnId === changedName ||
+            column.name === changedName ||
+            column.filterName === changedName
+          );
+        })
+      : undefined;
+    const delay = changedColumn?.filterDelay;
+
+    if (delay === false || delay === 0) return 0;
+    return typeof delay === "number" && Number.isFinite(delay)
+      ? Math.max(0, delay)
+      : 250;
+  }, [draftFilterValue, filterValue, orderedColumns]);
+
   React.useEffect(() => {
-    if (filterControlled || Object.is(draftFilterValue, filterValue)) return;
+    if (Object.is(draftFilterValue, filterValue)) return;
 
     const handle = window.setTimeout(() => {
       setFilterValue(draftFilterValue);
-    }, 300);
+    }, filterCommitDelay);
 
     return () => window.clearTimeout(handle);
-  }, [draftFilterValue, filterControlled, filterValue, setFilterValue]);
+  }, [draftFilterValue, filterCommitDelay, filterValue, setFilterValue]);
 
   const autosizeSample = React.useMemo(() => {
     if (Array.isArray(dataSource)) {
@@ -2490,6 +2553,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
   const previousSortForScrollRef = React.useRef(sortInfo);
+  const previousFilterForScrollRef = React.useRef(filterValue);
   const previousRowsForSortScrollRef = React.useRef(rows);
   React.useLayoutEffect(() => {
     const sortChanged = !Object.is(previousSortForScrollRef.current, sortInfo);
@@ -2505,6 +2569,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
       scrollRef.current.scrollTop = 0;
     }
   }, [rows, scrollTopOnSort, sortInfo]);
+  React.useLayoutEffect(() => {
+    const filterChanged = !Object.is(
+      previousFilterForScrollRef.current,
+      filterValue
+    );
+    previousFilterForScrollRef.current = filterValue;
+
+    if (scrollTopOnFilter && filterChanged && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [filterValue, scrollTopOnFilter]);
   const smoothScrollFrameIdsRef = React.useRef<Set<number>>(new Set());
   React.useEffect(
     () => () => {
@@ -6396,6 +6471,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           showHorizontalCellBorders={showHorizontalCellBorders}
                           showVerticalCellBorders={showVerticalCellBorders}
                           i18n={i18n}
+                          theme={themeName}
+                          gridRef={apiRef}
+                          gridProps={
+                            (apiRef.current ?? {}) as TypeComputedProps
+                          }
                           allowColumnReorder={allowColumnReorder}
                           allowColumnResize={resizable}
                           checkboxEnabled={checkboxEnabled}
@@ -6418,6 +6498,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           setDraftFilterValue={setDraftFilterValue}
                           onColumnFilterValueChange={onColumnFilterValueChange}
                           filterTypes={filterTypes}
+                          renderColumnFilterContextMenu={
+                            renderColumnFilterContextMenu
+                          }
+                          columnFilterContextMenuAlignPositions={
+                            columnFilterContextMenuAlignPositions
+                          }
+                          columnFilterContextMenuConstrainTo={
+                            columnFilterContextMenuConstrainTo
+                          }
+                          columnFilterContextMenuPosition={
+                            columnFilterContextMenuPosition
+                          }
+                          updateMenuPositionOnScroll={
+                            updateMenuPositionOnScroll
+                          }
                           openFilterMenuColId={openFilterMenuColId}
                           setOpenFilterMenuColId={setOpenFilterMenuColId}
                           columnRenderItems={columnRenderItems}

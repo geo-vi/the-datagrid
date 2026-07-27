@@ -78,6 +78,12 @@ export type SelectFilterProps = {
   };
   value?: any;
   onChange?: (value: any) => void;
+  filterEditorProps?:
+    | Record<string, unknown>
+    | ((
+        editorProps: SelectFilterProps,
+        meta: { index: number; value: unknown }
+      ) => Record<string, unknown> | undefined);
 
   /**
    * Inovua uses `dataSource`.
@@ -104,6 +110,17 @@ export type SelectFilterProps = {
 export default function SelectFilter(
   props: SelectFilterProps
 ): React.ReactElement {
+  const resolvedFilterEditorProps =
+    typeof props.filterEditorProps === "function"
+      ? (props.filterEditorProps(
+          { ...props, value: props.value ?? props.filterValue?.value },
+          { index: 0, value: props.value ?? props.filterValue?.value }
+        ) ?? {})
+      : (props.filterEditorProps ?? {});
+  const mergedProps = {
+    ...resolvedFilterEditorProps,
+    ...props,
+  };
   const {
     filterValue,
     value: valueProp,
@@ -115,7 +132,7 @@ export default function SelectFilter(
     disabled,
     className,
     style,
-  } = props;
+  } = mergedProps;
 
   const current = valueProp !== undefined ? valueProp : filterValue?.value;
   const operator = filterValue?.operator;

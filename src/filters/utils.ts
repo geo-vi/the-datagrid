@@ -14,9 +14,8 @@ function isRecord(v: unknown): v is AnyRecord {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function toStringSafe(v: unknown): string {
-  if (v == null) return "";
-  return String(v);
+function toInovuaString(v: unknown): string {
+  return String(v || "");
 }
 
 function tokenizeContainsOr(q: string): string[] {
@@ -24,12 +23,6 @@ function tokenizeContainsOr(q: string): string[] {
     .split(/[\s,;]+/g)
     .map((t) => t.trim())
     .filter(Boolean);
-}
-
-function toNumberSafe(v: unknown): number {
-  if (typeof v === "number") return v;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : Number.NaN;
 }
 
 function getRangeParts(filterValue: unknown): { start: unknown; end: unknown } {
@@ -44,27 +37,6 @@ function getRangeParts(filterValue: unknown): { start: unknown; end: unknown } {
   }
 
   return { start: undefined, end: undefined };
-}
-
-/**
- * Treat "range" objects/arrays as empty only when BOTH endpoints are empty.
- */
-function isEmptyLike(v: unknown): boolean {
-  if (v == null) return true;
-
-  if (typeof v === "string") return v.trim().length === 0;
-
-  if (Array.isArray(v)) {
-    if (v.length === 0) return true;
-    if (v.length === 2) return isEmptyLike(v[0]) && isEmptyLike(v[1]);
-    return false;
-  }
-
-  if (isRecord(v) && ("start" in v || "end" in v)) {
-    return isEmptyLike((v as any).start) && isEmptyLike((v as any).end);
-  }
-
-  return false;
 }
 
 /** Optional moment support (mirrors Inovua behavior, but without hard dependency). */
@@ -129,16 +101,16 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
       op({
         name: "contains",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : v.includes(q);
         },
       }),
       op({
         name: "notContains",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : !v.includes(q);
         },
       }),
@@ -146,8 +118,8 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
         // project-specific (used in your samples)
         name: "containsOr",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           const tokens = tokenizeContainsOr(q);
           if (tokens.length === 0) return true;
           return tokens.some((t) => v.includes(t));
@@ -156,29 +128,29 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
       op({
         name: "eq",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : v === q;
         },
       }),
       op({
         name: "neq",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : v !== q;
         },
       }),
       op({
         name: "empty",
-        fn: ({ value }) => toStringSafe(value) === "",
+        fn: ({ value }) => value === "",
         filterOnEmptyValue: true,
         valueOnOperatorSelect: "",
         disableFilterEditor: true,
       }),
       op({
         name: "notEmpty",
-        fn: ({ value }) => toStringSafe(value) !== "",
+        fn: ({ value }) => value !== "",
         filterOnEmptyValue: true,
         valueOnOperatorSelect: "",
         disableFilterEditor: true,
@@ -186,16 +158,16 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
       op({
         name: "startsWith",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : v.startsWith(q);
         },
       }),
       op({
         name: "endsWith",
         fn: ({ value, filterValue }) => {
-          const v = toStringSafe(value).toLowerCase();
-          const q = toStringSafe(filterValue).toLowerCase();
+          const v = toInovuaString(value).toLowerCase();
+          const q = toInovuaString(filterValue).toLowerCase();
           return !q ? true : v.endsWith(q);
         },
       }),
@@ -210,18 +182,28 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
         name: "inlist",
         fn: ({ value, filterValue }) => {
           if (filterValue == null) return true;
-          const list = Array.isArray(filterValue) ? filterValue : [filterValue];
+          const list = filterValue as {
+            length?: number;
+            indexOf?: (item: unknown) => number;
+          };
           if (!list.length) return true;
-          return list.some((x) => x === value);
+          return typeof list.indexOf === "function"
+            ? list.indexOf(value) !== -1
+            : true;
         },
       }),
       op({
         name: "notinlist",
         fn: ({ value, filterValue }) => {
           if (filterValue == null) return true;
-          const list = Array.isArray(filterValue) ? filterValue : [filterValue];
+          const list = filterValue as {
+            length?: number;
+            indexOf?: (item: unknown) => number;
+          };
           if (!list.length) return true;
-          return !list.some((x) => x === value);
+          return typeof list.indexOf === "function"
+            ? list.indexOf(value) === -1
+            : true;
         },
       }),
       op({
@@ -279,74 +261,57 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
     operators: [
       op({
         name: "gt",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v > fv : false;
-        },
+        fn: ({ value, filterValue }) =>
+          filterValue != null
+            ? (value as number) > (filterValue as number)
+            : true,
       }),
       op({
         name: "gte",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v >= fv : false;
-        },
+        fn: ({ value, filterValue }) =>
+          filterValue != null
+            ? (value as number) >= (filterValue as number)
+            : true,
       }),
       op({
         name: "lt",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v < fv : false;
-        },
+        fn: ({ value, filterValue }) =>
+          filterValue != null
+            ? (value as number) < (filterValue as number)
+            : true,
       }),
       op({
         name: "lte",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v <= fv : false;
-        },
+        fn: ({ value, filterValue }) =>
+          filterValue != null
+            ? (value as number) <= (filterValue as number)
+            : true,
       }),
       op({
         name: "eq",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v === fv : false;
-        },
+        fn: ({ value, filterValue, emptyValue }) =>
+          filterValue !== emptyValue ? value === filterValue : true,
       }),
       op({
         name: "neq",
-        fn: ({ value, filterValue }) => {
-          const fv = toNumberSafe(filterValue);
-          if (!Number.isFinite(fv)) return true;
-          const v = toNumberSafe(value);
-          return Number.isFinite(v) ? v !== fv : false;
-        },
+        fn: ({ value, filterValue, emptyValue }) =>
+          filterValue !== emptyValue ? value !== filterValue : true,
       }),
       op({
         name: "inrange",
         fn: ({ value, filterValue }) => {
           const { start, end } = getRangeParts(filterValue);
-          const s = toNumberSafe(start);
-          const e = toNumberSafe(end);
+          const hasStart = start != null && start !== "";
+          const hasEnd = end != null && end !== "";
 
-          const v = toNumberSafe(value);
-          if (!Number.isFinite(v)) return false;
-
-          const hasS = Number.isFinite(s);
-          const hasE = Number.isFinite(e);
-
-          if (hasS && hasE) return v >= s && v <= e;
-          if (hasS) return v >= s;
-          if (hasE) return v <= e;
+          if (hasStart && hasEnd) {
+            return (
+              (value as number) >= (start as number) &&
+              (value as number) <= (end as number)
+            );
+          }
+          if (hasStart) return (value as number) >= (start as number);
+          if (hasEnd) return (value as number) <= (end as number);
           return true;
         },
       }),
@@ -354,18 +319,17 @@ export const DEFAULT_FILTER_TYPES: TypeFilterTypes = {
         name: "notinrange",
         fn: ({ value, filterValue }) => {
           const { start, end } = getRangeParts(filterValue);
-          const s = toNumberSafe(start);
-          const e = toNumberSafe(end);
+          const hasStart = start != null && start !== "";
+          const hasEnd = end != null && end !== "";
 
-          const v = toNumberSafe(value);
-          if (!Number.isFinite(v)) return false;
-
-          const hasS = Number.isFinite(s);
-          const hasE = Number.isFinite(e);
-
-          if (hasS && hasE) return v < s || v > e;
-          if (hasS) return v < s;
-          if (hasE) return v > e;
+          if (hasStart && hasEnd) {
+            return (
+              (value as number) < (start as number) ||
+              (value as number) > (end as number)
+            );
+          }
+          if (hasStart) return (value as number) < (start as number);
+          if (hasEnd) return (value as number) > (end as number);
           return true;
         },
       }),
@@ -565,16 +529,18 @@ function isRunnableFilterEntry(
 ): boolean {
   const typeDef = allTypes[filter.type] ?? allTypes.string!;
   const opDef = getOperatorDef(typeDef, filter.operator);
-  const canRunWithoutValue =
-    Boolean(opDef?.filterOnEmptyValue) || Boolean(opDef?.disableFilterEditor);
-  const active =
-    filter.active !== undefined
-      ? filter.active
-      : canRunWithoutValue
-        ? true
-        : !isEmptyLike(filter.value);
+  if (filter.active === false) return false;
+  if (!opDef && typeof filter.fn !== "function") return false;
 
-  return active && (canRunWithoutValue || !isEmptyLike(filter.value));
+  const emptyValue =
+    filter.emptyValue !== undefined ? filter.emptyValue : typeDef.emptyValue;
+  const isEmptyValue = filter.value === emptyValue;
+
+  return (
+    !isEmptyValue ||
+    Boolean(opDef?.filterOnEmptyValue) ||
+    Boolean(opDef?.disableFilterEditor)
+  );
 }
 
 export function hasActiveLocalFilter(
@@ -699,6 +665,58 @@ export function clearAllFilters(
 }
 
 /**
+ * Projects public filter descriptors through their columns before local
+ * evaluation or a remote dataSource call.
+ *
+ * This mirrors Inovua's `getFilterValueForColumns`: the descriptor keeps its
+ * identity and operator/value state while inheriting the column's filter type,
+ * alias and value getter.
+ */
+export function resolveFilterValueForColumns(
+  filterValue: TypeFilterValue,
+  columns: TypeColumn[] = []
+): TypeFilterValue {
+  if (!filterValue?.length) return filterValue ?? null;
+
+  const columnsMap = new Map<string, TypeColumn>();
+  for (const column of columns) {
+    const id = getColumnId(column);
+    columnsMap.set(id, column);
+    if (typeof column.name === "string") columnsMap.set(column.name, column);
+  }
+
+  return filterValue.map((filter) => {
+    const column = columnsMap.get(filter.name);
+    const next: TypeSingleFilterValue = { ...filter };
+    const columnType =
+      typeof column?.filterType === "string"
+        ? column.filterType
+        : typeof column?.type === "string"
+          ? column.type
+          : undefined;
+
+    if (!next.type && columnType) next.type = columnType;
+    if (!next.operator) {
+      if (next.type === "number") next.operator = "gte";
+      else if (next.type === "select") next.operator = "eq";
+      else if (next.type === "bool" || next.type === "boolean")
+        next.operator = "eq";
+      else if (next.type === "date" || next.type === "time")
+        next.operator = "afterOrOn";
+      else next.operator = "contains";
+    }
+    if (typeof column?.getFilterValue === "function") {
+      next.getFilterValue = column.getFilterValue;
+    }
+    if (typeof column?.filterName === "string") {
+      next.name = column.filterName;
+    }
+
+    return next;
+  });
+}
+
+/**
  * Local filter (array dataSource).
  * Uses filterTypes + columnsMap so date operators can use column.dateFormat.
  */
@@ -710,6 +728,10 @@ export function applyLocalFilter(
   if (!filterValue || filterValue.length === 0) return data;
 
   const allTypes = { ...DEFAULT_FILTER_TYPES, ...(opts?.filterTypes ?? {}) };
+  const projectedFilterValue = resolveFilterValueForColumns(
+    filterValue,
+    opts?.columns
+  );
 
   const columnsMap: Record<string, TypeColumn> = {};
   for (const c of opts?.columns ?? []) {
@@ -720,7 +742,7 @@ export function applyLocalFilter(
   }
 
   return data.filter((row) => {
-    return filterValue.every((f) => {
+    return (projectedFilterValue ?? []).every((f) => {
       const typeDef = allTypes[f.type] ?? allTypes.string!;
       const opDef = getOperatorDef(typeDef, f.operator);
 
@@ -731,22 +753,26 @@ export function applyLocalFilter(
         typeof column?.filterName === "string" ? column.filterName : f.name;
       const rawValue = (row as any)?.[resolvedName];
       const raw =
-        typeof column?.getFilterValue === "function"
-          ? column.getFilterValue({ data: row, value: rawValue })
-          : rawValue;
+        typeof f.getFilterValue === "function"
+          ? f.getFilterValue({ data: row, value: rawValue })
+          : typeof column?.getFilterValue === "function"
+            ? column.getFilterValue({ data: row, value: rawValue })
+            : rawValue;
 
       const fn =
-        opDef?.fn ??
+        (typeof f.fn === "function" ? f.fn : opDef?.fn) ??
         allTypes.string!.operators.find((o) => o.name === "contains")!.fn;
 
-      return fn({
-        value: raw,
-        filterValue: f.value,
-        emptyValue: f.emptyValue ?? typeDef.emptyValue,
-        data: row,
-        _data: row,
-        column,
-      });
+      return (
+        fn({
+          value: raw,
+          filterValue: f.value,
+          emptyValue: f.emptyValue ?? typeDef.emptyValue,
+          data: row,
+          _data: row,
+          column,
+        }) === true
+      );
     });
   });
 }

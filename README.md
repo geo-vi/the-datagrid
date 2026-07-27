@@ -253,9 +253,9 @@ number comparison/range operators, and date/time comparison/range operators.
 Operator definitions can opt into empty-value filtering, initialize a value
 when selected, or disable the editor for value-free operations.
 
-Current caveat: an unseeded `bool`/`boolean` filter resolves through the generic
-`contains` fallback even though those registries expose only `eq`/`neq`. Seed an
-`eq` or `neq` filter entry until that implementation gap is corrected.
+Unseeded `bool` and `boolean` filters default to `eq`, matching their shipped
+operator registry. Other defaults are `contains` for strings, `gte` for
+numbers, `eq` for selects, and `afterOrOn` for date/time values.
 
 Custom filter types are shallow-merged by registry key with the built-ins:
 
@@ -847,15 +847,21 @@ those compatibility metrics.
 
 ### Filtering
 
-| Prop                            | Type                               | Default           | Description                                               |
-| ------------------------------- | ---------------------------------- | ----------------- | --------------------------------------------------------- |
-| `enableFiltering`               | `boolean`                          | inferred          | Explicitly show or hide the filter row                    |
-| `filterValue`                   | `TypeFilterValue`                  | -                 | Controlled display state; data ownership remains external |
-| `defaultFilterValue`            | `TypeFilterValue`                  | -                 | Uncontrolled initial state and local filtering input      |
-| `onFilterValueChange`           | `(value: TypeFilterValue) => void` | -                 | Fired on filter change                                    |
-| `filterTypes`                   | `TypeFilterTypes`                  | built-in registry | Extend or override filter types and operators             |
-| `enableColumnFilterContextMenu` | `boolean`                          | `true`            | Operator, activation, Clear, and Clear All menu           |
-| `filteredRowsCount`             | `(count: number) => void`          | -                 | Reports filtered row count                                |
+| Prop                                    | Type                                           | Default            | Description                                               |
+| --------------------------------------- | ---------------------------------------------- | ------------------ | --------------------------------------------------------- |
+| `enableFiltering`                       | `boolean`                                      | inferred           | Explicitly show or hide the filter row                    |
+| `filterValue`                           | `TypeFilterValue`                              | -                  | Controlled display state; data ownership remains external |
+| `defaultFilterValue`                    | `TypeFilterValue`                              | -                  | Uncontrolled initial state and local filtering input      |
+| `onFilterValueChange`                   | `(value: TypeFilterValue) => void`             | -                  | Fired on filter change                                    |
+| `filterTypes`                           | `TypeFilterTypes`                              | built-in registry  | Extend or override filter types and operators             |
+| `enableColumnFilterContextMenu`         | `boolean`                                      | `true`             | Operator, activation, Clear, and Clear All menu           |
+| `scrollTopOnFilter`                     | `boolean`                                      | `true`             | Reset vertical scroll after a filter commits              |
+| `renderColumnFilterContextMenu`         | `TypeRenderColumnFilterContextMenu`            | -                  | Render a custom operator menu with grid/cell context      |
+| `columnFilterContextMenuAlignPositions` | `string[]`                                     | built-in fallbacks | Configure custom/operator menu alignment candidates       |
+| `columnFilterContextMenuConstrainTo`    | `boolean \| HTMLElement \| string \| function` | `true`             | Supply the custom menu constraint target                  |
+| `columnFilterContextMenuPosition`       | `string`                                       | `"absolute"`       | Supply the custom menu positioning mode                   |
+| `updateMenuPositionOnScroll`            | `boolean`                                      | `true`             | Request custom menu repositioning while scrolling         |
+| `filteredRowsCount`                     | `(count: number) => void`                      | -                  | Reports filtered row count                                |
 
 For Inovua 5.10.2 compatibility, filter-row visibility and local array
 transformation are separate decisions. With no explicit `enableFiltering`, a
