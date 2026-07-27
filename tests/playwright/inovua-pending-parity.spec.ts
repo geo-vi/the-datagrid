@@ -884,11 +884,11 @@ test.describe("Inovua emptyText contracts", () => {
     page,
   }) => {
     const { scope, grid } = await openPendingScenario(page, "empty-loading");
-    await expect(grid.getByText("Loading…", { exact: true })).toBeVisible();
+    await expect(grid.getByText("Loading", { exact: true })).toBeVisible();
     await expect(grid.getByTestId("loading-empty-content")).toHaveCount(0);
 
     await scope.getByTestId("finish-empty-loading").click();
-    await expect(grid.getByText("Loading…", { exact: true })).toHaveCount(0);
+    await expect(grid.getByText("Loading", { exact: true })).toHaveCount(0);
     const customContent = grid.getByTestId("loading-empty-content");
     expect({
       count: await customContent.count(),
@@ -914,11 +914,11 @@ test.describe("Inovua emptyText contracts", () => {
     page,
   }) => {
     const { grid } = await openPendingScenario(page, "empty-remote");
-    await expect(grid.getByText("Loading…", { exact: true })).toBeVisible();
+    await expect(grid.getByText("Loading", { exact: true })).toBeVisible();
     await expect(grid.getByTestId("remote-empty-content")).toHaveCount(0);
 
     await page.getByTestId("resolve-remote-empty").click();
-    await expect(grid.getByText("Loading…", { exact: true })).toHaveCount(0);
+    await expect(grid.getByText("Loading", { exact: true })).toHaveCount(0);
     const customContent = grid.getByTestId("remote-empty-content");
     expect({
       count: await customContent.count(),

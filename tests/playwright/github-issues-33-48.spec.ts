@@ -44,9 +44,9 @@ async function renderedRowHeight(row: Locator) {
   return Math.round((await row.boundingBox())?.height ?? Number.NaN);
 }
 
-// Known parity debt: the 13 fixme tests for issues #33–#37 and #39–#46
+// Known parity debt: the 10 fixme tests for issues #36–#37 and #39–#46
 // record unimplemented behavior. This PR does not fix that functionality.
-test.fixme("GitHub issue #33: controlled sortInfo does not reorder a local array", async ({
+test("GitHub issue #33: controlled sortInfo does not reorder a local array", async ({
   page,
 }) => {
   const scope = await openIssue(page, 33);
@@ -62,7 +62,7 @@ test.fixme("GitHub issue #33: controlled sortInfo does not reorder a local array
   );
 });
 
-test.fixme("GitHub issue #34: filterName and getFilterValue resolve the same local field", async ({
+test("GitHub issue #34: filterName and getFilterValue resolve the same local field", async ({
   page,
 }) => {
   const scope = await openIssue(page, 34);
@@ -76,13 +76,18 @@ test.fixme("GitHub issue #34: filterName and getFilterValue resolve the same loc
   ).toHaveCount(0);
 });
 
-test.fixme("GitHub issue #35: defaultVisible=false initializes a hidden column", async ({
+test("GitHub issue #35: visibility defaults initialize hidden columns", async ({
   page,
 }) => {
   const scope = await openIssue(page, 35);
 
   await expect(
     scope.locator('[data-slot="grid-header-cell"][data-column-id="secret"]')
+  ).toHaveCount(0);
+  await expect(
+    scope.locator(
+      '[data-slot="grid-header-cell"][data-column-id="legacySecret"]'
+    )
   ).toHaveCount(0);
 });
 

@@ -76,7 +76,6 @@ export function GridPagination(props: GridPaginationProps): React.ReactElement {
           <Select
             value={`${limit}`}
             onValueChange={(value) => {
-              setSkip(0);
               setLimit(Number(value));
             }}
           >

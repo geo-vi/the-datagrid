@@ -142,13 +142,16 @@ const remoteDataSnippet = `type RemoteArgs = {
   skip?: number;
   limit?: number;
   searchValue?: string;
+  signal?: AbortSignal;
 };
 
 const dataSource = async (args: RemoteArgs) => {
+  const { signal, ...request } = args;
   const response = await fetch("/api/accounts/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(args),
+    body: JSON.stringify(request),
+    signal,
   });
 
   return response.json() as Promise<{ data: AccountRow[]; count: number }>;
@@ -348,10 +351,12 @@ const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
 
 const dataSource = async (args: TypeDataSourceArgs) => {
+  const { signal, ...request } = args;
   const response = await fetch("/api/accounts/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(args),
+    body: JSON.stringify(request),
+    signal,
   });
 
   return response.json() as Promise<{ data: AccountRow[]; count: number }>;
@@ -1052,6 +1057,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "[10, 50, 100, 1000]",
         description: "Selectable page size options for the built-in pager.",
       },
+      {
+        name: "renderPaginationToolbar",
+        type: "(props: TypePaginationProps) => ReactNode",
+        defaultValue: "built-in toolbar",
+        description:
+          "Receives the upstream-compatible page state plus navigation, reload, refresh, skip, and limit helpers. Returning undefined uses the built-in toolbar; null suppresses it.",
+      },
     ],
   },
   {
@@ -1228,6 +1240,26 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "internal async state",
         description:
           "Overrides the loading state shown while async data is resolving.",
+      },
+      {
+        name: "loadingText",
+        type: "ReactNode | (() => ReactNode)",
+        defaultValue: '"Loading"',
+        description: "Content used by the built-in and custom loading mask.",
+      },
+      {
+        name: "renderLoadMask",
+        type: "(props: TypeLoadMaskProps) => ReactNode | null",
+        defaultValue: "built-in mask",
+        description:
+          "Receives visible, livePagination, loadingText, zIndex, and theme. Returning undefined uses the built-in mask; null suppresses it.",
+      },
+      {
+        name: "onLoadingChange",
+        type: "(loading: boolean) => void",
+        defaultValue: "-",
+        description:
+          "Behavior-backed extension fired once for each effective automatic or controlled loading transition.",
       },
       {
         name: "i18n",
@@ -1982,14 +2014,14 @@ const columnSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "-",
         description:
-          "Accepted by the public type but not currently applied by the runtime. Use visible; initial-visibility semantics remain an implementation gap.",
+          "Seeds grid-owned visibility when false. A live visible value or an imperative visibility override takes precedence.",
       },
       {
         name: "defaultHidden",
         type: "boolean",
         defaultValue: "-",
         description:
-          "Accepted by the public type but not currently applied by the runtime. Use visible; initial-hidden semantics remain an implementation gap.",
+          "Project alias that seeds grid-owned visibility when true. A live visible value or an imperative visibility override takes precedence.",
       },
       {
         name: "hideable",
@@ -2055,7 +2087,14 @@ const columnSections: ReferenceSection[] = [
         type: "string",
         defaultValue: "-",
         description:
-          "Accepted by the public type but not currently read by the runtime. Filter entries and remote args still use the resolved column id/name.",
+          "Alternate local filter field. Filter descriptors can resolve the column through id, name, or filterName.",
+      },
+      {
+        name: "getFilterValue",
+        type: "({ data, value }) => unknown",
+        defaultValue: "-",
+        description:
+          "Derives the local value tested by filter operators after filterName resolution.",
       },
       {
         name: "filterEditor",
@@ -2201,7 +2240,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "computed fields",
     defaultValue: "implemented readout",
     description:
-      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, virtualizeColumns, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array source flags also classify static Promises as remote even though their rows compose locally.",
+      "gridId, size/viewportSize, available/total column widths, column prefix sums/count, maxVisibleRows, virtualizeColumns, border flags, loading/filter/header flags, pagination mode flags, scrollbars, and remoteSort. Non-array sources are remote; pagination=true classifies their returned pages as authoritative while explicit local pagination opts into slicing.",
   },
   {
     name: "Row lookup",
@@ -2277,24 +2316,28 @@ const typesSections: ReferenceSection[] = [
   skip?: number;
   limit?: number;
   searchValue?: string;
+  signal?: AbortSignal;
 };
+
+type TypeDataSourceResult =
+  | unknown[]
+  | { data: unknown[]; count: number };
 
 type TypeDataSource =
   | unknown[]
-  | Promise<unknown[]>
-  | Promise<{ data: unknown[]; count: number }>
+  | Promise<TypeDataSourceResult>
   | ((props: TypeDataSourceArgs) =>
-      | unknown[]
-      | Promise<unknown[]>
-      | Promise<{ data: unknown[]; count: number }>);`}
+      | TypeDataSourceResult
+      | Promise<TypeDataSourceResult>);`}
           language="ts"
         />
         <CodeBlock code={remoteDataSnippet} language="tsx" />
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Local arrays and static Promise snapshots compose optional search,
-            local filtering, sorting, count, and optional local pagination in
-            that order.
+            Local arrays compose search, local filtering, sorting, count, and
+            local pagination in that order. With pagination=true/remote, every
+            Promise result is an authoritative remote page. Explicit local
+            pagination opts Promise results into local slicing.
           </li>
           <li>
             Function sources receive the stable args object and own remote
@@ -2302,15 +2345,17 @@ type TypeDataSource =
             authoritative.
           </li>
           <li>
-            pagination=true/remote sends skip/limit without local reslicing;
-            pagination=local omits them and slices the result locally. columns
-            contains visible ordered user columns and excludes the synthetic
-            checkbox column.
+            pagination=true/remote sends skip/limit to functions without local
+            reslicing; pagination=local omits them and slices the result
+            locally. columns contains visible ordered user columns and excludes
+            the synthetic checkbox column.
           </li>
           <li>
-            Only the latest async request may commit. Rejections preserve the
-            last rows and clear automatic loading because there is no public
-            error callback or AbortSignal/cancellation hook.
+            Only the latest async request may commit. Replacements abort the
+            previous optional, non-enumerable signal without changing the
+            established enumerable request keys. Rejections preserve the last
+            rows and clear automatic loading; sources may ignore cancellation
+            because the stale-result guard remains authoritative.
           </li>
         </ul>
       </div>
@@ -3661,15 +3706,15 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        All three fields type-check, but the runtime reads only{" "}
-        <code>visible</code> and uses the resolved column id/name for filter
-        entries and remote args.
+        <code>defaultVisible=false</code> and <code>defaultHidden=true</code>{" "}
+        seed grid-owned visibility. Local filtering resolves id/name/filterName
+        aliases and invokes <code>{"getFilterValue({ data, value })"}</code>.
       </>
     ),
     requiredOutcome: (
       <>
-        Implement their original initialization/alias semantics or remove any
-        claim that accepting the fields provides behavioral compatibility.
+        Complete exact remote filter-descriptor projection before considering
+        the broader issue #34 contract closed.
       </>
     ),
     status: "known-gap",
@@ -3903,16 +3948,16 @@ const implementedSurfaceSections: ReferenceSection[] = [
       {
         name: "Static promises",
         type: "Promise<rows | { data, count }>",
-        defaultValue: "local snapshot",
+        defaultValue: "pagination-mode ownership",
         description:
-          "After resolution, rows are a local snapshot and receive search/filter/sort/page composition. Array count is the transformed length; { data, count } preserves count unless active local search/filter requires a post-predicate count.",
+          "With pagination=true/remote, either result shape is an authoritative remote page. pagination=local slices the resolved full result; without pagination, bare row arrays retain local search/filter/sort composition.",
       },
       {
         name: "Function sources",
         type: "(args) => rows | Promise<rows | { data, count }>",
         defaultValue: "remote transforms",
         description:
-          "Receives sortInfo, filterValue, normalized user order and visible ordered columns, idProperty, theme, optional skip/limit, and optional external searchValue. It owns remote transforms/count and may return rows synchronously or Promise<rows | { data, count }>.",
+          "Receives sortInfo, filterValue, normalized user order and visible ordered columns, idProperty, theme, optional skip/limit, optional external searchValue, and a replacement AbortSignal. It owns remote transforms/count and may return rows or { data, count } synchronously or asynchronously.",
       },
       {
         name: "Function pagination modes",
@@ -3926,7 +3971,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "latest request wins",
         defaultValue: "automatic",
         description:
-          "Latest-request and unmount guards ignore stale results. Rejections preserve committed rows and only the matching request clears auto-loading. There is no AbortSignal/cancellation or public error callback; explicit loading overrides display state.",
+          "Latest-request and unmount guards ignore stale results. Replacement requests abort the previous non-enumerable signal without changing established enumerable request keys. Rejections preserve committed rows and only the matching request clears auto-loading; explicit loading overrides display state.",
       },
       {
         name: "Invalid async payloads",
@@ -3964,10 +4009,10 @@ const implementedSurfaceSections: ReferenceSection[] = [
       },
       {
         name: "Visibility",
-        type: "column.visible",
+        type: "column.visible / defaults",
         defaultValue: "visible",
         description:
-          "visible=false removes a column. defaultVisible/defaultHidden are currently ignored; hideable is enforced by the transformed-mobile picker and optional external visibility toolbar.",
+          "visible=false removes a column. defaultVisible=false and defaultHidden=true seed grid-owned hidden state; hideable is enforced by the transformed-mobile picker and optional external visibility toolbar.",
       },
       {
         name: "External visibility toolbar",
@@ -4359,9 +4404,9 @@ const implementedSurfaceSections: ReferenceSection[] = [
         tone="warning"
       >
         <p>
-          Current partials include ignored defaultVisible/defaultHidden and
-          filterName fields, the bool/boolean unseeded filter-operator mismatch,
-          and broad imperative placeholder methods. See the{" "}
+          Current partials include exact remote filterName projection, the
+          bool/boolean unseeded filter-operator mismatch, and broad imperative
+          placeholder methods. See the{" "}
           <DocsRouteLink
             group="migration"
             slug="inovua-status"
@@ -4690,7 +4735,11 @@ pnpm add @geovi/the-datagrid`}
               Apply that state in the parent or use a function-backed
               dataSource.
             </li>
-            <li>sortInfo applies local sorting against the same array.</li>
+            <li>
+              Uncontrolled/default sortInfo applies local sorting against the
+              same array. Controlled sortInfo owns indicators and callbacks
+              without reordering consumer data.
+            </li>
             <li>
               Optional global search runs before column filters and sorting.
             </li>
@@ -4803,12 +4852,13 @@ pnpm add @geovi/the-datagrid`}
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Local arrays and static Promise snapshots use the shared case-,
-              whitespace-, and diacritic-insensitive matching engine. Multiple
-              terms use AND semantics. Prefix a query with a column id, name,
-              string header, or configured alias to scope it, such as{" "}
-              <code>city:paris</code>. Function data sources receive the
-              committed <code>searchValue</code> and own remote matching.
+              Local arrays and bare Promise snapshots under disabled or
+              explicitly local pagination use the shared case-, whitespace-, and
+              diacritic-insensitive matching engine. Multiple terms use AND
+              semantics. Prefix a query with a column id, name, string header,
+              or configured alias to scope it, such as <code>city:paris</code>.
+              Function data sources receive the committed{" "}
+              <code>searchValue</code> and own remote matching.
             </p>
             <CodeBlock code={searchColumnsSnippet} language="tsx" />
             <p>
@@ -4909,8 +4959,11 @@ pnpm add @geovi/the-datagrid`}
                 sorting, filteredRowsCount, and local pagination.
               </li>
               <li>
-                A static Promise is resolved as a complete locally searchable
-                snapshot before its count and local page are derived.
+                With <code>pagination=true</code> or <code>"remote"</code>,
+                every Promise result is an authoritative remote page. Explicit{" "}
+                <code>"local"</code> pagination opts the resolved result into
+                local slicing; bare arrays retain local composition when
+                pagination is disabled.
               </li>
               <li>
                 Function data sources receive the committed query as the
@@ -5007,17 +5060,16 @@ pnpm add @geovi/the-datagrid`}
               from both values.
             </li>
             <li>
-              Promise data sources are different from functions: the resolved
-              Promise payload is treated as a complete, locally searchable
-              snapshot. Promise arrays derive count from transformed length;
-              Promise objects preserve count unless active local search/filter
-              requires a post-predicate count.
+              pagination=true/remote treats both Promise arrays and
+              count-bearing Promise objects as authoritative pages. Explicit
+              local pagination slices the full resolved result; bare arrays
+              retain local composition when pagination is disabled.
             </li>
             <li>
               A function may return rows synchronously, or a Promise of rows or
               a {`{ data, count }`} object when total count differs from the
-              current slice. The public type does not include a synchronous
-              object return.
+              current slice. Synchronous {`{ data, count }`} returns are part of
+              the public type.
             </li>
             <li>
               Requests are sequenced: only the latest async result may commit,
@@ -5026,9 +5078,10 @@ pnpm add @geovi/the-datagrid`}
             <li>
               Rejected functions and Promises are contained because there is no
               public error callback. The last committed rows remain visible and
-              the matching automatic loading state is cleared. There is no
-              AbortSignal/cancellation hook; an explicit loading prop overrides
-              the displayed automatic state.
+              the matching automatic loading state is cleared. Function args
+              receive an AbortSignal that fires on replacement/unmount; the
+              latest-request guard still protects against sources that ignore
+              it. An explicit loading prop overrides displayed automatic state.
             </li>
             <li>
               filteredRowsCount is deduplicated. It reports again only when the
@@ -6205,11 +6258,11 @@ const columns: TypeColumns = [
             <CodeBlock code={columnVisibilityColumnsSnippet} language="tsx" />
             <Callout title="Initialization and remounts">
               <p>
-                Set <code>{"visible: false"}</code> for a column that starts
-                hidden and <code>{"hideable: false"}</code> for a column that
-                must not appear as a toggle. The compatibility fields{" "}
-                <code>defaultVisible</code> and <code>defaultHidden</code> are
-                currently ignored; they do not initialize this toolbar.
+                Set <code>{"defaultVisible: false"}</code> or{" "}
+                <code>{"defaultHidden: true"}</code> for grid-owned initial
+                hidden state, <code>{"visible: false"}</code> for live
+                prop-owned state, and <code>{"hideable: false"}</code> for a
+                column that must not appear as a toggle.
               </p>
               <p>
                 Visibility button clicks update grid-owned imperative state. A

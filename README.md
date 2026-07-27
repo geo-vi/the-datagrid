@@ -85,16 +85,23 @@ Inovua compatibility audit is complete. The public docs contain the full
 including exact defaults, timing, transform order, exports, and imperative
 method allowlists.
 
-- **Data loading:** local arrays, static Promise snapshots, and function-backed
-  sources returning either an array or `{ data, count }`. Function sources
+- **Data loading:** local arrays, static Promises, and function-backed sources
+  returning either an array or `{ data, count }`. Function sources
   receive `sortInfo`, `filterValue`, `columnOrder`, `columns`, `idProperty`, and
   `theme`, plus `skip`/`limit` when remote pagination is active and the optional
-  `searchValue` when connected to the search entry. Stale async responses are
-  ignored; rejected requests preserve the last committed rows and clear their
-  automatic loading state. `loading` can also be controlled by the application.
-- **Local and remote data flow:** local arrays and static Promise snapshots can
-  be searched, filtered, sorted, counted, and paged in the browser. Function
-  sources own their remote transforms and authoritative count.
+  `searchValue` when connected to the search entry. Function args also include
+  an optional, non-enumerable `AbortSignal`; replacement requests abort the
+  prior signal without changing the established enumerable request keys, and
+  stale async responses are ignored even when a source does not honor it.
+  Rejections preserve the last committed rows and clear their automatic loading
+  state. `loading`, `loadingText`, `renderLoadMask`, and `onLoadingChange`
+  expose the effective lifecycle without unmounting replacement rows.
+- **Local and remote data flow:** local arrays own local pagination. With
+  `pagination={true}`, every Promise/function result is an authoritative remote
+  page and is never sliced a second time. `pagination="local"` opts a
+  Promise/function source into local slicing; bare Promise arrays can also be
+  searched, filtered, and sorted when pagination is disabled or explicitly
+  local.
   `filteredRowsCount` reports the post-search, post-filter count before local
   page slicing.
 - **Columns and cells:** stable `id`/`name` identity, controlled rendered order,
@@ -116,7 +123,9 @@ method allowlists.
   optional unsorting. Filter and sort changes reset pagination to the first
   page.
 - **Pagination:** controlled or uncontrolled `skip` and `limit`, local and remote
-  modes, configurable page sizes, and a built-in accessible pager.
+  modes, configurable page sizes, a built-in accessible pager, an
+  Inovua-shaped `renderPaginationToolbar` contract, and reload/refresh/page
+  navigation helpers.
 - **Selection:** single or multi-row selection, a configurable checkbox column,
   controlled or uncontrolled selection maps, checkbox-only row selection,
   Shift-range checkbox selection, and custom checkbox rendering.
@@ -160,6 +169,26 @@ method allowlists.
   compatibility-shaped placeholder methods are not a claim of working
   behavior.
 
+### Migration: data-transform ownership
+
+This release makes one component responsible for each sort/page transform:
+
+- A controlled `sortInfo` supplies indicators and callback/request state but
+  does not reorder a local array. Use `defaultSortInfo` for grid-owned local
+  sorting, or sort the rows in the parent before passing them to `dataSource`.
+- With `pagination={true}` or `"remote"`, static Promise arrays and
+  `Promise<{ data, count }>` values are authoritative remote pages and are not
+  sliced a second time.
+- Set `pagination="local"` to opt a Promise result into local slicing. Bare
+  Promise arrays also retain local search/filter/sort composition when
+  pagination is disabled.
+
+These are intentional compatibility changes for consumers that relied on the
+previous implicit transforms. They align the grid with React controlled-state
+ownership, TanStack manual sorting/pagination, and Inovua 5.10.2. See the
+[source-backed architecture evaluation](docs/inovua-parity-issues-32-37.md#architecture-evaluation-one-owner-per-transform)
+for rationale and migration examples.
+
 ### Public package entries and exports
 
 The main entry, `@geovi/the-datagrid`, exports:
@@ -173,7 +202,8 @@ The main entry, `@geovi/the-datagrid`, exports:
   `TypeColumns`, `TypeColumnEditorProps`, `TypeColumnResizeContext`,
   `TypeColumnResizeInfo`, `TypeColumnEditorCell`, `TypeComputedColumn`,
   `TypeComputedColumnsMap`, `TypeComputedProps`, `TypeDataGridProps`,
-  `TypeDataSourceArgs`, `TypeDataSource`, `TypeEditInfo`, `TypeStartEditArgs`,
+  `TypeDataSourceArgs`, `TypeDataSource`, `TypeDataSourceResult`,
+  `TypePaginationProps`, `TypeLoadMaskProps`, `TypeEditInfo`, `TypeStartEditArgs`,
   `TypeTryStartEditArgs`, `TypeCompleteEditArgs`, `TypeCancelEditArgs`,
   `TypeFilterOperator`, `TypeFilterType`, `TypeFilterTypes`, `TypeFilterValue`,
   `TypeGetColumnByParam`, `TypeI18n`, `TypeOnSelectionChangeArg`,
@@ -501,9 +531,10 @@ multiple-grid scoping.
 The normal-table bar and transformed-mobile search are two placements of the
 same internal component. They use the same shadcn-style Input and Button,
 column-prefix highlighting, IME handling, Escape behavior, and clear/refocus
-interaction. Local arrays and static Promise snapshots also use the same
-normalization and matching engine. Function data sources receive the committed
-`searchValue` and remain responsible for remote matching. When
+interaction. Local arrays and bare Promise snapshots under disabled/explicitly
+local pagination also use the same normalization and matching engine. Function
+data sources receive the committed `searchValue` and remain responsible for
+remote matching. When
 `allowMobileTransform` is active under `RDGSearchProvider`, the external
 placement remains the single search control; the mobile list suppresses only
 its duplicate placement while keeping its sort and column tools.
@@ -546,19 +577,26 @@ not process package CSS imports, add
 stylesheet import.
 
 For local arrays, search is combined with column filters before local
-pagination and `filteredRowsCount` reports the combined result count. A static
-`Promise` data source is resolved as a locally searchable snapshot. A function
+pagination and `filteredRowsCount` reports the combined result count. A bare
+static Promise array is locally searchable when pagination is disabled or
+explicitly `"local"`. With `pagination={true}`/`"remote"`, either Promise
+result shape is authoritative and is not post-filtered or sliced. A function
 data source remains remote and receives `searchValue` alongside its existing
 args; when remote pagination is active, a new search resets `skip` to `0`.
 
 ```tsx
 import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
 
-const dataSource = async ({ searchValue, ...gridArgs }: TypeDataSourceArgs) => {
+const dataSource = async ({
+  searchValue,
+  signal,
+  ...gridArgs
+}: TypeDataSourceArgs) => {
   const response = await fetch("/api/accounts/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...gridArgs, searchValue }),
+    signal,
   });
 
   return response.json();
@@ -921,31 +959,35 @@ source-compatible.
 
 ### Pagination
 
-| Prop            | Type                                   | Default                 | Description                  |
-| --------------- | -------------------------------------- | ----------------------- | ---------------------------- |
-| `pagination`    | `true \| false \| "remote" \| "local"` | `false`                 | Pagination mode              |
-| `skip`          | `number`                               | -                       | Controlled offset            |
-| `defaultSkip`   | `number`                               | `0`                     | Initial offset               |
-| `limit`         | `number`                               | -                       | Controlled page size         |
-| `defaultLimit`  | `number`                               | first page size or `10` | Initial page size            |
-| `onSkipChange`  | `(skip: number) => void`               | -                       | Fired when offset changes    |
-| `onLimitChange` | `(limit: number) => void`              | -                       | Fired when page size changes |
-| `pageSizes`     | `number[]`                             | `[10, 50, 100, 1000]`   | Allowed page sizes           |
+| Prop                      | Type                                        | Default                 | Description                                                            |
+| ------------------------- | ------------------------------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| `pagination`              | `true \| false \| "remote" \| "local"`      | `false`                 | Pagination mode                                                        |
+| `skip`                    | `number`                                    | -                       | Controlled offset                                                      |
+| `defaultSkip`             | `number`                                    | `0`                     | Initial offset                                                         |
+| `limit`                   | `number`                                    | -                       | Controlled page size                                                   |
+| `defaultLimit`            | `number`                                    | first page size or `10` | Initial page size                                                      |
+| `onSkipChange`            | `(skip: number) => void`                    | -                       | Fired when offset changes                                              |
+| `onLimitChange`           | `(limit: number) => void`                   | -                       | Fired when page size changes                                           |
+| `pageSizes`               | `number[]`                                  | `[10, 50, 100, 1000]`   | Allowed page sizes                                                     |
+| `renderPaginationToolbar` | `(props: TypePaginationProps) => ReactNode` | -                       | Custom toolbar; `undefined` uses the built-in and `null` suppresses it |
 
 ### Misc
 
-| Prop         | Type                                                 | Default | Description                                                       |
-| ------------ | ---------------------------------------------------- | ------- | ----------------------------------------------------------------- |
-| `i18n`       | `TypeI18n`                                           | -       | Text overrides (labels, operators, etc.)                          |
-| `loading`    | `boolean`                                            | -       | Loading state                                                     |
-| `onDidMount` | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Passive mount callback after API hydration, before handle/onReady |
-| `handle`     | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after onDidMount                     |
-| `onReady`    | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -       | Receives the same stable ref after handle                         |
-| `className`  | `string`                                             | -       | Extra CSS classes on the outer grid root                          |
-| `style`      | `CSSProperties`                                      | -       | Inline styles on the outer grid root                              |
-| `onFocus`    | `FocusEventHandler<HTMLDivElement>`                  | -       | Bubbling root focus lifecycle handler                             |
-| `onBlur`     | `FocusEventHandler<HTMLDivElement>`                  | -       | Bubbling root blur lifecycle handler                              |
-| `onKeyDown`  | `KeyboardEventHandler<HTMLDivElement>`               | -       | Bubbling root keyboard handler                                    |
+| Prop              | Type                                                 | Default     | Description                                                         |
+| ----------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `i18n`            | `TypeI18n`                                           | -           | Text overrides (labels, operators, etc.)                            |
+| `loading`         | `boolean`                                            | -           | Controlled effective loading state                                  |
+| `loadingText`     | `ReactNode \| (() => ReactNode)`                     | `"Loading"` | Built-in/custom mask content                                        |
+| `renderLoadMask`  | `(props: TypeLoadMaskProps) => ReactNode \| null`    | -           | Custom mask; `undefined` uses the built-in and `null` suppresses it |
+| `onLoadingChange` | `(loading: boolean) => void`                         | -           | Fires once per effective loading transition                         |
+| `onDidMount`      | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -           | Passive mount callback after API hydration, before handle/onReady   |
+| `handle`          | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -           | Receives the same stable ref after onDidMount                       |
+| `onReady`         | `(ref: MutableRefObject<TypeComputedProps \| null>)` | -           | Receives the same stable ref after handle                           |
+| `className`       | `string`                                             | -           | Extra CSS classes on the outer grid root                            |
+| `style`           | `CSSProperties`                                      | -           | Inline styles on the outer grid root                                |
+| `onFocus`         | `FocusEventHandler<HTMLDivElement>`                  | -           | Bubbling root focus lifecycle handler                               |
+| `onBlur`          | `FocusEventHandler<HTMLDivElement>`                  | -           | Bubbling root blur lifecycle handler                                |
+| `onKeyDown`       | `KeyboardEventHandler<HTMLDivElement>`               | -           | Bubbling root keyboard handler                                      |
 
 Issue 48 certifies the `onDidMount` mount contract. The existing `handle` and
 `onReady` adapters are usable, but Inovua's callback-identity cleanup and

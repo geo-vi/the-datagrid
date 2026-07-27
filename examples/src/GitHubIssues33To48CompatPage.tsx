@@ -191,11 +191,22 @@ function Issue35DefaultVisibility() {
         width: 180,
         defaultVisible: false,
       },
+      {
+        name: "legacySecret",
+        header: "Legacy secret",
+        width: 180,
+        defaultHidden: true,
+      },
     ],
     []
   );
   const rows = React.useMemo(
-    () => baseRows.map((row) => ({ ...row, secret: `secret-${row.id}` })),
+    () =>
+      baseRows.map((row) => ({
+        ...row,
+        secret: `secret-${row.id}`,
+        legacySecret: `legacy-secret-${row.id}`,
+      })),
     []
   );
 
@@ -205,7 +216,7 @@ function Issue35DefaultVisibility() {
         idProperty="id"
         columns={columns}
         dataSource={rows}
-        columnOrder={["id", "name", "secret"]}
+        columnOrder={["id", "name", "secret", "legacySecret"]}
         virtualized={false}
         enableFiltering={false}
       />

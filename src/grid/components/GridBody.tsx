@@ -912,19 +912,6 @@ export function GridBody(props: GridBodyProps) {
             />
           </TableRow>
         ) : null}
-        <TableRow>
-          <TableCell
-            colSpan={renderedTableColumnCount}
-            className={cn(
-              "h-24 text-center",
-              showHorizontalCellBorders
-                ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
-                : ""
-            )}
-          >
-            Loading…
-          </TableCell>
-        </TableRow>
       </TableBody>
     );
   }

@@ -267,7 +267,6 @@ type Issue32Result = {
 
 function Issue32Probe() {
   const [deferred] = React.useState(() => createDeferred<Issue32Result>());
-  const [loadingEvents, setLoadingEvents] = React.useState<boolean[]>([]);
   const resolvePage = React.useCallback(() => {
     deferred.resolve({
       data: [
@@ -277,9 +276,6 @@ function Issue32Probe() {
       count: 6,
     });
   }, [deferred]);
-  const handleLoadingChange = React.useCallback((loading: boolean) => {
-    setLoadingEvents((current) => [...current, loading]);
-  }, []);
 
   return (
     <section className="space-y-4" data-testid="github-issue-32-probe">
@@ -291,9 +287,6 @@ function Issue32Probe() {
         >
           Resolve static Promise page
         </Button>
-        <output data-testid="issue-32-loading-events">
-          {JSON.stringify(loadingEvents)}
-        </output>
       </div>
 
       <div
@@ -308,8 +301,22 @@ function Issue32Probe() {
           skip={2}
           limit={2}
           virtualized={false}
+        />
+      </div>
+
+      <div
+        className="h-[320px] min-h-0 rounded-lg border"
+        data-testid="issue-32-render-hooks-grid-shell"
+      >
+        <UntypedReactDataGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={deferred.promise}
+          pagination
+          skip={2}
+          limit={2}
+          virtualized={false}
           loadingText="Fetching issue 32 rows"
-          onLoadingChange={handleLoadingChange}
           renderLoadMask={(loadMaskProps: {
             visible: boolean;
             loadingText: React.ReactNode | (() => React.ReactNode);
