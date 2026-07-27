@@ -63,7 +63,7 @@ type MobileGridListProps = {
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
   sortable: boolean;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
   searchEnabled?: boolean;
   columnPickerEnabled?: boolean;
   authoritativeResultCount?: number;
@@ -346,7 +346,7 @@ export function MobileGridList({
   };
 
   const clearMobileSort = () => {
-    onSortInfoChange(null);
+    onSortInfoChange(Array.isArray(sortInfo) ? [] : null);
     closeSortPanel();
   };
   const virtualizer = useVirtualizer({

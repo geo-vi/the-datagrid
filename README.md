@@ -906,7 +906,8 @@ Migration notes for the completed Inovua sorting contract:
 - Shift no longer changes a single descriptor into multi-sort mode. Initialize
   `sortInfo` or `defaultSortInfo` as an array to opt into persistent multi-sort.
 - `TypeSingleSortInfo.fn`, `column.sort`, and registered sort functions now
-  expose their exact comparator argument lists and require a numeric result.
+  expose their exact comparator argument lists while retaining Inovua's
+  `number | boolean` result compatibility.
 
 ### Selection
 

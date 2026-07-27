@@ -46,7 +46,7 @@ test.describe("issue #33 complete sorting parity", () => {
 
     // Multi-sort always permits removing one descriptor, even when the root
     // allowUnsort value is false.
-    await header(multi, "score").click();
+    await header(multi, "score").press("Space");
     await expect
       .poll(async () => {
         const history =
@@ -55,7 +55,7 @@ test.describe("issue #33 complete sorting parity", () => {
       })
       .toEqual([{ name: "group", dir: 1 }]);
 
-    await header(multi, "code").click();
+    await header(multi, "code").press("Enter");
     await expect
       .poll(async () => {
         const history =
@@ -86,6 +86,8 @@ test.describe("issue #33 complete sorting parity", () => {
     await expect
       .poll(() => rowIds(controlled))
       .toEqual(["row-a2", "row-b1", "row-a1"]);
+    await scoreHeader.click();
+    await expect(scoreHeader).toHaveAttribute("aria-sort", "ascending");
     await expect
       .poll(() =>
         readJson<Array<{ name: string; dir: number }>>(
@@ -97,7 +99,48 @@ test.describe("issue #33 complete sorting parity", () => {
           name: "score",
           dir: -1,
         }),
+        expect.objectContaining({
+          name: "score",
+          dir: -1,
+        }),
       ]);
+  });
+
+  test("keeps array-valued multi-sort mode after clearing from the mobile UI", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/compat/issue-33-sorting?scenario=ownership");
+
+    const scope = page.getByTestId("issue-33-ownership");
+    const multi = scope.getByTestId("issue-33-persistent-multi");
+    const events = scope.getByTestId("issue-33-multi-events");
+    await expect(multi.locator(".tdg-root")).toHaveAttribute(
+      "data-layout",
+      "mobile-list"
+    );
+
+    await multi.getByRole("button", { name: /^Sort:/ }).click();
+    await multi.getByRole("button", { name: "Clear sort" }).click();
+    await expect
+      .poll(async () => {
+        const history = await readJson<unknown[]>(events);
+        return history.at(-1);
+      })
+      .toEqual([]);
+
+    await multi.getByRole("button", { name: "Sort", exact: true }).click();
+    await multi.getByRole("combobox", { name: "Sort by" }).click();
+    await page.getByRole("option", { name: "Code" }).click();
+    await multi.getByRole("button", { name: "Apply sort" }).click();
+
+    await expect
+      .poll(async () => {
+        const history =
+          await readJson<Array<Array<{ name: string; dir: number }>>>(events);
+        return history.at(-1)?.map(({ name, dir }) => ({ name, dir }));
+      })
+      .toEqual([{ name: "code", dir: 1 }]);
   });
 
   test("uses type, registered, column, descriptor, and id-only comparators with exact arguments", async ({
@@ -329,7 +372,7 @@ test.describe("issue #33 complete sorting parity", () => {
       ]);
   });
 
-  test("keeps repeated 10k-row local multi-sorts responsive and virtualized", async ({
+  test("keeps repeated 10k-row local multi-sorts responsive and virtualized @production-performance", async ({
     page,
   }) => {
     await page.goto("/compat/issue-33-sorting?scenario=performance");
@@ -339,6 +382,7 @@ test.describe("issue #33 complete sorting parity", () => {
     const samples: Array<{
       run: number;
       rowCount: number;
+      runtimeMode: string;
       dispatchDuration: number;
       settledDuration: number;
       renderedRowCount: number;
@@ -358,8 +402,9 @@ test.describe("issue #33 complete sorting parity", () => {
 
     for (const sample of samples) {
       expect(sample.rowCount).toBe(10_000);
+      expect(sample.runtimeMode).toBe("production");
       expect(sample.dispatchDuration).toBeLessThan(16);
-      expect(sample.settledDuration).toBeLessThan(350);
+      expect(sample.settledDuration).toBeLessThan(250);
       expect(sample.renderedRowCount).toBeGreaterThan(0);
       expect(sample.renderedRowCount).toBeLessThan(100);
       expect(sample.firstRow).toMatch(/^performance-/);
@@ -368,6 +413,6 @@ test.describe("issue #33 complete sorting parity", () => {
     const settledDurations = samples
       .map((sample) => sample.settledDuration)
       .sort((first, second) => first - second);
-    expect(settledDurations[2]).toBeLessThan(325);
+    expect(settledDurations[2]).toBeLessThan(175);
   });
 });

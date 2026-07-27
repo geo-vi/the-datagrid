@@ -80,6 +80,7 @@ function OwnershipScenario(): React.ReactElement {
             { name: "score", dir: 1 },
           ]}
           allowUnsort={false}
+          allowMobileTransform
           virtualized={false}
           enableFiltering={false}
           showColumnMenuTool={false}
@@ -585,6 +586,7 @@ function PerformanceScenario(): React.ReactElement {
         setMetrics({
           run,
           rowCount,
+          runtimeMode: import.meta.env.PROD ? "production" : "development",
           dispatchDuration: dispatchDurationRef.current,
           settledDuration: finishedAt - startedAtRef.current,
           renderedRowCount: renderedRows?.length ?? 0,

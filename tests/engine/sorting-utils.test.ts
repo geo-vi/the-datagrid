@@ -86,6 +86,56 @@ test("single sort stays single even when the obsolete modifier flag is passed", 
   });
 });
 
+test("single-sort cycles respect allowUnsort in either default direction", () => {
+  const ascending = toggleSortInfo({
+    sortInfo: null,
+    col: alpha,
+    allowUnsort: true,
+    defaultDir: 1,
+  });
+  const descending = toggleSortInfo({
+    sortInfo: ascending,
+    col: alpha,
+    allowUnsort: true,
+    defaultDir: 1,
+  });
+  assert.equal(
+    toggleSortInfo({
+      sortInfo: descending,
+      col: alpha,
+      allowUnsort: true,
+      defaultDir: 1,
+    }),
+    null
+  );
+
+  const descendingFirst = toggleSortInfo({
+    sortInfo: null,
+    col: alpha,
+    allowUnsort: false,
+    defaultDir: -1,
+  });
+  const ascendingSecond = toggleSortInfo({
+    sortInfo: descendingFirst,
+    col: alpha,
+    allowUnsort: false,
+    defaultDir: -1,
+  });
+  const descendingAgain = toggleSortInfo({
+    sortInfo: ascendingSecond,
+    col: alpha,
+    allowUnsort: false,
+    defaultDir: -1,
+  });
+
+  assert.deepEqual(
+    [descendingFirst, ascendingSecond, descendingAgain].map((entry) =>
+      Array.isArray(entry) ? undefined : entry?.dir
+    ),
+    [-1, 1, -1]
+  );
+});
+
 test("empty and one-entry arrays never collapse out of multi-sort mode", () => {
   const sorted = setColumnSortInfo({
     sortInfo: [],
@@ -177,6 +227,20 @@ test("registered and descriptor comparators drive local sorting", () => {
     columnName: "value",
     type: "numericText",
   });
+
+  const toggledDescriptor = toggleSortInfo({
+    sortInfo: descriptor,
+    col: { name: "value" },
+    allowUnsort: false,
+    defaultDir: 1,
+  });
+  assert.ok(toggledDescriptor && !Array.isArray(toggledDescriptor));
+  assert.equal(toggledDescriptor.dir, 1);
+  assert.equal(toggledDescriptor.fn, descriptor.fn);
+  assert.deepEqual(
+    applyLocalSort(rows, toggledDescriptor).map((row) => row.id),
+    ["two", "ten"]
+  );
 });
 
 test("number and string types use distinct built-in ordering", () => {

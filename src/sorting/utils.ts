@@ -86,7 +86,7 @@ function nextSortDirection(options: {
 
 function createComparator(
   column: TypeColumn,
-  sortFunctions: TypeSortFunctions | undefined
+  sortFunctions: TypeSortFunctions | null | undefined
 ): TypeSingleSortInfo["fn"] | undefined {
   if (column.sort) {
     return (value1, value2, data1, data2, sortInfo) =>
@@ -103,7 +103,7 @@ function createComparator(
 export function createColumnSortInfo(options: {
   column: TypeColumn;
   dir: 1 | -1;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
 }): TypeSingleSortInfo | null {
   const { column, dir, sortFunctions } = options;
   const id = getColumnId(column);
@@ -149,14 +149,27 @@ function updateSortInfoForColumn(options: {
   sortInfo: TypeSortInfo;
   column: TypeColumn;
   dir: -1 | 0 | 1;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
 }): TypeSortInfo {
   const { sortInfo, column, dir, sortFunctions } = options;
   const multiSort = Array.isArray(sortInfo);
   const currentList = sortInfoList(sortInfo);
   const currentIndex = findSortInfoIndex(currentList, column);
-  const nextDescriptor =
+  const generatedDescriptor =
     dir === 0 ? null : createColumnSortInfo({ column, dir, sortFunctions });
+  const currentDescriptor =
+    currentIndex >= 0 ? currentList[currentIndex] : undefined;
+  const nextDescriptor =
+    generatedDescriptor && currentDescriptor
+      ? {
+          ...currentDescriptor,
+          ...generatedDescriptor,
+          type: generatedDescriptor.type ?? currentDescriptor.type,
+          ...(generatedDescriptor.fn || currentDescriptor.fn
+            ? { fn: generatedDescriptor.fn ?? currentDescriptor.fn }
+            : {}),
+        }
+      : generatedDescriptor;
 
   if (!multiSort) return nextDescriptor;
 
@@ -183,7 +196,7 @@ export function toggleSortInfo(options: {
    * multi-sort mode from array-valued state, not from a modifier-key gesture.
    */
   multi?: boolean;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
 }): TypeSortInfo {
   const { sortInfo, col, allowUnsort, defaultDir, sortFunctions } = options;
   const current = getSortDir(sortInfo, col);
@@ -207,7 +220,7 @@ export function setColumnSortInfo(options: {
   sortInfo: TypeSortInfo;
   col: TypeColumn;
   dir: -1 | 0 | 1;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
 }): TypeSortInfo {
   return updateSortInfoForColumn({
     sortInfo: options.sortInfo,
@@ -288,7 +301,7 @@ function dateComparator(value1: unknown, value2: unknown): number {
 function resolveComparator(options: {
   column: TypeColumn | undefined;
   sortInfo: TypeSingleSortInfo;
-  sortFunctions: TypeSortFunctions | undefined;
+  sortFunctions: TypeSortFunctions | null | undefined;
 }): NonNullable<TypeSingleSortInfo["fn"]> {
   const { column, sortInfo, sortFunctions } = options;
 
@@ -334,7 +347,7 @@ export function applyLocalSort<Row>(
   data: Row[],
   sortInfo: TypeSortInfo,
   columns: readonly TypeColumn[] = [],
-  sortFunctions?: TypeSortFunctions
+  sortFunctions?: TypeSortFunctions | null
 ): Row[] {
   const list = sortInfoList(sortInfo).filter(
     (entry) => entry.dir === 1 || entry.dir === -1

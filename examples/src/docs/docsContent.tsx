@@ -4242,7 +4242,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "pagination/menu/mobile",
         defaultValue: "skip 0",
         description:
-          "Header menu, transformed-mobile, and imperative sorting preserve single versus array mode. Each sort requests skip 0; controlled pagination must apply onSkipChange(0). Root sortable and column overrides govern all sort entry points.",
+          "Header menu, transformed-mobile, and imperative sorting preserve single versus array mode. Each sort requests skip 0; controlled pagination must apply onSkipChange(0). Root sortable and column overrides govern interactive sort entry points.",
       },
       {
         name: "Pagination",

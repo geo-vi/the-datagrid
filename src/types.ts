@@ -58,7 +58,7 @@ export type TypeSingleSortInfo = {
     data1: unknown,
     data2: unknown,
     sortInfo: TypeSingleSortInfo
-  ) => number;
+  ) => number | boolean;
   columnName?: string;
 };
 
@@ -68,7 +68,7 @@ export type TypeSortFunction = (
   value1: unknown,
   value2: unknown,
   column: TypeColumn
-) => number;
+) => number | boolean;
 
 export type TypeSortFunctions = Record<string, TypeSortFunction>;
 
@@ -79,7 +79,7 @@ export type TypeColumnSort = (
   data1: unknown,
   data2: unknown,
   sortInfo: TypeSingleSortInfo
-) => number;
+) => number | boolean;
 
 export type TypeSortToolProps = {
   column: TypeColumn;
@@ -1049,7 +1049,7 @@ export type TypeDataGridProps = {
   defaultSortInfo?: TypeSortInfo;
   onSortInfoChange?: (sortInfo: TypeSortInfo) => void;
   sortable?: boolean;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
   renderSortTool?: TypeRenderSortTool;
   scrollTopOnSort?: boolean | "always";
   allowUnsort?: boolean;

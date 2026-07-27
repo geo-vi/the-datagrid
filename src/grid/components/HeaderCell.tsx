@@ -67,7 +67,7 @@ function applySort(options: {
   colId: string;
   allowUnsort: boolean;
   defaultSortDir: 1 | -1;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
   setSkip: (n: number) => void;
   setSortInfo: (s: TypeSortInfo) => void;
 }) {
@@ -110,7 +110,7 @@ export type HeaderCellProps = {
   allowUnsort: boolean;
   defaultSortDir: 1 | -1;
   sortable: boolean;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;

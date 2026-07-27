@@ -33,7 +33,7 @@ export type GridHeaderProps = {
   allowUnsort: boolean;
   defaultSortDir: 1 | -1;
   sortable: boolean;
-  sortFunctions?: TypeSortFunctions;
+  sortFunctions?: TypeSortFunctions | null;
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;

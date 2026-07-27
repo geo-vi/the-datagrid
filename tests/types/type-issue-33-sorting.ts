@@ -56,7 +56,12 @@ const sortFunctions: TypeSortFunctions = {
     void id;
     return Number(value1) - Number(value2);
   },
+  booleanCompat(value1, value2) {
+    return String(value1) > String(value2);
+  },
 };
+const disabledSortFunctions: TypeDataGridProps["sortFunctions"] = null;
+void disabledSortFunctions;
 const defaultSortInfo: TypeSortInfo = [
   { id: "whole-row", name: "", dir: 1, type: "rank" },
 ];
