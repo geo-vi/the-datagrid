@@ -3,7 +3,12 @@ import { flexRender, type Row } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
 
-import type { TypeColumn, TypeDataGridProps, TypeSortInfo } from "../../types";
+import type {
+  TypeColumn,
+  TypeDataGridProps,
+  TypeSortFunctions,
+  TypeSortInfo,
+} from "../../types";
 import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +29,7 @@ import { cn } from "../../lib/utils";
 import { useDeferredValueCompat } from "../../hooks/useDeferredValueCompat";
 import { useStableId } from "../../hooks/useStableId";
 import { getColumnId, getColumnSortName } from "../../utils/column";
+import { setColumnSortInfo } from "../../sorting/utils";
 import { t } from "../../utils/helpers";
 import { resolveEmptyText } from "../utils/emptyText";
 import {
@@ -56,6 +62,8 @@ type MobileGridListProps = {
   emptyText: TypeDataGridProps["emptyText"];
   sortInfo: TypeSortInfo;
   defaultSortDirection: 1 | -1;
+  sortable: boolean;
+  sortFunctions?: TypeSortFunctions;
   searchEnabled?: boolean;
   columnPickerEnabled?: boolean;
   authoritativeResultCount?: number;
@@ -97,6 +105,8 @@ export function MobileGridList({
   emptyText,
   sortInfo,
   defaultSortDirection,
+  sortable,
+  sortFunctions,
   searchEnabled = true,
   columnPickerEnabled = true,
   authoritativeResultCount,
@@ -242,11 +252,11 @@ export function MobileGridList({
         const columnId = getColumnId(column);
         return (
           columnId !== checkboxColumnId &&
-          column.sortable !== false &&
+          (column.sortable ?? sortable) &&
           !ACTION_COLUMN.test(`${columnId} ${labelForColumn(column)}`)
         );
       }),
-    [checkboxColumnId, columns]
+    [checkboxColumnId, columns, sortable]
   );
   const activeSort = React.useMemo(() => {
     const sortList = sortInfo
@@ -260,7 +270,9 @@ export function MobileGridList({
     () =>
       activeSort
         ? sortableColumns.find(
-            (column) => getColumnSortName(column) === activeSort.name
+            (column) =>
+              getColumnSortName(column) === activeSort.name ||
+              getColumnId(column) === activeSort.id
           )
         : undefined,
     [activeSort, sortableColumns]
@@ -322,10 +334,14 @@ export function MobileGridList({
 
   const applyMobileSort = () => {
     if (!draftSortColumn) return;
-    onSortInfoChange({
-      name: getColumnSortName(draftSortColumn),
-      dir: draftSortDirection,
-    });
+    onSortInfoChange(
+      setColumnSortInfo({
+        sortInfo,
+        col: draftSortColumn,
+        dir: draftSortDirection,
+        sortFunctions,
+      })
+    );
     closeSortPanel();
   };
 

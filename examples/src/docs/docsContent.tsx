@@ -987,7 +987,14 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "(sortInfo: TypeSortInfo) => void",
         defaultValue: "-",
         description:
-          "Called after sort toggles. Local arrays are sorted client-side; remote data sources receive the state through args.",
+          "Called after sort toggles. Uncontrolled local arrays are sorted client-side; controlled and remote sources keep transformation ownership.",
+      },
+      {
+        name: "sortable",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Root sorting switch. An explicit column.sortable value overrides it.",
       },
       {
         name: "allowUnsort",
@@ -1001,6 +1008,27 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: '"asc"',
         description:
           "Starting direction when a sortable header is first toggled.",
+      },
+      {
+        name: "sortFunctions",
+        type: "TypeSortFunctions",
+        defaultValue: "{ date }",
+        description:
+          "Comparator registry addressed by column.type. Column sort callbacks and descriptor fn callbacks retain their Inovua argument contracts.",
+      },
+      {
+        name: "renderSortTool",
+        type: "TypeRenderSortTool",
+        defaultValue: "built-in",
+        description:
+          "Root sort-indicator renderer. A column.renderSortTool callback takes precedence for that column.",
+      },
+      {
+        name: "scrollTopOnSort",
+        type: 'boolean | "always"',
+        defaultValue: "true",
+        description:
+          'true resets vertical scroll for sort changes, false preserves it, and "always" also resets when the loaded row snapshot changes.',
       },
     ],
   },
@@ -2067,6 +2095,27 @@ const columnSections: ReferenceSection[] = [
         defaultValue: "-",
         description:
           "Alternate key stored in sortInfo and sent remotely. Local sorting maps it back to this column's resolved data field.",
+      },
+      {
+        name: "type",
+        type: "string",
+        defaultValue: '"string"',
+        description:
+          "Selects a comparator from sortFunctions for local sorting; built-in number, date, and string behavior is available.",
+      },
+      {
+        name: "sort",
+        type: "TypeColumnSort",
+        defaultValue: "-",
+        description:
+          "Column comparator called with value1, value2, column, data1, data2, and the effective sortInfo descriptor. Id-only columns receive whole rows as their values.",
+      },
+      {
+        name: "renderSortTool",
+        type: "TypeRenderSortTool",
+        defaultValue: "root renderer",
+        description:
+          "Per-column sort-indicator renderer; takes precedence over the root renderSortTool.",
       },
       {
         name: "filterable",
@@ -4179,21 +4228,21 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "controlled or uncontrolled",
         defaultValue: "asc → desc → unsort",
         description:
-          "Sortable-by-default headers toggle by click, Enter, or Space; Shift with any gesture preserves multi-sort. Cycle is initial direction, opposite, then removal when allowed. Normal toggles replace other descriptors.",
+          "Sortable-by-default headers toggle by click, Enter, or Space. Object state is single-sort; array state is persistent multi-sort without a modifier key. The cycle is initial direction, opposite, then removal when allowed.",
       },
       {
         name: "Sort priority and values",
         type: "local and remote",
         defaultValue: "descriptor order",
         description:
-          "Retoggling in multi-sort removes then appends a descriptor, so array order is priority. sortName is stored/sent remotely and maps back locally; values compare numerically when both are finite, otherwise by case-insensitive locale comparison.",
+          "Array order is priority and toggling an existing descriptor preserves its position. sortName is stored/sent remotely and maps back locally. column.sort, descriptor fn, sortFunctions[column.type], and built-in typed comparators are supported.",
       },
       {
         name: "Sort reset and alternate UI",
         type: "pagination/menu/mobile",
         defaultValue: "skip 0",
         description:
-          "Header menu and transformed-mobile sorting set one descriptor. Each sort requests skip 0; controlled pagination must apply onSkipChange(0). sortable=false blocks direct header gestures.",
+          "Header menu, transformed-mobile, and imperative sorting preserve single versus array mode. Each sort requests skip 0; controlled pagination must apply onSkipChange(0). Root sortable and column overrides govern all sort entry points.",
       },
       {
         name: "Pagination",
@@ -5138,9 +5187,9 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
         body: (
           <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>
-              Columns are sortable by default; use{" "}
-              <code>{"sortable={false}"}</code> to opt a column out of direct
-              header sorting.
+              Sorting is enabled by default. The root <code>sortable</code> prop
+              sets the grid-wide policy, and an explicit{" "}
+              <code>column.sortable</code> value overrides it.
             </li>
             <li>
               Use <code>filterable</code>, <code>filterType</code>, and{" "}
@@ -5197,10 +5246,10 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               allowUnsort is true.
             </li>
             <li>
-              Shift with click, Enter, or Space retains existing descriptors and
-              builds multi-sort; without Shift the gesture replaces the previous
-              sort. Retoggling removes then appends, so descriptor order is
-              priority.
+              An object-valued sort state is single-sort. An array-valued state
+              remains multi-sort through click, Enter, Space, menu, mobile, and
+              imperative actions without requiring Shift. Descriptor order is
+              priority, and toggling an existing descriptor keeps its position.
             </li>
             <li>
               defaultSortingDirection chooses the first direction, sortName can
@@ -5208,9 +5257,11 @@ const [sortInfo, setSortInfo] = useState<TypeSortInfo>(null);
               pagination must honor onSkipChange(0).
             </li>
             <li>
-              Local values compare numerically when both coerce to finite
-              numbers; otherwise they use case-insensitive locale comparison.
-              Header-menu and mobile sort controls set one descriptor.
+              Local comparator priority is column.sort, descriptor fn,
+              sortFunctions[column.type], then built-in number/date/string
+              behavior. Named comparators receive values plus both rows and the
+              effective descriptor; id-only comparators receive the complete
+              rows as values.
             </li>
           </ul>
         ),
@@ -6525,9 +6576,13 @@ const columns: TypeColumns = [
               disabling. Issue 38 also includes controlled/uncontrolled active
               index state, keyboard and page navigation, focus restoration,
               virtualized active-row scrolling, pointer/keyboard selection, and
-              Shift ranges. Other ledger entries remain gaps or under
-              verification, and the inventory is not exhaustive until the
-              remaining Community API has been audited surface by surface.
+              Shift ranges. Issue 33 completes sorting ownership, persistent
+              array-valued multi-sort, root/column sortability, comparator
+              registries and callback arguments, custom sort tools, scroll reset
+              modes, and repeated virtualized performance coverage. Other ledger
+              entries remain gaps or under verification, and the inventory is
+              not exhaustive until the remaining Community API has been audited
+              surface by surface.
             </p>
           </div>
         ),

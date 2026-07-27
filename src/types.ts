@@ -52,11 +52,48 @@ export type TypeSingleSortInfo = {
   name: string;
   id?: string;
   type?: string;
-  fn?: (...args: unknown[]) => unknown;
+  fn?: (
+    value1: unknown,
+    value2: unknown,
+    data1: unknown,
+    data2: unknown,
+    sortInfo: TypeSingleSortInfo
+  ) => number;
   columnName?: string;
 };
 
 export type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;
+
+export type TypeSortFunction = (
+  value1: unknown,
+  value2: unknown,
+  column: TypeColumn
+) => number;
+
+export type TypeSortFunctions = Record<string, TypeSortFunction>;
+
+export type TypeColumnSort = (
+  value1: unknown,
+  value2: unknown,
+  column: TypeColumn,
+  data1: unknown,
+  data2: unknown,
+  sortInfo: TypeSingleSortInfo
+) => number;
+
+export type TypeSortToolProps = {
+  column: TypeColumn;
+  columnId: string;
+  computedSortable: boolean;
+  computedSortInfo: TypeSingleSortInfo | null;
+  sortInfo: TypeSortInfo;
+  headerCell: true;
+};
+
+export type TypeRenderSortTool = (
+  direction: SortDirection,
+  extraProps: TypeSortToolProps
+) => React.ReactNode;
 
 export type TypeSingleFilterValue = {
   name: string;
@@ -442,6 +479,9 @@ export interface IColumn {
 
   sortable?: boolean;
   sortName?: string;
+  type?: string;
+  sort?: TypeColumnSort;
+  renderSortTool?: TypeRenderSortTool;
 
   filterable?: boolean;
   filterType?: string;
@@ -1008,6 +1048,10 @@ export type TypeDataGridProps = {
   sortInfo?: TypeSortInfo;
   defaultSortInfo?: TypeSortInfo;
   onSortInfoChange?: (sortInfo: TypeSortInfo) => void;
+  sortable?: boolean;
+  sortFunctions?: TypeSortFunctions;
+  renderSortTool?: TypeRenderSortTool;
+  scrollTopOnSort?: boolean | "always";
   allowUnsort?: boolean;
   defaultSortingDirection?: "desc" | "asc";
 

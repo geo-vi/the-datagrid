@@ -7,6 +7,8 @@ import type {
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
+  TypeRenderSortTool,
+  TypeSortFunctions,
   TypeSortInfo,
 } from "../../types";
 
@@ -30,6 +32,9 @@ export type GridHeaderProps = {
   setSkip: (n: number) => void;
   allowUnsort: boolean;
   defaultSortDir: 1 | -1;
+  sortable: boolean;
+  sortFunctions?: TypeSortFunctions;
+  renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
   showHorizontalCellBorders: boolean;
@@ -96,6 +101,9 @@ export function GridHeader(props: GridHeaderProps) {
     setSkip,
     allowUnsort,
     defaultSortDir,
+    sortable,
+    sortFunctions,
+    renderSortTool,
     showColumnMenuTool,
     showHorizontalCellBorders,
     showVerticalCellBorders,
@@ -179,6 +187,9 @@ export function GridHeader(props: GridHeaderProps) {
                 setSkip={setSkip}
                 allowUnsort={allowUnsort}
                 defaultSortDir={defaultSortDir}
+                sortable={sortable}
+                sortFunctions={sortFunctions}
+                renderSortTool={renderSortTool}
                 showColumnMenuTool={showColumnMenuTool}
                 showHorizontalCellBorders={showHorizontalCellBorders}
                 showVerticalCellBorders={showVerticalCellBorders}
