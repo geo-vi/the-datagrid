@@ -898,6 +898,16 @@ Local sorting uses `column.sort` first, then a descriptor `fn`, a
 the complete rows as `value1` and `value2`. Controlled `sortInfo` remains
 externally owned and is not applied again to local array order.
 
+Migration notes for the completed Inovua sorting contract:
+
+- Previous releases inferred numeric ordering when both values were
+  number-like. Untyped columns now use Inovua's string comparator; declare
+  `type: "number"` (or provide a comparator) for numeric ordering.
+- Shift no longer changes a single descriptor into multi-sort mode. Initialize
+  `sortInfo` or `defaultSortInfo` as an array to opt into persistent multi-sort.
+- `TypeSingleSortInfo.fn`, `column.sort`, and registered sort functions now
+  expose their exact comparator argument lists and require a numeric result.
+
 ### Selection
 
 | Prop                           | Type                                            | Default                          | Description                                                                     |
