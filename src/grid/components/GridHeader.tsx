@@ -3,6 +3,7 @@
 import * as React from "react";
 import type {
   TypeColumn,
+  TypeCellProps,
   TypeColumnFilterValueChangeArg,
   TypeComputedProps,
   TypeFilterTypes,
@@ -39,12 +40,12 @@ export type GridHeaderProps = {
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
-  columns: TypeColumn[];
-  columnVisibilityMap: Record<string, boolean>;
-  setColumnVisible: (columnId: string, visible: boolean) => void;
-  enableColumnAutosize: boolean;
-  onColumnAutoResizeAll: () => void;
-  onColumnResizeToFit: () => void;
+  openColumnContextMenuColumnId?: string | null;
+  onOpenColumnContextMenu: (
+    alignTo: HTMLElement | { left: number; top: number },
+    cellProps: TypeCellProps,
+    restoreFocusTo: HTMLElement
+  ) => void;
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
@@ -125,12 +126,8 @@ export function GridHeader(props: GridHeaderProps) {
     sortFunctions,
     renderSortTool,
     showColumnMenuTool,
-    columns,
-    columnVisibilityMap,
-    setColumnVisible,
-    enableColumnAutosize,
-    onColumnAutoResizeAll,
-    onColumnResizeToFit,
+    openColumnContextMenuColumnId,
+    onOpenColumnContextMenu,
     showHorizontalCellBorders,
     showVerticalCellBorders,
     i18n,
@@ -225,15 +222,10 @@ export function GridHeader(props: GridHeaderProps) {
                 sortFunctions={sortFunctions}
                 renderSortTool={renderSortTool}
                 showColumnMenuTool={showColumnMenuTool}
-                columns={columns}
-                columnVisibilityMap={columnVisibilityMap}
-                setColumnVisible={setColumnVisible}
-                enableColumnAutosize={enableColumnAutosize}
-                onAutoResizeAll={onColumnAutoResizeAll}
-                onResizeToFit={onColumnResizeToFit}
+                columnMenuOpen={openColumnContextMenuColumnId === colId}
+                onOpenColumnContextMenu={onOpenColumnContextMenu}
                 showHorizontalCellBorders={showHorizontalCellBorders}
                 showVerticalCellBorders={showVerticalCellBorders}
-                i18n={i18n}
                 canDrag={Boolean(canDrag)}
                 onDragStart={onHeaderDragStart}
                 onDragOver={onHeaderDragOver}

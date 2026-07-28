@@ -6,6 +6,7 @@ import ReactDataGrid, {
   type TypeComputedProps,
   type TypeDataGridProps,
   type TypeFilterValue,
+  type TypeRowProps,
   type TypeSortInfo,
 } from "../../src/main";
 import packageManifest from "../../package.json";
@@ -253,26 +254,122 @@ function Issue36ColumnGroups() {
 }
 
 function Issue37RowContextMenu() {
+  const sequenceRef = React.useRef(0);
+  const callbackOrderRef = React.useRef(0);
+  const callbackSawPreventedRef = React.useRef(false);
+  const callbackRowPropsRef = React.useRef<TypeRowProps | null>(null);
+  const useDefaultColumnMenu =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("menuMode") === "default";
+
   return (
     <GridFrame>
-      <CompatibilityGrid
+      <ReactDataGrid
         idProperty="id"
         columns={baseColumns}
         dataSource={baseRows}
         columnOrder={["id", "name", "city"]}
         virtualized={false}
-        enableFiltering={false}
-        renderRowContextMenu={() => (
+        allowMobileTransform
+        {...(useDefaultColumnMenu ? {} : { enableFiltering: true })}
+        defaultFilterValue={[
+          {
+            name: "name",
+            type: "string",
+            operator: "contains",
+            value: "",
+          },
+        ]}
+        onRowContextMenu={(rowProps, event) => {
+          callbackRowPropsRef.current = rowProps;
+          callbackSawPreventedRef.current = event.defaultPrevented;
+          callbackOrderRef.current = ++sequenceRef.current;
+        }}
+        renderColumnContextMenu={
+          useDefaultColumnMenu
+            ? undefined
+            : (menuProps, context) => (
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="issue-37-column-menu"
+                  data-column-id={context.cellProps.columnId}
+                  data-position={menuProps.position}
+                  data-align-positions={JSON.stringify(
+                    menuProps.alignPositions
+                  )}
+                  data-has-constrain-to={String(Boolean(menuProps.constrainTo))}
+                  data-api-same={
+                    context.grid === context.computedProps &&
+                    context.computedPropsRef.current === context.computedProps
+                      ? "true"
+                      : "false"
+                  }
+                  onClick={menuProps.onDismiss}
+                >
+                  Inspect column
+                </button>
+              )
+        }
+        renderColumnFilterContextMenu={(menuProps, context) => (
           <div
-            role="menu"
-            aria-label="Issue 37 row actions"
-            data-testid="issue-37-row-menu"
+            data-testid="issue-37-filter-menu"
+            data-column-id={context.cellProps.columnId}
+            data-selected-operator={
+              typeof menuProps.selected === "object"
+                ? menuProps.selected.operator
+                : menuProps.selected
+            }
           >
-            <button type="button" role="menuitem">
-              Inspect row
+            <button type="button" role="menuitem" onClick={menuProps.onDismiss}>
+              Inspect filter
             </button>
           </div>
         )}
+        renderRowContextMenu={(menuProps, context) => {
+          const renderOrder = ++sequenceRef.current;
+          return (
+            <button
+              type="button"
+              role="menuitem"
+              aria-label="Issue 37 row actions"
+              data-testid="issue-37-row-menu"
+              data-row-id={String(context.rowProps.id)}
+              data-cell-column={context.cellProps?.columnId ?? ""}
+              data-position={menuProps.position}
+              data-align-positions={JSON.stringify(menuProps.alignPositions)}
+              data-has-constrain-to={String(Boolean(menuProps.constrainTo))}
+              data-callback-before-render={
+                callbackOrderRef.current > 0 &&
+                callbackOrderRef.current < renderOrder
+                  ? "true"
+                  : "false"
+              }
+              data-callback-saw-prevented={String(
+                callbackSawPreventedRef.current
+              )}
+              data-row-props-same={String(
+                callbackRowPropsRef.current === context.rowProps
+              )}
+              data-api-same={
+                context.grid === context.computedProps &&
+                context.computedPropsRef.current === context.computedProps
+                  ? "true"
+                  : "false"
+              }
+              onClick={menuProps.onDismiss}
+            >
+              Inspect row
+            </button>
+          );
+        }}
+        handle={(gridRef) => {
+          (
+            window as typeof window & {
+              __issue37GridApi?: TypeComputedProps | null;
+            }
+          ).__issue37GridApi = gridRef.current;
+        }}
       />
     </GridFrame>
   );

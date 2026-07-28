@@ -227,6 +227,13 @@ export function FilterCell(props: FilterCellProps) {
   const operatorMenuEnabled =
     enableColumnFilterContextMenu && filterable && Boolean(entry);
   const filterCellPadding = normalizeFilterCellPadding(col?.filterCellPadding);
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const longPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const suppressClickUntilRef = React.useRef(0);
+  const [restoreMenuFocusTo, setRestoreMenuFocusTo] =
+    React.useState<HTMLElement | null>(null);
   const filterCellContext = React.useMemo<TypeCellProps>(
     () => ({
       rowIndex: -1,
@@ -241,6 +248,12 @@ export function FilterCell(props: FilterCellProps) {
   );
 
   const filterEditorPropsAny = (col as any)?.filterEditorProps;
+  const cancelLongPress = React.useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  }, []);
+  React.useEffect(() => cancelLongPress, [cancelLongPress]);
 
   function applyFilterNow(next: TypeFilterValue) {
     setSkip(0);
@@ -427,8 +440,62 @@ export function FilterCell(props: FilterCellProps) {
       onContextMenu={(e) => {
         if (!operatorMenuEnabled) return;
         e.preventDefault();
+        e.stopPropagation();
+        setRestoreMenuFocusTo(
+          e.target instanceof HTMLElement ? e.target : e.currentTarget
+        );
         setOpenFilterMenuColId(colId);
       }}
+      onKeyDown={(event) => {
+        if (
+          !operatorMenuEnabled ||
+          (event.key !== "ContextMenu" &&
+            !(event.key === "F10" && event.shiftKey))
+        ) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setRestoreMenuFocusTo(
+          event.target instanceof HTMLElement
+            ? event.target
+            : event.currentTarget
+        );
+        setOpenFilterMenuColId(colId);
+      }}
+      onClickCapture={(event) => {
+        if (Date.now() > suppressClickUntilRef.current) return;
+        suppressClickUntilRef.current = 0;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onPointerDown={(event) => {
+        if (!operatorMenuEnabled || event.pointerType !== "touch") return;
+        cancelLongPress();
+        suppressClickUntilRef.current = 0;
+        longPressStartRef.current = { x: event.clientX, y: event.clientY };
+        setRestoreMenuFocusTo(
+          event.target instanceof HTMLElement
+            ? event.target
+            : event.currentTarget
+        );
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          suppressClickUntilRef.current = Date.now() + 800;
+          setOpenFilterMenuColId(colId);
+        }, 500);
+      }}
+      onPointerMove={(event) => {
+        const start = longPressStartRef.current;
+        if (
+          start &&
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
+        ) {
+          cancelLongPress();
+        }
+      }}
+      onPointerUp={cancelLongPress}
+      onPointerCancel={cancelLongPress}
     >
       {header.isPlaceholder || !filterable || !entry ? null : (
         <div
@@ -624,6 +691,7 @@ export function FilterCell(props: FilterCellProps) {
               cellProps={filterCellContext}
               gridRef={gridRef}
               gridProps={gridProps}
+              restoreFocusTo={restoreMenuFocusTo}
             />
           )}
         </div>
