@@ -5,6 +5,8 @@ import type {
   TypeCheckboxColumn,
   TypeCheckboxProps,
   TypeColumn,
+  TypeCellProps,
+  TypeColumnContextMenuProps,
   TypeComputedColumn,
   TypeComputedColumnsMap,
   TypeComputedProps,
@@ -21,6 +23,8 @@ import type {
   TypeFilterValue,
   TypeOnSelectionChangeArg,
   TypeLoadMaskProps,
+  TypeRowContextMenuProps,
+  TypeRowProps,
   TypePaginationProps,
   TypeRowSelection,
   TypeStartEditArgs,
@@ -95,6 +99,7 @@ import {
 } from "./utils/gridUtils";
 
 import { GridHeader } from "./components/GridHeader";
+import { GridContextMenuLayer } from "./components/GridContextMenuLayer";
 import {
   GridBody,
   type GridCellEditStartArgs,
@@ -105,6 +110,12 @@ import { buildEditCellProps } from "./utils/editing";
 import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
+import {
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "../components/ui/dropdown-menu";
 import { allocateColumnWidths } from "./utils/columnSizing";
 import {
   buildGridColumnRenderItems,
@@ -121,6 +132,21 @@ import {
  * Optional compat export: Inovua exports `plugins`. We export an empty list.
  */
 export const plugins: readonly unknown[] = [] as const;
+
+type OpenColumnContextMenu = {
+  alignTo: HTMLElement | { left: number; top: number };
+  cellProps: TypeCellProps;
+  restoreFocusTo: HTMLElement | null;
+  onHide?: () => void;
+};
+
+type OpenRowContextMenu = {
+  alignTo: HTMLElement | { left: number; top: number };
+  rowProps: TypeRowProps;
+  cellProps?: TypeCellProps;
+  restoreFocusTo: HTMLElement | null;
+  onHide?: () => void;
+};
 
 type ReactDataGridDefaultPropName =
   | "idProperty"
@@ -151,6 +177,13 @@ type ReactDataGridDefaultPropName =
   | "columnFilterContextMenuConstrainTo"
   | "columnFilterContextMenuPosition"
   | "updateMenuPositionOnScroll"
+  | "columnContextMenuAlignPositions"
+  | "columnContextMenuConstrainTo"
+  | "columnContextMenuPosition"
+  | "rowContextMenuAlignPositions"
+  | "rowContextMenuConstrainTo"
+  | "rowContextMenuPosition"
+  | "updateMenuPositionOnColumnsChange"
   | "rowHeight"
   | "minRowHeight"
   | "defaultShowZebraRows"
@@ -204,6 +237,27 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   columnFilterContextMenuConstrainTo: true,
   columnFilterContextMenuPosition: "absolute",
   updateMenuPositionOnScroll: true,
+  columnContextMenuAlignPositions: [
+    "tl-bl",
+    "tr-br",
+    "tl-tr",
+    "tr-tl",
+    "br-tr",
+    "bl-tl",
+  ],
+  columnContextMenuConstrainTo: true,
+  columnContextMenuPosition: "absolute",
+  rowContextMenuAlignPositions: [
+    "tl-bl",
+    "tr-br",
+    "tl-tr",
+    "tr-tl",
+    "br-tr",
+    "bl-tl",
+  ],
+  rowContextMenuConstrainTo: true,
+  rowContextMenuPosition: "absolute",
+  updateMenuPositionOnColumnsChange: true,
   rowHeight: 40,
   minRowHeight: 20,
   defaultShowZebraRows: true,
@@ -809,6 +863,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnFilterContextMenuConstrainTo = REACT_DATA_GRID_DEFAULT_PROPS.columnFilterContextMenuConstrainTo,
     columnFilterContextMenuPosition = REACT_DATA_GRID_DEFAULT_PROPS.columnFilterContextMenuPosition,
     updateMenuPositionOnScroll = REACT_DATA_GRID_DEFAULT_PROPS.updateMenuPositionOnScroll,
+    renderColumnContextMenu,
+    columnContextMenuAlignPositions = REACT_DATA_GRID_DEFAULT_PROPS.columnContextMenuAlignPositions,
+    columnContextMenuConstrainTo = REACT_DATA_GRID_DEFAULT_PROPS.columnContextMenuConstrainTo,
+    columnContextMenuPosition = REACT_DATA_GRID_DEFAULT_PROPS.columnContextMenuPosition,
+    renderRowContextMenu,
+    onRowContextMenu,
+    rowContextMenuAlignPositions = REACT_DATA_GRID_DEFAULT_PROPS.rowContextMenuAlignPositions,
+    rowContextMenuConstrainTo = REACT_DATA_GRID_DEFAULT_PROPS.rowContextMenuConstrainTo,
+    rowContextMenuPosition = REACT_DATA_GRID_DEFAULT_PROPS.rowContextMenuPosition,
+    updateMenuPositionOnColumnsChange = REACT_DATA_GRID_DEFAULT_PROPS.updateMenuPositionOnColumnsChange,
 
     enableColumnAutosize = REACT_DATA_GRID_DEFAULT_PROPS.enableColumnAutosize,
     skipHeaderOnAutoSize = REACT_DATA_GRID_DEFAULT_PROPS.skipHeaderOnAutoSize,
@@ -1328,6 +1392,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resolvedEnableFiltering !== undefined
       ? resolvedEnableFiltering
       : Boolean(filterValue?.length);
+  const setEnableFilteringCompat = React.useCallback(
+    (nextValue: React.SetStateAction<boolean>) => {
+      if (enableFiltering !== undefined) return;
+      setEnableFilteringOverride((current) =>
+        resolveStateAction(nextValue, current ?? Boolean(filterValue?.length))
+      );
+    },
+    [enableFiltering, filterValue?.length]
+  );
 
   // Inovua 5.10.2 only transforms a local data source with its uncontrolled
   // filter state (`defaultFilterValue` and subsequent internal changes).
@@ -2334,6 +2407,136 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [openFilterMenuColId, setOpenFilterMenuColId] = React.useState<
     string | null
   >(null);
+  const filterContextMenuOnHideRef = React.useRef<(() => void) | null>(null);
+  const hideColumnFilterContextMenu = React.useCallback(() => {
+    setOpenFilterMenuColId(null);
+    const onHide = filterContextMenuOnHideRef.current;
+    filterContextMenuOnHideRef.current = null;
+    onHide?.();
+  }, []);
+  const setOpenFilterContextMenuColumn = React.useCallback(
+    (columnId: string | null) => {
+      if (columnId == null) {
+        hideColumnFilterContextMenu();
+      } else {
+        setOpenFilterMenuColId(columnId);
+      }
+    },
+    [hideColumnFilterContextMenu]
+  );
+  const [columnContextMenu, setColumnContextMenu] =
+    React.useState<OpenColumnContextMenu | null>(null);
+  const [rowContextMenu, setRowContextMenu] =
+    React.useState<OpenRowContextMenu | null>(null);
+  const [columnVisibilityMenuOpen, setColumnVisibilityMenuOpen] =
+    React.useState(false);
+  const columnContextMenuRef = React.useRef(columnContextMenu);
+  const rowContextMenuRef = React.useRef(rowContextMenu);
+  columnContextMenuRef.current = columnContextMenu;
+  rowContextMenuRef.current = rowContextMenu;
+
+  const hideColumnContextMenu = React.useCallback(() => {
+    const current = columnContextMenuRef.current;
+    if (!current) return;
+    columnContextMenuRef.current = null;
+    setColumnContextMenu(null);
+    setColumnVisibilityMenuOpen(false);
+    current.onHide?.();
+  }, []);
+
+  const hideRowContextMenu = React.useCallback(() => {
+    const current = rowContextMenuRef.current;
+    if (!current) return;
+    rowContextMenuRef.current = null;
+    setRowContextMenu(null);
+    current.onHide?.();
+  }, []);
+
+  const showColumnContextMenu = React.useCallback(
+    (
+      alignTo: HTMLElement | { left: number; top: number },
+      cellProps: TypeCellProps,
+      _config?: { computedVisibleIndex?: number },
+      onHide?: () => void,
+      restoreFocusTo?: HTMLElement | null
+    ) => {
+      hideColumnContextMenu();
+      hideRowContextMenu();
+      hideColumnFilterContextMenu();
+      setColumnVisibilityMenuOpen(false);
+      const next = {
+        alignTo,
+        cellProps,
+        restoreFocusTo:
+          restoreFocusTo ??
+          (alignTo instanceof HTMLElement ? alignTo : surfaceRef.current),
+        onHide,
+      };
+      columnContextMenuRef.current = next;
+      setColumnContextMenu(next);
+    },
+    [hideColumnContextMenu, hideColumnFilterContextMenu, hideRowContextMenu]
+  );
+
+  const showRowContextMenu = React.useCallback(
+    (
+      alignTo: HTMLElement | { left: number; top: number },
+      rowProps: TypeRowProps,
+      cellProps?: TypeCellProps,
+      onHide?: () => void,
+      restoreFocusTo?: HTMLElement | null
+    ) => {
+      hideColumnContextMenu();
+      hideRowContextMenu();
+      hideColumnFilterContextMenu();
+      const next = {
+        alignTo,
+        rowProps,
+        cellProps,
+        restoreFocusTo:
+          restoreFocusTo ??
+          (alignTo instanceof HTMLElement ? alignTo : surfaceRef.current),
+        onHide,
+      };
+      rowContextMenuRef.current = next;
+      setRowContextMenu(next);
+    },
+    [hideColumnContextMenu, hideColumnFilterContextMenu, hideRowContextMenu]
+  );
+
+  const handleUiRowContextMenu = React.useCallback(
+    (
+      rowProps: TypeRowProps,
+      cellProps: TypeCellProps | undefined,
+      event:
+        | React.MouseEvent<HTMLElement>
+        | React.KeyboardEvent<HTMLElement>
+        | React.PointerEvent<HTMLElement>,
+      alignTo: HTMLElement | { left: number; top: number }
+    ) => {
+      onRowContextMenu?.(rowProps, event);
+      if (!renderRowContextMenu) return;
+      event.preventDefault();
+      showRowContextMenu(
+        alignTo,
+        rowProps,
+        cellProps,
+        undefined,
+        document.activeElement instanceof HTMLElement &&
+          document.activeElement !== document.body
+          ? document.activeElement
+          : surfaceRef.current
+      );
+    },
+    [onRowContextMenu, renderRowContextMenu, showRowContextMenu]
+  );
+
+  React.useEffect(() => {
+    if (openFilterMenuColId) {
+      hideColumnContextMenu();
+      hideRowContextMenu();
+    }
+  }, [hideColumnContextMenu, hideRowContextMenu, openFilterMenuColId]);
 
   /** ---------------- columnDefs (TanStack) ---------------- */
 
@@ -5957,6 +6160,33 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const handleGridKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       onKeyDownProp?.(event);
+      const requestsContextMenu =
+        event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+      if (
+        !event.defaultPrevented &&
+        requestsContextMenu &&
+        (renderRowContextMenu || onRowContextMenu) &&
+        rows.length > 0 &&
+        !isInteractiveClickTarget(event.target as HTMLElement | null)
+      ) {
+        const rowIndex = normalizedActiveIndex < 0 ? 0 : normalizedActiveIndex;
+        const rowNode = rootRef.current?.querySelector<HTMLElement>(
+          `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
+        );
+        if (rowNode) {
+          const rect = rowNode.getBoundingClientRect();
+          event.preventDefault();
+          rowNode.dispatchEvent(
+            new MouseEvent("contextmenu", {
+              bubbles: true,
+              cancelable: true,
+              clientX: rect.left + Math.min(24, rect.width / 2),
+              clientY: rect.top + Math.min(24, rect.height / 2),
+            })
+          );
+          return;
+        }
+      }
       if (
         event.defaultPrevented ||
         !enableKeyboardNavigation ||
@@ -6028,6 +6258,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       keyPageStep,
       normalizedActiveIndex,
       onKeyDownProp,
+      onRowContextMenu,
+      renderRowContextMenu,
       rows.length,
       setActiveIndexCompat,
     ]
@@ -6490,16 +6722,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       },
       computedFilterable: effectiveEnableFiltering,
       computedIsFilterable: effectiveEnableFiltering,
-      setEnableFiltering: (nextValue) => {
-        if (enableFiltering === undefined) {
-          setEnableFilteringOverride((current) =>
-            resolveStateAction(
-              nextValue,
-              current ?? Boolean(filterValue?.length)
-            )
-          );
-        }
-      },
+      setEnableFiltering: setEnableFilteringCompat,
       computedShowHeader: showHeader,
       setShowHeader: (nextValue) => {
         setShowHeader((current) => resolveStateAction(nextValue, current));
@@ -6601,22 +6824,60 @@ function ReactDataGrid(props: TypeDataGridProps) {
       columnFilterContextMenuProps: openFilterMenuColId
         ? { columnId: openFilterMenuColId }
         : null,
+      columnContextMenuProps: columnContextMenu
+        ? {
+            alignTo: columnContextMenu.alignTo,
+            alignPositions: columnContextMenuAlignPositions,
+            cellProps: columnContextMenu.cellProps,
+            constrainTo: columnContextMenuConstrainTo,
+            position: columnContextMenuPosition,
+            updatePositionOnScroll: updateMenuPositionOnScroll,
+          }
+        : null,
+      rowContextMenuProps: rowContextMenu
+        ? {
+            alignTo: rowContextMenu.alignTo,
+            alignPositions: rowContextMenuAlignPositions,
+            cellProps: rowContextMenu.cellProps,
+            constrainTo: rowContextMenuConstrainTo,
+            position: rowContextMenuPosition,
+            rowProps: rowContextMenu.rowProps,
+            updatePositionOnScroll: updateMenuPositionOnScroll,
+          }
+        : null,
       showColumnFilterContextMenu: (...args) => {
-        const target = args[0] as TypeGetColumnByParam | undefined;
+        const alignTo = args[0];
+        const suppliedCellProps = args[1] as TypeCellProps | undefined;
+        const elementColumnId =
+          alignTo instanceof HTMLElement
+            ? alignTo.closest<HTMLElement>("[data-column-id]")?.dataset.columnId
+            : undefined;
+        const target =
+          suppliedCellProps?.columnId ??
+          suppliedCellProps?.name ??
+          elementColumnId ??
+          (alignTo as TypeGetColumnByParam | undefined);
         if (target === undefined) return;
 
-        const columnId = getColumnIdCompat(target);
+        const columnId =
+          typeof target === "string" && columnsMap[target]
+            ? target
+            : getColumnIdCompat(target);
         if (columnId) {
+          const onHide = [...args]
+            .reverse()
+            .find((arg) => typeof arg === "function") as
+            | (() => void)
+            | undefined;
+          filterContextMenuOnHideRef.current = onHide ?? null;
           setOpenFilterMenuColId(columnId);
         }
       },
-      hideColumnFilterContextMenu: () => {
-        setOpenFilterMenuColId(null);
-      },
-      showColumnContextMenu: () => undefined,
-      hideColumnContextMenu: () => undefined,
-      showRowContextMenu: () => undefined,
-      hideRowContextMenu: () => undefined,
+      hideColumnFilterContextMenu,
+      showColumnContextMenu,
+      hideColumnContextMenu,
+      showRowContextMenu,
+      hideRowContextMenu,
       loadNextPage: canNext
         ? () => {
             setSkip(loadSkip + safeLimit);
@@ -6731,6 +6992,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     checkboxColId,
     checkboxEnabled,
     columnFlexes,
+    columnContextMenu,
+    columnContextMenuAlignPositions,
+    columnContextMenuConstrainTo,
+    columnContextMenuPosition,
     columnLayout,
     columnOrderForDs,
     columnSizes,
@@ -6795,6 +7060,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     reservedViewportWidth,
     rowModel.length,
     rows,
+    rowContextMenu,
+    rowContextMenuAlignPositions,
+    rowContextMenuConstrainTo,
+    rowContextMenuPosition,
     safeLimit,
     selected,
     selectedMap,
@@ -6808,6 +7077,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setColumnSizesCompat,
     setColumnSizesToFitCompat,
     setColumnVisibleCompat,
+    setEnableFilteringCompat,
     setColumnsSizesAutoCompat,
     setColumnSortInfoCompat,
     setFilterValueAndResetPage,
@@ -6822,6 +7092,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setScrollLeftCompat,
     setScrollTopCompat,
     showHeader,
+    showColumnContextMenu,
+    hideColumnContextMenu,
+    hideColumnFilterContextMenu,
+    showRowContextMenu,
+    hideRowContextMenu,
     showHorizontalCellBorders,
     showVerticalCellBorders,
     showCellBorders,
@@ -6846,6 +7121,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     virtualListCompat,
     virtualItems.length,
     virtualized,
+    updateMenuPositionOnScroll,
   ]);
 
   // Preserve Inovua's mount lifecycle: the API is hydrated by the preceding
@@ -6896,6 +7172,195 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ) : (
       customPaginationToolbar
     );
+  const contextMenuColumn = columnContextMenu?.cellProps.column as
+    | TypeColumn
+    | undefined;
+  const contextMenuColumnId =
+    columnContextMenu?.cellProps.columnId ??
+    columnContextMenu?.cellProps.name ??
+    (contextMenuColumn ? getColumnId(contextMenuColumn) : undefined);
+  const contextMenuCanSort = Boolean(
+    contextMenuColumnId &&
+    (contextMenuColumn?.sortable ?? sortable) &&
+    (!checkboxEnabled || contextMenuColumnId !== checkboxColId)
+  );
+  const contextMenuSortEntries = Array.isArray(sortInfo)
+    ? sortInfo
+    : sortInfo
+      ? [sortInfo]
+      : [];
+  const contextMenuIsSorted = Boolean(
+    contextMenuColumnId &&
+    contextMenuSortEntries.some(
+      (entry) =>
+        entry.name === contextMenuColumnId ||
+        entry.id === contextMenuColumnId ||
+        entry.columnName === contextMenuColumnId
+    )
+  );
+  const contextMenuCanUnsort =
+    contextMenuCanSort &&
+    contextMenuIsSorted &&
+    (allowUnsort || Array.isArray(sortInfo));
+  const visibleColumnCount = groupedColumns.reduce(
+    (total, column) =>
+      total + (columnVisibilityMap[getColumnId(column)] !== false ? 1 : 0),
+    0
+  );
+  const columnContextMenuItems: NonNullable<
+    TypeColumnContextMenuProps["items"]
+  > = contextMenuColumnId
+    ? [
+        {
+          name: "sortAsc",
+          label: t(i18n, "sortAsc", "Sort A→Z"),
+          disabled: !contextMenuCanSort,
+          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, 1),
+        },
+        {
+          name: "sortDesc",
+          label: t(i18n, "sortDesc", "Sort Z→A"),
+          disabled: !contextMenuCanSort,
+          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, -1),
+        },
+        {
+          name: "unsort",
+          label: t(i18n, "unsort", "Unsort"),
+          disabled: !contextMenuCanUnsort,
+          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, 0),
+        },
+        "-",
+        {
+          name: effectiveEnableFiltering ? "hideFiltering" : "showFiltering",
+          label: effectiveEnableFiltering
+            ? t(i18n, "hideFiltering", "Hide filtering")
+            : t(i18n, "showFiltering", "Show filtering"),
+          disabled: enableFiltering !== undefined,
+          onClick: () => setEnableFilteringCompat(!effectiveEnableFiltering),
+        },
+        {
+          name: "columns",
+          label: t(i18n, "columns", "Columns"),
+          items: groupedColumns.map((column) => {
+            const columnId = getColumnId(column);
+            const visible = columnVisibilityMap[columnId] !== false;
+            return {
+              name: columnId,
+              label:
+                typeof column.header === "string"
+                  ? column.header
+                  : (column.name ?? column.id ?? columnId),
+              checked: visible,
+              disabled:
+                column.hideable === false ||
+                (visible && visibleColumnCount <= 1),
+              onClick: () => setColumnVisibleById(columnId, !visible),
+            };
+          }),
+        },
+        ...(enableColumnAutosize
+          ? ([
+              "-",
+              {
+                name: "autoSizeColumn",
+                label: t(i18n, "autoSizeColumn", "Auto size this column"),
+                onClick: () => autosizeColumn(contextMenuColumnId),
+              },
+              {
+                name: "autoSizeAllColumns",
+                label: t(i18n, "autoSizeAllColumns", "Auto size all columns"),
+                onClick: () => setColumnsSizesAutoCompat(),
+              },
+              {
+                name: "sizeColumnsToFit",
+                label: t(i18n, "sizeColumnsToFit", "Size columns to fit"),
+                onClick: setColumnSizesToFitCompat,
+              },
+            ] as const)
+          : []),
+      ]
+    : [];
+  const columnMenuProps: TypeColumnContextMenuProps | null = columnContextMenu
+    ? {
+        autoFocus: true,
+        alignTo: columnContextMenu.alignTo,
+        alignPositions: columnContextMenuAlignPositions,
+        cellProps: columnContextMenu.cellProps,
+        constrainTo: columnContextMenuConstrainTo,
+        items: columnContextMenuItems,
+        nativeScroll: true,
+        onDismiss: hideColumnContextMenu,
+        position: columnContextMenuPosition,
+        style: {
+          position:
+            columnContextMenuPosition as React.CSSProperties["position"],
+        },
+        theme: themeName,
+        updatePositionOnScroll: updateMenuPositionOnScroll,
+      }
+    : null;
+  const rowMenuProps: TypeRowContextMenuProps | null = rowContextMenu
+    ? {
+        autoFocus: true,
+        alignTo: rowContextMenu.alignTo,
+        alignPositions: rowContextMenuAlignPositions,
+        cellProps: rowContextMenu.cellProps,
+        constrainTo: rowContextMenuConstrainTo,
+        items: [],
+        nativeScroll: true,
+        onDismiss: hideRowContextMenu,
+        position: rowContextMenuPosition,
+        rowProps: rowContextMenu.rowProps,
+        style: {
+          position: rowContextMenuPosition as React.CSSProperties["position"],
+        },
+        theme: themeName,
+        updatePositionOnScroll: updateMenuPositionOnScroll,
+      }
+    : null;
+  const renderedColumnContextMenu =
+    columnContextMenu && columnMenuProps && renderColumnContextMenu
+      ? renderColumnContextMenu(columnMenuProps, {
+          cellProps: columnContextMenu.cellProps,
+          grid: stableApi,
+          computedProps: stableApi,
+          computedPropsRef: apiRef,
+        })
+      : undefined;
+  const renderedRowContextMenu =
+    rowContextMenu && rowMenuProps && renderRowContextMenu
+      ? renderRowContextMenu(rowMenuProps, {
+          rowProps: rowContextMenu.rowProps,
+          cellProps: rowContextMenu.cellProps,
+          grid: stableApi,
+          computedProps: stableApi,
+          computedPropsRef: apiRef,
+        })
+      : undefined;
+  const showColumnMenuLayer =
+    Boolean(columnContextMenu && columnMenuProps) &&
+    renderedColumnContextMenu !== null &&
+    renderedColumnContextMenu !== false;
+  const showRowMenuLayer =
+    Boolean(rowContextMenu && rowMenuProps) &&
+    renderedRowContextMenu !== null &&
+    renderedRowContextMenu !== false;
+  const columnContextMenuSuppressed = Boolean(
+    columnContextMenu &&
+    renderColumnContextMenu &&
+    (renderedColumnContextMenu === null || renderedColumnContextMenu === false)
+  );
+  const rowContextMenuSuppressed = Boolean(
+    rowContextMenu &&
+    renderRowContextMenu &&
+    (renderedRowContextMenu === null || renderedRowContextMenu === false)
+  );
+  React.useEffect(() => {
+    if (columnContextMenuSuppressed) hideColumnContextMenu();
+  }, [columnContextMenuSuppressed, hideColumnContextMenu]);
+  React.useEffect(() => {
+    if (rowContextMenuSuppressed) hideRowContextMenu();
+  }, [hideRowContextMenu, rowContextMenuSuppressed]);
 
   return (
     <div
@@ -6953,6 +7418,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             tabIndex={enableKeyboardNavigation ? 0 : -1}
             aria-label="Data grid"
             aria-busy={loading}
+            aria-haspopup={renderRowContextMenu ? "menu" : undefined}
+            aria-expanded={renderRowContextMenu ? showRowMenuLayer : undefined}
           >
             {!liveColumnResize && resizeProxyLeft != null ? (
               <div
@@ -6993,6 +7460,34 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, rowIndex, event) =>
                   handleRowClick(id, data, rowIndex, event)
+                }
+                onRowContextMenu={
+                  renderRowContextMenu || onRowContextMenu
+                    ? (id, data, rowIndex, event, alignTo) =>
+                        handleUiRowContextMenu(
+                          {
+                            data,
+                            id,
+                            index: rowIndex,
+                            rowIndex,
+                            realIndex: rowIndex,
+                            remoteRowIndex: loadSkip + rowIndex,
+                            selected: Boolean(selectedMap[id]),
+                            rowSelected: Boolean(selectedMap[id]),
+                            active: normalizedActiveIndex === rowIndex,
+                            disabledRow: getDisabledRowState(rowIndex),
+                            selection: selected,
+                            multiSelect: Boolean(multiSelect),
+                            theme: themeName,
+                            columns: visibleComputedColumns,
+                            columnsMap,
+                            dataSourceArray: rows,
+                          } as unknown as TypeRowProps,
+                          undefined,
+                          event,
+                          alignTo
+                        )
+                    : undefined
                 }
               />
             ) : (
@@ -7041,12 +7536,25 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           sortFunctions={sortFunctions}
                           renderSortTool={renderSortTool}
                           showColumnMenuTool={showColumnMenuTool}
-                          columns={groupedColumns}
-                          columnVisibilityMap={columnVisibilityMap}
-                          setColumnVisible={setColumnVisibleById}
-                          enableColumnAutosize={enableColumnAutosize}
-                          onColumnAutoResizeAll={setColumnsSizesAutoCompat}
-                          onColumnResizeToFit={setColumnSizesToFitCompat}
+                          openColumnContextMenuColumnId={
+                            showColumnMenuLayer ? contextMenuColumnId : null
+                          }
+                          onOpenColumnContextMenu={(
+                            alignTo,
+                            cellProps,
+                            restoreFocusTo
+                          ) =>
+                            showColumnContextMenu(
+                              alignTo,
+                              cellProps,
+                              {
+                                computedVisibleIndex:
+                                  cellProps.computedVisibleIndex,
+                              },
+                              undefined,
+                              restoreFocusTo
+                            )
+                          }
                           showHorizontalCellBorders={showHorizontalCellBorders}
                           showVerticalCellBorders={showVerticalCellBorders}
                           i18n={i18n}
@@ -7093,7 +7601,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
                             updateMenuPositionOnScroll
                           }
                           openFilterMenuColId={openFilterMenuColId}
-                          setOpenFilterMenuColId={setOpenFilterMenuColId}
+                          setOpenFilterMenuColId={
+                            setOpenFilterContextMenuColumn
+                          }
                           columnRenderItems={columnRenderItems}
                           lockedColumnLayout={lockedColumnLayout}
                         />
@@ -7147,6 +7657,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     getDisabledRowState={getDisabledRowState}
                     onRowClick={(id, data, rowIndex, e) =>
                       handleRowClick(id, data, rowIndex, e)
+                    }
+                    onRowContextMenu={
+                      renderRowContextMenu || onRowContextMenu
+                        ? handleUiRowContextMenu
+                        : undefined
                     }
                     rowHeight={rowHeight}
                     minRowHeight={computedMinRowHeight}
@@ -7203,6 +7718,164 @@ function ReactDataGrid(props: TypeDataGridProps) {
             surfaceRef={surfaceRef}
             theme={themeName}
           />
+          <GridContextMenuLayer
+            open={showColumnMenuLayer}
+            onOpenChange={(open) => {
+              if (!open) hideColumnContextMenu();
+            }}
+            alignTo={columnContextMenu?.alignTo ?? null}
+            alignPositions={columnContextMenuAlignPositions}
+            constrainTo={columnContextMenuConstrainTo}
+            position={columnContextMenuPosition}
+            updatePositionOnScroll={updateMenuPositionOnScroll}
+            positionRevision={
+              updateMenuPositionOnColumnsChange
+                ? `${renderColumnOrder.join("|")}:${Object.values(
+                    columnWidths
+                  ).join("|")}:${Object.values(columnVisibilityMap).join("|")}`
+                : undefined
+            }
+            restoreFocusTo={columnContextMenu?.restoreFocusTo}
+            ariaLabel="Column menu"
+            testId="tdg-column-context-menu"
+          >
+            {renderedColumnContextMenu !== undefined ? (
+              renderedColumnContextMenu
+            ) : columnVisibilityMenuOpen ? (
+              <>
+                <DropdownMenuLabel>
+                  {t(i18n, "columns", "Columns")}
+                </DropdownMenuLabel>
+                {groupedColumns.map((column) => {
+                  const columnId = getColumnId(column);
+                  const visible = columnVisibilityMap[columnId] !== false;
+                  const disabled =
+                    column.hideable === false ||
+                    (visible && visibleColumnCount <= 1);
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={columnId}
+                      checked={visible}
+                      disabled={disabled}
+                      onCheckedChange={(checked) =>
+                        setColumnVisibleById(columnId, checked === true)
+                      }
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      <span className="truncate">
+                        {typeof column.header === "string"
+                          ? column.header
+                          : (column.name ?? column.id ?? columnId)}
+                      </span>
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setColumnVisibilityMenuOpen(false);
+                  }}
+                >
+                  {t(i18n, "back", "Back")}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  disabled={!contextMenuCanSort}
+                  onSelect={() =>
+                    contextMenuColumnId &&
+                    setColumnSortInfoCompat(contextMenuColumnId, 1)
+                  }
+                >
+                  {t(i18n, "sortAsc", "Sort A→Z")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!contextMenuCanSort}
+                  onSelect={() =>
+                    contextMenuColumnId &&
+                    setColumnSortInfoCompat(contextMenuColumnId, -1)
+                  }
+                >
+                  {t(i18n, "sortDesc", "Sort Z→A")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!contextMenuCanUnsort}
+                  onSelect={() =>
+                    contextMenuColumnId &&
+                    setColumnSortInfoCompat(contextMenuColumnId, 0)
+                  }
+                >
+                  {t(i18n, "unsort", "Unsort")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={enableFiltering !== undefined}
+                  onSelect={() =>
+                    setEnableFilteringCompat(!effectiveEnableFiltering)
+                  }
+                >
+                  {effectiveEnableFiltering
+                    ? t(i18n, "hideFiltering", "Hide filtering")
+                    : t(i18n, "showFiltering", "Show filtering")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setColumnVisibilityMenuOpen(true);
+                  }}
+                >
+                  {t(i18n, "columns", "Columns")}
+                </DropdownMenuItem>
+                {enableColumnAutosize ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={!contextMenuColumnId}
+                      onSelect={() =>
+                        contextMenuColumnId &&
+                        autosizeColumn(contextMenuColumnId)
+                      }
+                    >
+                      {t(i18n, "autoSizeColumn", "Auto size this column")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setColumnsSizesAutoCompat()}
+                    >
+                      {t(i18n, "autoSizeAllColumns", "Auto size all columns")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={setColumnSizesToFitCompat}>
+                      {t(i18n, "sizeColumnsToFit", "Size columns to fit")}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </>
+            )}
+          </GridContextMenuLayer>
+          <GridContextMenuLayer
+            open={showRowMenuLayer}
+            onOpenChange={(open) => {
+              if (!open) hideRowContextMenu();
+            }}
+            alignTo={rowContextMenu?.alignTo ?? null}
+            alignPositions={rowContextMenuAlignPositions}
+            constrainTo={rowContextMenuConstrainTo}
+            position={rowContextMenuPosition}
+            updatePositionOnScroll={updateMenuPositionOnScroll}
+            positionRevision={
+              updateMenuPositionOnColumnsChange
+                ? `${renderColumnOrder.join("|")}:${Object.values(
+                    columnWidths
+                  ).join("|")}`
+                : undefined
+            }
+            restoreFocusTo={rowContextMenu?.restoreFocusTo}
+            ariaLabel="Row context menu"
+            testId="tdg-row-context-menu"
+          >
+            {renderedRowContextMenu}
+          </GridContextMenuLayer>
         </div>
       </DatagridThemeProvider>
     </div>

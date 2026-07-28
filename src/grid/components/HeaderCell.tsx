@@ -10,34 +10,23 @@ import {
 } from "@tabler/icons-react";
 
 import type {
+  TypeCellProps,
   TypeColumn,
-  TypeI18n,
   TypeRenderSortTool,
   TypeSortFunctions,
   TypeSortInfo,
 } from "../../types";
 
 import { cn } from "../../lib/utils";
-import { t } from "../../utils/helpers";
 import { isInteractiveClickTarget } from "../utils/gridUtils";
 import {
   getColumnSortInfo,
   getSortDir,
-  setColumnSortInfo,
   toggleSortInfo,
 } from "../../sorting/utils";
 import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 
 import { Button } from "../../components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
 import { TableHead } from "../../components/ui/table";
 
 function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
@@ -117,15 +106,14 @@ export type HeaderCellProps = {
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
-  columns: TypeColumn[];
-  columnVisibilityMap: Record<string, boolean>;
-  setColumnVisible: (columnId: string, visible: boolean) => void;
-  enableColumnAutosize: boolean;
-  onAutoResizeAll: () => void;
-  onResizeToFit: () => void;
+  columnMenuOpen: boolean;
+  onOpenColumnContextMenu: (
+    alignTo: HTMLElement | { left: number; top: number },
+    cellProps: TypeCellProps,
+    restoreFocusTo: HTMLElement
+  ) => void;
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
-  i18n?: TypeI18n;
 
   canDrag: boolean;
   onDragStart: (e: React.DragEvent, columnId: string) => void;
@@ -159,15 +147,10 @@ export function HeaderCell(props: HeaderCellProps) {
     sortFunctions,
     renderSortTool,
     showColumnMenuTool,
-    columns,
-    columnVisibilityMap,
-    setColumnVisible,
-    enableColumnAutosize,
-    onAutoResizeAll,
-    onResizeToFit,
+    columnMenuOpen,
+    onOpenColumnContextMenu,
     showHorizontalCellBorders,
     showVerticalCellBorders,
-    i18n,
     canDrag,
     onDragStart,
     onDragOver,
@@ -187,15 +170,12 @@ export function HeaderCell(props: HeaderCellProps) {
   const dir = getSortDir(sortInfo, sortColumn);
   const columnSortInfo = getColumnSortInfo(sortInfo, sortColumn);
   const [hovered, setHovered] = React.useState(false);
-  const [showColumnVisibilityMenu, setShowColumnVisibilityMenu] =
-    React.useState(false);
-  const customSortTool = col?.renderSortTool ?? renderSortTool;
-  const visibleColumnCount = columns.reduce(
-    (count, column) =>
-      count +
-      (columnVisibilityMap[column.id ?? column.name ?? ""] !== false ? 1 : 0),
-    0
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
   );
+  const longPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const suppressClickUntilRef = React.useRef(0);
+  const customSortTool = col?.renderSortTool ?? renderSortTool;
   const renderedSortTool = canSort
     ? customSortTool
       ? customSortTool(dir, {
@@ -239,20 +219,28 @@ export function HeaderCell(props: HeaderCellProps) {
     sortInfo,
   ]);
 
-  const setColumnDirection = React.useCallback(
-    (nextDir: -1 | 0 | 1) => {
-      setSkip(0);
-      setSortInfo(
-        setColumnSortInfo({
-          sortInfo,
-          col: sortColumn,
-          dir: nextDir,
-          sortFunctions,
-        })
-      );
-    },
-    [setSkip, setSortInfo, sortColumn, sortFunctions, sortInfo]
+  const cellProps = React.useMemo<TypeCellProps>(
+    () => ({
+      rowIndex: -1,
+      columnIndex,
+      computedVisibleIndex: columnIndex,
+      id: colId,
+      name: col?.name ?? colId,
+      columnId: colId,
+      column: col,
+      header: col?.header,
+      headerCell: true,
+    }),
+    [col, colId, columnIndex]
   );
+
+  const cancelLongPress = React.useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  }, []);
+
+  React.useEffect(() => cancelLongPress, [cancelLongPress]);
 
   return (
     <TableHead
@@ -319,20 +307,86 @@ export function HeaderCell(props: HeaderCellProps) {
       }}
       onDragOver={(e) => canDrag && onDragOver(e)}
       onDrop={(e) => canDrag && onDrop(e, colId)}
-      tabIndex={canSort ? 0 : undefined}
+      tabIndex={canSort || showColumnMenuTool ? 0 : undefined}
       aria-sort={dir === 1 ? "ascending" : dir === -1 ? "descending" : "none"}
+      aria-haspopup={showColumnMenuTool ? "menu" : undefined}
+      aria-expanded={showColumnMenuTool ? columnMenuOpen : undefined}
+      onContextMenu={(event) => {
+        if (!showColumnMenuTool) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenColumnContextMenu(
+          { left: event.clientX, top: event.clientY },
+          cellProps,
+          event.currentTarget
+        );
+      }}
       onClick={(event) => {
+        if (Date.now() <= suppressClickUntilRef.current) {
+          suppressClickUntilRef.current = 0;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (!canSort) return;
         if (isInteractiveClickTarget(event.target as HTMLElement | null))
           return;
         handleSort();
       }}
       onKeyDown={(event) => {
+        if (
+          showColumnMenuTool &&
+          (event.key === "ContextMenu" ||
+            (event.key === "F10" && event.shiftKey))
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenColumnContextMenu(
+            event.currentTarget,
+            cellProps,
+            event.currentTarget
+          );
+          return;
+        }
         if (!canSort) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         handleSort();
       }}
+      onPointerDown={(event) => {
+        if (
+          !showColumnMenuTool ||
+          event.pointerType !== "touch" ||
+          isInteractiveClickTarget(event.target as HTMLElement | null)
+        ) {
+          return;
+        }
+        cancelLongPress();
+        suppressClickUntilRef.current = 0;
+        const point = { x: event.clientX, y: event.clientY };
+        longPressStartRef.current = point;
+        const currentTarget = event.currentTarget;
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          suppressClickUntilRef.current = Date.now() + 800;
+          onOpenColumnContextMenu(
+            { left: point.x, top: point.y },
+            cellProps,
+            currentTarget
+          );
+        }, 500);
+      }}
+      onPointerMove={(event) => {
+        const start = longPressStartRef.current;
+        if (
+          start &&
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
+        ) {
+          cancelLongPress();
+        }
+      }}
+      onPointerUp={cancelLongPress}
+      onPointerCancel={cancelLongPress}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -363,125 +417,33 @@ export function HeaderCell(props: HeaderCellProps) {
           )}
 
           {showColumnMenuTool && (
-            <DropdownMenu
-              onOpenChange={(open) => {
-                if (!open) {
-                  setShowColumnVisibilityMenu(false);
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent"
+              aria-label="Column menu"
+              aria-haspopup="menu"
+              aria-expanded={columnMenuOpen}
+              onKeyDown={(event) => {
+                // Keep the header's Enter/Space sorting shortcut from
+                // cancelling the native button activation.
+                if (event.key === "Enter" || event.key === " ") {
+                  event.stopPropagation();
                 }
               }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpenColumnContextMenu(
+                  event.currentTarget,
+                  cellProps,
+                  event.currentTarget
+                );
+              }}
             >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="InovuaReactDataGrid__column-header__menu-tool size-7 shrink-0 rounded-none border-0 bg-transparent shadow-none hover:bg-transparent"
-                  aria-label="Column menu"
-                >
-                  <IconDotsVertical className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="max-h-80 w-52 overflow-y-auto"
-              >
-                {showColumnVisibilityMenu ? (
-                  <>
-                    <DropdownMenuLabel>
-                      {t(i18n, "columns", "Columns")}
-                    </DropdownMenuLabel>
-                    {columns.map((column) => {
-                      const columnId = column.id ?? column.name;
-                      if (!columnId) return null;
-                      const visible = columnVisibilityMap[columnId] !== false;
-                      const disabled =
-                        column.hideable === false ||
-                        (visible && visibleColumnCount <= 1);
-                      const label =
-                        typeof column.header === "string"
-                          ? column.header
-                          : (column.name ?? column.id ?? columnId);
-
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={columnId}
-                          checked={visible}
-                          disabled={disabled}
-                          onCheckedChange={(checked) =>
-                            setColumnVisible(columnId, checked === true)
-                          }
-                        >
-                          <span className="truncate">{label}</span>
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        setShowColumnVisibilityMenu(false);
-                      }}
-                    >
-                      {t(i18n, "back", "Back")}
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem
-                      disabled={!canSort}
-                      onSelect={() => setColumnDirection(1)}
-                    >
-                      {t(i18n, "sortAsc", "Sort A→Z")}
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      disabled={!canSort}
-                      onSelect={() => setColumnDirection(-1)}
-                    >
-                      {t(i18n, "sortDesc", "Sort Z→A")}
-                    </DropdownMenuItem>
-
-                    {dir !== 0 ? (
-                      <DropdownMenuItem
-                        disabled={
-                          !canSort || (!allowUnsort && !Array.isArray(sortInfo))
-                        }
-                        onSelect={() => setColumnDirection(0)}
-                      >
-                        {t(i18n, "unsort", "Unsort")}
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        setShowColumnVisibilityMenu(true);
-                      }}
-                    >
-                      {t(i18n, "columns", "Columns")}
-                    </DropdownMenuItem>
-                    {enableColumnAutosize ? (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => onAutoResize(colId)}>
-                          {t(i18n, "autoSizeColumn", "Auto size this column")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={onAutoResizeAll}>
-                          {t(
-                            i18n,
-                            "autoSizeAllColumns",
-                            "Auto size all columns"
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={onResizeToFit}>
-                          {t(i18n, "sizeColumnsToFit", "Size columns to fit")}
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <IconDotsVertical className="size-4" />
+            </Button>
           )}
         </div>
         {canResize ? (

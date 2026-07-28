@@ -543,8 +543,8 @@ export type TypeColumnFilterContextMenuProps = {
     | ((...args: unknown[]) => HTMLElement | null);
   alignPositions?: string[];
   updatePositionOnScroll?: boolean;
-  selected?: string;
-  items?: Array<Record<string, unknown>>;
+  selected?: string | { operator: string };
+  items?: TypeContextMenuItem[];
   onSelectionChange?: (operator: string) => void;
   onDismiss?: () => void;
   [key: string]: unknown;
@@ -558,6 +558,88 @@ export type TypeRenderColumnFilterContextMenu = (
     props: TypeComputedProps;
   }
 ) => React.ReactNode;
+
+export type TypeContextMenuConstrainTo =
+  | boolean
+  | HTMLElement
+  | string
+  | ((...args: unknown[]) => HTMLElement | null);
+
+export type TypeContextMenuPoint = {
+  left: number;
+  top: number;
+};
+
+export type TypeContextMenuItem =
+  | "-"
+  | {
+      name?: string;
+      label?: React.ReactNode;
+      disabled?: boolean;
+      checked?: boolean;
+      items?: TypeContextMenuItem[];
+      onClick?: (...args: unknown[]) => void;
+      [key: string]: unknown;
+    };
+
+export type TypeRowProps = Partial<TypeRowStyleProps> &
+  Pick<TypeRowStyleProps, "data" | "rowIndex"> & {
+    groupProps?: unknown;
+    empty?: boolean;
+    active?: boolean;
+    rowSelected?: boolean;
+  };
+
+export type TypeColumnContextMenuProps = {
+  autoFocus?: boolean;
+  alignTo?: HTMLElement | TypeContextMenuPoint | null;
+  alignPositions?: string[];
+  cellProps?: TypeCellProps;
+  constrainTo?: TypeContextMenuConstrainTo;
+  items?: TypeContextMenuItem[];
+  nativeScroll?: boolean;
+  onDismiss?: () => void;
+  position?: string;
+  style?: React.CSSProperties;
+  theme?: string;
+  updatePositionOnScroll?: boolean;
+  [key: string]: unknown;
+};
+
+export type TypeRowContextMenuProps = TypeColumnContextMenuProps & {
+  rowProps?: TypeRowProps;
+};
+
+export type TypeRenderColumnContextMenu = (
+  menuProps: TypeColumnContextMenuProps,
+  context: {
+    cellProps: TypeCellProps;
+    grid: TypeComputedProps;
+    computedProps: TypeComputedProps;
+    computedPropsRef: React.MutableRefObject<TypeComputedProps | null>;
+  }
+) => React.ReactNode;
+
+export type TypeRenderRowContextMenu = (
+  menuProps: TypeRowContextMenuProps,
+  context: {
+    rowProps: TypeRowProps;
+    cellProps?: TypeCellProps;
+    grid: TypeComputedProps;
+    computedProps: TypeComputedProps;
+    computedPropsRef: React.MutableRefObject<TypeComputedProps | null>;
+  }
+) => React.ReactNode;
+
+export type TypeContextMenuEvent =
+  | React.MouseEvent<HTMLElement>
+  | React.KeyboardEvent<HTMLElement>
+  | React.PointerEvent<HTMLElement>;
+
+export type TypeOnRowContextMenu = (
+  rowProps: TypeRowProps,
+  event: TypeContextMenuEvent
+) => void;
 
 /**
  * Inovua selection in your codebase is an object map: { [id]: rowObject }.
@@ -943,10 +1025,22 @@ export type TypeComputedProps = {
   columnFilterContextMenuProps?: Record<string, unknown> | null;
   showColumnFilterContextMenu?: (...args: unknown[]) => void;
   hideColumnFilterContextMenu?: () => void;
-  showColumnContextMenu?: (...args: unknown[]) => void;
-  hideColumnContextMenu?: (...args: unknown[]) => void;
-  showRowContextMenu?: (...args: unknown[]) => void;
-  hideRowContextMenu?: (...args: unknown[]) => void;
+  columnContextMenuProps?: TypeColumnContextMenuProps | null;
+  rowContextMenuProps?: TypeRowContextMenuProps | null;
+  showColumnContextMenu?: (
+    alignTo: HTMLElement | TypeContextMenuPoint,
+    cellProps: TypeCellProps,
+    config?: { computedVisibleIndex?: number },
+    onHide?: () => void
+  ) => void;
+  hideColumnContextMenu?: () => void;
+  showRowContextMenu?: (
+    alignTo: HTMLElement | TypeContextMenuPoint,
+    rowProps: TypeRowProps,
+    cellProps?: TypeCellProps,
+    onHide?: () => void
+  ) => void;
+  hideRowContextMenu?: () => void;
 };
 
 export type TypePaginationMode = true | false | "remote" | "local";
@@ -1132,6 +1226,16 @@ export type TypeDataGridProps = {
     | ((...args: unknown[]) => HTMLElement | null);
   columnFilterContextMenuPosition?: string;
   updateMenuPositionOnScroll?: boolean;
+  renderColumnContextMenu?: TypeRenderColumnContextMenu;
+  columnContextMenuAlignPositions?: string[];
+  columnContextMenuConstrainTo?: TypeContextMenuConstrainTo;
+  columnContextMenuPosition?: string;
+  renderRowContextMenu?: TypeRenderRowContextMenu;
+  onRowContextMenu?: TypeOnRowContextMenu;
+  rowContextMenuAlignPositions?: string[];
+  rowContextMenuConstrainTo?: TypeContextMenuConstrainTo;
+  rowContextMenuPosition?: string;
+  updateMenuPositionOnColumnsChange?: boolean;
 
   filteredRowsCount?: (filteredRows: number) => void;
 

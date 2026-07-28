@@ -6,6 +6,7 @@ import { flexRender } from "@tanstack/react-table";
 import type {
   CellProps,
   TypeColumn,
+  TypeCellProps,
   TypeColumnEditorCell,
   TypeColumnEditorProps,
   TypeComputedColumn,
@@ -13,6 +14,7 @@ import type {
   TypeDataGridProps,
   TypeI18n,
   TypeRowSelection,
+  TypeRowProps,
   TypeRowStyle,
   TypeShowCellBorders,
 } from "../../types";
@@ -56,6 +58,17 @@ export type GridCellEditStartArgs = {
 export type GridEditNavigation = {
   type: "enter" | "tab";
   direction: -1 | 1;
+};
+
+type GridContextCell = {
+  column: { id: string };
+  getValue: () => unknown;
+};
+
+type GridContextRow = {
+  id: string;
+  original: unknown;
+  getVisibleCells: () => GridContextCell[];
 };
 
 function normalizeEditorValue(value: unknown): unknown {
@@ -219,6 +232,15 @@ export type GridBodyProps = {
     rowIndex: number,
     e: React.MouseEvent
   ) => void;
+  onRowContextMenu?: (
+    rowProps: TypeRowProps,
+    cellProps: TypeCellProps | undefined,
+    event:
+      | React.MouseEvent<HTMLElement>
+      | React.KeyboardEvent<HTMLElement>
+      | React.PointerEvent<HTMLElement>,
+    alignTo: HTMLElement | { left: number; top: number }
+  ) => void;
 
   rowHeight: number | ((rowIndex: number) => number) | null;
   minRowHeight: number;
@@ -301,6 +323,7 @@ export function GridBody(props: GridBodyProps) {
     activeRowIndicatorClassName,
     getDisabledRowState,
     onRowClick,
+    onRowContextMenu,
     rowHeight,
     minRowHeight,
     maxRowHeight,
@@ -318,6 +341,13 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
+  const rowLongPressTimerRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const rowLongPressStartRef = React.useRef<{ x: number; y: number } | null>(
+    null
+  );
+  const suppressRowClickUntilRef = React.useRef(0);
   const measureNaturalRow = React.useCallback(
     (element: HTMLTableRowElement | null) => {
       measureElement?.(element);
@@ -325,6 +355,202 @@ export function GridBody(props: GridBodyProps) {
     [measureElement]
   );
   const renderedTableColumnCount = columnRenderItems.length;
+
+  const cancelRowLongPress = React.useCallback(() => {
+    if (rowLongPressTimerRef.current) {
+      clearTimeout(rowLongPressTimerRef.current);
+    }
+    rowLongPressTimerRef.current = null;
+    rowLongPressStartRef.current = null;
+  }, []);
+
+  React.useEffect(() => cancelRowLongPress, [cancelRowLongPress]);
+
+  function getContextRowProps(
+    row: GridContextRow,
+    rowIndex: number,
+    rowIsSelected: boolean,
+    rowIsActive: boolean,
+    disabledRow: boolean | null | undefined
+  ): TypeRowProps {
+    const resolvedHeight = getResolvedRowHeight(rowIndex);
+    return {
+      data: row.original,
+      dataSourceArray: rowStyleMetadata.dataSourceArray,
+      id: getCompatRowId(row, rowStyleMetadata.getItemId),
+      index: rowIndex,
+      rowIndex,
+      realIndex: rowIndex,
+      remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
+      selected: rowIsSelected,
+      rowSelected: rowIsSelected,
+      active: rowIsActive,
+      disabledRow,
+      selection: rowStyleMetadata.selection,
+      multiSelect: rowStyleMetadata.multiSelect,
+      even: rowIndex % 2 === 1,
+      odd: rowIndex % 2 === 0,
+      last: rowIndex === rowModel.length - 1,
+      lastNonEmpty: rowIndex === rowModel.length - 1,
+      columns: rowStyleMetadata.columns,
+      columnsMap: rowStyleMetadata.columnsMap,
+      columnRenderCount: rowStyleMetadata.columnRenderCount,
+      totalColumnCount: rowStyleMetadata.totalColumnCount,
+      firstUnlockedIndex: rowStyleMetadata.firstUnlockedIndex,
+      lastUnlockedIndex: rowStyleMetadata.lastUnlockedIndex,
+      firstLockedStartIndex: rowStyleMetadata.firstLockedStartIndex,
+      lastLockedStartIndex: rowStyleMetadata.lastLockedStartIndex,
+      firstLockedEndIndex: rowStyleMetadata.firstLockedEndIndex,
+      lastLockedEndIndex: rowStyleMetadata.lastLockedEndIndex,
+      hasLockedStart: rowStyleMetadata.hasLockedStart,
+      hasLockedEnd: rowStyleMetadata.hasLockedEnd,
+      availableWidth: rowStyleMetadata.availableWidth,
+      width: rowStyleMetadata.totalComputedWidth,
+      minWidth: rowStyleMetadata.totalComputedWidth,
+      totalComputedWidth: rowStyleMetadata.totalComputedWidth,
+      totalUnlockedWidth: rowStyleMetadata.totalUnlockedWidth,
+      totalLockedStartWidth: rowStyleMetadata.totalLockedStartWidth,
+      totalLockedEndWidth: rowStyleMetadata.totalLockedEndWidth,
+      totalDataCount: rowStyleMetadata.dataSourceArray.length,
+      maxVisibleRows: rowStyleMetadata.maxVisibleRows,
+      rowHeight: resolvedHeight ?? minRowHeight,
+      defaultRowHeight: resolvedHeight ?? minRowHeight,
+      initialRowHeight: resolvedHeight ?? minRowHeight,
+      height: resolvedHeight,
+      minRowHeight,
+      ...(maxRowHeight === undefined ? {} : { maxRowHeight }),
+      naturalRowHeight: rowHeight == null,
+      computedShowZebraRows: showZebraRows,
+      computedShowCellBorders: rowStyleMetadata.computedShowCellBorders,
+      showHorizontalCellBorders,
+      showVerticalCellBorders,
+      editable: rowStyleMetadata.editable,
+      editing:
+        editingCell != null &&
+        String(editingCell.rowId) === String(row.id) &&
+        editingCell.rowIndex === rowIndex,
+      editStartEvent,
+      virtualizeColumns: rowStyleMetadata.virtualizeColumns,
+      theme: rowStyleMetadata.theme,
+      getItemId: rowStyleMetadata.getItemId,
+    };
+  }
+
+  function getContextCellProps(
+    row: GridContextRow,
+    rowIndex: number,
+    target: EventTarget | null
+  ): TypeCellProps | undefined {
+    const element = target instanceof HTMLElement ? target : null;
+    const cellElement = element?.closest<HTMLElement>("[data-column-id]");
+    const columnId = cellElement?.dataset.columnId;
+    if (!columnId) return undefined;
+
+    const cellIndex = orderedColumns.findIndex(
+      (column) => (column.id ?? column.name) === columnId
+    );
+    const column = orderedColumns[cellIndex];
+    const cell = row
+      .getVisibleCells()
+      .find((candidate) => candidate.column.id === columnId);
+    if (!column || !cell) return undefined;
+
+    return buildEditCellProps({
+      value: cell.getValue(),
+      data: row.original,
+      rowIndex,
+      remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
+      rowId: getCompatRowId(row, rowStyleMetadata.getItemId),
+      rowSelected: Boolean(selectedMap[String(row.id)]),
+      disabledRow: getDisabledRowState(rowIndex),
+      selection: rowStyleMetadata.selection,
+      multiSelect: rowStyleMetadata.multiSelect,
+      naturalRowHeight: rowHeight == null,
+      resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
+      minRowHeight,
+      column,
+      columnId,
+      columnIndex: cellIndex,
+      columnCount: orderedColumns.length,
+      computedWidth: columnWidths[columnId],
+      editable: rowStyleMetadata.editable,
+      editStartEvent,
+      theme: rowStyleMetadata.theme,
+      totalDataCount: rowStyleMetadata.dataSourceArray.length,
+      virtualizeColumns,
+    }) as TypeCellProps;
+  }
+
+  function getRowContextMenuHandlers(args: {
+    row: GridContextRow;
+    rowIndex: number;
+    rowIsSelected: boolean;
+    rowIsActive: boolean;
+    disabledRow: boolean | null | undefined;
+  }): React.HTMLAttributes<HTMLTableRowElement> {
+    if (!onRowContextMenu) return {};
+    const { row, rowIndex, rowIsSelected, rowIsActive, disabledRow } = args;
+    const open = (
+      event:
+        | React.MouseEvent<HTMLElement>
+        | React.KeyboardEvent<HTMLElement>
+        | React.PointerEvent<HTMLElement>,
+      alignTo: HTMLElement | { left: number; top: number }
+    ) => {
+      onRowContextMenu(
+        getContextRowProps(
+          row,
+          rowIndex,
+          rowIsSelected,
+          rowIsActive,
+          disabledRow
+        ),
+        getContextCellProps(row, rowIndex, event.target),
+        event,
+        alignTo
+      );
+    };
+
+    return {
+      onClickCapture: (event) => {
+        if (Date.now() > suppressRowClickUntilRef.current) return;
+        suppressRowClickUntilRef.current = 0;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      onContextMenu: (event) => {
+        open(event, { left: event.clientX, top: event.clientY });
+      },
+      onPointerDown: (event) => {
+        if (event.pointerType !== "touch") return;
+        event.persist();
+        cancelRowLongPress();
+        suppressRowClickUntilRef.current = 0;
+        rowLongPressStartRef.current = {
+          x: event.clientX,
+          y: event.clientY,
+        };
+        const currentTarget = event.currentTarget;
+        rowLongPressTimerRef.current = setTimeout(() => {
+          rowLongPressTimerRef.current = null;
+          suppressRowClickUntilRef.current = Date.now() + 800;
+          open(event, { left: event.clientX, top: event.clientY });
+          currentTarget.focus?.({ preventScroll: true });
+        }, 500);
+      },
+      onPointerMove: (event) => {
+        const start = rowLongPressStartRef.current;
+        if (
+          start &&
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
+        ) {
+          cancelRowLongPress();
+        }
+      },
+      onPointerUp: cancelRowLongPress,
+      onPointerCancel: cancelRowLongPress,
+    };
+  }
 
   function getRowThemeClasses(
     rowIndex: number,
@@ -1009,6 +1235,13 @@ export function GridBody(props: GridBodyProps) {
                     ? undefined
                     : (e) => onRowClick?.(row.id, row.original, vi.index, e)
                 }
+                {...getRowContextMenuHandlers({
+                  row,
+                  rowIndex: vi.index,
+                  rowIsSelected,
+                  rowIsActive,
+                  disabledRow,
+                })}
               >
                 {renderCells(row, vi.index, vi.size)}
               </TableRow>
@@ -1078,6 +1311,13 @@ export function GridBody(props: GridBodyProps) {
                     ? undefined
                     : (e) => onRowClick?.(row.id, row.original, displayIndex, e)
                 }
+                {...getRowContextMenuHandlers({
+                  row,
+                  rowIndex: displayIndex,
+                  rowIsSelected,
+                  rowIsActive,
+                  disabledRow,
+                })}
               >
                 {renderCells(row, displayIndex)}
               </TableRow>

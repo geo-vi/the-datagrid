@@ -44,7 +44,7 @@ async function renderedRowHeight(row: Locator) {
   return Math.round((await row.boundingBox())?.height ?? Number.NaN);
 }
 
-// Known parity debt: the 10 fixme tests for issues #36–#37 and #39–#46
+// Known parity debt: the remaining fixme tests for #36 and #39–#46
 // record unimplemented behavior. This PR does not fix that functionality.
 test("GitHub issue #33: controlled sortInfo does not reorder a local array", async ({
   page,
@@ -102,18 +102,352 @@ test.fixme("GitHub issue #36: grouped columns render their shared group header",
   ).toBeVisible();
 });
 
-test.fixme("GitHub issue #37: a row context menu invokes renderRowContextMenu", async ({
+test("GitHub issue #37: a row context menu invokes renderRowContextMenu with live payloads", async ({
   page,
 }) => {
   const scope = await openIssue(page, 37);
+  const surface = scope.locator('[data-slot="grid-surface"]');
   const firstRow = scope.locator('[data-slot="grid-row"]').first();
+  const nameCell = firstRow.locator('[data-column-id="name"]');
 
   await expect(firstRow).toBeVisible();
-  await firstRow.click({ button: "right" });
-  await expect(scope.getByTestId("issue-37-row-menu")).toBeVisible();
+  await surface.focus();
+  await nameCell.click({ button: "right" });
+  const rowMenu = scope.getByTestId("issue-37-row-menu");
+  await expect(rowMenu).toBeVisible();
+  await expect(rowMenu).toHaveAttribute("data-row-id", "row-1");
+  await expect(rowMenu).toHaveAttribute("data-cell-column", "name");
+  await expect(rowMenu).toHaveAttribute("data-position", "absolute");
+  await expect(rowMenu).toHaveAttribute("data-has-constrain-to", "true");
+  await expect(rowMenu).toHaveAttribute("data-callback-before-render", "true");
+  await expect(rowMenu).toHaveAttribute("data-callback-saw-prevented", "false");
+  await expect(rowMenu).toHaveAttribute("data-row-props-same", "true");
+  await expect(rowMenu).toHaveAttribute("data-api-same", "true");
+  await expect(rowMenu).toBeFocused();
   await expect(
-    scope.getByRole("menu", { name: "Issue 37 row actions" })
+    scope.getByRole("menu", { name: "Row context menu" })
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(rowMenu).toHaveCount(0);
+  await expect(surface).toBeFocused();
+});
+
+test("GitHub issue #37: column and filter renderers support mouse and keyboard", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37);
+  const nameHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="name"]'
+  );
+
+  const menuButton = nameHeader.getByRole("button", { name: "Column menu" });
+  await menuButton.click();
+  const columnMenu = scope.getByTestId("issue-37-column-menu");
+  await expect(columnMenu).toHaveAttribute("data-column-id", "name");
+  await expect(columnMenu).toHaveAttribute("data-position", "absolute");
+  await expect(columnMenu).toHaveAttribute("data-has-constrain-to", "true");
+  await expect(columnMenu).toHaveAttribute("data-api-same", "true");
+  await expect(columnMenu).toBeFocused();
+  await expect(menuButton).toHaveAttribute("aria-expanded", "true");
+  await scope.locator('[data-slot="grid-row"]').first().click();
+  await expect(columnMenu).toHaveCount(0);
+  await expect(menuButton).toBeFocused();
+
+  await menuButton.press("Enter");
+  await expect(columnMenu).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menuButton).toBeFocused();
+
+  const filterCell = scope.locator('.tdg-filter-cell[data-column-id="name"]');
+  const filterInput = filterCell.getByRole("textbox");
+  await filterInput.focus();
+  await page.keyboard.press("Shift+F10");
+  const filterMenu = scope.getByTestId("issue-37-filter-menu");
+  await expect(filterMenu).toHaveAttribute("data-column-id", "name");
+  await expect(filterMenu).toHaveAttribute(
+    "data-selected-operator",
+    "contains"
+  );
+  await expect(filterMenu.getByRole("menuitem")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(filterInput).toBeFocused();
+});
+
+test("GitHub issue #37: ContextMenu keyboard key opens the active row menu", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37);
+  const surface = scope.locator('[data-slot="grid-surface"]');
+
+  await surface.focus();
+  await page.keyboard.press("ContextMenu");
+  await expect(scope.getByTestId("issue-37-row-menu")).toHaveAttribute(
+    "data-row-id",
+    "row-1"
+  );
+});
+
+test("GitHub issue #37: computed show and hide APIs control every menu class", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37);
+
+  await page.evaluate(() => {
+    const api = (
+      window as typeof window & {
+        __issue37GridApi?: {
+          showColumnContextMenu?: (...args: unknown[]) => void;
+        };
+      }
+    ).__issue37GridApi;
+    api?.showColumnContextMenu?.(
+      { left: 160, top: 160 },
+      {
+        rowIndex: -1,
+        columnIndex: 1,
+        computedVisibleIndex: 1,
+        columnId: "name",
+        name: "name",
+      },
+      { computedVisibleIndex: 1 }
+    );
+  });
+  await expect(scope.getByTestId("issue-37-column-menu")).toBeVisible();
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __issue37GridApi?: { hideColumnContextMenu?: () => void };
+      }
+    ).__issue37GridApi?.hideColumnContextMenu?.();
+  });
+  await expect(scope.getByTestId("issue-37-column-menu")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    const api = (
+      window as typeof window & {
+        __issue37GridApi?: {
+          showColumnFilterContextMenu?: (...args: unknown[]) => void;
+        };
+      }
+    ).__issue37GridApi;
+    const alignTo = document.querySelector<HTMLElement>(
+      '.tdg-filter-cell[data-column-id="name"] button[aria-label="Filter"]'
+    );
+    if (alignTo) {
+      api?.showColumnFilterContextMenu?.(alignTo, {
+        rowIndex: -1,
+        columnIndex: 1,
+        columnId: "name",
+        name: "name",
+      });
+    }
+  });
+  await expect(scope.getByTestId("issue-37-filter-menu")).toBeVisible();
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __issue37GridApi?: { hideColumnFilterContextMenu?: () => void };
+      }
+    ).__issue37GridApi?.hideColumnFilterContextMenu?.();
+  });
+  await expect(scope.getByTestId("issue-37-filter-menu")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __issue37GridApi?: {
+          showRowContextMenu?: (...args: unknown[]) => void;
+        };
+      }
+    ).__issue37GridApi?.showRowContextMenu?.(
+      { left: 180, top: 180 },
+      { data: { id: "api-row" }, id: "api-row", rowIndex: 0 }
+    );
+  });
+  await expect(scope.getByTestId("issue-37-row-menu")).toHaveAttribute(
+    "data-row-id",
+    "api-row"
+  );
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __issue37GridApi?: { hideRowContextMenu?: () => void };
+      }
+    ).__issue37GridApi?.hideRowContextMenu?.();
+  });
+  await expect(scope.getByTestId("issue-37-row-menu")).toHaveCount(0);
+});
+
+test("GitHub issue #37: row menus stay functional in the mobile transform", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const scope = await openIssue(page, 37);
+  const grid = scope.locator(".tdg-root");
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  const firstRow = scope.locator('[data-slot="grid-row"]').first();
+
+  await expect(grid).toHaveAttribute("data-layout", "mobile-list");
+  await surface.focus();
+  await firstRow.click({ button: "right" });
+  const rowMenu = scope.getByTestId("issue-37-row-menu");
+  await expect(rowMenu).toHaveAttribute("data-row-id", "row-1");
+  await expect(rowMenu).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(surface).toBeFocused();
+});
+
+test("GitHub issue #37: the default column menu owns sorting, filtering, and visibility", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37, "menuMode=default");
+  const nameHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="name"]'
+  );
+
+  await nameHeader.getByRole("button", { name: "Column menu" }).click();
+  await expect(scope.getByRole("menuitem", { name: "Sort A→Z" })).toBeVisible();
+  await expect(
+    scope.getByRole("menuitem", { name: "Hide filtering" })
+  ).toBeVisible();
+  await scope.getByRole("menuitem", { name: "Hide filtering" }).click();
+  await expect(scope.locator(".tdg-filter-row")).toHaveCount(0);
+
+  await nameHeader.getByRole("button", { name: "Column menu" }).click();
+  await expect(
+    scope.getByRole("menuitem", { name: "Show filtering" })
+  ).toBeVisible();
+  await scope.getByRole("menuitem", { name: "Columns", exact: true }).click();
+  const cityOption = scope.getByRole("menuitemcheckbox", { name: "City" });
+  await expect(cityOption).toBeChecked();
+  await cityOption.click();
+  await expect(
+    scope.locator('[data-slot="grid-header-cell"][data-column-id="city"]')
+  ).toHaveCount(0);
+});
+
+test("GitHub issue #37: touch long-press opens column, filter, and row menus", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37);
+
+  const longPress = async (target: Locator) => {
+    const box = await target.boundingBox();
+    expect(box).not.toBeNull();
+    const x = box!.x + Math.min(12, box!.width / 2);
+    const y = box!.y + Math.min(12, box!.height / 2);
+    await target.dispatchEvent("pointerdown", {
+      pointerType: "touch",
+      pointerId: 7,
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+    });
+    await page.waitForTimeout(550);
+    await target.dispatchEvent("pointerup", {
+      pointerType: "touch",
+      pointerId: 7,
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+    });
+    return { x, y };
+  };
+
+  const nameHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="name"]'
+  );
+  const headerPoint = await longPress(nameHeader);
+  await expect(scope.getByTestId("issue-37-column-menu")).toBeVisible();
+  await nameHeader.dispatchEvent("click", {
+    clientX: headerPoint.x,
+    clientY: headerPoint.y,
+  });
+  await expect(scope.getByTestId("issue-37-column-menu")).toBeVisible();
+  await expect(nameHeader).toHaveAttribute("aria-sort", "none");
+  await page.keyboard.press("Escape");
+
+  const filterCell = scope.locator('.tdg-filter-cell[data-column-id="name"]');
+  await longPress(filterCell);
+  await expect(scope.getByTestId("issue-37-filter-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const row = scope.locator('[data-slot="grid-row"]').first();
+  await longPress(row);
+  await expect(scope.getByTestId("issue-37-row-menu")).toBeVisible();
+});
+
+test("GitHub issue #37: repeated context-menu cycles stay within frame budgets @production-performance", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 37);
+  await expect(scope.locator('[data-slot="grid-row"]').first()).toBeVisible();
+
+  const metrics = await page.evaluate(async () => {
+    const row = document.querySelector<HTMLElement>(
+      '[data-testid="github-issues-33-48-scenario"] [data-slot="grid-row"]'
+    );
+    if (!row) throw new Error("Issue #37 row was not mounted");
+
+    const longTasks: number[] = [];
+    const observer =
+      typeof PerformanceObserver === "function" &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+        ? new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              longTasks.push(entry.duration);
+            }
+          })
+        : null;
+    observer?.observe({ entryTypes: ["longtask"] });
+
+    const frameDurations: number[] = [];
+    let previousFrame = performance.now();
+    for (let index = 0; index < 20; index += 1) {
+      const rect = row.getBoundingClientRect();
+      row.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: rect.left + 8,
+          clientY: rect.top + 8,
+        })
+      );
+      const openedFrame = await new Promise<number>((resolve) =>
+        requestAnimationFrame(resolve)
+      );
+      frameDurations.push(openedFrame - previousFrame);
+      previousFrame = openedFrame;
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+      const closedFrame = await new Promise<number>((resolve) =>
+        requestAnimationFrame(resolve)
+      );
+      frameDurations.push(closedFrame - previousFrame);
+      previousFrame = closedFrame;
+    }
+    observer?.disconnect();
+    frameDurations.sort((first, second) => first - second);
+
+    return {
+      p95Frame: frameDurations[Math.floor(frameDurations.length * 0.95)] ?? 0,
+      maxLongTask: Math.max(0, ...longTasks),
+      mountedMenus: document.querySelectorAll(
+        '[data-testid="tdg-row-context-menu"]'
+      ).length,
+      mountedRows: document.querySelectorAll('[data-slot="grid-row"]').length,
+    };
+  });
+
+  expect(metrics.p95Frame).toBeLessThan(34);
+  expect(metrics.maxLongTask).toBeLessThan(50);
+  expect(metrics.mountedMenus).toBe(0);
+  expect(metrics.mountedRows).toBe(3);
 });
 
 test("GitHub issue #38: ArrowDown advances defaultActiveIndex and emits the callback", async ({

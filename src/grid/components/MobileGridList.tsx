@@ -75,6 +75,13 @@ type MobileGridListProps = {
     rowIndex: number,
     event: React.MouseEvent
   ) => void;
+  onRowContextMenu?: (
+    id: string,
+    data: Record<string, unknown>,
+    rowIndex: number,
+    event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
+    alignTo: HTMLElement | { left: number; top: number }
+  ) => void;
 };
 
 const ACTION_COLUMN =
@@ -113,6 +120,7 @@ export function MobileGridList({
   onSortInfoChange,
   onFilteredRowsCountChange,
   onRowClick,
+  onRowContextMenu,
 }: MobileGridListProps): React.ReactElement {
   const [query, setQuery] = React.useState("");
   const [committedQuery, setCommittedQuery] = React.useState("");
@@ -124,6 +132,11 @@ export function MobileGridList({
   const deferredQuery = useDeferredValueCompat(committedQuery);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const longPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const suppressClickUntilRef = React.useRef(0);
   const searchIndexCache = React.useRef<{
     columns: TypeColumn[];
     index: DataGridSearchIndex<Row<Record<string, unknown>>>;
@@ -133,6 +146,12 @@ export function MobileGridList({
   const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
     Set<string>
   >(() => new Set());
+  const cancelLongPress = React.useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  }, []);
+  React.useEffect(() => cancelLongPress, [cancelLongPress]);
   const columnMap = React.useMemo(
     () => new Map(columns.map((column) => [getColumnId(column), column])),
     [columns]
@@ -662,6 +681,69 @@ export function MobileGridList({
                         : (event) =>
                             onRowClick(row.id, row.original, rowIndex, event)
                     }
+                    onContextMenu={
+                      onRowContextMenu
+                        ? (event) => {
+                            onRowContextMenu(
+                              row.id,
+                              row.original,
+                              rowIndex,
+                              event,
+                              { left: event.clientX, top: event.clientY }
+                            );
+                          }
+                        : undefined
+                    }
+                    onClickCapture={(event) => {
+                      if (Date.now() > suppressClickUntilRef.current) return;
+                      suppressClickUntilRef.current = 0;
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onPointerDown={
+                      onRowContextMenu
+                        ? (event) => {
+                            if (event.pointerType !== "touch") return;
+                            event.persist();
+                            cancelLongPress();
+                            suppressClickUntilRef.current = 0;
+                            longPressStartRef.current = {
+                              x: event.clientX,
+                              y: event.clientY,
+                            };
+                            const currentTarget = event.currentTarget;
+                            longPressTimerRef.current = setTimeout(() => {
+                              longPressTimerRef.current = null;
+                              suppressClickUntilRef.current = Date.now() + 800;
+                              onRowContextMenu(
+                                row.id,
+                                row.original,
+                                rowIndex,
+                                event,
+                                {
+                                  left: event.clientX,
+                                  top: event.clientY,
+                                }
+                              );
+                              currentTarget.focus?.({ preventScroll: true });
+                            }, 500);
+                          }
+                        : undefined
+                    }
+                    onPointerMove={(event) => {
+                      const start = longPressStartRef.current;
+                      if (
+                        start &&
+                        Math.hypot(
+                          event.clientX - start.x,
+                          event.clientY - start.y
+                        ) > 8
+                      ) {
+                        cancelLongPress();
+                      }
+                    }}
+                    onPointerUp={cancelLongPress}
+                    onPointerCancel={cancelLongPress}
                   >
                     <header className="flex min-w-0 items-start gap-3">
                       {checkboxCell ? (
