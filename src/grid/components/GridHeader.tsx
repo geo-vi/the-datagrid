@@ -39,6 +39,12 @@ export type GridHeaderProps = {
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
+  columns: TypeColumn[];
+  columnVisibilityMap: Record<string, boolean>;
+  setColumnVisible: (columnId: string, visible: boolean) => void;
+  enableColumnAutosize: boolean;
+  onColumnAutoResizeAll: () => void;
+  onColumnResizeToFit: () => void;
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
@@ -119,6 +125,12 @@ export function GridHeader(props: GridHeaderProps) {
     sortFunctions,
     renderSortTool,
     showColumnMenuTool,
+    columns,
+    columnVisibilityMap,
+    setColumnVisible,
+    enableColumnAutosize,
+    onColumnAutoResizeAll,
+    onColumnResizeToFit,
     showHorizontalCellBorders,
     showVerticalCellBorders,
     i18n,
@@ -213,6 +225,12 @@ export function GridHeader(props: GridHeaderProps) {
                 sortFunctions={sortFunctions}
                 renderSortTool={renderSortTool}
                 showColumnMenuTool={showColumnMenuTool}
+                columns={columns}
+                columnVisibilityMap={columnVisibilityMap}
+                setColumnVisible={setColumnVisible}
+                enableColumnAutosize={enableColumnAutosize}
+                onAutoResizeAll={onColumnAutoResizeAll}
+                onResizeToFit={onColumnResizeToFit}
                 showHorizontalCellBorders={showHorizontalCellBorders}
                 showVerticalCellBorders={showVerticalCellBorders}
                 i18n={i18n}

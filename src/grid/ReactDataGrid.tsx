@@ -130,6 +130,12 @@ type ReactDataGridDefaultPropName =
   | "skipHeaderOnAutoSize"
   | "resizable"
   | "liveColumnResize"
+  | "columnDefaultWidth"
+  | "columnMinWidth"
+  | "columnMaxWidth"
+  | "shareSpaceOnResize"
+  | "columnResizeHandleWidth"
+  | "columnResizeProxyWidth"
   | "filterTypes"
   | "virtualized"
   | "virtualizeColumnsThreshold"
@@ -175,6 +181,14 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   skipHeaderOnAutoSize: false,
   resizable: true,
   liveColumnResize: false,
+  columnDefaultWidth: 150,
+  columnMinWidth: 40,
+  columnMaxWidth: null,
+  shareSpaceOnResize: false,
+  // Preserve the library's accessible pointer target while exposing the
+  // Inovua-compatible sizing controls.
+  columnResizeHandleWidth: 24,
+  columnResizeProxyWidth: 5,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
   virtualizeColumnsThreshold: 15,
@@ -628,7 +642,11 @@ function getKnownTextColumnHeader(column: TypeColumn): string {
   return "";
 }
 
-function getColumnWidthBounds(column: TypeColumn): {
+function getColumnWidthBounds(
+  column: TypeColumn,
+  defaultMinWidth = 40,
+  defaultMaxWidth: number | null = null
+): {
   minWidth: number;
   maxWidth: number;
 } {
@@ -637,13 +655,19 @@ function getColumnWidthBounds(column: TypeColumn): {
     Number.isFinite(column.minWidth) &&
     column.minWidth >= 0
       ? column.minWidth
-      : 40;
+      : defaultMinWidth;
+  const normalizedDefaultMaxWidth =
+    typeof defaultMaxWidth === "number" &&
+    Number.isFinite(defaultMaxWidth) &&
+    defaultMaxWidth >= minWidth
+      ? defaultMaxWidth
+      : Number.MAX_SAFE_INTEGER;
   const maxWidth =
     typeof column.maxWidth === "number" &&
     Number.isFinite(column.maxWidth) &&
-    column.maxWidth >= minWidth
-      ? column.maxWidth
-      : Number.MAX_SAFE_INTEGER;
+    column.maxWidth > 0
+      ? Math.max(minWidth, column.maxWidth)
+      : normalizedDefaultMaxWidth;
 
   return { minWidth, maxWidth };
 }
@@ -652,10 +676,17 @@ function estimateColumnContentWidth(args: {
   column: TypeColumn;
   rows: any[];
   skipHeaderOnAutoSize: boolean;
+  columnMinWidth?: number;
+  columnMaxWidth?: number | null;
 }): number {
-  const { column, rows, skipHeaderOnAutoSize } = args;
+  const { column, rows, skipHeaderOnAutoSize, columnMinWidth, columnMaxWidth } =
+    args;
   const columnId = getColumnId(column);
-  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+  const { minWidth, maxWidth } = getColumnWidthBounds(
+    column,
+    columnMinWidth,
+    columnMaxWidth
+  );
   const header = getColumnHeaderText(column, skipHeaderOnAutoSize);
   const values = rows.map((row) => (row as any)?.[columnId]);
 
@@ -667,10 +698,25 @@ function resolveBaseColumnWidth(args: {
   rows: any[];
   enableColumnAutosize: boolean;
   skipHeaderOnAutoSize: boolean;
+  columnDefaultWidth: number;
+  columnMinWidth: number;
+  columnMaxWidth: number | null;
 }): number {
-  const { column, rows, enableColumnAutosize, skipHeaderOnAutoSize } = args;
+  const {
+    column,
+    rows,
+    enableColumnAutosize,
+    skipHeaderOnAutoSize,
+    columnDefaultWidth,
+    columnMinWidth,
+    columnMaxWidth,
+  } = args;
   const explicit = column.width ?? column.defaultWidth;
-  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+  const { minWidth, maxWidth } = getColumnWidthBounds(
+    column,
+    columnMinWidth,
+    columnMaxWidth
+  );
 
   if (
     typeof explicit === "number" &&
@@ -681,22 +727,40 @@ function resolveBaseColumnWidth(args: {
   }
 
   if (enableColumnAutosize) {
-    return estimateColumnContentWidth({ column, rows, skipHeaderOnAutoSize });
+    return estimateColumnContentWidth({
+      column,
+      rows,
+      skipHeaderOnAutoSize,
+      columnMinWidth,
+      columnMaxWidth,
+    });
   }
 
-  return clamp(column.minWidth ?? 120, minWidth, maxWidth);
+  return clamp(columnDefaultWidth, minWidth, maxWidth);
 }
 
 function ensureLastColumnHeaderFits(args: {
   column: TypeColumn;
   baseWidth: number;
   showColumnMenuTool: boolean;
+  columnMinWidth: number;
+  columnMaxWidth: number | null;
 }): number {
-  const { column, baseWidth, showColumnMenuTool } = args;
+  const {
+    column,
+    baseWidth,
+    showColumnMenuTool,
+    columnMinWidth,
+    columnMaxWidth,
+  } = args;
   const header = getKnownTextColumnHeader(column);
   if (!header) return baseWidth;
 
-  const { minWidth, maxWidth } = getColumnWidthBounds(column);
+  const { minWidth, maxWidth } = getColumnWidthBounds(
+    column,
+    columnMinWidth,
+    columnMaxWidth
+  );
   const sortControlWidth = column.sortable === false ? 0 : 24;
   const menuControlWidth = showColumnMenuTool ? 36 : 0;
   const headerWidth =
@@ -732,6 +796,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     idProperty = REACT_DATA_GRID_DEFAULT_PROPS.idProperty,
     columns: inputColumns,
     dataSource,
+    onColumnVisibleChange,
     sortable = REACT_DATA_GRID_DEFAULT_PROPS.sortable,
     sortFunctions = REACT_DATA_GRID_DEFAULT_PROPS.sortFunctions,
     renderSortTool,
@@ -749,6 +814,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     skipHeaderOnAutoSize = REACT_DATA_GRID_DEFAULT_PROPS.skipHeaderOnAutoSize,
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
     liveColumnResize = REACT_DATA_GRID_DEFAULT_PROPS.liveColumnResize,
+    columnDefaultWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultWidth,
+    columnMinWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMinWidth,
+    columnMaxWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMaxWidth,
+    shareSpaceOnResize = REACT_DATA_GRID_DEFAULT_PROPS.shareSpaceOnResize,
+    columnResizeHandleWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnResizeHandleWidth,
+    columnResizeProxyWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnResizeProxyWidth,
 
     enableFiltering,
     onColumnFilterValueChange,
@@ -779,6 +850,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onEditCancel,
     onEditValueChange,
     onColumnResize,
+    onBatchColumnResize,
     headerHeight = REACT_DATA_GRID_DEFAULT_PROPS.headerHeight,
     filterRowHeight = REACT_DATA_GRID_DEFAULT_PROPS.filterRowHeight,
     disabledRows,
@@ -802,6 +874,48 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onFocus: onFocusProp,
     onBlur: onBlurProp,
   } = props;
+  const configuredColumnMinWidth =
+    typeof columnMinWidth === "number" &&
+    Number.isFinite(columnMinWidth) &&
+    columnMinWidth >= 0
+      ? columnMinWidth
+      : REACT_DATA_GRID_DEFAULT_PROPS.columnMinWidth;
+  const configuredColumnMaxWidth =
+    typeof columnMaxWidth === "number" &&
+    Number.isFinite(columnMaxWidth) &&
+    columnMaxWidth >= 0
+      ? columnMaxWidth
+      : null;
+  const [computedColumnMinWidth, computedColumnMaxWidth] =
+    configuredColumnMaxWidth != null &&
+    configuredColumnMinWidth > configuredColumnMaxWidth
+      ? [configuredColumnMaxWidth, configuredColumnMinWidth]
+      : [configuredColumnMinWidth, configuredColumnMaxWidth];
+  const computedColumnDefaultWidth = clamp(
+    typeof columnDefaultWidth === "number" &&
+      Number.isFinite(columnDefaultWidth) &&
+      columnDefaultWidth > 0
+      ? columnDefaultWidth
+      : REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultWidth,
+    computedColumnMinWidth,
+    computedColumnMaxWidth ?? Number.MAX_SAFE_INTEGER
+  );
+  const computedColumnResizeHandleWidth = clamp(
+    typeof columnResizeHandleWidth === "number" &&
+      Number.isFinite(columnResizeHandleWidth)
+      ? Math.round(columnResizeHandleWidth)
+      : REACT_DATA_GRID_DEFAULT_PROPS.columnResizeHandleWidth,
+    2,
+    40
+  );
+  const computedColumnResizeProxyWidth = clamp(
+    typeof columnResizeProxyWidth === "number" &&
+      Number.isFinite(columnResizeProxyWidth)
+      ? Math.round(columnResizeProxyWidth)
+      : REACT_DATA_GRID_DEFAULT_PROPS.columnResizeProxyWidth,
+    1,
+    25
+  );
   const disabledRowsRef = React.useRef(disabledRows);
   disabledRowsRef.current = disabledRows;
   const getDisabledRowState = React.useCallback(
@@ -1104,10 +1218,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [columnVisibilityState, setColumnVisibilityState] = React.useState<
     Record<string, boolean>
   >({});
+  const uncontrolledVisibilityColumnIds = React.useMemo(
+    () =>
+      new Set(
+        allInputColumns
+          .filter((column) => column.visible === undefined)
+          .map((column) => getColumnId(column))
+      ),
+    [allInputColumns]
+  );
   React.useEffect(() => {
     setColumnVisibilityState((current) => {
       const nextEntries = Object.entries(current).filter(([columnId]) =>
-        allInputColumns.some((column) => getColumnId(column) === columnId)
+        uncontrolledVisibilityColumnIds.has(columnId)
       );
 
       if (nextEntries.length === Object.keys(current).length) {
@@ -1116,16 +1239,20 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       return Object.fromEntries(nextEntries);
     });
-  }, [allInputColumns]);
-  const columnVisibilityMap = React.useMemo(
-    () =>
-      projectTanStackColumnVisibility(
-        allInputColumns,
-        columnVisibilityState,
-        initialColumnVisibilityRef.current
-      ),
-    [allInputColumns, columnVisibilityState]
-  );
+  }, [uncontrolledVisibilityColumnIds]);
+  const columnVisibilityMap = React.useMemo(() => {
+    const uncontrolledOverrides = Object.fromEntries(
+      Object.entries(columnVisibilityState).filter(([columnId]) =>
+        uncontrolledVisibilityColumnIds.has(columnId)
+      )
+    );
+
+    return projectTanStackColumnVisibility(
+      allInputColumns,
+      uncontrolledOverrides,
+      initialColumnVisibilityRef.current
+    );
+  }, [allInputColumns, columnVisibilityState, uncontrolledVisibilityColumnIds]);
 
   const defaultColumnOrder = React.useMemo(() => {
     const base = inputColumns.map((c) => getColumnId(c));
@@ -1144,11 +1271,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () =>
       checkboxEnabled
         ? (injectIntoOrder(
-            props.columnOrder ?? defaultColumnOrder,
+            props.defaultColumnOrder ?? defaultColumnOrder,
             checkboxColId
           ) ?? defaultColumnOrder)
-        : (props.columnOrder ?? defaultColumnOrder),
-    [checkboxColId, checkboxEnabled, defaultColumnOrder, props.columnOrder]
+        : (props.defaultColumnOrder ?? defaultColumnOrder),
+    [
+      checkboxColId,
+      checkboxEnabled,
+      defaultColumnOrder,
+      props.defaultColumnOrder,
+    ]
   );
 
   const [columnOrder, setColumnOrder] = useControllableState<string[]>({
@@ -1776,12 +1908,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
         rows: autosizeSample,
         enableColumnAutosize,
         skipHeaderOnAutoSize,
+        columnDefaultWidth: computedColumnDefaultWidth,
+        columnMinWidth: computedColumnMinWidth,
+        columnMaxWidth: computedColumnMaxWidth,
       });
     }
 
     return next;
   }, [
     autosizeSample,
+    computedColumnDefaultWidth,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
     enableColumnAutosize,
     sizingColumns,
     skipHeaderOnAutoSize,
@@ -1813,7 +1951,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
           return [];
         }
 
-        const { minWidth, maxWidth } = getColumnWidthBounds(column);
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
         return [[columnId, clamp(currentWidth, minWidth, maxWidth)] as const];
       });
 
@@ -1826,7 +1968,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       return Object.fromEntries(nextEntries);
     });
-  }, [orderedColumns]);
+  }, [computedColumnMaxWidth, computedColumnMinWidth, orderedColumns]);
 
   React.useEffect(() => {
     setManualColumnFlexes((current) => {
@@ -1872,6 +2014,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         })
       ),
       preferredFlexes: manualColumnFlexes,
+      defaultWidth: computedColumnDefaultWidth,
+      defaultMinWidth: computedColumnMinWidth,
+      defaultMaxWidth: computedColumnMaxWidth ?? Number.MAX_SAFE_INTEGER,
     });
     const next = { ...allocation.widths };
     const lastColumn = orderedColumns[orderedColumns.length - 1];
@@ -1887,8 +2032,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (!hasControlledWidth && !hasFlex) {
         next[lastColumnId] = ensureLastColumnHeaderFits({
           column: lastColumn,
-          baseWidth: next[lastColumnId] ?? autosizedWidths[lastColumnId] ?? 120,
+          baseWidth:
+            next[lastColumnId] ??
+            autosizedWidths[lastColumnId] ??
+            computedColumnDefaultWidth,
           showColumnMenuTool,
+          columnMinWidth: computedColumnMinWidth,
+          columnMaxWidth: computedColumnMaxWidth,
         });
       }
     }
@@ -1897,6 +2047,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [
     autosizedWidths,
     columnViewportWidth,
+    computedColumnDefaultWidth,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
     manualColumnFlexes,
     manualColumnWidths,
     orderedColumns,
@@ -2214,7 +2367,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const columnDefs = React.useMemo<ColumnDef<any, any>[]>(() => {
     return allInputColumns.map((c) => {
       const colId = getColumnId(c);
-      const { minWidth, maxWidth } = getColumnWidthBounds(c);
+      const { minWidth, maxWidth } = getColumnWidthBounds(
+        c,
+        computedColumnMinWidth,
+        computedColumnMaxWidth
+      );
       const configuredSize =
         typeof c.width === "number" && Number.isFinite(c.width)
           ? c.width
@@ -2452,6 +2609,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     checkboxColumnProp,
     checkboxEnabled,
     allInputColumns,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
     resizable,
     sortable,
   ]);
@@ -3827,7 +3986,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
         (candidate) => getColumnId(candidate) === columnId
       );
       if (!column) continue;
-      const { minWidth, maxWidth } = getColumnWidthBounds(column);
+      const { minWidth, maxWidth } = getColumnWidthBounds(
+        column,
+        computedColumnMinWidth,
+        computedColumnMaxWidth
+      );
       next[columnId] = clamp(
         Math.round(headerCell.getBoundingClientRect().width),
         minWidth,
@@ -3836,7 +3999,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
 
     return Object.keys(next).length > 0 ? next : null;
-  }, [orderedColumns]);
+  }, [computedColumnMaxWidth, computedColumnMinWidth, orderedColumns]);
 
   const seedManualColumnWidthsFromDom = React.useCallback(() => {
     if (hasManualColumnWidths) return null;
@@ -3864,6 +4027,41 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }[],
       nextReservedViewportWidth = reservedViewportWidthRef.current
     ) => {
+      const normalizedEntries = entries.flatMap((entry) => {
+        const width =
+          typeof entry.width === "number" &&
+          Number.isFinite(entry.width) &&
+          entry.width > 0
+            ? entry.width
+            : undefined;
+        const flex =
+          typeof entry.flex === "number" &&
+          Number.isFinite(entry.flex) &&
+          entry.flex > 0
+            ? entry.flex
+            : undefined;
+        if (width === undefined && flex === undefined) return [];
+
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          entry.column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
+        return [
+          {
+            column: entry.column,
+            width:
+              width === undefined
+                ? undefined
+                : clamp(Math.round(width), minWidth, maxWidth),
+            // Flex entries are weights, not pixel widths. The rendered
+            // allocation applies the column bounds after resolving the weight.
+            flex,
+          },
+        ];
+      });
+      if (normalizedEntries.length === 0) return;
+
       const normalizedReservedViewportWidth = Number.isFinite(
         nextReservedViewportWidth
       )
@@ -3881,7 +4079,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         let changed = false;
         const next = { ...current };
 
-        for (const entry of entries) {
+        for (const entry of normalizedEntries) {
           const columnId = getColumnId(entry.column);
           const controlledWidth =
             typeof entry.column.width === "number" &&
@@ -3924,7 +4122,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         let changed = false;
         const next = { ...current };
 
-        for (const entry of entries) {
+        for (const entry of normalizedEntries) {
           const columnId = getColumnId(entry.column);
           const controlledWidth =
             typeof entry.column.width === "number" &&
@@ -3949,10 +4147,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
             Number.isFinite(entry.width) &&
             next[columnId] !== null
           ) {
-            // Inovua's default no-share resize converts a flex/defaultFlex
-            // column to a fixed width unless `keepFlex` is requested. We do
-            // not expose keepFlex yet, so a width proposal explicitly turns
-            // off the grid-owned defaultFlex value.
+            // A width proposal explicitly turns off an uncontrolled
+            // defaultFlex value. keepFlex/share-space paths emit `flex`.
             next[columnId] = null;
             changed = true;
           }
@@ -3961,20 +4157,35 @@ function ReactDataGrid(props: TypeDataGridProps) {
         return changed ? next : current;
       });
 
-      for (const entry of entries) {
-        onColumnResize?.(entry, {
-          reservedViewportWidth: normalizedReservedViewportWidth,
-        });
+      const context = {
+        reservedViewportWidth: normalizedReservedViewportWidth,
+      };
+      for (const entry of normalizedEntries) {
+        onColumnResize?.(entry, context);
       }
+      onBatchColumnResize?.(normalizedEntries, context);
     },
-    [onColumnResize]
+    [
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
+      onBatchColumnResize,
+      onColumnResize,
+    ]
   );
 
   const commitColumnPixelResize = React.useCallback(
     (column: TypeColumn, requestedWidth: number) => {
       const columnId = getColumnId(column);
-      const { minWidth, maxWidth } = getColumnWidthBounds(column);
-      const nextWidth = clamp(requestedWidth, minWidth, maxWidth);
+      const columnBounds = getColumnWidthBounds(
+        column,
+        computedColumnMinWidth,
+        computedColumnMaxWidth
+      );
+      const nextWidth = clamp(
+        requestedWidth,
+        columnBounds.minWidth,
+        columnBounds.maxWidth
+      );
       const currentWidth = columnWidths[columnId] ?? nextWidth;
       const controlledWidth =
         typeof column.width === "number" &&
@@ -3993,11 +4204,104 @@ function ReactDataGrid(props: TypeDataGridProps) {
         columnWidthAllocation.flexWeights
       ).length;
       const diff = nextWidth - currentWidth;
+      if (diff === 0) return;
+
+      const makeResizeEntry = (
+        targetColumn: TypeColumn,
+        targetWidth: number,
+        keepTargetFlex: boolean
+      ) => {
+        const targetColumnId = getColumnId(targetColumn);
+        const targetIsFlex = Boolean(
+          columnWidthAllocation.flexWeights[targetColumnId]
+        );
+        return targetIsFlex && keepTargetFlex
+          ? {
+              column: targetColumn,
+              width: undefined,
+              flex: targetWidth,
+            }
+          : {
+              column: targetColumn,
+              width: targetWidth,
+              flex: undefined,
+            };
+      };
+
+      const columnIndex = orderedColumns.findIndex(
+        (candidate) => getColumnId(candidate) === columnId
+      );
+      const rightColumn = orderedColumns[columnIndex + 1];
+      if (shareSpaceOnResize && rightColumn?.resizable !== false) {
+        const rightColumnId = getColumnId(rightColumn);
+        const rightCurrentWidth =
+          columnWidths[rightColumnId] ??
+          rightColumn.width ??
+          rightColumn.defaultWidth ??
+          computedColumnDefaultWidth;
+        const rightBounds = getColumnWidthBounds(
+          rightColumn,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
+        let rightNextWidth = clamp(
+          rightCurrentWidth - diff,
+          rightBounds.minWidth,
+          rightBounds.maxWidth
+        );
+        let leftNextWidth = clamp(
+          currentWidth + (rightCurrentWidth - rightNextWidth),
+          columnBounds.minWidth,
+          columnBounds.maxWidth
+        );
+        rightNextWidth = clamp(
+          rightCurrentWidth - (leftNextWidth - currentWidth),
+          rightBounds.minWidth,
+          rightBounds.maxWidth
+        );
+        leftNextWidth = currentWidth + (rightCurrentWidth - rightNextWidth);
+
+        const resizeEntries = [
+          makeResizeEntry(column, leftNextWidth, true),
+          makeResizeEntry(rightColumn, rightNextWidth, true),
+        ];
+        const resizedPairHasFlex = Boolean(
+          columnWidthAllocation.flexWeights[columnId] ||
+          columnWidthAllocation.flexWeights[rightColumnId]
+        );
+        if (resizedPairHasFlex) {
+          const resizedIds = new Set([columnId, rightColumnId]);
+          for (const flexColumn of orderedColumns) {
+            const flexColumnId = getColumnId(flexColumn);
+            if (
+              resizedIds.has(flexColumnId) ||
+              !columnWidthAllocation.flexWeights[flexColumnId]
+            ) {
+              continue;
+            }
+
+            resizeEntries.push(
+              makeResizeEntry(
+                flexColumn,
+                columnWidths[flexColumnId] ??
+                  flexColumn.defaultWidth ??
+                  computedColumnDefaultWidth,
+                true
+              )
+            );
+          }
+        }
+
+        commitColumnResizeEntries(resizeEntries);
+        return;
+      }
+
+      const keepResizedColumnFlex =
+        effectiveFlex && resizeIsGridOwned && column.keepFlex !== false;
       const adjustsAvailableWidth =
         resizeIsGridOwned &&
-        diff !== 0 &&
         ((!effectiveFlex && flexColumnCount > 0) ||
-          (effectiveFlex && flexColumnCount > 1));
+          (effectiveFlex && (flexColumnCount > 1 || keepResizedColumnFlex)));
       const nextReservedViewportWidth = adjustsAvailableWidth
         ? reservedViewportWidthRef.current - diff
         : reservedViewportWidthRef.current;
@@ -4005,7 +4309,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         column: TypeColumn;
         width?: number;
         flex?: number;
-      }[] = [{ column, width: nextWidth, flex: undefined }];
+      }[] = [makeResizeEntry(column, nextWidth, keepResizedColumnFlex)];
 
       if (
         resizeIsGridOwned &&
@@ -4036,16 +4340,20 @@ function ReactDataGrid(props: TypeDataGridProps) {
         }
       }
 
-      // A pixel drag/autosize uses Inovua's default no-share behavior: an
-      // uncontrolled defaultFlex column becomes fixed. A controlled width or
-      // flex remains prop-owned, so only the proposal is emitted.
+      // A no-share pixel resize keeps an uncontrolled flex by default;
+      // keepFlex=false converts it. Controlled width/flex remains prop-owned,
+      // so only the fixed-width proposal is emitted.
       commitColumnResizeEntries(resizeEntries, nextReservedViewportWidth);
     },
     [
       columnWidthAllocation.flexWeights,
       columnWidths,
       commitColumnResizeEntries,
+      computedColumnDefaultWidth,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
       orderedColumns,
+      shareSpaceOnResize,
     ]
   );
 
@@ -4057,10 +4365,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (!column || !Number.isFinite(diff) || diff === 0) return;
 
       const currentWidth =
-        columnWidths[columnId] ?? column.width ?? column.defaultWidth ?? 120;
+        columnWidths[columnId] ??
+        column.width ??
+        column.defaultWidth ??
+        computedColumnDefaultWidth;
       commitColumnPixelResize(column, currentWidth + diff);
     },
-    [columnWidths, commitColumnPixelResize, orderedColumns]
+    [
+      columnWidths,
+      commitColumnPixelResize,
+      computedColumnDefaultWidth,
+      orderedColumns,
+    ]
   );
 
   const autosizeColumn = React.useCallback(
@@ -4068,7 +4384,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const column = orderedColumns.find(
         (candidate) => getColumnId(candidate) === columnId
       );
-      if (!column) return;
+      if (!column || column.resizable === false) return;
 
       const seededWidths = seedManualColumnWidthsFromDom();
 
@@ -4076,6 +4392,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
         column,
         rows: autosizeSample,
         skipHeaderOnAutoSize,
+        columnMinWidth: computedColumnMinWidth,
+        columnMaxWidth: computedColumnMaxWidth,
       });
       const bodyViewport = scrollRef.current;
       const restoreTrailingEdge = Boolean(
@@ -4103,6 +4421,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [
       autosizeSample,
       commitColumnPixelResize,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
       orderedColumns,
       seedManualColumnWidthsFromDom,
       skipHeaderOnAutoSize,
@@ -4169,12 +4489,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const bodyViewport = scrollRef.current;
       const isLastColumn =
         getColumnId(orderedColumns[orderedColumns.length - 1]!) === columnId;
-      const columnWidthBounds = getColumnWidthBounds(column);
+      const columnWidthBounds = getColumnWidthBounds(
+        column,
+        computedColumnMinWidth,
+        computedColumnMaxWidth
+      );
       const minWidth = isLastColumn
         ? ensureLastColumnHeaderFits({
             column,
             baseWidth: columnWidthBounds.minWidth,
             showColumnMenuTool,
+            columnMinWidth: computedColumnMinWidth,
+            columnMaxWidth: computedColumnMaxWidth,
           })
         : columnWidthBounds.minWidth;
       const { maxWidth } = columnWidthBounds;
@@ -4381,6 +4707,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       cancelLiveColumnResizeFrame,
       cancelResizeProxyFrame,
       commitColumnPixelResize,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
       liveColumnResize,
       orderedColumns,
       scheduleLiveColumnResizePreview,
@@ -4435,9 +4763,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const dragIdRef = React.useRef<string | null>(null);
 
-  const allowColumnReorder =
-    ((props as any).reorderColumns ?? true) &&
-    Boolean(props.onColumnOrderChange);
+  const allowColumnReorder = (props as any).reorderColumns ?? true;
 
   function onHeaderDragStart(e: React.DragEvent, columnId: string) {
     if (!allowColumnReorder) return;
@@ -4707,6 +5033,223 @@ function ReactDataGrid(props: TypeDataGridProps) {
       columnLayout.map((column) => [column.id, Number(column.width)])
     );
   }, [columnLayout]);
+  const setColumnSizesCompat = React.useCallback<
+    React.Dispatch<React.SetStateAction<Record<string, number>>>
+  >(
+    (nextValue) => {
+      const requested = resolveStateAction(nextValue, columnSizes);
+      const normalized: Record<string, number> = {};
+
+      for (const column of orderedColumns) {
+        const columnId = getColumnId(column);
+        const nextWidth = requested[columnId];
+        if (
+          typeof nextWidth !== "number" ||
+          !Number.isFinite(nextWidth) ||
+          nextWidth <= 0
+        ) {
+          continue;
+        }
+        if (
+          (typeof column.width === "number" && Number.isFinite(column.width)) ||
+          column.flex !== undefined
+        ) {
+          continue;
+        }
+
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
+        normalized[columnId] = clamp(Math.round(nextWidth), minWidth, maxWidth);
+      }
+
+      setManualColumnWidths(normalized);
+    },
+    [
+      columnSizes,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
+      orderedColumns,
+    ]
+  );
+  const setColumnFlexesCompat = React.useCallback<
+    React.Dispatch<React.SetStateAction<Record<string, number | null>>>
+  >(
+    (nextValue) => {
+      const currentFlexes: Record<string, number | null> = {
+        ...columnFlexes,
+        ...manualColumnFlexes,
+      };
+      const requested = resolveStateAction(nextValue, currentFlexes);
+      const normalized: Record<string, number | null> = {};
+
+      for (const column of orderedColumns) {
+        const columnId = getColumnId(column);
+        if (!Object.prototype.hasOwnProperty.call(requested, columnId)) {
+          continue;
+        }
+        if (
+          (typeof column.width === "number" && Number.isFinite(column.width)) ||
+          column.flex !== undefined
+        ) {
+          continue;
+        }
+
+        const nextFlex = requested[columnId];
+        if (nextFlex === null) {
+          normalized[columnId] = null;
+        } else if (
+          typeof nextFlex === "number" &&
+          Number.isFinite(nextFlex) &&
+          nextFlex > 0
+        ) {
+          normalized[columnId] = nextFlex;
+        }
+      }
+
+      setManualColumnFlexes(normalized);
+    },
+    [columnFlexes, manualColumnFlexes, orderedColumns]
+  );
+  const setColumnsSizesAutoCompat = React.useCallback(
+    (config?: {
+      columnIds?: string[];
+      skipHeader?: boolean;
+      skipSortTool?: boolean;
+    }) => {
+      const requestedIds = config?.columnIds ? new Set(config.columnIds) : null;
+      const entries = orderedColumns.flatMap((column) => {
+        const columnId = getColumnId(column);
+        if (
+          column.resizable === false ||
+          (requestedIds && !requestedIds.has(columnId))
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            column,
+            width: estimateColumnContentWidth({
+              column,
+              rows: autosizeSample,
+              skipHeaderOnAutoSize: config?.skipHeader ?? skipHeaderOnAutoSize,
+              columnMinWidth: computedColumnMinWidth,
+              columnMaxWidth: computedColumnMaxWidth,
+            }),
+          },
+        ];
+      });
+      commitColumnResizeEntries(entries);
+    },
+    [
+      autosizeSample,
+      commitColumnResizeEntries,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
+      orderedColumns,
+      skipHeaderOnAutoSize,
+    ]
+  );
+  const setColumnSizeAutoCompat = React.useCallback(
+    (columnId: string, skipHeader?: boolean) => {
+      setColumnsSizesAutoCompat({
+        columnIds: [columnId],
+        skipHeader,
+      });
+    },
+    [setColumnsSizesAutoCompat]
+  );
+  const setColumnSizesToFitCompat = React.useCallback(() => {
+    if (columnViewportWidth <= 0) return;
+
+    const remaining = orderedColumns.filter(
+      (column) => column.resizable !== false
+    );
+    if (remaining.length === 0) return;
+
+    const targetWidths: Record<string, number> = {};
+    let unavailableWidth = orderedColumns.reduce((sum, column) => {
+      if (column.resizable !== false) return sum;
+      return (
+        sum + (columnWidths[getColumnId(column)] ?? computedColumnDefaultWidth)
+      );
+    }, 0);
+    let pending = [...remaining];
+
+    while (pending.length > 0) {
+      const availableWidth = Math.max(
+        0,
+        columnViewportWidth - unavailableWidth
+      );
+      const currentWidth = pending.reduce(
+        (sum, column) =>
+          sum +
+          (columnWidths[getColumnId(column)] ?? computedColumnDefaultWidth),
+        0
+      );
+      const scale = currentWidth > 0 ? availableWidth / currentWidth : 1;
+      const constrained = pending.find((column) => {
+        const columnId = getColumnId(column);
+        const current = columnWidths[columnId] ?? computedColumnDefaultWidth;
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
+        const proposed = Math.round(current * scale);
+        if (proposed >= minWidth && proposed <= maxWidth) return false;
+
+        const width = clamp(proposed, minWidth, maxWidth);
+        targetWidths[columnId] = width;
+        unavailableWidth += width;
+        return true;
+      });
+
+      if (constrained) {
+        pending = pending.filter((column) => column !== constrained);
+        continue;
+      }
+
+      let spaceLeft = availableWidth;
+      pending.forEach((column, index) => {
+        const columnId = getColumnId(column);
+        const current = columnWidths[columnId] ?? computedColumnDefaultWidth;
+        const width =
+          index === pending.length - 1
+            ? spaceLeft
+            : Math.round(current * scale);
+        targetWidths[columnId] = width;
+        spaceLeft = Math.max(0, spaceLeft - width);
+      });
+      break;
+    }
+
+    commitColumnResizeEntries(
+      remaining.map((column) => {
+        const columnId = getColumnId(column);
+        const width =
+          targetWidths[columnId] ??
+          columnWidths[columnId] ??
+          computedColumnDefaultWidth;
+        return columnWidthAllocation.flexWeights[columnId]
+          ? { column, flex: width }
+          : { column, width };
+      }),
+      0
+    );
+  }, [
+    columnViewportWidth,
+    columnWidthAllocation.flexWeights,
+    columnWidths,
+    commitColumnResizeEntries,
+    computedColumnDefaultWidth,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
+    orderedColumns,
+  ]);
 
   const setLimitAndResetPage = React.useCallback(
     (next: number) => {
@@ -4913,39 +5456,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
     (column: TypeGetColumnByParam, visible: boolean) => {
       const columnId = getColumnIdCompat(column);
       if (!columnId) return;
-      if (
-        !allInputColumns.some(
-          (candidate) => getColumnId(candidate) === columnId
-        )
-      ) {
-        return;
-      }
+      const initialColumn = allInputColumns.find(
+        (candidate) => getColumnId(candidate) === columnId
+      );
+      if (!initialColumn) return;
+      if ((columnVisibilityMap[columnId] !== false) === visible) return;
+
+      onColumnVisibleChange?.({
+        column: initialColumn,
+        visible,
+      });
+
+      // A declarative `visible` value is controlled ownership. The callback
+      // receives the proposal, but rendering remains prop-authoritative until
+      // the consumer supplies a new value.
+      if (initialColumn.visible !== undefined) return;
 
       // `hideable` constrains UI affordances, not the Inovua imperative API.
-      // Writing the sparse controlled override also avoids TanStack's
+      // Writing the sparse internal override also avoids TanStack's
       // `getCanHide()` gate for hideable:false columns.
       setColumnVisibilityState((current) => {
         if (current[columnId] === visible) return current;
         return { ...current, [columnId]: visible };
       });
     },
-    [allInputColumns, getColumnIdCompat]
+    [
+      allInputColumns,
+      columnVisibilityMap,
+      getColumnIdCompat,
+      onColumnVisibleChange,
+    ]
   );
 
-  const columnVisibilityIdsRef = React.useRef<ReadonlySet<string>>(new Set());
-  columnVisibilityIdsRef.current = new Set(
-    allInputColumns.map((column) => getColumnId(column))
-  );
   const setColumnVisibleById = React.useCallback(
     (columnId: string, visible: boolean) => {
-      if (!columnVisibilityIdsRef.current.has(columnId)) return;
-
-      setColumnVisibilityState((current) => {
-        if (current[columnId] === visible) return current;
-        return { ...current, [columnId]: visible };
-      });
+      setColumnVisibleCompat(columnId, visible);
     },
-    []
+    [setColumnVisibleCompat]
   );
 
   React.useLayoutEffect(() => {
@@ -5830,9 +6377,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
         column: TypeColumn;
         width?: number;
         flex?: number;
-      }[]
+      }[],
+      context?: { reservedViewportWidth: number }
     ) => {
-      commitColumnResizeEntries(info);
+      commitColumnResizeEntries(
+        info,
+        context?.reservedViewportWidth ?? reservedViewportWidthRef.current
+      );
     };
 
     const baseApi: TypeComputedProps = {
@@ -6114,12 +6665,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
         if (!column) return;
 
         const columnId = getColumnId(column);
-        const { minWidth, maxWidth } = getColumnWidthBounds(column);
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
         const nextWidth = clamp(
           (columnWidths[columnId] ??
             column.width ??
             column.defaultWidth ??
-            120) + diff,
+            computedColumnDefaultWidth) + diff,
           minWidth,
           maxWidth
         );
@@ -6131,14 +6686,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
           column: TypeColumn;
           width?: number;
           flex?: number;
-        }[]
+        }[],
+        context?: { reservedViewportWidth: number }
       ) => {
-        applyColumnResizeBatch(info);
+        applyColumnResizeBatch(info, context);
       },
       columnFlexes,
       columnSizes,
-      setColumnFlexes: () => undefined,
-      setColumnSizes: () => undefined,
+      setColumnFlexes: setColumnFlexesCompat,
+      setColumnSizes: setColumnSizesCompat,
+      setColumnsSizesAuto: setColumnsSizesAutoCompat,
+      setColumnSizeAuto: setColumnSizeAutoCompat,
+      setColumnSizesToFit: setColumnSizesToFitCompat,
       setReservedViewportWidth: (nextValue: React.SetStateAction<number>) => {
         const nextReservedViewportWidth = resolveStateAction(
           nextValue,
@@ -6181,6 +6740,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnsMap,
     commitColumnPixelResize,
     commitColumnResizeEntries,
+    computedColumnDefaultWidth,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
     computedVirtualizeColumns,
     computedFilterValueMap,
     computedOnColumnFilterValueChangeCompat,
@@ -6240,8 +6802,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
     unselected,
     showZebraRows,
     setColumnFilterValueCompat,
+    setColumnFlexesCompat,
     setColumnOrderCompat,
+    setColumnSizeAutoCompat,
+    setColumnSizesCompat,
+    setColumnSizesToFitCompat,
     setColumnVisibleCompat,
+    setColumnsSizesAutoCompat,
     setColumnSortInfoCompat,
     setFilterValueAndResetPage,
     setLimitAndResetPage,
@@ -6359,7 +6926,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-active-index={
         normalizedActiveIndex >= 0 ? normalizedActiveIndex : "none"
       }
-      style={style}
+      style={
+        {
+          ...style,
+          "--tdg-column-resize-handle-width": `${computedColumnResizeHandleWidth}px`,
+          "--tdg-column-resize-proxy-width": `${computedColumnResizeProxyWidth}px`,
+        } as React.CSSProperties
+      }
       onKeyDown={handleGridKeyDown}
       onFocus={handleGridFocus}
       onBlur={handleGridBlur}
@@ -6468,6 +7041,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           sortFunctions={sortFunctions}
                           renderSortTool={renderSortTool}
                           showColumnMenuTool={showColumnMenuTool}
+                          columns={groupedColumns}
+                          columnVisibilityMap={columnVisibilityMap}
+                          setColumnVisible={setColumnVisibleById}
+                          enableColumnAutosize={enableColumnAutosize}
+                          onColumnAutoResizeAll={setColumnsSizesAutoCompat}
+                          onColumnResizeToFit={setColumnSizesToFitCompat}
                           showHorizontalCellBorders={showHorizontalCellBorders}
                           showVerticalCellBorders={showVerticalCellBorders}
                           i18n={i18n}

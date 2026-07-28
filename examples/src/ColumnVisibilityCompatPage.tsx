@@ -31,7 +31,7 @@ const directColumns: TypeColumns = [
   {
     name: "optional",
     header: "Optional",
-    visible: false,
+    defaultVisible: false,
     defaultWidth: 180,
   },
 ];
@@ -68,7 +68,12 @@ export default function ColumnVisibilityCompatPage() {
     () => [
       { name: "id", header: "ID", width: 100 },
       { name: "name", header: "Name", defaultWidth: 220 },
-      { name: "city", header: "City", defaultWidth: 180, visible: false },
+      {
+        name: "city",
+        header: "City",
+        defaultWidth: 180,
+        defaultVisible: false,
+      },
     ],
     []
   );

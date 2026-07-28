@@ -465,6 +465,13 @@ export interface IColumn {
   maxWidth?: number;
   flex?: number | null;
   defaultFlex?: number | null;
+  /**
+   * Retains flex ownership when the user resizes this column.
+   *
+   * Inovua defaults this to true. Set false to convert an uncontrolled
+   * flex/defaultFlex column to a fixed-width column after a no-share resize.
+   */
+  keepFlex?: boolean;
 
   visible?: boolean;
   defaultVisible?: boolean;
@@ -756,6 +763,23 @@ export type TypeComputedProps = {
   computedColumnOrder?: string[] | undefined;
   getColumnOrder: () => string[];
   setColumnOrder: (columnOrder: string[]) => void;
+  columnSizes?: Record<string, number>;
+  columnFlexes?: Record<string, number>;
+  setColumnSizes?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  setColumnFlexes?: React.Dispatch<
+    React.SetStateAction<Record<string, number | null>>
+  >;
+  onBatchColumnResize?: (
+    info: TypeColumnResizeInfo[],
+    context?: TypeColumnResizeContext
+  ) => void;
+  setColumnsSizesAuto?: (config?: {
+    columnIds?: string[];
+    skipHeader?: boolean;
+    skipSortTool?: boolean;
+  }) => void;
+  setColumnSizesToFit?: () => void;
+  setColumnSizeAuto?: (id: string, skipHeader?: boolean) => void;
   columnsMap?: TypeComputedColumnsMap;
   visibleColumnsMap?: TypeComputedColumnsMap;
   allColumns?: TypeComputedColumn[];
@@ -1037,7 +1061,12 @@ export type TypeDataGridProps = {
   dataSource: TypeDataSource;
 
   columnOrder?: string[];
+  defaultColumnOrder?: string[];
   onColumnOrderChange?: (columnOrder: string[]) => void;
+  onColumnVisibleChange?: (args: {
+    column: TypeColumn;
+    visible: boolean;
+  }) => void;
 
   /**
    * In Inovua, `reorderColumns={false}` is common.
@@ -1045,6 +1074,21 @@ export type TypeDataGridProps = {
    */
   reorderColumns?: boolean;
   resizable?: boolean;
+  /** Root fallback used when a column has no width/defaultWidth. */
+  columnDefaultWidth?: number;
+  /** Root fallback used when a column has no minWidth. */
+  columnMinWidth?: number;
+  /** Root fallback used when a column has no maxWidth. */
+  columnMaxWidth?: number | null;
+  /**
+   * Resizes the adjacent visible column in the opposite direction so the
+   * pair keeps its total rendered width.
+   */
+  shareSpaceOnResize?: boolean;
+  /** Pointer target width, in pixels, for header resize handles. */
+  columnResizeHandleWidth?: number;
+  /** Rendered width, in pixels, of the deferred resize proxy. */
+  columnResizeProxyWidth?: number;
 
   /**
    * When enabled, the rendered column follows the pointer while its resize
@@ -1170,6 +1214,10 @@ export type TypeDataGridProps = {
 
   onColumnResize?: (
     info: TypeColumnResizeInfo,
+    context: TypeColumnResizeContext
+  ) => void;
+  onBatchColumnResize?: (
+    info: TypeColumnResizeInfo[],
     context: TypeColumnResizeContext
   ) => void;
   headerHeight?: number;

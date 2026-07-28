@@ -24,6 +24,7 @@ export type AllocateColumnWidthsArgs = {
   preferredFlexes?: Readonly<Record<string, number | null>>;
   defaultWidth?: number;
   defaultMinWidth?: number;
+  defaultMaxWidth?: number;
 };
 
 export type ColumnWidthAllocation = {
@@ -56,7 +57,8 @@ function toNonNegativeInteger(value: number, fallback: number): number {
 
 function getWidthBounds(
   column: TypeColumn,
-  defaultMinWidth: number
+  defaultMinWidth: number,
+  defaultMaxWidth: number
 ): WidthBounds {
   const configuredMinWidth =
     typeof column.minWidth === "number" &&
@@ -71,7 +73,7 @@ function getWidthBounds(
   const configuredMaxWidth = toFinitePositive(column.maxWidth);
   const maxWidth = configuredMaxWidth
     ? Math.max(minWidth, Math.floor(configuredMaxWidth))
-    : DEFAULT_MAX_COLUMN_WIDTH;
+    : Math.max(minWidth, Math.floor(defaultMaxWidth));
 
   return { minWidth, maxWidth };
 }
@@ -117,6 +119,7 @@ export function allocateColumnWidths({
   preferredFlexes = {},
   defaultWidth = DEFAULT_COLUMN_WIDTH,
   defaultMinWidth = DEFAULT_MIN_COLUMN_WIDTH,
+  defaultMaxWidth = DEFAULT_MAX_COLUMN_WIDTH,
 }: AllocateColumnWidthsArgs): ColumnWidthAllocation {
   const normalizedAvailableWidth = toNonNegativeInteger(availableWidth, 0);
   const normalizedDefaultWidth = Math.max(
@@ -127,6 +130,10 @@ export function allocateColumnWidths({
     defaultMinWidth,
     DEFAULT_MIN_COLUMN_WIDTH
   );
+  const normalizedDefaultMaxWidth = Math.max(
+    normalizedDefaultMinWidth,
+    toNonNegativeInteger(defaultMaxWidth, DEFAULT_MAX_COLUMN_WIDTH)
+  );
   const widths: Record<string, number> = {};
   const flexWeights: Record<string, number> = {};
   const flexColumns: FlexColumn[] = [];
@@ -134,7 +141,11 @@ export function allocateColumnWidths({
 
   for (const column of columns) {
     const columnId = getColumnId(column);
-    const bounds = getWidthBounds(column, normalizedDefaultMinWidth);
+    const bounds = getWidthBounds(
+      column,
+      normalizedDefaultMinWidth,
+      normalizedDefaultMaxWidth
+    );
     const controlledWidth = toFinitePositive(column.width);
 
     if (controlledWidth !== undefined) {

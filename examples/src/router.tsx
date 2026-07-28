@@ -25,6 +25,7 @@ import Issue48CompatPage from "./Issue48CompatPage";
 import Issue32DataSourceCompatPage from "./Issue32DataSourceCompatPage";
 import Issue33SortingCompatPage from "./Issue33SortingCompatPage";
 import Issue34FilteringCompatPage from "./Issue34FilteringCompatPage";
+import Issue35ColumnStateCompatPage from "./Issue35ColumnStateCompatPage";
 import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
@@ -348,6 +349,12 @@ const compatIssue34FilteringRoute = createRoute({
   component: Issue34FilteringCompatPage,
 });
 
+const compatIssue35ColumnStateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/issue-35-column-state",
+  component: Issue35ColumnStateCompatPage,
+});
+
 const compatGitHubIssues33To48Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/github-issues-33-48",
@@ -396,6 +403,7 @@ const routeTree = rootRoute.addChildren([
   compatIssue32DataSourceRoute,
   compatIssue33SortingRoute,
   compatIssue34FilteringRoute,
+  compatIssue35ColumnStateRoute,
   compatGitHubIssues33To48Route,
   compatInovuaParityRoute,
   compatInovuaPendingParityRoute,

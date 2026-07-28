@@ -31,7 +31,7 @@ test("published core and column-visibility entries hide and show a column", asyn
 
       const columns = [
         { name: "name", header: "Name" },
-        { name: "city", header: "City", visible: false },
+        { name: "city", header: "City", defaultVisible: false },
       ];
       const rows = [
         { id: 1, name: "Ada", city: "London" },

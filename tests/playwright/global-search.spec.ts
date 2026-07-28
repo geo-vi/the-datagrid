@@ -109,7 +109,9 @@ test("searches docs keys and example content from the shared header", async ({
     .getByText("ReactDataGrid prop reference · onColumnOrderChange")
     .click();
 
-  await expect(page).toHaveURL(/\/docs\/reference\/reactdatagrid#core-props$/);
+  await expect(page).toHaveURL(
+    /\/docs\/reference\/reactdatagrid#core-props-oncolumnorderchange$/
+  );
   await expect(
     page.getByRole("heading", { name: "ReactDataGrid prop reference" })
   ).toBeVisible();
@@ -123,7 +125,9 @@ test("searches docs keys and example content from the shared header", async ({
   ).toBeVisible();
   await page.getByText("Internationalization (i18n) · mobileApplySort").click();
 
-  await expect(page).toHaveURL(/\/docs\/reference\/i18n#mobile-keys$/);
+  await expect(page).toHaveURL(
+    /\/docs\/reference\/i18n#mobile-keys-mobileapplysort$/
+  );
   await expect(
     page.getByRole("heading", { name: "Internationalization (i18n)" })
   ).toBeVisible();
