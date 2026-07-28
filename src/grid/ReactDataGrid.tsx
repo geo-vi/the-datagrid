@@ -2257,7 +2257,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         lastSelectedIndexRef.current != null &&
         (!options.fromCheckbox || checkboxSelectEnableShiftKey)
       ) {
-        const base = selectionRangeBaseRef.current ?? { ...selectedMap };
+        const base =
+          selectionRangeBaseRef.current ??
+          (normalizedSelected === true ? {} : { ...selectedMap });
         selectionRangeBaseRef.current = { ...base };
         const next = { ...base };
         const from = Math.min(lastSelectedIndexRef.current, rowIndex);
@@ -6218,10 +6220,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
           setActiveIndexCompat(rows.length - 1);
           break;
         case "PageUp":
-          setActiveIndexCompat(currentIndex - pageStep);
+          incrementActiveIndex(-pageStep);
           break;
         case "PageDown":
-          setActiveIndexCompat(currentIndex + pageStep);
+          incrementActiveIndex(pageStep);
           break;
         case "Enter":
           commitRowSelection(currentIndex, {

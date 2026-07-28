@@ -384,6 +384,14 @@ function Issue38ActiveRowNavigation() {
   const [unselected, setUnselected] = React.useState<Record<string, boolean>>(
     {}
   );
+  const [selectionEvents, setSelectionEvents] = React.useState<
+    Array<{
+      selected: boolean | string[] | string | number | null;
+      unselected: string[];
+      data: string[];
+      originalDataMatches: boolean;
+    }>
+  >([]);
   const rows = React.useMemo(
     () =>
       Array.from({ length: 40 }, (_, index) => ({
@@ -406,10 +414,32 @@ function Issue38ActiveRowNavigation() {
               : selected,
           unselected: [],
         };
-  const controlledActiveMode =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("activeMode") ===
-      "controlled";
+  const query = React.useMemo(
+    () =>
+      new URLSearchParams(
+        typeof window === "undefined" ? "" : window.location.search
+      ),
+    []
+  );
+  const controlledActiveMode = query.get("activeMode") === "controlled";
+  const selectionMode = query.get("selectionMode");
+  const navigationMode = query.get("navigationMode");
+  const uncontrolledExclusions = selectionMode === "default-unselected";
+  const paginationMode = query.get("dataMode") === "pagination";
+  const transformsMode = query.get("dataMode") === "transforms";
+  const summarizeSelected = (
+    value: TypeDataGridProps["selected"]
+  ): boolean | string[] | string | number | null => {
+    if (
+      value == null ||
+      typeof value === "boolean" ||
+      typeof value === "string" ||
+      typeof value === "number"
+    ) {
+      return value ?? null;
+    }
+    return Object.keys(value).sort();
+  };
 
   return (
     <>
@@ -419,6 +449,9 @@ function Issue38ActiveRowNavigation() {
       <output data-testid="issue-38-selection">
         {JSON.stringify(selectionSummary)}
       </output>
+      <output data-testid="issue-38-selection-events">
+        {JSON.stringify(selectionEvents)}
+      </output>
       <GridFrame>
         <ReactDataGrid
           idProperty="id"
@@ -427,31 +460,83 @@ function Issue38ActiveRowNavigation() {
           columnOrder={["id", "name", "city"]}
           virtualized
           rowHeight={36}
-          enableFiltering={false}
+          enableFiltering={transformsMode}
+          defaultFilterValue={
+            transformsMode
+              ? [
+                  {
+                    name: "name",
+                    type: "string",
+                    operator: "contains",
+                    value: "",
+                  },
+                ]
+              : undefined
+          }
+          pagination={paginationMode || undefined}
+          defaultLimit={paginationMode ? 5 : undefined}
           enableSelection
           multiSelect
           checkboxColumn
-          checkboxSelectEnableShiftKey
-          selected={selected}
-          unselected={unselected}
+          checkboxOnlyRowSelect={selectionMode === "checkbox-only"}
+          checkboxSelectEnableShiftKey={
+            selectionMode !== "checkbox-shift-disabled"
+          }
+          toggleRowSelectOnClick={selectionMode === "toggle"}
+          selected={uncontrolledExclusions ? undefined : selected}
+          unselected={uncontrolledExclusions ? undefined : unselected}
+          defaultSelected={uncontrolledExclusions ? true : undefined}
+          defaultUnselected={
+            uncontrolledExclusions ? { "active-0": true } : undefined
+          }
           onSelectionChange={(change) => {
-            setSelected(change.selected);
-            setUnselected(
-              change.unselected &&
-                typeof change.unselected === "object" &&
-                !Array.isArray(change.unselected)
-                ? (change.unselected as Record<string, boolean>)
-                : {}
-            );
+            const data = Array.isArray(change.data)
+              ? change.data
+              : change.data == null
+                ? []
+                : [change.data];
+            setSelectionEvents((current) => [
+              ...current,
+              {
+                selected: summarizeSelected(change.selected),
+                unselected:
+                  change.unselected &&
+                  typeof change.unselected === "object" &&
+                  !Array.isArray(change.unselected)
+                    ? Object.keys(change.unselected).sort()
+                    : [],
+                data: data.flatMap((item) =>
+                  item &&
+                  typeof item === "object" &&
+                  "id" in item &&
+                  typeof item.id === "string"
+                    ? [item.id]
+                    : []
+                ),
+                originalDataMatches: change.originalData === rows,
+              },
+            ]);
+            if (!uncontrolledExclusions) {
+              setSelected(change.selected);
+              setUnselected(
+                change.unselected &&
+                  typeof change.unselected === "object" &&
+                  !Array.isArray(change.unselected)
+                  ? (change.unselected as Record<string, boolean>)
+                  : {}
+              );
+            }
           }}
-          enableKeyboardNavigation
+          enableKeyboardNavigation={navigationMode !== "disabled"}
           activeIndex={controlledActiveMode ? controlledActiveIndex : undefined}
-          defaultActiveIndex={0}
+          defaultActiveIndex={navigationMode === "no-activate" ? -1 : 0}
           activeIndexThrottle={controlledActiveMode ? 40 : undefined}
           keyPageStep={5}
-          allowRowTabNavigation
+          allowRowTabNavigation={navigationMode !== "no-tab"}
+          activateRowOnFocus={navigationMode !== "no-activate"}
           rowFocusClassName="issue-38-row-focused"
           focusedClassName="issue-38-grid-focused"
+          showActiveRowIndicator={navigationMode !== "no-indicator"}
           activeRowIndicatorClassName="issue-38-active-indicator"
           onActiveIndexChange={(nextActiveIndex) => {
             setActiveIndex(nextActiveIndex);

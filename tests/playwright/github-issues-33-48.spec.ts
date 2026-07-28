@@ -488,6 +488,45 @@ test("GitHub issue #38: controlled activeIndex and throttled navigation remain a
   await expect(root).toHaveAttribute("data-active-index", "6");
 });
 
+test("GitHub issue #38: Page navigation observes activeIndexThrottle", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38, "activeMode=controlled");
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  const activeIndex = scope.getByTestId("issue-38-active-index");
+
+  await surface.focus();
+  const immediatePageDownValue = await surface.evaluate((element) => {
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "PageDown",
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+    return document.querySelector('[data-testid="issue-38-active-index"]')
+      ?.textContent;
+  });
+
+  expect(immediatePageDownValue).toBe("none");
+  await expect(activeIndex).toHaveText("5");
+
+  const immediatePageUpValue = await surface.evaluate((element) => {
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "PageUp",
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+    return document.querySelector('[data-testid="issue-38-active-index"]')
+      ?.textContent;
+  });
+
+  expect(immediatePageUpValue).toBe("5");
+  await expect(activeIndex).toHaveText("0");
+});
+
 test("GitHub issue #38: keyboard navigation, focus restoration, and virtual scrolling stay synchronized", async ({
   page,
 }) => {
@@ -590,6 +629,227 @@ test("GitHub issue #38: pointer and keyboard selection match Inovua multi-select
   );
   await firstRowCheckbox.click();
   await expect(selection).toHaveText('{"selected":true,"unselected":[]}');
+});
+
+test("GitHub issue #38: selected=true Shift ranges become finite without materializing the loaded page", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38);
+  const selection = scope.getByTestId("issue-38-selection");
+  const events = scope.getByTestId("issue-38-selection-events");
+  const rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(1).click();
+  await expect(events).toHaveText(
+    '[{"selected":["active-1"],"unselected":[],"data":["active-1"],"originalDataMatches":true}]'
+  );
+
+  await scope.getByTestId("issue-38-select-all-mode").click();
+  await rowAt(4).click({ modifiers: ["Shift"] });
+
+  await expect(selection).toHaveText(
+    '{"selected":["active-1","active-2","active-3","active-4"],"unselected":[]}'
+  );
+  await expect(events).toContainText(
+    '"selected":["active-1","active-2","active-3","active-4"]'
+  );
+  await expect(events).not.toContainText('"active-39"');
+});
+
+test("GitHub issue #38: pointer selection flags preserve toggle, checkbox-only, and checkbox Shift semantics", async ({
+  page,
+}) => {
+  let scope = await openIssue(page, 38, "selectionMode=toggle");
+  let selection = scope.getByTestId("issue-38-selection");
+  let rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(2).click();
+  await rowAt(2).click();
+  await expect(selection).toHaveText('{"selected":[],"unselected":[]}');
+
+  scope = await openIssue(page, 38, "selectionMode=checkbox-only");
+  selection = scope.getByTestId("issue-38-selection");
+  rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(2).click();
+  await expect(selection).toHaveText('{"selected":[],"unselected":[]}');
+  await rowAt(2).getByRole("checkbox").click();
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
+
+  scope = await openIssue(page, 38, "selectionMode=checkbox-shift-disabled");
+  selection = scope.getByTestId("issue-38-selection");
+  rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(1).getByRole("checkbox").click();
+  await rowAt(4)
+    .getByRole("checkbox")
+    .click({ modifiers: ["Shift"] });
+  await expect(selection).toHaveText(
+    '{"selected":["active-1","active-4"],"unselected":[]}'
+  );
+
+  scope = await openIssue(page, 38, "selectionMode=checkbox-shift-enabled");
+  selection = scope.getByTestId("issue-38-selection");
+  rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+
+  await rowAt(1).getByRole("checkbox").click();
+  await rowAt(4)
+    .getByRole("checkbox")
+    .click({ modifiers: ["Shift"] });
+  await expect(selection).toHaveText(
+    '{"selected":["active-1","active-2","active-3","active-4"],"unselected":[]}'
+  );
+});
+
+test("GitHub issue #38: navigation and focus opt-outs remain authoritative", async ({
+  page,
+}) => {
+  let scope = await openIssue(page, 38, "navigationMode=disabled");
+  let root = scope.locator(".tdg-root");
+  let surface = scope.locator('[data-slot="grid-surface"]');
+
+  await expect(surface).toHaveAttribute("tabindex", "-1");
+  await surface.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(root).toHaveAttribute("data-active-index", "none");
+  await expect(scope.getByTestId("issue-38-active-index")).toHaveText("none");
+
+  scope = await openIssue(page, 38, "navigationMode=no-activate");
+  root = scope.locator(".tdg-root");
+  surface = scope.locator('[data-slot="grid-surface"]');
+
+  await surface.focus();
+  await expect(root).toHaveAttribute("data-focused", "true");
+  await expect(root).toHaveAttribute("data-active-index", "none");
+
+  scope = await openIssue(page, 38, "navigationMode=no-indicator");
+  surface = scope.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  const activeRow = scope.locator('[data-slot="grid-row"][data-row-index="0"]');
+  await expect(activeRow).toHaveAttribute("data-active", "true");
+  await expect(activeRow).toHaveClass(/issue-38-row-focused/);
+  await expect(activeRow).not.toHaveClass(/issue-38-active-indicator/);
+
+  scope = await openIssue(page, 38, "navigationMode=no-tab");
+  surface = scope.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  const tabPrevented = await surface.evaluate((element) => {
+    const event = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(tabPrevented).toBe(false);
+  await expect(scope.locator(".tdg-root")).toHaveAttribute(
+    "data-active-index",
+    "0"
+  );
+});
+
+test("GitHub issue #38: selected identities survive sorting, filtering, and virtual row recycling", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38, "dataMode=transforms");
+  const grid = scope.locator(".tdg-root");
+  const selectedRow = scope.locator(
+    '[data-slot="grid-row"][data-row-id="active-2"]'
+  );
+
+  await selectedRow.click();
+  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+
+  await grid
+    .locator('[data-slot="grid-header-cell"][data-column-id="name"]')
+    .click();
+  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+
+  const nameFilter = grid
+    .locator('.tdg-filter-cell[data-column-id="name"]')
+    .getByRole("textbox");
+  await nameFilter.fill("Person 39");
+  await expect(selectedRow).toHaveCount(0);
+  await nameFilter.fill("");
+  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+
+  const surface = grid.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  await page.keyboard.press("End");
+  await expect(
+    scope.locator('[data-slot="grid-row"][data-row-index="39"]')
+  ).toBeVisible();
+  await page.keyboard.press("Home");
+  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+});
+
+test("GitHub issue #38: paginated select-all preserves exclusions and callback payloads across pages", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38, "dataMode=pagination");
+  const selection = scope.getByTestId("issue-38-selection");
+  const events = scope.getByTestId("issue-38-selection-events");
+  const headerCheckbox = scope.locator("thead").getByRole("checkbox");
+
+  await headerCheckbox.click();
+  await expect(selection).toHaveText('{"selected":true,"unselected":[]}');
+  await expect(events).toHaveText(
+    '[{"selected":true,"unselected":[],"data":["active-0","active-1","active-2","active-3","active-4"],"originalDataMatches":true}]'
+  );
+
+  await scope
+    .locator('[data-slot="grid-row"][data-row-index="0"]')
+    .getByRole("checkbox")
+    .click();
+  await expect(selection).toHaveText(
+    '{"selected":true,"unselected":["active-0"]}'
+  );
+
+  await scope.getByRole("button", { name: "Go to next page" }).click();
+  const pageTwoFirstRow = scope.locator(
+    '[data-slot="grid-row"][data-row-index="0"]'
+  );
+  await expect(pageTwoFirstRow).toHaveAttribute("data-row-id", "active-5");
+  await expect(pageTwoFirstRow).toHaveAttribute("aria-selected", "true");
+  await pageTwoFirstRow.getByRole("checkbox").click();
+  await expect(selection).toHaveText(
+    '{"selected":true,"unselected":["active-0","active-5"]}'
+  );
+
+  await scope.getByRole("button", { name: "Go to previous page" }).click();
+  await expect(
+    scope.locator('[data-slot="grid-row"][data-row-id="active-0"]')
+  ).toHaveAttribute("aria-selected", "false");
+});
+
+test("GitHub issue #38: defaultUnselected initializes and updates uncontrolled select-all exclusions", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 38, "selectionMode=default-unselected");
+  const rowAt = (index: number) =>
+    scope.locator(`[data-slot="grid-row"][data-row-index="${index}"]`);
+  const events = scope.getByTestId("issue-38-selection-events");
+
+  await expect(rowAt(0)).toHaveAttribute("aria-selected", "false");
+  await expect(rowAt(1)).toHaveAttribute("aria-selected", "true");
+
+  await rowAt(0).getByRole("checkbox").click();
+  await expect(rowAt(0)).toHaveAttribute("aria-selected", "true");
+  await expect(events).toContainText(
+    '{"selected":true,"unselected":[],"data":["active-0"],"originalDataMatches":true}'
+  );
+
+  await rowAt(1).getByRole("checkbox").click();
+  await expect(rowAt(1)).toHaveAttribute("aria-selected", "false");
+  await expect(events).toContainText('"unselected":["active-1"]');
 });
 
 test.fixme("GitHub issue #39: clicking a cell emits the active tuple and stable id selection key", async ({
