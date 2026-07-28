@@ -3,7 +3,12 @@
 import * as React from "react";
 import { IconFilter } from "@tabler/icons-react";
 
-import type { TypeI18n } from "../../types";
+import type {
+  TypeCellProps,
+  TypeComputedProps,
+  TypeI18n,
+  TypeRenderColumnFilterContextMenu,
+} from "../../types";
 import { cn } from "../../lib/utils";
 import { t } from "../../utils/helpers";
 
@@ -41,6 +46,18 @@ export type FilterOperatorMenuProps = {
   onSelectOperator: (opName: string) => void;
 
   title?: string;
+  renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
+  columnFilterContextMenuAlignPositions?: string[];
+  columnFilterContextMenuConstrainTo?:
+    | boolean
+    | HTMLElement
+    | string
+    | ((...args: unknown[]) => HTMLElement | null);
+  columnFilterContextMenuPosition?: string;
+  updateMenuPositionOnScroll: boolean;
+  cellProps: TypeCellProps;
+  gridRef: React.MutableRefObject<TypeComputedProps | null>;
+  gridProps: TypeComputedProps;
 };
 
 export function FilterOperatorMenu(
@@ -62,6 +79,14 @@ export function FilterOperatorMenu(
     onDisable,
     onSelectOperator,
     title,
+    renderColumnFilterContextMenu,
+    columnFilterContextMenuAlignPositions,
+    columnFilterContextMenuConstrainTo,
+    columnFilterContextMenuPosition,
+    updateMenuPositionOnScroll,
+    cellProps,
+    gridRef,
+    gridProps,
   } = props;
 
   const selectAndClose = React.useCallback(
@@ -71,6 +96,52 @@ export function FilterOperatorMenu(
     },
     [onOpenChange]
   );
+  const menuInstanceId = React.useId();
+  const customMenu =
+    open && renderColumnFilterContextMenu
+      ? renderColumnFilterContextMenu(
+          {
+            autoFocus: true,
+            nativeScroll: true,
+            enableSelection: true,
+            position: columnFilterContextMenuPosition,
+            style: {
+              position: columnFilterContextMenuPosition as
+                | React.CSSProperties["position"]
+                | undefined,
+            },
+            constrainTo: columnFilterContextMenuConstrainTo,
+            alignPositions: columnFilterContextMenuAlignPositions,
+            updatePositionOnScroll: updateMenuPositionOnScroll,
+            selected: operator,
+            items: operators.map((operatorItem) => ({
+              value: operatorItem.name,
+              label: String(t(i18n, operatorItem.name, operatorItem.name)),
+            })),
+            onSelectionChange: (nextOperator) =>
+              selectAndClose(() => onSelectOperator(nextOperator)),
+            onDismiss: () => onOpenChange(false),
+          },
+          {
+            cellProps,
+            grid: gridRef,
+            props: gridProps,
+          }
+        )
+      : null;
+  const hasCustomMenu = customMenu != null && customMenu !== false;
+  React.useEffect(() => {
+    if (!open || hasCustomMenu) return;
+
+    const frame = requestAnimationFrame(() => {
+      const activeOperator = document.querySelector<HTMLElement>(
+        `[data-filter-operator-active="true"][data-filter-menu-instance="${menuInstanceId}"]`
+      );
+      activeOperator?.focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [hasCustomMenu, menuInstanceId, open]);
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -94,74 +165,89 @@ export function FilterOperatorMenu(
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            {String(t(i18n, "filter", "Filter"))}
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
-
-        {operators.length > 0 ? (
+      {customMenu && React.isValidElement(customMenu) ? (
+        <DropdownMenuContent asChild>{customMenu}</DropdownMenuContent>
+      ) : hasCustomMenu ? (
+        <DropdownMenuContent align="end" className="w-56">
+          {customMenu}
+        </DropdownMenuContent>
+      ) : (
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuGroup>
             <DropdownMenuLabel>
-              {String(t(i18n, "operator", "Operator"))}
+              {String(t(i18n, "filter", "Filter"))}
             </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={operator}
-              onValueChange={(nextOperator) =>
-                selectAndClose(() => onSelectOperator(nextOperator))
-              }
-            >
-              {operators.map((opItem) => {
-                const opName = String(opItem?.name ?? "");
-                if (!opName) return null;
-
-                return (
-                  <DropdownMenuRadioItem key={opName} value={opName}>
-                    <span className="truncate">
-                      {String(t(i18n, opName, opName))}
-                    </span>
-                  </DropdownMenuRadioItem>
-                );
-              })}
-            </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
-        ) : null}
 
-        {operators.length > 0 ? <DropdownMenuSeparator /> : null}
+          {operators.length > 0 ? (
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                {String(t(i18n, "operator", "Operator"))}
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={operator}
+                onValueChange={(nextOperator) =>
+                  selectAndClose(() => onSelectOperator(nextOperator))
+                }
+              >
+                {operators.map((opItem) => {
+                  const opName = String(opItem?.name ?? "");
+                  if (!opName) return null;
 
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            disabled={enabled}
-            onSelect={() => selectAndClose(onEnable)}
-          >
-            {String(t(i18n, "enable", "Enable"))}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!enabled}
-            onSelect={() => selectAndClose(onDisable)}
-          >
-            {String(t(i18n, "disable", "Disable"))}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+                  return (
+                    <DropdownMenuRadioItem
+                      key={opName}
+                      value={opName}
+                      data-filter-operator-active={
+                        opName === operator ? "true" : undefined
+                      }
+                      data-filter-menu-instance={menuInstanceId}
+                    >
+                      <span className="truncate">
+                        {String(t(i18n, opName, opName))}
+                      </span>
+                    </DropdownMenuRadioItem>
+                  );
+                })}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          ) : null}
 
-        <DropdownMenuSeparator />
+          {operators.length > 0 ? <DropdownMenuSeparator /> : null}
 
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            disabled={clearDisabled}
-            onSelect={() => selectAndClose(onClear)}
-          >
-            {String(t(i18n, "clear", "Clear"))}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={clearAllDisabled}
-            onSelect={() => selectAndClose(onClearAll)}
-          >
-            {String(t(i18n, "clearAll", "Clear All"))}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              disabled={enabled}
+              onSelect={() => selectAndClose(onEnable)}
+            >
+              {String(t(i18n, "enable", "Enable"))}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!enabled}
+              onSelect={() => selectAndClose(onDisable)}
+            >
+              {String(t(i18n, "disable", "Disable"))}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              disabled={clearDisabled}
+              onSelect={() => selectAndClose(onClear)}
+            >
+              {String(t(i18n, "clear", "Clear"))}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={clearAllDisabled}
+              onSelect={() => selectAndClose(onClearAll)}
+            >
+              {String(t(i18n, "clearAll", "Clear All"))}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      )}
     </DropdownMenu>
   );
 }

@@ -27,6 +27,7 @@ export type {
   TypeColumn,
   TypeCellProps,
   TypeColumnFilterValueChangeArg,
+  TypeColumnFilterContextMenuProps,
   TypeColumns,
   TypeComputedColumn,
   TypeComputedColumnsMap,
@@ -67,6 +68,7 @@ export type {
   TypeSortFunctions,
   TypeColumnSort,
   TypeRenderSortTool,
+  TypeRenderColumnFilterContextMenu,
   TypeSortToolProps,
   TypeSortInfo,
   // plus your checkbox/selection compat types if you added them

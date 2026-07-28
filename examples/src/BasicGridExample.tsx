@@ -24,7 +24,7 @@ const defaultFilterValue: TypeFilterValue = [
     name: "city",
     type: "select",
     operator: "eq",
-    value: "",
+    value: null,
   },
   {
     name: "amount",

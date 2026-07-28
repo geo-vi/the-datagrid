@@ -108,7 +108,10 @@ export type TypeSingleFilterValue = {
   emptyValue?: unknown;
 
   fn?: (arg: unknown) => unknown;
-  getFilterValue?: (...args: unknown[]) => unknown;
+  getFilterValue?: (args: {
+    data: TypeColumnRenderArgs["data"];
+    value: unknown;
+  }) => unknown;
 
   /**
    * If not set, runtime derives active/inactive from operator and value.
@@ -492,6 +495,13 @@ export interface IColumn {
   }) => unknown;
   filterEditor?: React.ComponentType<Record<string, unknown>>;
   filterEditorProps?: unknown;
+  /**
+   * Debounce interval for committing this column's filter value.
+   *
+   * `false` and `0` commit immediately. When omitted, filter editors use the
+   * Inovua-compatible 250 ms default.
+   */
+  filterDelay?: boolean | number;
   filterCellPadding?: React.CSSProperties["padding"];
 
   /** Excludes this column from optional global search when false. */
@@ -515,6 +525,32 @@ export type TypeColumn = IColumn;
 export type TypeColumns = TypeColumn[];
 
 export type TypeI18n = { [key: string]: string | React.ReactNode };
+
+export type TypeColumnFilterContextMenuProps = {
+  position?: string;
+  style?: React.CSSProperties;
+  constrainTo?:
+    | boolean
+    | HTMLElement
+    | string
+    | ((...args: unknown[]) => HTMLElement | null);
+  alignPositions?: string[];
+  updatePositionOnScroll?: boolean;
+  selected?: string;
+  items?: Array<Record<string, unknown>>;
+  onSelectionChange?: (operator: string) => void;
+  onDismiss?: () => void;
+  [key: string]: unknown;
+};
+
+export type TypeRenderColumnFilterContextMenu = (
+  menuProps: TypeColumnFilterContextMenuProps,
+  context: {
+    cellProps: TypeCellProps;
+    grid: React.MutableRefObject<TypeComputedProps | null>;
+    props: TypeComputedProps;
+  }
+) => React.ReactNode;
 
 /**
  * Inovua selection in your codebase is an object map: { [id]: rowObject }.
@@ -1042,6 +1078,16 @@ export type TypeDataGridProps = {
   ) => void;
 
   filterTypes?: TypeFilterTypes;
+  scrollTopOnFilter?: boolean;
+  renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
+  columnFilterContextMenuAlignPositions?: string[];
+  columnFilterContextMenuConstrainTo?:
+    | boolean
+    | HTMLElement
+    | string
+    | ((...args: unknown[]) => HTMLElement | null);
+  columnFilterContextMenuPosition?: string;
+  updateMenuPositionOnScroll?: boolean;
 
   filteredRowsCount?: (filteredRows: number) => void;
 

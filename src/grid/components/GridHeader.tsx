@@ -4,9 +4,11 @@ import * as React from "react";
 import type {
   TypeColumn,
   TypeColumnFilterValueChangeArg,
+  TypeComputedProps,
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
+  TypeRenderColumnFilterContextMenu,
   TypeRenderSortTool,
   TypeSortFunctions,
   TypeSortInfo,
@@ -40,6 +42,9 @@ export type GridHeaderProps = {
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
+  theme: string;
+  gridRef: React.MutableRefObject<TypeComputedProps | null>;
+  gridProps: TypeComputedProps;
 
   // DnD reorder
   allowColumnReorder: boolean;
@@ -67,6 +72,15 @@ export type GridHeaderProps = {
   setDraftFilterValue: React.Dispatch<React.SetStateAction<TypeFilterValue>>;
   onColumnFilterValueChange?: (event: TypeColumnFilterValueChangeArg) => void;
   filterTypes: TypeFilterTypes;
+  renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
+  columnFilterContextMenuAlignPositions?: string[];
+  columnFilterContextMenuConstrainTo?:
+    | boolean
+    | HTMLElement
+    | string
+    | ((...args: unknown[]) => HTMLElement | null);
+  columnFilterContextMenuPosition?: string;
+  updateMenuPositionOnScroll: boolean;
 
   openFilterMenuColId: string | null;
   setOpenFilterMenuColId: (id: string | null) => void;
@@ -108,6 +122,9 @@ export function GridHeader(props: GridHeaderProps) {
     showHorizontalCellBorders,
     showVerticalCellBorders,
     i18n,
+    theme,
+    gridRef,
+    gridProps,
     allowColumnReorder,
     allowColumnResize,
     checkboxEnabled,
@@ -128,6 +145,11 @@ export function GridHeader(props: GridHeaderProps) {
     setDraftFilterValue,
     onColumnFilterValueChange,
     filterTypes,
+    renderColumnFilterContextMenu,
+    columnFilterContextMenuAlignPositions,
+    columnFilterContextMenuConstrainTo,
+    columnFilterContextMenuPosition,
+    updateMenuPositionOnScroll,
     openFilterMenuColId,
     setOpenFilterMenuColId,
     columnRenderItems,
@@ -261,6 +283,20 @@ export function GridHeader(props: GridHeaderProps) {
                   setSkip={setSkip}
                   filterTypes={filterTypes}
                   i18n={i18n}
+                  theme={theme}
+                  gridRef={gridRef}
+                  gridProps={gridProps}
+                  renderColumnFilterContextMenu={renderColumnFilterContextMenu}
+                  columnFilterContextMenuAlignPositions={
+                    columnFilterContextMenuAlignPositions
+                  }
+                  columnFilterContextMenuConstrainTo={
+                    columnFilterContextMenuConstrainTo
+                  }
+                  columnFilterContextMenuPosition={
+                    columnFilterContextMenuPosition
+                  }
+                  updateMenuPositionOnScroll={updateMenuPositionOnScroll}
                   showHorizontalCellBorders={showHorizontalCellBorders}
                   showVerticalCellBorders={showVerticalCellBorders}
                   openFilterMenuColId={openFilterMenuColId}

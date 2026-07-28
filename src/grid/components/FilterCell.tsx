@@ -8,9 +8,11 @@ import type {
   TypeCellProps,
   TypeColumn,
   TypeColumnFilterValueChangeArg,
+  TypeComputedProps,
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
+  TypeRenderColumnFilterContextMenu,
   TypeSingleFilterValue,
 } from "../../types";
 
@@ -86,6 +88,18 @@ export type FilterCellProps = {
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
+  theme: string;
+  gridRef: React.MutableRefObject<TypeComputedProps | null>;
+  gridProps: TypeComputedProps;
+  renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
+  columnFilterContextMenuAlignPositions?: string[];
+  columnFilterContextMenuConstrainTo?:
+    | boolean
+    | HTMLElement
+    | string
+    | ((...args: unknown[]) => HTMLElement | null);
+  columnFilterContextMenuPosition?: string;
+  updateMenuPositionOnScroll: boolean;
 
   openFilterMenuColId: string | null;
   setOpenFilterMenuColId: (id: string | null) => void;
@@ -113,6 +127,7 @@ function resolveOperator(
 
   if (filterType === "number") return "gte";
   if (filterType === "select") return "eq";
+  if (filterType === "bool" || filterType === "boolean") return "eq";
   if (filterType === "date" || filterType === "time") return "afterOrOn";
 
   return "contains";
@@ -156,7 +171,6 @@ export function FilterCell(props: FilterCellProps) {
     checkboxEnabled,
     checkboxColId,
     filterControlled,
-    filterValue,
     draftFilterValue,
     setFilterValue,
     setDraftFilterValue,
@@ -166,6 +180,14 @@ export function FilterCell(props: FilterCellProps) {
     showHorizontalCellBorders,
     showVerticalCellBorders,
     i18n,
+    theme,
+    gridRef,
+    gridProps,
+    renderColumnFilterContextMenu,
+    columnFilterContextMenuAlignPositions,
+    columnFilterContextMenuConstrainTo,
+    columnFilterContextMenuPosition,
+    updateMenuPositionOnScroll,
     openFilterMenuColId,
     setOpenFilterMenuColId,
   } = props;
@@ -180,7 +202,7 @@ export function FilterCell(props: FilterCellProps) {
     colId
   );
 
-  const currentFilter = filterControlled ? filterValue : draftFilterValue;
+  const currentFilter = draftFilterValue;
   const entry = getFilterEntry(currentFilter, colId);
 
   const filterTypeName = resolveFilterType(col, entry);
@@ -218,12 +240,7 @@ export function FilterCell(props: FilterCellProps) {
     [col, colId, columnIndex]
   );
 
-  // Resolve filterEditorProps (supports function form)
   const filterEditorPropsAny = (col as any)?.filterEditorProps;
-  const resolvedEditorProps =
-    typeof filterEditorPropsAny === "function"
-      ? filterEditorPropsAny({ column: col, columnId: colId }, { index: 0 })
-      : filterEditorPropsAny;
 
   function applyFilterNow(next: TypeFilterValue) {
     setSkip(0);
@@ -290,28 +307,69 @@ export function FilterCell(props: FilterCellProps) {
   };
 
   const setEntryValue = (nextValueRaw: unknown) => {
-    const nextValue = normalizeEditorOutput(nextValueRaw);
-
-    const nextEntry: TypeSingleFilterValue = {
-      name: colId,
-      operator,
-      type: filterTypeName,
-      value: nextValue,
-      active: entry?.active,
-    };
+    const descriptor =
+      isPlainObject(nextValueRaw) &&
+      typeof nextValueRaw.name === "string" &&
+      "value" in nextValueRaw
+        ? (nextValueRaw as TypeSingleFilterValue)
+        : null;
+    const nextEntry: TypeSingleFilterValue = descriptor
+      ? {
+          ...descriptor,
+          active: descriptor.active ?? entry?.active,
+        }
+      : {
+          name: colId,
+          operator,
+          type: filterTypeName,
+          value: normalizeEditorOutput(nextValueRaw),
+          active: entry?.active,
+        };
 
     emitColumnFilterValueChange(nextEntry);
     setSkip(0);
-    if (filterControlled) {
-      setFilterValue(
-        upsertFilterEntry(filterValue, nextEntry, { filterTypes })
-      );
-    } else {
-      setDraftFilterValue(
-        upsertFilterEntry(draftFilterValue, nextEntry, { filterTypes })
-      );
-    }
+    setDraftFilterValue(
+      upsertFilterEntry(draftFilterValue, nextEntry, { filterTypes })
+    );
   };
+
+  const editorFilterValue: TypeSingleFilterValue = {
+    name: colId,
+    operator,
+    type: filterTypeName,
+    value: entry?.value ?? typeDef?.emptyValue,
+    emptyValue: entry?.emptyValue ?? typeDef?.emptyValue,
+    active: entry?.active,
+  };
+  const filterDelay =
+    col?.filterDelay === false ? 0 : (col?.filterDelay ?? 250);
+  const editorContract = {
+    filterValue: editorFilterValue,
+    value: editorFilterValue.value,
+    onChange: setEntryValue,
+    column: col,
+    columnId: colId,
+    disabled: editorDisabled,
+    active: entryEnabled,
+    emptyValue: editorFilterValue.emptyValue,
+    filterType: typeDef,
+    filterDelay,
+    filterEditorProps: filterEditorPropsAny,
+    i18n: (key: string, defaultValue?: string) =>
+      t(i18n, key, defaultValue ?? key),
+    theme,
+    cellProps: filterCellContext,
+    cell: {
+      onFilterValueChange: setEntryValue,
+      props: filterCellContext,
+    },
+    render: (node: React.ReactNode) => node,
+    renderInPortal: (node: React.ReactNode) => node,
+    nativeScroll: true,
+    rtl: false,
+  };
+  const resolvedEditorProps =
+    typeof filterEditorPropsAny === "function" ? {} : filterEditorPropsAny;
 
   // Built-in select support (single + multi)
   const options = Array.isArray((resolvedEditorProps as any)?.options)
@@ -383,19 +441,7 @@ export function FilterCell(props: FilterCellProps) {
                 ...(isPlainObject(resolvedEditorProps)
                   ? resolvedEditorProps
                   : {}),
-                filterValue: {
-                  name: colId,
-                  operator,
-                  type: filterTypeName,
-                  value: entry?.value ?? null,
-                  emptyValue: entry?.emptyValue,
-                  active: entry?.active,
-                },
-                value: entry?.value ?? null,
-                onChange: (next: unknown) => setEntryValue(next),
-                column: col,
-                columnId: colId,
-                disabled: editorDisabled,
+                ...editorContract,
               })
             ) : filterTypeName === "select" && options.length > 0 ? (
               multiple ? (
@@ -466,7 +512,8 @@ export function FilterCell(props: FilterCellProps) {
                     value === "" || value == null ? "__all__" : value
                   )}
                   onValueChange={(v: string) => {
-                    const nextValue = v === "__all__" ? "" : v;
+                    const nextValue =
+                      v === "__all__" ? (typeDef?.emptyValue ?? null) : v;
                     setEntryValue(nextValue);
                   }}
                   disabled={editorDisabled}
@@ -498,9 +545,23 @@ export function FilterCell(props: FilterCellProps) {
               )
             ) : (
               <Input
+                type="text"
                 value={String(value ?? "")}
                 disabled={editorDisabled}
-                onChange={(e) => setEntryValue(e.target.value)}
+                onChange={(e) => {
+                  if (filterTypeName !== "number") {
+                    setEntryValue(e.target.value);
+                    return;
+                  }
+                  const numericValue = Number(e.target.value);
+                  setEntryValue(
+                    e.target.value === ""
+                      ? null
+                      : Number.isFinite(numericValue)
+                        ? numericValue
+                        : e.target.value
+                  );
+                }}
                 className="h-8 w-full"
                 placeholder={String(
                   t(i18n, operator, humanizeOperatorName(operator))
@@ -551,6 +612,18 @@ export function FilterCell(props: FilterCellProps) {
               onDisable={() => onSetEnabled(false)}
               onSelectOperator={onSelectOperator}
               title={String(t(i18n, operator, humanizeOperatorName(operator)))}
+              renderColumnFilterContextMenu={renderColumnFilterContextMenu}
+              columnFilterContextMenuAlignPositions={
+                columnFilterContextMenuAlignPositions
+              }
+              columnFilterContextMenuConstrainTo={
+                columnFilterContextMenuConstrainTo
+              }
+              columnFilterContextMenuPosition={columnFilterContextMenuPosition}
+              updateMenuPositionOnScroll={updateMenuPositionOnScroll}
+              cellProps={filterCellContext}
+              gridRef={gridRef}
+              gridProps={gridProps}
             />
           )}
         </div>

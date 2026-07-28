@@ -65,6 +65,12 @@ export type DateFilterProps = {
   };
   value?: any;
   onChange?: (value: any) => void;
+  filterEditorProps?:
+    | Record<string, unknown>
+    | ((
+        editorProps: DateFilterProps,
+        meta: { index: number; value: unknown }
+      ) => Record<string, unknown> | undefined);
 
   /**
    * Inovua commonly passes placeholder via filterEditorProps.
@@ -95,6 +101,7 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
     disabled,
     className,
     style,
+    filterEditorProps,
   } = props;
 
   const operator = filterValue?.operator;
@@ -105,11 +112,34 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
     type === "time" ? "datetime-local" : "date";
 
   const raw = valueProp !== undefined ? valueProp : filterValue?.value;
+  const resolveInputProps = (value: unknown, index: number) => {
+    if (typeof filterEditorProps === "function") {
+      return filterEditorProps({ ...props, value }, { index, value }) ?? {};
+    }
+    return filterEditorProps ?? {};
+  };
 
   if (isRangeOperator(operator)) {
-    const arr = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
-    const start = toDate(arr[0]);
-    const end = toDate(arr[1]);
+    const startRaw = Array.isArray(raw)
+      ? raw[0]
+      : raw && typeof raw === "object"
+        ? raw.start
+        : raw;
+    const endRaw = Array.isArray(raw)
+      ? raw[1]
+      : raw && typeof raw === "object"
+        ? raw.end
+        : undefined;
+    const start = toDate(startRaw);
+    const end = toDate(endRaw);
+    const startInputProps = resolveInputProps(startRaw, 0);
+    const endInputProps = resolveInputProps(endRaw, 1);
+    const makeRangeValue = (nextStart: Date | null, nextEnd: Date | null) => {
+      if (!nextStart && !nextEnd) return null;
+      return Array.isArray(raw)
+        ? [nextStart, nextEnd]
+        : { start: nextStart, end: nextEnd };
+    };
 
     const startStr =
       inputMode === "datetime-local"
@@ -123,27 +153,31 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
     return (
       <div className={cn("flex items-center gap-1", className)} style={style}>
         <Input
+          {...startInputProps}
           type={inputMode}
           value={startStr}
-          disabled={disabled}
-          className="h-8 w-full"
-          placeholder={startPlaceholder ?? placeholder ?? ""}
+          disabled={disabled || Boolean(startInputProps.disabled)}
+          className={cn("h-8 w-full", startInputProps.className as string)}
+          placeholder={String(
+            startInputProps.placeholder ?? startPlaceholder ?? placeholder ?? ""
+          )}
           onChange={(e) => {
             const nextStart = parseInputValue(e.target.value, inputMode);
-            const next: [Date | null, Date | null] = [nextStart, end];
-            onChange?.(next[0] || next[1] ? next : null);
+            onChange?.(makeRangeValue(nextStart, end));
           }}
         />
         <Input
+          {...endInputProps}
           type={inputMode}
           value={endStr}
-          disabled={disabled}
-          className="h-8 w-full"
-          placeholder={endPlaceholder ?? placeholder ?? ""}
+          disabled={disabled || Boolean(endInputProps.disabled)}
+          className={cn("h-8 w-full", endInputProps.className as string)}
+          placeholder={String(
+            endInputProps.placeholder ?? endPlaceholder ?? placeholder ?? ""
+          )}
           onChange={(e) => {
             const nextEnd = parseInputValue(e.target.value, inputMode);
-            const next: [Date | null, Date | null] = [start, nextEnd];
-            onChange?.(next[0] || next[1] ? next : null);
+            onChange?.(makeRangeValue(start, nextEnd));
           }}
         />
       </div>
@@ -156,15 +190,17 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
     inputMode === "datetime-local"
       ? toInputDateTimeLocalValue(d)
       : toInputDateValue(d);
+  const inputProps = resolveInputProps(raw, 0);
 
   return (
     <Input
+      {...inputProps}
       type={inputMode}
       value={str}
-      disabled={disabled}
-      className={cn("h-8 w-full", className)}
+      disabled={disabled || Boolean(inputProps.disabled)}
+      className={cn("h-8 w-full", inputProps.className as string, className)}
       style={style}
-      placeholder={placeholder ?? ""}
+      placeholder={String(inputProps.placeholder ?? placeholder ?? "")}
       onChange={(e) => {
         const next = parseInputValue(e.target.value, inputMode);
         onChange?.(next);
