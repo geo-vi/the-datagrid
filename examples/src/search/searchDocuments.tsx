@@ -4,6 +4,7 @@ import { exampleCatalog } from "../exampleCatalog";
 import {
   getAllDocsPages,
   getDocsPageHref,
+  getReferenceRowId,
   type DocsPage,
 } from "../docs/docsContent";
 
@@ -143,7 +144,7 @@ export function buildDocsSearchDocuments(): SearchDocument[] {
         documents.push({
           title: `${page.title} · ${row.name}`,
           category: `${page.group} / key`,
-          href: sectionHref,
+          href: `${pageHref}#${getReferenceRowId(section.id, row.name)}`,
           body: collapseWhitespace(
             [
               page.title,

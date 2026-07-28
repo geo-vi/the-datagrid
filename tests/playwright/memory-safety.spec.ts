@@ -360,6 +360,11 @@ test.describe("browser memory safety", () => {
     const cdp = await context.newCDPSession(page);
     const collectMemory = async () => {
       await cdp.send("HeapProfiler.collectGarbage");
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      );
+      await cdp.send("HeapProfiler.collectGarbage");
       const [dom, heap] = await Promise.all([
         cdp.send("Memory.getDOMCounters"),
         cdp.send("Runtime.getHeapUsage"),
@@ -408,6 +413,7 @@ test.describe("browser memory safety", () => {
     };
 
     await collectMemory();
+    await runBatch();
     const afterFirstBatch = await runBatch();
     const afterSecondBatch = await runBatch();
 

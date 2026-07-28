@@ -20,6 +20,16 @@ type ReferenceSection = {
   body?: ReactNode;
 };
 
+export function getReferenceRowId(sectionId: string, rowName: string): string {
+  const rowSlug = rowName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${sectionId}-${rowSlug || "row"}`;
+}
+
 type CompatibilityStatus =
   | "compatible"
   | "known-gap"
@@ -345,7 +355,7 @@ function AccountsAndInvoices() {
 const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
   { name: "id", header: "ID", hideable: false },
   { name: "name", header: "Name" },
-  { name: "city", header: "City", visible: false },
+  { name: "city", header: "City", defaultVisible: false },
 ];`;
 
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
@@ -426,8 +436,8 @@ function Callout(props: {
   );
 }
 
-function ReferenceTable(props: { rows: ReferenceRow[] }) {
-  const { rows } = props;
+function ReferenceTable(props: { rows: ReferenceRow[]; sectionId: string }) {
+  const { rows, sectionId } = props;
 
   return (
     <div className="overflow-hidden rounded-2xl border">
@@ -443,7 +453,11 @@ function ReferenceTable(props: { rows: ReferenceRow[] }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.name} className="align-top">
+              <tr
+                key={row.name}
+                id={getReferenceRowId(sectionId, row.name)}
+                className="scroll-mt-24 align-top"
+              >
                 <td className="border-b px-4 py-3 font-mono text-xs text-foreground">
                   {row.name}
                 </td>
@@ -567,7 +581,9 @@ function SectionBody(props: { section: ReferenceSection }) {
       <div className="min-w-0 space-y-4 [&_ol]:max-w-prose [&_p]:max-w-prose [&_ul]:max-w-prose">
         {section.body}
       </div>
-      {section.rows ? <ReferenceTable rows={section.rows} /> : null}
+      {section.rows ? (
+        <ReferenceTable rows={section.rows} sectionId={section.id} />
+      ) : null}
     </section>
   );
 }
@@ -727,11 +743,25 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Rendered order by resolved column id/name. Unknown ids are removed and current columns omitted from the array are appended.",
       },
       {
+        name: "defaultColumnOrder",
+        type: "string[]",
+        defaultValue: "derived from columns",
+        description:
+          "Initial order for grid-owned ordering. Drag changes persist internally when columnOrder is omitted, with or without an onColumnOrderChange observer.",
+      },
+      {
         name: "onColumnOrderChange",
         type: "(columnOrder: string[]) => void",
         defaultValue: "-",
         description:
-          "Receives the next user-column order after a drag. Dragging is disabled without this callback, and the synthetic checkbox id is never emitted.",
+          "Receives the next user-column order after a drag. Without controlled columnOrder, the grid also persists that order internally; the synthetic checkbox id is never emitted.",
+      },
+      {
+        name: "onColumnVisibleChange",
+        type: "({ column, visible }) => void",
+        defaultValue: "-",
+        description:
+          "Receives effective visibility proposals from the menu, toolbar, and imperative API. A declarative column.visible remains authoritative until the parent applies the proposal.",
       },
     ],
   },
@@ -754,6 +784,27 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Turns header drag-resize handles on or off. Mouse, pen, and touch use the same pointer lifecycle. Controlled column.width stays authoritative; uncontrolled defaultWidth can retain a drag result.",
       },
       {
+        name: "columnDefaultWidth / columnMinWidth / columnMaxWidth",
+        type: "number / number / number | null",
+        defaultValue: "150 / 40 / null",
+        description:
+          "Root sizing fallbacks used only when the corresponding column-level width/defaultWidth/minWidth/maxWidth is absent.",
+      },
+      {
+        name: "shareSpaceOnResize",
+        type: "boolean",
+        defaultValue: "false",
+        description:
+          "Resizes the adjacent visible resizable column in the opposite direction. Fixed/fixed, flex/flex, and mixed pairs preserve their total width while honoring both columns' bounds.",
+      },
+      {
+        name: "columnResizeHandleWidth / columnResizeProxyWidth",
+        type: "number / number",
+        defaultValue: "24 / 5",
+        description:
+          "Configures the header pointer target and deferred resize-proxy geometry without consumer styling props.",
+      },
+      {
         name: "liveColumnResize",
         type: "boolean",
         defaultValue: "false",
@@ -766,6 +817,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "-",
         description:
           "Reports mouse, pen, or touch resize proposals on gesture completion as { column, width, flex } plus { reservedViewportWidth }. Controlled consumers persist the proposed width by returning it through columns.",
+      },
+      {
+        name: "onBatchColumnResize",
+        type: "(entries, context) => void",
+        defaultValue: "-",
+        description:
+          "Runs once after the per-column callbacks for a resize transaction, including shared-space, autosize, fit, and imperative batches.",
       },
       {
         name: "enableColumnAutosize",
@@ -2282,7 +2340,14 @@ const computedPropsRows: ReferenceRow[] = [
     type: "methods and fields",
     defaultValue: "implemented",
     description:
-      "get/setColumnOrder, getColumnsInOrder, getColumnBy, is/setColumnVisible, columns maps, all/visible columns, visibility map, computed widths, and aggregate layout fields.",
+      "get/setColumnOrder, getColumnsInOrder, getColumnBy, is/setColumnVisible, columns maps, all/visible columns, visibility map, computed widths, and aggregate layout fields. Ordering and visibility use the same controlled/default ownership and callbacks as the rendered menu.",
+  },
+  {
+    name: "Column sizing",
+    type: "methods and fields",
+    defaultValue: "implemented",
+    description:
+      "columnSizes/columnFlexes, setColumnSizes/setColumnFlexes, onBatchColumnResize, setColumnSizeAuto, setColumnsSizesAuto, setColumnSizesToFit, reservedViewportWidth, and its setter. Declarative width/flex remain authoritative; imperative auto/fit methods remain available when automatic initial autosizing is disabled.",
   },
   {
     name: "DOM and UI state",
@@ -2345,7 +2410,7 @@ const computedPropsRows: ReferenceRow[] = [
     type: "open-index methods",
     defaultValue: "limited",
     description:
-      "computedOnColumnResize proposes a clamped width and emits onColumnResize while respecting controlled ownership; onBatchColumnResize applies finite uncontrolled width entries. silentSetData and setOriginalData both replace current rows only and are not a durable original-data store.",
+      "computedOnColumnResize proposes a clamped width and emits the individual/batch callbacks while respecting controlled ownership. silentSetData and setOriginalData both replace current rows only and are not a durable original-data store.",
   },
 ];
 
@@ -2548,10 +2613,11 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
             are supported.
           </p>
           <p>
-            Column/row context-menu methods, flex and column-size setters, and
-            reserved-viewport setters are explicit no-ops or fixed placeholders.
-            Active-row/navigation state and the filter operator context-menu
-            pair are functional.
+            Row/general column-context-menu show/hide methods remain explicit
+            no-ops. Column order, visibility, width/flex maps, batch resize,
+            one/all auto-size, size-to-fit, and reserved-viewport setters are
+            functional, as are active-row/navigation state and the filter
+            operator context-menu pair.
           </p>
           <p>
             Locked-column arrays, indexes, section widths, and presence flags
@@ -2563,12 +2629,11 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
             unselected exclusions are tracked by built-in selection.{" "}
             <code>computedShowZebraRows</code> reflects the per-grid prop, while{" "}
             <code>columnFlexes</code> and column sizes report the implemented
-            allocation; their imperative setter methods remain outside the
-            supported allowlist. Active index, active item, focus state, and
-            row-navigation methods report and update live state. In particular,{" "}
-            <code>setColumnLocked</code> may look callable through the
-            compatibility Proxy but is unsupported and does not mutate lock
-            state.
+            allocation and their setters honor declarative ownership. Active
+            index, active item, focus state, and row-navigation methods report
+            and update live state. In particular, <code>setColumnLocked</code>{" "}
+            may look callable through the compatibility Proxy but is unsupported
+            and does not mutate lock state.
           </p>
         </Callout>
         <div className="space-y-2">
@@ -3961,6 +4026,12 @@ const implementedSurfaceSections: ReferenceSection[] = [
   skipHeaderOnAutoSize: false,
   resizable: true,
   liveColumnResize: false,
+  columnDefaultWidth: 150,
+  columnMinWidth: 40,
+  columnMaxWidth: null,
+  shareSpaceOnResize: false,
+  columnResizeHandleWidth: 24,
+  columnResizeProxyWidth: 5,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
   virtualizeColumnsThreshold: 15,
@@ -4067,10 +4138,10 @@ const implementedSurfaceSections: ReferenceSection[] = [
       },
       {
         name: "Visibility",
-        type: "column.visible / defaults",
+        type: "column.visible / defaults / callback",
         defaultValue: "visible",
         description:
-          "visible=false removes a column. defaultVisible=false and defaultHidden=true seed grid-owned hidden state; hideable is enforced by the transformed-mobile picker and optional external visibility toolbar.",
+          "visible is controlled ownership. defaultVisible=false and defaultHidden=true seed grid-owned hidden state. The built-in Columns chooser, transformed-mobile picker, optional toolbar, and imperative setter share one callback path; hideable=false disables UI toggles.",
       },
       {
         name: "External visibility toolbar",
@@ -4084,14 +4155,14 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "columnOrder",
         defaultValue: "column declaration order",
         description:
-          "Unknown ids are removed and omitted current ids are appended in declaration order; duplicate supplied ids are not deduplicated. Dragging requires a callback, reorderColumns !== false, and draggable !== false on source and target.",
+          "Unknown ids are removed and omitted current ids are appended in declaration order; duplicate supplied ids are not deduplicated. Dragging requires reorderColumns !== false and draggable !== false on source and target, but no callback is required for grid-owned order.",
       },
       {
         name: "Controlled order",
-        type: "columnOrder + callback",
+        type: "columnOrder / defaultColumnOrder + callback",
         defaultValue: "declaration order",
         description:
-          "A controlled parent must feed the proposed order back. If columnOrder is omitted but onColumnOrderChange exists, the grid retains its internal order and still emits proposals; no consumer array is mutated.",
+          "A controlled parent must feed the proposed order back. If columnOrder is omitted, defaultColumnOrder seeds internal order and the grid retains drag changes with or without onColumnOrderChange; no consumer array is mutated.",
       },
       {
         name: "Locked columns",
@@ -4112,21 +4183,21 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "deterministic estimate",
         defaultValue: "enabled",
         description:
-          "When numeric width/defaultWidth is absent, samples at most 25 available raw row[columnId] strings (not rendered DOM) plus a string header/name/id unless skipped; estimates 8px/character + 32px, bounds 90-520px, then min/max clamps.",
+          "When numeric width/defaultWidth is absent, samples at most 25 available raw row[columnId] strings (not rendered DOM) plus a string header/name/id unless skipped, then applies column/root min/max bounds. The computed API implements one/all auto-size and size-to-fit batches.",
       },
       {
         name: "Resize interaction",
         type: "mouse, pen, touch / double-click",
         defaultValue: "enabled",
         description:
-          "Enabled handles use pointer capture, clamp drag widths, and report completion through onColumnResize for mouse, pen, and touch. liveColumnResize opts into animation-frame-coalesced header/body geometry during the gesture; the default keeps Inovua's resize proxy. Cancel, blur, responsive changes, and unmount clean up the session. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. Double-click reruns one-column estimation, and natural rows remeasure after width changes.",
+          "Enabled handles use pointer capture, clamp drag widths, and report completion through onColumnResize plus one onBatchColumnResize. liveColumnResize opts into animation-frame-coalesced geometry; the default keeps the configurable proxy. Controlled width/flex remain prop-owned; defaultWidth/defaultFlex are grid-owned starts. A no-share flex resize retains flex by default and converts to fixed when column.keepFlex=false; shareSpaceOnResize preserves the adjacent pair.",
       },
       {
         name: "Header column menu",
         type: "showColumnMenuTool",
         defaultValue: "true",
         description:
-          "Shows an accessible dropdown with ascending, descending, and unsort actions; each action resets skip. The current menu can set sort state even when sortable=false, while direct header toggling correctly opts out.",
+          "Shows an accessible dropdown with sort actions, a keyboard-operable Columns checkbox submenu, and auto-size/fit actions. Visibility stays synchronized with external and imperative controls, honors hideable=false, and cannot hide the final visible column.",
       },
       {
         name: "Layout controls",

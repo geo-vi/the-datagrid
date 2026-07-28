@@ -147,7 +147,7 @@ const scenarioGroups: ScenarioGroup[] = [
         label: "Flex allocation",
         summary: "Remaining width split through flex and defaultFlex.",
         instructions:
-          "Resize the browser, drag or autosize Flex one, and try the imperative button. Its defaultFlex becomes width while controlled Flex two remains authoritative.",
+          "Resize the browser, drag or autosize Flex one, and try the imperative button. Its defaultFlex is configured with keepFlex=false so it becomes width, while controlled Flex two remains authoritative.",
       },
       {
         id: "controlled-width",
@@ -2261,7 +2261,13 @@ function FlexScenario(): React.ReactNode {
   const [showEdgeCases, setShowEdgeCases] = React.useState(false);
   const columns: TypeColumns = [
     { name: "fixed", header: "Fixed", width: 120 },
-    { name: "one", header: "Flex one", defaultFlex: 1, minWidth: 60 },
+    {
+      name: "one",
+      header: "Flex one",
+      defaultFlex: 1,
+      keepFlex: false,
+      minWidth: 60,
+    },
     { name: "two", header: "Flex two", flex: 2, minWidth: 60 },
   ];
   const rows = [{ id: "flex-row", fixed: "Fixed", one: "One", two: "Two" }];
@@ -2291,10 +2297,11 @@ function FlexScenario(): React.ReactNode {
       <div className="rounded-xl border bg-muted/20 p-3 text-sm leading-relaxed text-muted-foreground">
         <p className="font-medium text-foreground">Compatibility behavior</p>
         <p>
-          Flex one starts as grid-owned defaultFlex. Resizing it converts it to
-          a fixed width without redistributing the delta, while controlled Flex
-          two remains authoritative. Growing can create a real horizontal scroll
-          range; shrinking can intentionally preserve reserved space.
+          Flex one starts as grid-owned defaultFlex with keepFlex disabled.
+          Resizing it converts it to a fixed width without redistributing the
+          delta, while controlled Flex two remains authoritative. Growing can
+          create a real horizontal scroll range; shrinking can intentionally
+          preserve reserved space.
         </p>
       </div>
       <FixtureFrame className="h-[240px] w-full">

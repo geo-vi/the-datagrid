@@ -823,7 +823,7 @@
   right: calc(-0.75rem - 0.5rem) !important;
   z-index: 10 !important;
   display: flex !important;
-  width: 1.5rem !important;
+  width: var(--tdg-column-resize-handle-width, 1.5rem) !important;
   height: 100% !important;
   align-items: center !important;
   justify-content: center !important;
@@ -868,6 +868,19 @@
 }
 
 /*
+ * The final resize target intentionally sits inside the grid boundary, so
+ * reserve its hit area instead of letting it cover the column-menu trigger.
+ */
+.tdg-root
+  .tdg-header-row
+  > .tdg-header-cell:last-child
+  .InovuaReactDataGrid__column-header__menu-tool {
+  margin-right: calc(
+    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+  ) !important;
+}
+
+/*
  * Radix scrollbars overlay the viewport instead of consuming layout space.
  * When the vertical bar is visible, move the final 24px hit target fully to
  * its left. The header still reaches the viewport edge, so column geometry
@@ -892,7 +905,7 @@
   bottom: 0 !important;
   left: 0 !important;
   z-index: 20 !important;
-  width: 1px !important;
+  width: var(--tdg-column-resize-proxy-width, 5px) !important;
   pointer-events: none !important;
   will-change: transform !important;
   background: var(--tdg-column-header-resizer-constrained-color) !important;

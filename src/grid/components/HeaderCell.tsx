@@ -31,8 +31,11 @@ import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { TableHead } from "../../components/ui/table";
@@ -114,6 +117,12 @@ export type HeaderCellProps = {
   renderSortTool?: TypeRenderSortTool;
 
   showColumnMenuTool: boolean;
+  columns: TypeColumn[];
+  columnVisibilityMap: Record<string, boolean>;
+  setColumnVisible: (columnId: string, visible: boolean) => void;
+  enableColumnAutosize: boolean;
+  onAutoResizeAll: () => void;
+  onResizeToFit: () => void;
   showHorizontalCellBorders: boolean;
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
@@ -150,6 +159,12 @@ export function HeaderCell(props: HeaderCellProps) {
     sortFunctions,
     renderSortTool,
     showColumnMenuTool,
+    columns,
+    columnVisibilityMap,
+    setColumnVisible,
+    enableColumnAutosize,
+    onAutoResizeAll,
+    onResizeToFit,
     showHorizontalCellBorders,
     showVerticalCellBorders,
     i18n,
@@ -172,7 +187,15 @@ export function HeaderCell(props: HeaderCellProps) {
   const dir = getSortDir(sortInfo, sortColumn);
   const columnSortInfo = getColumnSortInfo(sortInfo, sortColumn);
   const [hovered, setHovered] = React.useState(false);
+  const [showColumnVisibilityMenu, setShowColumnVisibilityMenu] =
+    React.useState(false);
   const customSortTool = col?.renderSortTool ?? renderSortTool;
+  const visibleColumnCount = columns.reduce(
+    (count, column) =>
+      count +
+      (columnVisibilityMap[column.id ?? column.name ?? ""] !== false ? 1 : 0),
+    0
+  );
   const renderedSortTool = canSort
     ? customSortTool
       ? customSortTool(dir, {
@@ -340,7 +363,13 @@ export function HeaderCell(props: HeaderCellProps) {
           )}
 
           {showColumnMenuTool && (
-            <DropdownMenu>
+            <DropdownMenu
+              onOpenChange={(open) => {
+                if (!open) {
+                  setShowColumnVisibilityMenu(false);
+                }
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
@@ -352,31 +381,105 @@ export function HeaderCell(props: HeaderCellProps) {
                   <IconDotsVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  disabled={!canSort}
-                  onSelect={() => setColumnDirection(1)}
-                >
-                  {t(i18n, "sortAsc", "Sort A→Z")}
-                </DropdownMenuItem>
+              <DropdownMenuContent
+                align="end"
+                className="max-h-80 w-52 overflow-y-auto"
+              >
+                {showColumnVisibilityMenu ? (
+                  <>
+                    <DropdownMenuLabel>
+                      {t(i18n, "columns", "Columns")}
+                    </DropdownMenuLabel>
+                    {columns.map((column) => {
+                      const columnId = column.id ?? column.name;
+                      if (!columnId) return null;
+                      const visible = columnVisibilityMap[columnId] !== false;
+                      const disabled =
+                        column.hideable === false ||
+                        (visible && visibleColumnCount <= 1);
+                      const label =
+                        typeof column.header === "string"
+                          ? column.header
+                          : (column.name ?? column.id ?? columnId);
 
-                <DropdownMenuItem
-                  disabled={!canSort}
-                  onSelect={() => setColumnDirection(-1)}
-                >
-                  {t(i18n, "sortDesc", "Sort Z→A")}
-                </DropdownMenuItem>
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={columnId}
+                          checked={visible}
+                          disabled={disabled}
+                          onCheckedChange={(checked) =>
+                            setColumnVisible(columnId, checked === true)
+                          }
+                        >
+                          <span className="truncate">{label}</span>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setShowColumnVisibilityMenu(false);
+                      }}
+                    >
+                      {t(i18n, "back", "Back")}
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem
+                      disabled={!canSort}
+                      onSelect={() => setColumnDirection(1)}
+                    >
+                      {t(i18n, "sortAsc", "Sort A→Z")}
+                    </DropdownMenuItem>
 
-                <DropdownMenuItem
-                  disabled={
-                    !canSort ||
-                    dir === 0 ||
-                    (!allowUnsort && !Array.isArray(sortInfo))
-                  }
-                  onSelect={() => setColumnDirection(0)}
-                >
-                  {t(i18n, "unsort", "Unsort")}
-                </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!canSort}
+                      onSelect={() => setColumnDirection(-1)}
+                    >
+                      {t(i18n, "sortDesc", "Sort Z→A")}
+                    </DropdownMenuItem>
+
+                    {dir !== 0 ? (
+                      <DropdownMenuItem
+                        disabled={
+                          !canSort || (!allowUnsort && !Array.isArray(sortInfo))
+                        }
+                        onSelect={() => setColumnDirection(0)}
+                      >
+                        {t(i18n, "unsort", "Unsort")}
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setShowColumnVisibilityMenu(true);
+                      }}
+                    >
+                      {t(i18n, "columns", "Columns")}
+                    </DropdownMenuItem>
+                    {enableColumnAutosize ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => onAutoResize(colId)}>
+                          {t(i18n, "autoSizeColumn", "Auto size this column")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={onAutoResizeAll}>
+                          {t(
+                            i18n,
+                            "autoSizeAllColumns",
+                            "Auto size all columns"
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={onResizeToFit}>
+                          {t(i18n, "sizeColumnsToFit", "Size columns to fit")}
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

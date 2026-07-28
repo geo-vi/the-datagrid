@@ -643,11 +643,13 @@ fallbacks, omits columns with `hideable={false}`, and does not allow the final
 visible column to be hidden. Button state is exposed through `aria-pressed`; no
 eye icon or parallel application visibility state is required.
 
-Set `visible: false` on a column that should start hidden and `hideable: false`
-on one that must not be toggled. `defaultVisible` and `defaultHidden` remain
-ignored compatibility fields. Visibility clicks update grid-owned runtime
-state; a real grid remount discards those overrides and initializes again from
-the current column props.
+Set controlled `visible: false`, uncontrolled `defaultVisible: false`, or the
+legacy `defaultHidden: true` alias on a column that should start hidden.
+`hideable: false` disables menu/toolbar toggles but does not block the
+imperative API. `onColumnVisibleChange({ column, visible })` receives every
+effective proposal. A declarative `visible` value remains authoritative until
+the parent applies that proposal; otherwise the grid persists the change in
+its own runtime state.
 
 The default title is a level-two heading that labels the toolbar region. The
 toggle group keeps its `ariaLabel`, and the description is associated with both
@@ -810,17 +812,40 @@ custom cell metadata. That callback value preserves upstream’s raw shape:
 
 ### Columns
 
-| Prop                   | Type                        | Default | Description                                                                   |
-| ---------------------- | --------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `columnOrder`          | `string[]`                  | -       | Ordered array of column ids/names                                             |
-| `onColumnOrderChange`  | `(order: string[]) => void` | -       | Fired when column order changes; drag reordering requires this callback       |
-| `reorderColumns`       | `boolean`                   | `true`  | Disable user drag reordering while continuing to render `columnOrder`         |
-| `resizable`            | `boolean`                   | `true`  | Enable header resize handles                                                  |
-| `liveColumnResize`     | `boolean`                   | `false` | Resize header and body geometry during drag; callbacks remain completion-only |
-| `onColumnResize`       | `(info, context) => void`   | -       | Reports proposed width/flex and reserved viewport width                       |
-| `enableColumnAutosize` | `boolean`                   | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied   |
-| `skipHeaderOnAutoSize` | `boolean`                   | `false` | Skip header text when estimating an automatic width                           |
-| `showColumnMenuTool`   | `boolean`                   | `true`  | Show the header menu tool                                                     |
+| Prop                      | Type                            | Default | Description                                                                     |
+| ------------------------- | ------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `columnOrder`             | `string[]`                      | -       | Controlled ordered array of column ids/names                                    |
+| `defaultColumnOrder`      | `string[]`                      | columns | Initial order for grid-owned ordering                                           |
+| `onColumnOrderChange`     | `(order: string[]) => void`     | -       | Receives reorder proposals; optional for grid-owned ordering                    |
+| `onColumnVisibleChange`   | `({ column, visible }) => void` | -       | Receives controlled or uncontrolled visibility proposals                        |
+| `reorderColumns`          | `boolean`                       | `true`  | Disable user drag reordering                                                    |
+| `resizable`               | `boolean`                       | `true`  | Enable header resize handles                                                    |
+| `columnDefaultWidth`      | `number`                        | `150`   | Root fallback when a column has no width/defaultWidth                           |
+| `columnMinWidth`          | `number`                        | `40`    | Root fallback when a column has no minWidth                                     |
+| `columnMaxWidth`          | `number \| null`                | `null`  | Root fallback when a column has no maxWidth                                     |
+| `shareSpaceOnResize`      | `boolean`                       | `false` | Resize the adjacent visible column in the opposite direction                    |
+| `columnResizeHandleWidth` | `number`                        | `24`    | Header resize pointer-target width                                              |
+| `columnResizeProxyWidth`  | `number`                        | `5`     | Deferred resize-proxy width                                                     |
+| `liveColumnResize`        | `boolean`                       | `false` | Resize rendered geometry during drag; callbacks remain completion-only          |
+| `onColumnResize`          | `(info, context) => void`       | -       | Reports each proposed width/flex and reserved viewport width                    |
+| `onBatchColumnResize`     | `(entries, context) => void`    | -       | Reports one coherent callback for every resize transaction                      |
+| `enableColumnAutosize`    | `boolean`                       | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied     |
+| `skipHeaderOnAutoSize`    | `boolean`                       | `false` | Skip header text when estimating an automatic width                             |
+| `showColumnMenuTool`      | `boolean`                       | `true`  | Show sort, visibility, auto-size, and fit actions in the accessible column menu |
+
+When `columnOrder` is omitted, `defaultColumnOrder` seeds grid-owned ordering
+and drag changes persist even without a callback. When `columnOrder` is
+supplied, it is authoritative: `onColumnOrderChange` receives the proposal and
+the display changes only after the parent returns it. The same ownership rule
+applies to `column.visible` versus `defaultVisible`/`defaultHidden`.
+
+Column sizing precedence is controlled `width`, column `defaultWidth` and
+`minWidth`/`maxWidth`, then the root fallbacks. An uncontrolled flex column
+retains flex ownership by default; set `column.keepFlex: false` to convert it to
+fixed sizing after a no-share resize. Shared-space resize preserves the adjacent
+pair's total width and handles fixed/fixed, flex/flex, and mixed pairs.
+Controlled `width` and `flex` values remain prop-owned while both resize
+callbacks receive the proposal.
 
 Set `column.locked` to `"start"` or `"end"` to keep it visible at that
 horizontal edge; `true` is the Inovua-compatible alias for `"start"`. Locked
@@ -981,6 +1006,18 @@ The stable `TypeComputedProps` ref exposes these editing methods and fields:
 | `getCurrentEditInfo()`                                | Returns the live edit identity/value or `null`.                                                                                                                                                                                        |
 | `isInEdit.current`                                    | Exposes the upstream lifecycle edit flag.                                                                                                                                                                                              |
 | `currentEditCompletePromise.current`                  | Tracks the current completion callback promise.                                                                                                                                                                                        |
+
+It also exposes behavior-backed column-state methods:
+
+| Member                                               | Behavior                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `setColumnVisible(column, visible)`                  | Uses the same controlled/uncontrolled ownership and callback path as the built-in menu and optional toolbar. |
+| `setColumnOrder(order)`                              | Applies an uncontrolled order or emits a controlled proposal without mutating consumer state.                |
+| `setColumnSizes(action)` / `setColumnFlexes(action)` | Replace grid-owned width/flex maps; declarative `width`/`flex` values remain authoritative.                  |
+| `onBatchColumnResize(entries, context?)`             | Applies a width/flex transaction and emits per-column plus batch completion callbacks.                       |
+| `setColumnSizeAuto(id, skipHeader?)`                 | Deterministically auto-sizes one resizable visible column.                                                   |
+| `setColumnsSizesAuto(config?)`                       | Auto-sizes selected or all resizable visible columns as one batch.                                           |
+| `setColumnSizesToFit()`                              | Fits resizable visible columns to the viewport while honoring min/max bounds.                                |
 
 Completion is session-safe: an older async completion settling cannot clear or
 navigate a newer edit. The editor is already stopped when `onEditComplete`
