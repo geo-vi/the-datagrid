@@ -3,14 +3,19 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDirectory, "..");
 const fixtureSourceDirectory = path.join(repoRoot, "tests", "react-compat");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npmCommand = isWindows ? "npm.cmd" : "npm";
 const tscPath = require.resolve("typescript/bin/tsc");
+// GNU tar (bundled with Git on Windows) misreads "C:\..." as a remote host and
+// chokes on backslash paths; forward slashes are accepted by GNU tar, bsdtar,
+// and npm's file: specifiers alike.
+const toPosixPath = (value) => (isWindows ? value.replace(/\\/g, "/") : value);
 const completeMatrix = [
   {
     react: "16.8.0",
@@ -80,6 +85,16 @@ function run(command, args, options = {}) {
   return result;
 }
 
+// Node's post-CVE-2024-27980 hardening refuses to spawn .cmd/.bat files (npm.cmd)
+// without `shell: true`. Under a shell, arguments are not auto-quoted, so quote
+// any that contain whitespace ourselves.
+function runNpm(args, options = {}) {
+  const finalArgs = isWindows
+    ? args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg))
+    : args;
+  return run(npmCommand, finalArgs, { ...options, shell: isWindows });
+}
+
 function copyFixtureFiles(targetDirectory) {
   for (const filename of [
     "consumer.tsx",
@@ -118,8 +133,7 @@ const temporaryRoot = fs.mkdtempSync(
 );
 
 try {
-  const packResult = run(
-    npmCommand,
+  const packResult = runNpm(
     ["pack", "--ignore-scripts", "--json", "--pack-destination", temporaryRoot],
     { cwd: repoRoot, quiet: true }
   );
@@ -132,7 +146,9 @@ try {
   const archivePath = path.join(temporaryRoot, archiveFilename);
   const inspectionDirectory = path.join(temporaryRoot, "packed");
   fs.mkdirSync(inspectionDirectory);
-  run("tar", ["-xzf", archivePath, "-C", inspectionDirectory]);
+  run("tar", ["-xzf", path.basename(archiveFilename), "-C", toPosixPath(inspectionDirectory)], {
+    cwd: temporaryRoot,
+  });
 
   const packedPackageDirectory = path.join(inspectionDirectory, "package");
   const packedManifest = JSON.parse(
@@ -190,7 +206,7 @@ try {
           private: true,
           type: "module",
           dependencies: {
-            "@geovi/the-datagrid": `file:${archivePath}`,
+            "@geovi/the-datagrid": `file:${toPosixPath(archivePath)}`,
             jsdom: "26.1.0",
             react: version.react,
             "react-dom": version.reactDom,
@@ -207,8 +223,7 @@ try {
     );
 
     console.log(`\nTesting packed package with React ${version.react}...`);
-    run(
-      npmCommand,
+    runNpm(
       [
         "install",
         "--ignore-scripts",
@@ -227,8 +242,10 @@ try {
       process.execPath,
       [
         "--no-warnings",
+        // Node parses the --loader value as a URL; on Windows a bare "C:\..."
+        // path is read as an unsupported "c:" scheme, so pass a file:// URL.
         "--loader",
-        path.join(fixtureDirectory, "css-loader.mjs"),
+        pathToFileURL(path.join(fixtureDirectory, "css-loader.mjs")).href,
         path.join(fixtureDirectory, "runtime.mjs"),
       ],
       {
