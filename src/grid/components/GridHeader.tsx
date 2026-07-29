@@ -9,6 +9,7 @@ import type {
   TypeFilterTypes,
   TypeFilterValue,
   TypeI18n,
+  TypeDataGridProps,
   TypeRenderColumnFilterContextMenu,
   TypeRenderSortTool,
   TypeSortFunctions,
@@ -94,6 +95,7 @@ export type GridHeaderProps = {
 
   columnRenderItems: TypeGridColumnRenderItem[];
   lockedColumnLayout: Record<string, TypeLockedColumnLayout>;
+  headerDOMProps?: TypeDataGridProps["headerDOMProps"];
 };
 
 function ColumnSpacerHeader(props: { width: number }) {
@@ -163,6 +165,7 @@ export function GridHeader(props: GridHeaderProps) {
     setOpenFilterMenuColId,
     columnRenderItems,
     lockedColumnLayout,
+    headerDOMProps,
   } = props;
 
   return (
@@ -235,6 +238,10 @@ export function GridHeader(props: GridHeaderProps) {
                 onResizeStart={onColumnResizeStart}
                 onResizeBy={onColumnResizeBy}
                 onAutoResize={onColumnAutoResize}
+                headerDOMProps={headerDOMProps}
+                gridProps={gridProps}
+                theme={theme}
+                isCheckboxColumn={checkboxEnabled && colId === checkboxColId}
               />
             );
           })}

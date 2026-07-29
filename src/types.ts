@@ -201,6 +201,14 @@ export type TypeColumnRenderArgs = {
   rowIndex: number;
   column: IColumn;
   columnId: string;
+  value?: any;
+  rowId?: string | number;
+  rowSelected?: boolean;
+  rowActive?: boolean;
+  cellSelected?: boolean;
+  cellActive?: boolean;
+  empty?: boolean;
+  totalDataCount?: number;
   /**
    * Raw disabledRows entry for this displayed index. Inovua exposes `null`
    * when the map is absent and `undefined` when this key is missing.
@@ -232,6 +240,27 @@ export type TypeColumnRenderCellProps = CellProps;
 export type TypeColumnRenderFn =
   | ((cellProps: CellProps) => React.ReactNode)
   | ((value: any, args: TypeColumnRenderArgs) => React.ReactNode);
+
+export type TypeActiveCell = [rowIndex: number, columnIndex: number] | null;
+export type TypeCellSelection = { [cellKey: string]: boolean } | null;
+
+export type TypeCellDOMProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
+  [key: `data-${string}`]: unknown;
+};
+export type TypeHeaderDOMProps =
+  React.ThHTMLAttributes<HTMLTableCellElement> & {
+    [key: `data-${string}`]: unknown;
+  };
+export type TypeRowDOMProps = React.HTMLAttributes<HTMLTableRowElement> & {
+  [key: `data-${string}`]: unknown;
+};
+
+export type TypeCellDOMPropsConfig =
+  | TypeCellDOMProps
+  | ((cellProps: CellProps) => TypeCellDOMProps | undefined);
+export type TypeHeaderDOMPropsConfig =
+  | TypeHeaderDOMProps
+  | ((cellProps: TypeCellProps) => TypeHeaderDOMProps | undefined);
 
 export type TypeEditInfo = {
   rowIndex: number;
@@ -433,8 +462,8 @@ export interface IColumn {
   name?: string;
   id?: string;
 
-  header?: React.ReactNode;
-  renderHeader?: (cellProps: unknown) => React.ReactNode;
+  header?: React.ReactNode | ((cellProps: TypeCellProps) => React.ReactNode);
+  renderHeader?: (cellProps: TypeCellProps) => React.ReactNode;
 
   /**
    * Compatibility note:
@@ -521,8 +550,17 @@ export interface IColumn {
   textAlign?: "start" | "end" | "left" | "right" | "center";
   headerAlign?: "start" | "end" | "left" | "right" | "center";
 
-  className?: string;
-  style?: unknown;
+  cellSelectable?: boolean;
+  cellProps?: Record<string, unknown>;
+  cellDOMProps?: TypeCellDOMPropsConfig;
+  headerDOMProps?: TypeHeaderDOMPropsConfig;
+  colspan?: number | ((cellProps: CellProps) => number);
+  rowspan?: number | ((cellProps: CellProps) => number);
+
+  className?: string | ((cellProps: CellProps) => string | undefined);
+  style?:
+    | React.CSSProperties
+    | ((cellProps: CellProps) => React.CSSProperties | undefined);
   headerProps?: { className?: string; style?: React.CSSProperties };
 
   [key: string]: unknown;
@@ -589,6 +627,33 @@ export type TypeRowProps = Partial<TypeRowStyleProps> &
     active?: boolean;
     rowSelected?: boolean;
   };
+
+export type TypeRenderRow = (
+  rowProps: TypeRowDOMProps &
+    React.RefAttributes<HTMLTableRowElement> & {
+      children?: React.ReactNode;
+      rowProps: TypeRowProps;
+    }
+) => React.ReactNode;
+
+export type TypeOnRenderRow = (rowProps: TypeRowProps) => void;
+export type TypeRowClassName =
+  | string
+  | ((rowProps: TypeRowProps) => string | undefined);
+
+export type TypeOnRowClick = (
+  rowProps: TypeRowProps,
+  event: React.MouseEvent<HTMLTableRowElement>
+) => void;
+export type TypeOnRowDoubleClick = (
+  event: React.MouseEvent<HTMLTableRowElement>,
+  rowProps: TypeRowProps
+) => void;
+export type TypeOnCellClick = (
+  event: React.MouseEvent<HTMLTableCellElement>,
+  cellProps: CellProps
+) => void;
+export type TypeOnCellDoubleClick = TypeOnCellClick;
 
 export type TypeColumnContextMenuProps = {
   autoFocus?: boolean;
@@ -974,6 +1039,18 @@ export type TypeComputedProps = {
   incrementActiveIndex?: (increment: number) => void;
   getActiveItem?: () => unknown;
 
+  computedActiveCell?: TypeActiveCell;
+  computedCellSelection?: TypeCellSelection;
+  computedCellSelectionEnabled?: boolean;
+  computedCellSelectionByIndex?: boolean;
+  getActiveCell?: () => TypeActiveCell;
+  setActiveCell?: (activeCell: TypeActiveCell) => void;
+  getCellSelection?: () => TypeCellSelection;
+  setCellSelection?: (selection: TypeCellSelection) => void;
+  isCellSelected?: (
+    cell: TypeActiveCell | { rowIndex: number; columnIndex: number }
+  ) => boolean;
+
   setScrollLeft?: (scrollLeft: number) => void;
   incrementScrollLeft?: (scrollLeft: number) => void;
   getScrollLeft?: () => number;
@@ -1305,6 +1382,20 @@ export type TypeDataGridProps = {
   minRowHeight?: number;
   maxRowHeight?: number;
   rowStyle?: TypeRowStyle;
+  rowProps?:
+    | TypeRowDOMProps
+    | ((rowProps: TypeRowProps) => TypeRowDOMProps | undefined);
+  rowClassName?: TypeRowClassName;
+  renderRow?: TypeRenderRow;
+  onRenderRow?: TypeOnRenderRow;
+  onRowClick?: TypeOnRowClick;
+  onRowDoubleClick?: TypeOnRowDoubleClick;
+  onCellClick?: TypeOnCellClick;
+  onCellDoubleClick?: TypeOnCellDoubleClick;
+  cellDOMProps?: TypeCellDOMPropsConfig;
+  headerDOMProps?: TypeHeaderDOMPropsConfig;
+  showHoverRows?: boolean;
+  showEmptyRows?: boolean;
   showZebraRows?: boolean;
   defaultShowZebraRows?: boolean;
 
@@ -1357,6 +1448,16 @@ export type TypeDataGridProps = {
   checkboxOnlyRowSelect?: boolean;
   checkboxSelectEnableShiftKey?: boolean;
   toggleRowSelectOnClick?: boolean;
+
+  activeCell?: TypeActiveCell;
+  defaultActiveCell?: TypeActiveCell;
+  onActiveCellChange?: (activeCell: TypeActiveCell) => void;
+  activeCellThrottle?: number;
+  cellSelection?: TypeCellSelection;
+  defaultCellSelection?: TypeCellSelection;
+  onCellSelectionChange?: (cellSelection: TypeCellSelection) => void;
+  cellSelectionByIndex?: boolean;
+  toggleCellSelectOnClick?: boolean;
 
   activeIndex?: number;
   defaultActiveIndex?: number;

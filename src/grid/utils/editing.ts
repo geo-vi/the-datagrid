@@ -7,6 +7,10 @@ export type TypeBuildEditCellPropsArgs = {
   remoteRowIndex: number;
   rowId: string | number;
   rowSelected: boolean;
+  rowActive?: boolean;
+  cellSelected?: boolean;
+  cellActive?: boolean;
+  empty?: boolean;
   disabledRow?: boolean | null;
   selection: unknown;
   multiSelect: boolean;
@@ -24,6 +28,7 @@ export type TypeBuildEditCellPropsArgs = {
   editStartEvent: string;
   theme: string;
   totalDataCount: number;
+  totalCount?: number;
   virtualizeColumns: boolean;
 };
 
@@ -39,6 +44,10 @@ export function buildEditCellProps({
   remoteRowIndex,
   rowId,
   rowSelected,
+  rowActive = false,
+  cellSelected = false,
+  cellActive = false,
+  empty = false,
   disabledRow,
   selection,
   multiSelect,
@@ -56,6 +65,7 @@ export function buildEditCellProps({
   editStartEvent,
   theme,
   totalDataCount,
+  totalCount = totalDataCount,
   virtualizeColumns,
 }: TypeBuildEditCellPropsArgs): CellProps {
   const configuredCellProps =
@@ -72,8 +82,13 @@ export function buildEditCellProps({
     rowIndex,
     rowRenderIndex: rowIndex,
     remoteRowIndex,
-    rowActive: false,
+    rowActive,
     rowSelected,
+    selected: cellSelected,
+    cellSelected,
+    active: cellActive,
+    cellActive,
+    empty,
     disabledRow,
     selection,
     multiSelect,
@@ -82,6 +97,7 @@ export function buildEditCellProps({
     initialRowHeight: resolvedRowHeight,
     minRowHeight,
     totalDataCount,
+    totalCount,
     column,
     columnId,
     id: columnId,
@@ -117,6 +133,11 @@ export function buildEditCellProps({
       rowIndex,
       remoteRowIndex,
       disabledRow,
+      rowSelected,
+      rowActive,
+      cellSelected,
+      cellActive,
+      empty,
     },
   };
 }

@@ -564,10 +564,36 @@ function Issue38ActiveRowNavigation() {
 }
 
 function Issue39CellSelection() {
+  const search =
+    typeof window === "undefined"
+      ? new URLSearchParams()
+      : new URLSearchParams(window.location.search);
+  const mode = search.get("selectionMode") ?? "controlled";
+  const useVirtualRows = search.get("virtual") === "true";
+  const transformsMode = search.get("transforms") === "true";
+  const paginationMode = search.get("pagination") === "true";
+  const rowCount = Number(search.get("rows") ?? (useVirtualRows ? 200 : 3));
+  const initialRows = React.useMemo(
+    () =>
+      rowCount === 3
+        ? baseRows
+        : Array.from({ length: rowCount }, (_, index) => ({
+            id: `row-${index + 1}`,
+            name: `Person ${String(index + 1).padStart(5, "0")}`,
+            city: `City ${index % 20}`,
+          })),
+    [rowCount]
+  );
+  const [rows, setRows] = React.useState(initialRows);
+  const [columnOrder, setColumnOrder] = React.useState(["id", "name", "city"]);
   const [activeCell, setActiveCell] = React.useState<unknown>(null);
   const [cellSelection, setCellSelection] = React.useState<
     Record<string, boolean>
   >({});
+  const [selectionEvents, setSelectionEvents] = React.useState<unknown[]>([]);
+  const controlled = mode !== "uncontrolled";
+  const byIndex = mode === "by-index";
+  const single = mode === "single";
 
   return (
     <>
@@ -577,20 +603,59 @@ function Issue39CellSelection() {
       <output data-testid="issue-39-cell-selection">
         {JSON.stringify(cellSelection)}
       </output>
+      <output data-testid="issue-39-selection-events">
+        {JSON.stringify(selectionEvents)}
+      </output>
+      <button
+        type="button"
+        data-testid="issue-39-reverse-rows"
+        onClick={() => setRows((current) => [...current].reverse())}
+      >
+        Reverse rows
+      </button>
+      <button
+        type="button"
+        data-testid="issue-39-reorder-columns"
+        onClick={() => setColumnOrder(["city", "id", "name"])}
+      >
+        Reorder columns
+      </button>
       <GridFrame>
         <CompatibilityGrid
           idProperty="id"
           columns={baseColumns}
-          dataSource={baseRows}
-          columnOrder={["id", "name", "city"]}
-          virtualized={false}
-          enableFiltering={false}
-          cellSelection={cellSelection}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          onColumnOrderChange={setColumnOrder}
+          virtualized={useVirtualRows}
+          enableFiltering={transformsMode}
+          defaultFilterValue={
+            transformsMode
+              ? [
+                  {
+                    name: "name",
+                    type: "string",
+                    operator: "contains",
+                    value: "",
+                  },
+                ]
+              : undefined
+          }
+          pagination={paginationMode || undefined}
+          defaultLimit={paginationMode ? 3 : undefined}
+          cellSelection={controlled ? cellSelection : undefined}
+          defaultCellSelection={controlled ? undefined : { "row-1,id": true }}
+          cellSelectionByIndex={byIndex}
+          multiSelect={!single}
           defaultActiveCell={[0, 0]}
           onActiveCellChange={(next: unknown) => setActiveCell(next)}
-          onCellSelectionChange={(next: unknown) =>
-            setCellSelection(next as Record<string, boolean>)
-          }
+          onCellSelectionChange={(next: unknown) => {
+            setCellSelection(next as Record<string, boolean>);
+            setSelectionEvents((current) => [...current, next]);
+          }}
+          checkboxColumn={mode === "coexist"}
+          enableSelection={mode === "coexist"}
+          editable={mode === "coexist"}
         />
       </GridFrame>
     </>
@@ -598,33 +663,203 @@ function Issue39CellSelection() {
 }
 
 function Issue40CellDomProps() {
+  const search =
+    typeof window === "undefined"
+      ? new URLSearchParams()
+      : new URLSearchParams(window.location.search);
+  const mode = search.get("customizationMode") ?? "dom-props";
+  const rowCount = Number(
+    search.get("rows") ?? (mode === "empty-rows" ? 1 : 4)
+  );
+  const transformsMode =
+    mode === "spans" && search.get("transforms") === "true";
+  const [events, setEvents] = React.useState<string[]>([]);
+  const [columnOrder, setColumnOrder] = React.useState(["id", "name", "city"]);
+  const [cityVisible, setCityVisible] = React.useState(true);
+  const rows = React.useMemo(
+    () =>
+      rowCount === 1
+        ? [baseRows[0]!]
+        : rowCount === 4
+          ? [
+              ...baseRows,
+              { id: "row-4", name: "Dorothy Vaughan", city: "Kansas City" },
+            ]
+          : Array.from({ length: rowCount }, (_, index) => ({
+              id: `row-${index + 1}`,
+              name: `Person ${String(index + 1).padStart(5, "0")}`,
+              city: `City ${index % 20}`,
+            })),
+    [rowCount]
+  );
+  const columns = React.useMemo<TypeColumns>(
+    () => [
+      {
+        name: "id",
+        width: 110,
+        rowspan:
+          mode === "spans"
+            ? (cell) => (cell.rowIndex % 25 === 0 ? 2 : 1)
+            : undefined,
+      },
+      {
+        name: "name",
+        header: (headerCell) =>
+          `Function header ${headerCell.computedVisibleIndex}`,
+        width: 220,
+        render: (cell) => (
+          <span
+            data-testid={`issue-40-render-${String(cell.rowId)}`}
+            data-render-payload={JSON.stringify({
+              value: cell.value,
+              rowId: cell.rowId,
+              selected: cell.cellSelected,
+              active: cell.cellActive,
+              empty: cell.empty,
+              totalDataCount: cell.totalDataCount,
+            })}
+          >
+            {String(cell.value)}
+          </span>
+        ),
+        className: (cell) => `issue-40-cell-class-${cell.rowIndex}`,
+        style: (cell) => ({
+          opacity: cell.rowIndex === 0 ? 0.99 : 1,
+        }),
+        cellDOMProps: (cell) => ({
+          "data-column-cell-props": `${cell.rowId}:${cell.columnId}`,
+        }),
+        colspan:
+          mode === "spans"
+            ? (cell) => (cell.rowIndex % 31 === 2 ? 2 : 1)
+            : undefined,
+        headerDOMProps: {
+          "data-column-header-props": "name-header",
+        },
+      },
+      {
+        name: "city",
+        header: "City",
+        width: 220,
+        visible: transformsMode ? cityVisible : undefined,
+      },
+    ],
+    [cityVisible, mode, transformsMode]
+  );
+
   return (
-    <GridFrame>
-      <CompatibilityGrid
-        idProperty="id"
-        columns={baseColumns}
-        dataSource={baseRows}
-        columnOrder={["id", "name", "city"]}
-        virtualized={false}
-        enableFiltering={false}
-        cellDOMProps={(cell: unknown) => {
-          const candidate = cell as {
-            data?: { id?: string };
-            name?: string;
-            rowIndex?: number;
-            columnIndex?: number;
-          };
-          return {
-            "data-issue-40-cell": JSON.stringify([
-              candidate.data?.id ?? null,
-              candidate.name ?? null,
-              candidate.rowIndex ?? null,
-              candidate.columnIndex ?? null,
-            ]),
-          };
-        }}
-      />
-    </GridFrame>
+    <>
+      <output data-testid="issue-40-events">{JSON.stringify(events)}</output>
+      {transformsMode ? (
+        <>
+          <button
+            type="button"
+            data-testid="issue-40-toggle-city"
+            onClick={() => setCityVisible((current) => !current)}
+          >
+            Toggle city visibility
+          </button>
+          <button
+            type="button"
+            data-testid="issue-40-reorder-columns"
+            onClick={() => setColumnOrder(["city", "id", "name"])}
+          >
+            Reorder columns
+          </button>
+        </>
+      ) : null}
+      <GridFrame>
+        <CompatibilityGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          onColumnOrderChange={setColumnOrder}
+          virtualized={mode === "spans"}
+          virtualizeColumns={mode === "spans"}
+          enableFiltering={transformsMode}
+          defaultFilterValue={
+            transformsMode
+              ? [
+                  {
+                    name: "name",
+                    type: "string",
+                    operator: "contains",
+                    value: "",
+                  },
+                ]
+              : undefined
+          }
+          defaultCellSelection={{ "row-1,name": true }}
+          defaultActiveCell={[0, 1]}
+          cellDOMProps={(cell: unknown) => {
+            const candidate = cell as {
+              data?: { id?: string };
+              name?: string;
+              rowIndex?: number;
+              columnIndex?: number;
+            };
+            return {
+              "data-issue-40-cell": JSON.stringify([
+                candidate.data?.id ?? null,
+                candidate.name ?? null,
+                candidate.rowIndex ?? null,
+                candidate.columnIndex ?? null,
+              ]),
+            };
+          }}
+          headerDOMProps={(cell: unknown) => ({
+            "data-root-header-props": String(
+              (cell as { columnId?: string }).columnId
+            ),
+          })}
+          rowProps={(row: TypeRowProps) => ({
+            "data-row-props": String(row.id),
+          })}
+          rowClassName={(row: TypeRowProps) =>
+            `issue-40-row-class-${row.rowIndex}`
+          }
+          renderRow={({ rowProps: compatibilityRowProps, ...nativeProps }) => (
+            <tr
+              {...nativeProps}
+              data-render-row={String(compatibilityRowProps.id)}
+            />
+          )}
+          onRowClick={(row: TypeRowProps) =>
+            setEvents((current) => [...current, `row-click:${String(row.id)}`])
+          }
+          onRowDoubleClick={(_event: unknown, row: TypeRowProps) =>
+            setEvents((current) => [...current, `row-double:${String(row.id)}`])
+          }
+          onCellClick={(
+            _event: unknown,
+            cell: { rowId?: unknown; columnId?: unknown }
+          ) =>
+            setEvents((current) => [
+              ...current,
+              `cell-click:${String(cell.rowId)}:${String(cell.columnId)}`,
+            ])
+          }
+          onCellDoubleClick={(
+            _event: unknown,
+            cell: { rowId?: unknown; columnId?: unknown }
+          ) =>
+            setEvents((current) => [
+              ...current,
+              `cell-double:${String(cell.rowId)}:${String(cell.columnId)}`,
+            ])
+          }
+          onRowContextMenu={(row: TypeRowProps) =>
+            setEvents((current) => [
+              ...current,
+              `row-context:${String(row.id)}`,
+            ])
+          }
+          showHoverRows={mode !== "no-hover"}
+          showEmptyRows={mode === "empty-rows"}
+        />
+      </GridFrame>
+    </>
   );
 }
 
