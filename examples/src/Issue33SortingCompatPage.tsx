@@ -359,6 +359,7 @@ function ScrollGrid(props: {
         showColumnMenuTool={false}
         scrollTopOnSort={props.mode}
         handle={(computedPropsRef) => {
+          if (!computedPropsRef) return;
           apiRef.current = computedPropsRef.current;
         }}
       />
@@ -638,6 +639,7 @@ function PerformanceScenario(): React.ReactElement {
           enableFiltering={false}
           showColumnMenuTool={false}
           handle={(computedPropsRef) => {
+            if (!computedPropsRef) return;
             apiRef.current = computedPropsRef.current;
           }}
           onSortInfoChange={recordSettledSort}

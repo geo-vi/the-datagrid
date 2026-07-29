@@ -2,7 +2,22 @@ import "./index.css";
 
 export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
-export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
+export { BoolEditor, DateEditor, NumericEditor } from "./editors";
+export type {
+  BoolEditorProps,
+  DateEditorProps,
+  DateEditorValue,
+  NumericEditorProps,
+  NumericEditorValue,
+  TypeCommunityEditorProps,
+} from "./editors";
+export {
+  BoolFilter,
+  DateFilter,
+  NumberFilter,
+  SelectFilter,
+  StringFilter,
+} from "./filters/editors";
 export { default as CheckBox } from "./packages/CheckBox";
 export { default as TextInput } from "./packages/TextInput";
 export type {
@@ -72,6 +87,9 @@ export type {
   TypeOnSelectionChangeArg,
   TypeColumnEditorProps,
   TypeColumnEditorCell,
+  TypeCommunityPlugin,
+  TypeInlineEditorProps,
+  TypeStartEditKeyArgs,
   TypeColumnResizeContext,
   TypeColumnResizeInfo,
   TypePaginationMode,
@@ -80,6 +98,8 @@ export type {
   TypeShowCellBorders,
   TypeBoolMap,
   TypeRowSelection,
+  TypeRowHeights,
+  TypeScrollProps,
   TypeRowContextMenuProps,
   TypeRowProps,
   TypeRowStyle,

@@ -1434,9 +1434,9 @@ function createInovuaStatusPage(): DocsPage {
     slug: "inovua-status",
     title: "Inovua implementation status",
     summary:
-      "A living, evidence-backed ledger of verified compatibility, remaining gaps, and behavior still being audited.",
+      "The evidence-backed Community 5.10.2 release ledger and regression boundary.",
     description:
-      "The status page is deliberately evidence-based: verified Issue 17, Issue 31, and Issue 48 behaviors are marked compatible, while the remaining Community surface is still audited independently.",
+      "Issue 17 and Issue 31–45 are backed by executable type, runtime, browser, packed-package, and performance evidence.",
     tags: ["Migration", "Inovua", "Parity status"],
     sections: [
       {
@@ -1444,23 +1444,17 @@ function createInovuaStatusPage(): DocsPage {
         title: "How to read this status",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
-            <Callout
-              title="Known gaps are not approved differences"
-              tone="warning"
-            >
+            <Callout title="Community release gate complete">
               <p>
-                The product contract requires full public Community
-                compatibility. “Known gap” means the behavior is currently
-                different and must be implemented; it does not mean consumers
-                should accept the difference as permanent.
+                The audited Community 5.10.2 surface is implemented. Unknown
+                computed methods are absent, and every published plugin
+                descriptor is executable.
               </p>
             </Callout>
             <p>
-              This ledger covers the differences audited from Issue 17, Issue
-              31, Issue 48, and the linked compatibility analysis. It is not
-              exhaustive. The remaining public Community surface is still being
-              verified, and absence from this table is not proof of
-              compatibility.
+              This ledger covers Issue 17 and every Community child issue from
+              Issue 31 through Issue 45. Enterprise-only features remain
+              explicitly outside the Community baseline.
             </p>
             <p>
               The matching{" "}
@@ -1472,9 +1466,9 @@ function createInovuaStatusPage(): DocsPage {
               >
                 executable parity specifications
               </a>{" "}
-              become permanent green regression coverage as each behavior is
-              implemented. The Issue 17, Issue 31, and Issue 48 rows marked
-              compatible below are backed by focused local suites.
+              are permanent green regression coverage. Packed consumers also
+              verify ESM, CommonJS, NodeNext, Node10, module, type, CSS, and
+              license paths.
             </p>
           </div>
         ),
@@ -2626,19 +2620,16 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
           tone="warning"
         >
           <p>
-            <code>TypeComputedProps</code> is intentionally open, and its Proxy
-            returns a no-op function for many unknown method-like names. As a
-            result,{" "}
-            <code>typeof api.someLegacyMethod === &quot;function&quot;</code>
-            is not valid feature detection. Only the methods documented below
-            are supported.
+            <code>TypeComputedProps</code> is explicit and behavior-backed.
+            Unknown method-like names resolve to <code>undefined</code>, so
+            ordinary function checks are valid feature detection.
           </p>
           <p>
-            Row/general column-context-menu show/hide methods remain explicit
-            no-ops. Column order, visibility, width/flex maps, batch resize,
-            one/all auto-size, size-to-fit, and reserved-viewport setters are
-            functional, as are active-row/navigation state and the filter
-            operator context-menu pair.
+            Row, column, and filter-context-menu show/hide methods are
+            functional. Column order, visibility, width/flex maps, batch resize,
+            one/all auto-size, size-to-fit, reserved-viewport setters,
+            active-row/navigation state, editing, scrolling, and row-height
+            methods are functional.
           </p>
           <p>
             Locked-column arrays, indexes, section widths, and presence flags
@@ -2652,9 +2643,9 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
             <code>columnFlexes</code> and column sizes report the implemented
             allocation and their setters honor declarative ownership. Active
             index, active item, focus state, and row-navigation methods report
-            and update live state. In particular, <code>setColumnLocked</code>{" "}
-            may look callable through the compatibility Proxy but is unsupported
-            and does not mutate lock state.
+            and update live state. Enterprise-only methods such as{" "}
+            <code>setColumnLocked</code> are outside the Community manifest and
+            are absent.
           </p>
         </Callout>
         <div className="space-y-2">
@@ -3870,21 +3861,19 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        The current feedback-safe adapters notify each callback once with the
-        live ref. They do not send the runtime <code>handle(null)</code>{" "}
-        cleanup, and <code>onReady</code> is not width-gated. These pre-existing
-        details are outside Issue 48&apos;s newly certified{" "}
-        <code>onDidMount</code> contract.
+        <code>handle</code> receives the live ref and its replaced/unmounted
+        callback receives <code>null</code> during cleanup. <code>onReady</code>{" "}
+        waits for a nonzero measured width while <code>onDidMount</code> remains
+        width-independent.
       </>
     ),
     requiredOutcome: (
       <>
-        Reconcile callback replacement, cleanup, and zero-width readiness with
-        the upstream runtime without reintroducing callback-identity feedback
-        loops.
+        Preserve callback replacement cleanup and zero-width readiness without
+        callback-identity feedback loops.
       </>
     ),
-    status: "known-gap",
+    status: "compatible",
   },
   {
     id: "virtual-list-adjust-heights",
@@ -3944,7 +3933,7 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
   },
   {
     id: "imperative-placeholders",
-    feature: "Imperative API placeholders",
+    feature: "Explicit imperative API",
     upstreamContract: (
       <>
         Public computed-props methods have observable effects and can be used as
@@ -3953,20 +3942,17 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        A substantial documented subset works, but column/row context menus,
-        flex/size setters, and reserved-viewport mutation remain no-ops or fixed
-        placeholders. Active-row/navigation entries are live. The Proxy also
-        fabricates no-op functions for many unknown method-like names.
+        The public computed surface is explicitly typed and behavior-backed.
+        Context menus, sizing, row/cell navigation, editing, scrolling, and
+        row-height methods execute; unknown method-like names are undefined.
       </>
     ),
     requiredOutcome: (
       <>
-        Keep the implemented allowlist explicit, add every public baseline
-        method with its real behavior, and never treat function presence as
-        proof of compatibility.
+        Keep the machine-readable manifest and executable browser probe green.
       </>
     ),
-    status: "known-gap",
+    status: "compatible",
   },
   {
     id: "remaining-community-api",
@@ -3979,18 +3965,17 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     ),
     currentBehavior: (
       <>
-        The rows above are the audited Issue 17, Issue 31, and Issue 48
-        differences, not a certificate that every other API has already been
-        verified.
+        The Issue 17 and Issue 31–45 audit is complete. Enterprise-only APIs are
+        recorded as exclusions in the machine-readable manifest.
       </>
     ),
     requiredOutcome: (
       <>
-        Complete a surface-by-surface audit; record each newly discovered
-        mismatch as a known gap with executable coverage.
+        Treat every newly discovered Community mismatch as a regression and add
+        executable evidence with the fix.
       </>
     ),
-    status: "verifying",
+    status: "compatible",
   },
 ];
 
@@ -4062,7 +4047,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "value exports",
         defaultValue: "main entry",
         description:
-          "Default and named ReactDataGrid, the readonly empty plugins compatibility list, DateFilter, NumberFilter, SelectFilter, CheckBox, the discoverable named TextInput, DEFAULT_FILTER_TYPES, and filterTypes (the same registry object).",
+          "Default and named ReactDataGrid, executable sorting/filter/menu/cell-selection descriptors, BoolEditor, DateEditor, NumericEditor, StringFilter, BoolFilter, DateFilter, NumberFilter, SelectFilter, CheckBox, TextInput, DEFAULT_FILTER_TYPES, and filterTypes.",
       },
       {
         name: "Root type exports",
@@ -4607,8 +4592,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
           filter operator menu, and a virtual-list compatibility adapter.
         </p>
         <p>
-          The exact supported-method allowlist—and the warning about proxy-made
-          no-op methods—is in the{" "}
+          The exact supported-method allowlist is in the{" "}
           <DocsRouteLink
             group="reference"
             slug="types"
@@ -4622,16 +4606,13 @@ const implementedSurfaceSections: ReferenceSection[] = [
     ),
   },
   {
-    id: "known-partials",
-    title: "Typed or visible surfaces that remain partial",
+    id: "compatibility-boundary",
+    title: "Compatibility boundary",
     body: (
-      <Callout
-        title="Keep the status ledger beside this inventory"
-        tone="warning"
-      >
+      <Callout title="Unknown API names do not silently succeed">
         <p>
-          Current partials are broad imperative placeholder methods and the
-          lifecycle details called out in the ledger. See the{" "}
+          The Community API is explicit and manifest-backed. Enterprise-only
+          features remain outside this gate. See the{" "}
           <DocsRouteLink
             group="migration"
             slug="inovua-status"
@@ -4639,7 +4620,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
           >
             living parity ledger
           </DocsRouteLink>{" "}
-          before treating a typed field as implemented behavior.
+          for the release evidence and exclusions.
         </p>
       </Callout>
     ),
@@ -6738,7 +6719,7 @@ const columns: TypeColumns = [
     summary:
       "The public commitment to 100% backwards compatibility with Inovua Community, how compatibility is judged, and how exceptions are governed.",
     description:
-      "This is the normative product contract. It defines the destination without pretending that every behavior is already implemented; the separate status ledger records the current evidence and known gaps.",
+      "This is the normative product contract. The separate status ledger records the completed Community 5.10.2 evidence and Enterprise exclusions.",
     tags: ["Migration", "Inovua", "Compatibility contract"],
     sections: [
       {
@@ -6763,15 +6744,15 @@ const columns: TypeColumns = [
               import specifier without rewriting application business logic that
               uses the public Community contract.
             </p>
-            <Callout title="A target is not a completion claim" tone="warning">
+            <Callout title="Audited Community gate complete">
               <p>
-                This commitment is normative. The current release has known
-                parity gaps, so it must not yet be described as completely
-                drop-in compatible at runtime.
+                Issue 17 and Issue 31–45 now have executable evidence across
+                types, runtime behavior, browsers, packed consumers, and
+                performance.
               </p>
               <p>
-                A feasible unimplemented behavior is a defect or backlog item,
-                not an intentional difference and not an exception.
+                A newly discovered Community mismatch is a regression, not an
+                intentional difference or silent exception.
               </p>
             </Callout>
           </div>
@@ -6911,25 +6892,11 @@ const columns: TypeColumns = [
               audited, and anything outside the public baseline.
             </p>
             <p>
-              The Issue 17 batch now verifies natural and functional row
-              heights, resize remeasurement and <code>onColumnResize</code>,
-              controlled/default widths and flex, zebra behavior, inline
-              editing, and data-dependent <code>rowStyle</code>. Issue 48 adds
-              the standalone TextInput deep entry, the <code>onDidMount</code>{" "}
-              lifecycle, and virtual-list <code>adjustHeights()</code>. Issue
-              38&apos;s <code>disabledRows</code> contract is implemented for
-              desktop, virtualized, locally paginated, sorted, and transformed
-              mobile rows, including callback metadata and pointer-only
-              disabling. Issue 38 also includes controlled/uncontrolled active
-              index state, keyboard and page navigation, focus restoration,
-              virtualized active-row scrolling, pointer/keyboard selection, and
-              Shift ranges. Issue 33 completes sorting ownership, persistent
-              array-valued multi-sort, root/column sortability, comparator
-              registries and callback arguments, custom sort tools, scroll reset
-              modes, and repeated virtualized performance coverage. Other ledger
-              entries remain gaps or under verification, and the inventory is
-              not exhaustive until the remaining Community API has been audited
-              surface by surface.
+              Issue 17 and Issue 31–45 cover the audited Community surface: data
+              ownership, columns, headers, menus, selection, customization,
+              editing, row heights, scrolling/RTL, package entrypoints, explicit
+              computed APIs, and executable feature descriptors. The release
+              ledger links each contract to its test evidence.
             </p>
           </div>
         ),
@@ -7088,7 +7055,7 @@ export function getDocsHomeCards() {
     {
       title: "Inovua compatibility",
       summary:
-        "Read the 100% backwards-compatibility contract and inspect verified behavior, remaining gaps, and work still being audited.",
+        "Read the 100% backwards-compatibility contract, completed Community evidence, and explicit Enterprise exclusions.",
       kind: "docs" as const,
       group: "migration" as const,
       slug: "inovua-status",

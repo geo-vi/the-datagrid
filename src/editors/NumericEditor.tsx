@@ -1,0 +1,84 @@
+"use client";
+
+import * as React from "react";
+
+import { Input } from "../components/ui/input";
+import { cn } from "../lib/utils";
+import type { TypeCommunityEditorProps } from "./editorTypes";
+
+export type NumericEditorValue = number | string | null;
+
+export type NumericEditorProps =
+  TypeCommunityEditorProps<NumericEditorValue> & {
+    min?: number;
+    max?: number;
+    step?: number;
+    emptyValue?: number | null;
+  };
+
+function parseNumericValue(value: string): number | null {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export default function NumericEditor({
+  value = null,
+  onChange,
+  onComplete,
+  onCancel,
+  onTabNavigation,
+  onKeyDown,
+  autoFocus,
+  disabled,
+  readOnly,
+  rtl,
+  className,
+  style,
+  editorProps,
+  min,
+  max,
+  step,
+}: NumericEditorProps): React.ReactElement {
+  const [draft, setDraft] = React.useState(value == null ? "" : String(value));
+
+  React.useEffect(() => {
+    setDraft(value == null ? "" : String(value));
+  }, [value]);
+
+  return (
+    <Input
+      {...editorProps}
+      type="number"
+      value={draft}
+      min={min ?? editorProps?.min}
+      max={max ?? editorProps?.max}
+      step={step ?? editorProps?.step}
+      autoFocus={autoFocus}
+      disabled={disabled}
+      readOnly={readOnly}
+      dir={rtl ? "rtl" : "ltr"}
+      className={cn("h-full min-h-8 w-full", editorProps?.className, className)}
+      style={{ ...editorProps?.style, ...style }}
+      data-slot="numeric-editor"
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onChange?.(parseNumericValue(event.target.value), event);
+      }}
+      onKeyDown={(event) => {
+        editorProps?.onKeyDown?.(event);
+        onKeyDown?.(event);
+        if (event.defaultPrevented) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onCancel?.(event);
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          onComplete?.(parseNumericValue(draft), event);
+        } else if (event.key === "Tab") {
+          onTabNavigation?.(event.shiftKey ? -1 : 1, event);
+        }
+      }}
+    />
+  );
+}

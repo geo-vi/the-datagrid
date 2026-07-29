@@ -1,7 +1,13 @@
 import * as React from "react";
 
 import ReactDataGrid, {
+  BoolEditor,
+  BoolFilter,
+  DateEditor,
+  NumericEditor,
+  StringFilter,
   plugins,
+  type CellProps,
   type TypeColumns,
   type TypeComputedProps,
   type TypeDataGridProps,
@@ -10,6 +16,7 @@ import ReactDataGrid, {
   type TypeSortInfo,
 } from "../../src/main";
 import packageManifest from "../../package.json";
+import communityApiManifest from "../../community-api-manifest.json";
 
 type AuditedIssue =
   | "33"
@@ -364,6 +371,7 @@ function Issue37RowContextMenu() {
           );
         }}
         handle={(gridRef) => {
+          if (!gridRef) return;
           (
             window as typeof window & {
               __issue37GridApi?: TypeComputedProps | null;
@@ -864,38 +872,130 @@ function Issue40CellDomProps() {
 }
 
 function Issue41EditStartValue() {
-  const columns = React.useMemo<TypeColumns>(
-    () => [
-      baseColumns[0]!,
-      {
-        ...baseColumns[1]!,
-        editable: true,
-        getEditStartValue: async () => "seeded-by-getEditStartValue",
-      },
-    ],
-    []
-  );
+  const mode =
+    typeof window === "undefined"
+      ? "async-seed"
+      : (new URLSearchParams(window.location.search).get("editingMode") ??
+        "async-seed");
+  const [events, setEvents] = React.useState<string[]>([]);
+  const columns = React.useMemo<TypeColumns>(() => {
+    const nameColumn = {
+      ...baseColumns[1]!,
+      editable: true,
+      ...(mode === "reject"
+        ? {
+            getEditStartValue: async () => {
+              throw new Error("rejected-start-value");
+            },
+          }
+        : {
+            getEditStartValue: async () => {
+              await Promise.resolve();
+              return "seeded-by-getEditStartValue";
+            },
+          }),
+      ...(mode === "inline"
+        ? {
+            rendersInlineEditor: true,
+            render: (cellProps: CellProps) => (
+              <input
+                data-testid={`issue-41-inline-${String(cellProps.rowId)}`}
+                value={String(
+                  cellProps.editProps?.value ?? cellProps.value ?? ""
+                )}
+                onFocus={() => {
+                  void cellProps.editProps?.startEdit();
+                }}
+                onChange={(event) =>
+                  cellProps.editProps?.onChange(event.target.value, event)
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    cellProps.editProps?.onComplete(event.currentTarget.value);
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    cellProps.editProps?.onCancel(event);
+                  }
+                }}
+              />
+            ),
+          }
+        : {}),
+    };
+
+    return [{ ...baseColumns[0]!, editable: false }, nameColumn];
+  }, [mode]);
 
   return (
-    <GridFrame>
-      <CompatibilityGrid
-        idProperty="id"
-        columns={columns}
-        dataSource={baseRows}
-        columnOrder={["id", "name"]}
-        virtualized={false}
-        enableFiltering={false}
-        editable
-      />
-    </GridFrame>
+    <>
+      <output data-testid="issue-41-edit-events">
+        {JSON.stringify(events)}
+      </output>
+      <GridFrame>
+        <CompatibilityGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={baseRows}
+          columnOrder={["id", "name"]}
+          virtualized={false}
+          enableFiltering={false}
+          editable
+          isStartEditKeyPressed={
+            mode === "shortcut" ? ({ event }) => event.key === "F2" : undefined
+          }
+          autoFocusOnEditComplete={mode !== "focus-disabled"}
+          autoFocusOnEditEscape={mode !== "focus-disabled"}
+          onEditStart={(info) =>
+            setEvents((current) => [
+              ...current,
+              `start:${String(info.rowId)}:${String(info.value)}`,
+            ])
+          }
+          onEditValueChange={(info) =>
+            setEvents((current) => [...current, `change:${String(info.value)}`])
+          }
+          onEditStop={(info) =>
+            setEvents((current) => [...current, `stop:${String(info.value)}`])
+          }
+          onEditComplete={(info) =>
+            setEvents((current) => [
+              ...current,
+              `complete:${String(info.value)}`,
+            ])
+          }
+          onEditCancel={(info) =>
+            setEvents((current) => [...current, `cancel:${String(info.rowId)}`])
+          }
+        />
+      </GridFrame>
+    </>
   );
 }
 
 function Issue42PerRowHeights() {
+  const mode =
+    typeof window === "undefined"
+      ? "controlled"
+      : (new URLSearchParams(window.location.search).get("heightMode") ??
+        "controlled");
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [ready, setReady] = React.useState(false);
+  const initialRows = React.useMemo(
+    () =>
+      mode === "virtualized"
+        ? Array.from({ length: 240 }, (_, index) => ({
+            id: `row-${index}`,
+            name: `Person ${index}`,
+            city: `City ${index % 7}`,
+          }))
+        : baseRows,
+    [mode]
+  );
+  const [displayRows, setDisplayRows] = React.useState(initialRows);
   const [rowHeights, setRowHeights] = React.useState<Record<string, number>>({
-    "row-2": 88,
+    ...(mode === "virtualized" ? { "row-0": 40 } : { "row-2": 88 }),
   });
   const [heightEvents, setHeightEvents] = React.useState<unknown[]>([]);
 
@@ -919,23 +1019,62 @@ function Issue42PerRowHeights() {
       >
         Set row 3 height
       </button>
+      <button
+        type="button"
+        data-testid="issue-42-grow-first-row"
+        disabled={!ready}
+        onClick={() => apiRef.current?.setRowHeightById(100, "row-0")}
+      >
+        Grow first row
+      </button>
+      <button
+        type="button"
+        data-testid="issue-42-clear-row-two"
+        disabled={!ready}
+        onClick={() => apiRef.current?.setRowHeightById(null, "row-2")}
+      >
+        Clear row 2 height
+      </button>
+      <button
+        type="button"
+        data-testid="issue-42-reverse-rows"
+        onClick={() => setDisplayRows((current) => [...current].reverse())}
+      >
+        Reverse rows
+      </button>
+      <button
+        type="button"
+        data-testid="issue-42-replace-rows"
+        onClick={() =>
+          setDisplayRows((current) => current.map((row) => ({ ...row })))
+        }
+      >
+        Replace rows
+      </button>
       <output data-testid="issue-42-height-events">
         {JSON.stringify(heightEvents)}
       </output>
-      <GridFrame>
+      <GridFrame className={mode === "virtualized" ? "h-[320px]" : undefined}>
         <CompatibilityGrid
           idProperty="id"
           columns={baseColumns}
-          dataSource={baseRows}
+          dataSource={displayRows}
           columnOrder={["id", "name", "city"]}
-          virtualized={false}
+          virtualized={mode === "virtualized"}
           enableFiltering={false}
           rowHeight={40}
-          rowHeights={rowHeights}
+          {...(mode === "uncontrolled"
+            ? { defaultRowHeights: rowHeights }
+            : { rowHeights })}
           onRowHeightsChange={(next: unknown) => {
             setHeightEvents((current) => [...current, next]);
-            setRowHeights(next as Record<string, number>);
+            if (mode !== "uncontrolled") {
+              setRowHeights(next as Record<string, number>);
+            }
           }}
+          onUpdateRowHeights={(next) =>
+            setHeightEvents((current) => [...current, { indexed: next }])
+          }
           onReady={(ref) => {
             apiRef.current = ref.current;
             setReady(Boolean(ref.current));
@@ -947,42 +1086,136 @@ function Issue42PerRowHeights() {
 }
 
 function Issue43InitialScroll() {
+  const mode =
+    typeof window === "undefined"
+      ? "initial"
+      : (new URLSearchParams(window.location.search).get("scrollMode") ??
+        "initial");
+  const rtl = mode === "rtl" || mode === "mobile-rtl";
+  const nativeScroll = mode === "native";
+  const apiRef = React.useRef<TypeComputedProps | null>(null);
+  const [ready, setReady] = React.useState(false);
+  const [scrollReport, setScrollReport] = React.useState({
+    events: 0,
+    top: 0,
+    left: 0,
+    smoothValue: null as number | null,
+  });
   const columns = React.useMemo<TypeColumns>(
     () =>
-      Array.from({ length: 6 }, (_, index) => ({
+      Array.from({ length: 10 }, (_, index) => ({
         name: `column-${index}`,
         header: `Column ${index}`,
-        width: 180,
+        defaultWidth: 180,
       })),
     []
   );
+  const [columnOrder, setColumnOrder] = React.useState(() =>
+    columns.map((column) => String(column.name))
+  );
   const rows = React.useMemo(
     () =>
-      Array.from({ length: 40 }, (_, rowIndex) =>
-        Object.fromEntries([
-          ["id", `scroll-row-${rowIndex}`],
-          ...columns.map((column, columnIndex) => [
-            String(column.name),
-            `row-${rowIndex}-column-${columnIndex}`,
-          ]),
-        ])
+      Array.from(
+        { length: mode === "performance" ? 10_000 : 120 },
+        (_, rowIndex) =>
+          Object.fromEntries([
+            ["id", `scroll-row-${rowIndex}`],
+            ...columns.map((column, columnIndex) => [
+              String(column.name),
+              `row-${rowIndex}-column-${columnIndex}`,
+            ]),
+          ])
       ),
-    [columns]
+    [columns, mode]
   );
 
   return (
-    <GridFrame className="h-[260px] w-[460px]">
-      <CompatibilityGrid
-        idProperty="id"
-        columns={columns}
-        dataSource={rows}
-        columnOrder={columns.map((column) => String(column.name))}
-        virtualized={false}
-        enableFiltering={false}
-        initialScrollTop={120}
-        initialScrollLeft={90}
-      />
-    </GridFrame>
+    <>
+      <button
+        type="button"
+        data-testid="issue-43-set-scroll"
+        disabled={!ready}
+        onClick={() => {
+          if (!apiRef.current) return;
+          apiRef.current.scrollTop = 360;
+          apiRef.current.scrollLeft = 240;
+        }}
+      >
+        Set public scroll properties
+      </button>
+      <button
+        type="button"
+        data-testid="issue-43-smooth-scroll"
+        disabled={!ready}
+        onClick={() => {
+          apiRef.current
+            ?.getVirtualList()
+            .smoothScrollTo(
+              420,
+              { orientation: "vertical", duration: 80 },
+              (value) =>
+                setScrollReport((current) => ({
+                  ...current,
+                  smoothValue: value,
+                }))
+            );
+        }}
+      >
+        Smooth scroll
+      </button>
+      <output data-testid="issue-43-scroll-report">
+        {JSON.stringify(scrollReport)}
+      </output>
+      <output data-testid="issue-43-column-order">
+        {JSON.stringify(columnOrder)}
+      </output>
+      <GridFrame className="h-[260px] w-[460px]">
+        <CompatibilityGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={rows}
+          columnOrder={columnOrder}
+          onColumnOrderChange={setColumnOrder}
+          virtualized={
+            mode === "virtualized" || mode === "rtl" || mode === "performance"
+          }
+          virtualizeColumns={
+            mode === "virtualized" || mode === "rtl" || mode === "performance"
+          }
+          allowMobileTransform={mode === "mobile-rtl"}
+          enableKeyboardNavigation={mode !== "keyboard"}
+          enableFiltering={false}
+          nativeScroll={nativeScroll}
+          rtl={rtl}
+          scrollProps={{
+            autoHide: false,
+            scrollThumbMargin: 3,
+            scrollThumbWidth: 13,
+            scrollThumbOverWidth: 15,
+            scrollThumbRadius: 0,
+            scrollThumbStyle: {
+              outline: "1px solid var(--tdg-color-ring)",
+            },
+          }}
+          initialScrollTop={mode === "initial" ? 120 : 0}
+          initialScrollLeft={mode === "initial" ? 90 : 0}
+          onScroll={(event) => {
+            const top = Math.round(event.currentTarget.scrollTop);
+            const left = Math.round(apiRef.current?.getScrollLeft?.() ?? 0);
+            setScrollReport((current) => ({
+              ...current,
+              events: current.events + 1,
+              top,
+              left,
+            }));
+          }}
+          onReady={(ref) => {
+            apiRef.current = ref.current;
+            setReady(Boolean(ref.current));
+          }}
+        />
+      </GridFrame>
+    </>
   );
 }
 
@@ -1018,6 +1251,20 @@ function toPackageArtifactKey(target: string) {
 
 function Issue44PackageBrowserConsumer() {
   const [results, setResults] = React.useState<PackageProbeResult | null>(null);
+  const [boolValue, setBoolValue] = React.useState<boolean | null>(false);
+  const [dateValue, setDateValue] = React.useState<string | Date | null>(null);
+  const [numericValue, setNumericValue] = React.useState<
+    string | number | null
+  >(1);
+  const [completedNumericValue, setCompletedNumericValue] = React.useState<
+    string | number | null
+  >(null);
+  const [stringFilterValue, setStringFilterValue] = React.useState<
+    string | null
+  >(null);
+  const [boolFilterValue, setBoolFilterValue] = React.useState<boolean | null>(
+    null
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -1035,6 +1282,10 @@ function Issue44PackageBrowserConsumer() {
           "./NumericEditor",
           "./StringFilter",
           "./BoolFilter",
+          "./DateFilter",
+          "./NumberFilter",
+          "./SelectFilter",
+          "./types",
         ];
         const stylesheetEntries = [
           "./index.css",
@@ -1100,9 +1351,49 @@ function Issue44PackageBrowserConsumer() {
   }, []);
 
   return (
-    <output data-testid="issue-44-package-results">
-      {results == null ? "pending" : JSON.stringify(results)}
-    </output>
+    <>
+      <output data-testid="issue-44-package-results">
+        {results == null ? "pending" : JSON.stringify(results)}
+      </output>
+      <div className="grid max-w-lg gap-2">
+        <BoolEditor
+          value={boolValue}
+          onChange={setBoolValue}
+          autoFocus={false}
+        />
+        <output data-testid="issue-44-bool-editor-value">
+          {String(boolValue)}
+        </output>
+        <DateEditor value={dateValue} onChange={setDateValue} />
+        <output data-testid="issue-44-date-editor-value">
+          {dateValue instanceof Date
+            ? dateValue.toISOString()
+            : String(dateValue)}
+        </output>
+        <NumericEditor
+          value={numericValue}
+          onChange={setNumericValue}
+          onComplete={setCompletedNumericValue}
+        />
+        <output data-testid="issue-44-numeric-editor-value">
+          {String(numericValue)}
+        </output>
+        <output data-testid="issue-44-numeric-complete-value">
+          {String(completedNumericValue)}
+        </output>
+        <StringFilter
+          value={stringFilterValue}
+          onChange={setStringFilterValue}
+        />
+        <output data-testid="issue-44-string-filter-value">
+          {String(stringFilterValue)}
+        </output>
+        <BoolFilter value={boolFilterValue} onChange={setBoolFilterValue} />
+        <output data-testid="issue-44-bool-filter-value">
+          {String(boolFilterValue)}
+        </output>
+      </div>
+    </>
   );
 }
 
@@ -1110,6 +1401,9 @@ function Issue45UnknownComputedMethod() {
   const apiRef = React.useRef<TypeComputedProps | null>(null);
   const [ready, setReady] = React.useState(false);
   const [result, setResult] = React.useState("not-run");
+  const [contractErrors, setContractErrors] = React.useState<string[]>([
+    "pending",
+  ]);
 
   return (
     <>
@@ -1124,6 +1418,9 @@ function Issue45UnknownComputedMethod() {
               : null
           )
         )}
+      </output>
+      <output data-testid="issue-45-contract-errors">
+        {JSON.stringify(contractErrors)}
       </output>
       <button
         type="button"
@@ -1162,7 +1459,41 @@ function Issue45UnknownComputedMethod() {
           enableFiltering={false}
           onReady={(ref) => {
             apiRef.current = ref.current;
-            setReady(Boolean(ref.current));
+            const api = ref.current;
+            if (!api) return;
+
+            const errors = communityApiManifest.computedMethods
+              .filter(
+                (method) =>
+                  typeof api[method as keyof typeof api] !== "function"
+              )
+              .map((method) => `computed:${method}`);
+            const virtualList = api.getVirtualList();
+            errors.push(
+              ...communityApiManifest.virtualListMethods
+                .filter(
+                  (method) =>
+                    typeof virtualList[method as keyof typeof virtualList] !==
+                    "function"
+                )
+                .map((method) => `virtual-list:${method}`)
+            );
+            for (const plugin of plugins) {
+              if (
+                typeof plugin.isEnabled !== "function" ||
+                typeof plugin.getState !== "function"
+              ) {
+                errors.push(`plugin:${plugin.name}:not-executable`);
+                continue;
+              }
+              try {
+                plugin.getState(api);
+              } catch {
+                errors.push(`plugin:${plugin.name}:state-error`);
+              }
+            }
+            setContractErrors(errors);
+            setReady(true);
           }}
         />
       </GridFrame>

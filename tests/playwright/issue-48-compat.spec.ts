@@ -337,6 +337,7 @@ test.describe("issue #48 onDidMount compatibility", () => {
     ).length;
 
     await scope.getByTestId("did-mount-rerender").click();
+    await expect(scope.getByTestId("handle-cleanup-count")).not.toHaveText("0");
     await page.waitForTimeout(100);
     const rerendered = await readMountEvents(output);
     expect(rerendered.filter((event) => event.type === "didMount").length).toBe(
@@ -389,6 +390,9 @@ test.describe("issue #48 onDidMount compatibility", () => {
     expect(events.every((event) => event.apiLive && event.domConnected)).toBe(
       true
     );
+    await expect(scope.getByTestId("zero-width-ready-count")).toHaveText("0");
+    await scope.getByTestId("reveal-zero-width-grid").click();
+    await expect(scope.getByTestId("zero-width-ready-count")).toHaveText("1");
   });
 
   test("fires before an async data source resolves and does not repeat on load", async ({

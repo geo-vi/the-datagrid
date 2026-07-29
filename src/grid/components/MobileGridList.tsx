@@ -10,6 +10,7 @@ import type {
   TypeSortInfo,
 } from "../../types";
 import { Button } from "../../components/ui/button";
+import { ScrollArea } from "../../components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -69,6 +70,11 @@ type MobileGridListProps = {
   authoritativeResultCount?: number;
   onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
+  scrollRef: React.MutableRefObject<HTMLDivElement | null>;
+  nativeScroll: boolean;
+  scrollProps: NonNullable<TypeDataGridProps["scrollProps"]>;
+  rtl: boolean;
+  onScroll?: TypeDataGridProps["onScroll"];
   onRowClick: (
     id: string,
     data: Record<string, unknown>,
@@ -119,6 +125,11 @@ export function MobileGridList({
   authoritativeResultCount,
   onSortInfoChange,
   onFilteredRowsCountChange,
+  scrollRef,
+  nativeScroll,
+  scrollProps,
+  rtl,
+  onScroll,
   onRowClick,
   onRowContextMenu,
 }: MobileGridListProps): React.ReactElement {
@@ -130,7 +141,6 @@ export function MobileGridList({
     defaultSortDirection
   );
   const deferredQuery = useDeferredValueCompat(committedQuery);
-  const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -584,11 +594,19 @@ export function MobileGridList({
         ) : null}
       </div>
 
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto"
-        role="list"
-        aria-label="Grid results"
+      <ScrollArea
+        className="min-h-0 flex-1"
+        viewportRef={scrollRef}
+        viewportClassName="tdg-body-viewport min-h-0 flex-1"
+        nativeScroll={nativeScroll}
+        scrollProps={scrollProps}
+        dir={rtl ? "rtl" : "ltr"}
+        viewportProps={{
+          dir: rtl ? "rtl" : "ltr",
+          role: "list",
+          "aria-label": "Grid results",
+          onScroll,
+        }}
       >
         {filteredRows.length === 0 ? (
           loading || emptyContent == null ? null : (
@@ -850,7 +868,7 @@ export function MobileGridList({
             })}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

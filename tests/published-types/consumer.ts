@@ -39,6 +39,32 @@ import TextInput, {
   type TextInputProps,
   type TypeTextInputProps,
 } from "@geovi/the-datagrid/packages/TextInput";
+import BoolEditor, {
+  type BoolEditorProps,
+} from "@geovi/the-datagrid/BoolEditor";
+import DateEditor, {
+  type DateEditorProps,
+} from "@geovi/the-datagrid/DateEditor";
+import NumericEditor, {
+  type NumericEditorProps,
+} from "@geovi/the-datagrid/NumericEditor";
+import StringFilter, {
+  type StringFilterProps,
+} from "@geovi/the-datagrid/StringFilter";
+import BoolFilter, {
+  type BoolFilterProps,
+} from "@geovi/the-datagrid/BoolFilter";
+import DateFilter from "@geovi/the-datagrid/DateFilter";
+import NumberFilter from "@geovi/the-datagrid/NumberFilter";
+import SelectFilter from "@geovi/the-datagrid/SelectFilter";
+import type {
+  IColumn as TypesIColumn,
+  TypeDataGridProps as TypesDataGridProps,
+} from "@geovi/the-datagrid/types";
+import type { TypeColumn as DeepTypeColumn } from "@geovi/the-datagrid/types/TypeColumn";
+import type { TypeDataSource as DeepTypeDataSource } from "@geovi/the-datagrid/types/TypeDataSource";
+import type { TypeFilterValue as DeepTypeFilterValue } from "@geovi/the-datagrid/types/TypeFilterValue";
+import type { TypeSortInfo as DeepTypeSortInfo } from "@geovi/the-datagrid/types/TypeSortInfo";
 import { createElement, type ComponentProps } from "react";
 
 const columns: TypeColumns = [{ name: "id", searchable: true }];
@@ -54,6 +80,54 @@ export const gridProps = {
     void result;
   },
 } satisfies TypeDataGridProps;
+
+export const communityModuleTypes = {
+  BoolEditor,
+  DateEditor,
+  NumericEditor,
+  StringFilter,
+  BoolFilter,
+  DateFilter,
+  NumberFilter,
+  SelectFilter,
+};
+
+export const boolEditorProps = {
+  value: true,
+  onChange(value) {
+    const next: boolean | null = value;
+    void next;
+  },
+} satisfies BoolEditorProps;
+
+export const dateEditorProps = {
+  value: "2026-07-29",
+} satisfies DateEditorProps;
+
+export const numericEditorProps = {
+  value: 42,
+  min: 0,
+} satisfies NumericEditorProps;
+
+export const stringFilterProps = {
+  filterValue: {
+    name: "name",
+    operator: "contains",
+    type: "string",
+    value: "Ada",
+  },
+} satisfies StringFilterProps;
+
+export const boolFilterProps = {
+  value: true,
+} satisfies BoolFilterProps;
+
+export type PublishedTypesIColumn = TypesIColumn;
+export type PublishedTypesDataGridProps = TypesDataGridProps;
+export type PublishedDeepTypeColumn = DeepTypeColumn;
+export type PublishedDeepTypeDataSource = DeepTypeDataSource;
+export type PublishedDeepTypeFilterValue = DeepTypeFilterValue;
+export type PublishedDeepTypeSortInfo = DeepTypeSortInfo;
 
 export const remoteArgs: TypeDataSourceArgs = {
   sortInfo: null,

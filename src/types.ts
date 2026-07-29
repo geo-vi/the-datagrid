@@ -216,6 +216,31 @@ export type TypeColumnRenderArgs = {
   disabledRow?: boolean | null;
 };
 
+export type TypeInlineEditorProps = {
+  inEdit: boolean;
+  value: any;
+  startEdit: (
+    editValue?: any,
+    errBack?: (...args: any[]) => any
+  ) => Promise<any>;
+  onClick: (event: { stopPropagation: () => void }) => void;
+  onChange: (value: any, event?: unknown) => void;
+  onComplete: (valueOrEvent?: any) => void;
+  onCancel: (event?: unknown) => void;
+  onEnterNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  onTabNavigation: (
+    complete?: boolean,
+    direction?: number,
+    event?: unknown
+  ) => void;
+  gotoNext: () => unknown;
+  gotoPrev: () => unknown;
+};
+
 export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
@@ -232,6 +257,8 @@ export type CellProps = TypeColumnRenderArgs & {
   rtl?: boolean;
   nativeScroll?: boolean;
   editorProps?: Record<string, unknown>;
+  rendersInlineEditor?: boolean | ((cellProps: CellProps) => boolean);
+  editProps?: TypeInlineEditorProps;
   [key: string]: any;
 };
 
@@ -243,6 +270,23 @@ export type TypeColumnRenderFn =
 
 export type TypeActiveCell = [rowIndex: number, columnIndex: number] | null;
 export type TypeCellSelection = { [cellKey: string]: boolean } | null;
+export type TypeRowHeights = { [rowId: string]: number };
+export type TypeScrollProps = {
+  /** Hides custom tracks until the viewport is hovered or scrolled. */
+  autoHide?: boolean;
+  /** Space between the custom thumb and the viewport edge. */
+  scrollThumbMargin?: number;
+  /** Resting custom thumb thickness in pixels. */
+  scrollThumbWidth?: number;
+  /** Hover/drag custom thumb thickness in pixels. */
+  scrollThumbOverWidth?: number;
+  /** Custom thumb corner radius. */
+  scrollThumbRadius?: number | string;
+  /** Inline custom-track overrides. */
+  scrollTrackStyle?: React.CSSProperties;
+  /** Inline custom-thumb overrides. */
+  scrollThumbStyle?: React.CSSProperties;
+};
 
 export type TypeCellDOMProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
   [key: `data-${string}`]: unknown;
@@ -318,6 +362,7 @@ export type TypeColumnEditorCell = {
   cancelEdit: () => void;
   completeEdit: (value?: any) => void;
   getCurrentEditValue: () => any;
+  getEditStartValue: (cellProps?: CellProps) => Promise<any>;
   gotoNextEditor: () => unknown;
   gotoPrevEditor: () => unknown;
   onEditorEnterNavigation: (
@@ -364,6 +409,16 @@ export type TypeColumnEditorProps = {
   gotoNext: () => unknown;
   gotoPrev: () => unknown;
   onClick: (event: { stopPropagation: () => void }) => void;
+};
+
+export type TypeStartEditKeyArgs = {
+  event: React.KeyboardEvent<HTMLDivElement>;
+  data: any;
+  index: number;
+  activeItem: any;
+  activeIndex: number;
+  handle: React.MutableRefObject<TypeComputedProps | null>;
+  rowSelectionEnabled: boolean;
 };
 
 export type TypeColumnResizeInfo = {
@@ -536,6 +591,12 @@ export interface IColumn {
       ) => boolean | void | Promise<boolean | void>);
   editor?: React.ElementType<any> | React.ReactElement<any>;
   editorProps?: Record<string, unknown>;
+  getEditStartValue?: (value: any, cellProps: CellProps) => any | Promise<any>;
+  /**
+   * Keeps a consumer-rendered editor mounted through `column.render`.
+   * The render callback receives lifecycle-aware `cellProps.editProps`.
+   */
+  rendersInlineEditor?: boolean | ((cellRenderObject: CellProps) => boolean);
   renderEditor?: (
     editorProps: TypeColumnEditorProps,
     cellProps: CellProps,
@@ -894,13 +955,6 @@ export type TypeComputedVirtualList = {
 };
 
 export type TypeComputedProps = {
-  /**
-   * Inovua exposes a very broad computed-props object.
-   * Keep this type intentionally open so legacy property access continues
-   * to type-check even when our runtime only implements a compat subset.
-   */
-  [key: string]: any;
-
   reload: () => void;
 
   initialProps?: unknown;
@@ -961,6 +1015,12 @@ export type TypeComputedProps = {
   cancelEdit?: (args?: TypeCancelEditArgs) => void;
   currentEditCompletePromise?: React.MutableRefObject<Promise<unknown>>;
 
+  computedRowHeights?: TypeRowHeights;
+  setRowHeights?: (rowHeights: TypeRowHeights) => void;
+  setRowHeightById: (rowHeight: number | null, id: string | number) => void;
+  getRowHeightById: (id: string | number) => number;
+  getRowHeight?: (rowIndex: number) => number;
+
   computedColumnOrder?: string[] | undefined;
   getColumnOrder: () => string[];
   setColumnOrder: (columnOrder: string[]) => void;
@@ -974,6 +1034,7 @@ export type TypeComputedProps = {
     info: TypeColumnResizeInfo[],
     context?: TypeColumnResizeContext
   ) => void;
+  computedOnColumnResize?: (args: { index: number; diff: number }) => void;
   setColumnsSizesAuto?: (config?: {
     columnIds?: string[];
     skipHeader?: boolean;
@@ -981,6 +1042,8 @@ export type TypeComputedProps = {
   }) => void;
   setColumnSizesToFit?: () => void;
   setColumnSizeAuto?: (id: string, skipHeader?: boolean) => void;
+  reservedViewportWidth?: number;
+  setReservedViewportWidth?: React.Dispatch<React.SetStateAction<number>>;
   columnsMap?: TypeComputedColumnsMap;
   visibleColumnsMap?: TypeComputedColumnsMap;
   allColumns?: TypeComputedColumn[];
@@ -1043,8 +1106,10 @@ export type TypeComputedProps = {
   computedShowHeader?: boolean;
   setShowHeader?: (value: React.SetStateAction<boolean>) => void;
 
+  computedShowHoverRows?: boolean;
   computedShowZebraRows: boolean;
   setShowZebraRows: (value: React.SetStateAction<boolean>) => void;
+  computedShowEmptyRows?: boolean;
 
   showHorizontalCellBorders?: boolean;
   showVerticalCellBorders?: boolean;
@@ -1057,6 +1122,8 @@ export type TypeComputedProps = {
   computedPagination?: boolean;
   computedLivePagination?: boolean;
   remoteSort?: boolean;
+  loadNextPage?: () => void;
+  paginationCount?: number;
 
   getItemId?: (item: object) => unknown;
   getItemAt?: (index: number) => unknown;
@@ -1086,6 +1153,7 @@ export type TypeComputedProps = {
 
   computedActiveIndex?: number;
   computedLastActiveIndex?: number | null;
+  doSetLastActiveIndex?: (activeIndex: number | null) => void;
   computedActiveItem?: unknown;
   computedHasRowNavigation?: boolean;
   computedFocused?: boolean;
@@ -1109,9 +1177,13 @@ export type TypeComputedProps = {
   incrementScrollLeft?: (scrollLeft: number) => void;
   getScrollLeft?: () => number;
   getScrollLeftMax?: () => number;
+  /** Logical horizontal offset; writable in both LTR and RTL mode. */
+  scrollLeft?: number;
   setScrollTop?: (scrollTop: number) => void;
   incrementScrollTop?: (scrollTop: number) => void;
   getScrollTop?: () => number;
+  /** Vertical offset; writable in both native and custom-scrollbar modes. */
+  scrollTop?: number;
   scrollToIndex?: TypeScrollToIndex;
   scrollToId?: (
     id: string | number,
@@ -1151,6 +1223,10 @@ export type TypeComputedProps = {
     vertical: boolean;
     horizontal: boolean;
   };
+  virtualizeColumns?: boolean;
+  computedShowHeaderBorderRight?: boolean;
+  silentSetData?: React.Dispatch<React.SetStateAction<any[]>>;
+  setOriginalData?: React.Dispatch<React.SetStateAction<any[]>>;
 
   i18n?: (key: string, defaultValue?: string) => string | React.ReactNode;
   columnFilterContextMenuProps?: Record<string, unknown> | null;
@@ -1403,6 +1479,19 @@ export type TypeDataGridProps = {
   virtualized?: boolean;
 
   /**
+   * Uses the browser's visible scrollbars when true. The default false mode
+   * keeps native overflow semantics while rendering shadcn-compatible custom
+   * tracks and thumbs.
+   */
+  nativeScroll?: boolean;
+  scrollProps?: TypeScrollProps;
+  initialScrollTop?: number;
+  initialScrollLeft?: number;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
+  /** Mirrors horizontal layout and exposes logical scroll offsets. */
+  rtl?: boolean;
+
+  /**
    * Enables horizontal column virtualization when the grid has at least this
    * many visible columns. The boundary is inclusive and defaults to `15`.
    * Column virtualization requires a fixed numeric `rowHeight`.
@@ -1441,6 +1530,13 @@ export type TypeDataGridProps = {
   showColumnMenuTool?: boolean;
 
   rowHeight?: number | ((rowIndex: number) => number) | null;
+  rowHeights?: TypeRowHeights;
+  defaultRowHeights?: TypeRowHeights;
+  onRowHeightsChange?: (rowHeights: TypeRowHeights) => void;
+  onUpdateRowHeights?: (
+    heights: { [rowIndex: number]: number },
+    computedProps: TypeComputedProps
+  ) => void;
   minRowHeight?: number;
   maxRowHeight?: number;
   rowStyle?: TypeRowStyle;
@@ -1463,6 +1559,9 @@ export type TypeDataGridProps = {
 
   editable?: boolean;
   editStartEvent?: string;
+  isStartEditKeyPressed?: (args: TypeStartEditKeyArgs) => boolean;
+  autoFocusOnEditComplete?: boolean;
+  autoFocusOnEditEscape?: boolean;
   onEditStart?: (editInfo: TypeEditInfo) => void;
   onEditStop?: (editInfo: TypeEditInfo) => void;
   onEditComplete?: (editInfo: TypeEditInfo) => void | Promise<unknown>;
@@ -1555,7 +1654,7 @@ export type TypeDataGridProps = {
     computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
   ) => void;
   handle?: (
-    gridApiRef: React.MutableRefObject<TypeComputedProps | null>
+    gridApiRef: React.MutableRefObject<TypeComputedProps | null> | null
   ) => void;
 
   className?: string;
@@ -1563,4 +1662,18 @@ export type TypeDataGridProps = {
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onFocus?: React.FocusEventHandler<HTMLDivElement>;
   onBlur?: React.FocusEventHandler<HTMLDivElement>;
+};
+
+/**
+ * Executable descriptor for an internally implemented Community feature.
+ *
+ * the-datagrid does not require consumers to install plugins. These
+ * descriptors expose the equivalent built-in behavior for compatibility and
+ * diagnostics without pretending that an empty placeholder is functional.
+ */
+export type TypeCommunityPlugin = {
+  readonly name: "sortable-columns" | "filters" | "menus" | "cell-selection";
+  readonly methods: readonly (keyof TypeComputedProps)[];
+  isEnabled: (props: Readonly<TypeDataGridProps>) => boolean;
+  getState: (computedProps: Readonly<TypeComputedProps>) => unknown;
 };

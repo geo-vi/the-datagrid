@@ -154,10 +154,15 @@ function injectLibraryCssEntry() {
       for (const item of Object.values(bundle)) {
         if (item?.type !== "chunk" || item.isEntry !== true) continue;
 
+        const isCommonJsEntry = item.fileName.endsWith(".cjs");
         const cssFileName = cssEntryByJsEntry[item.fileName];
         const hasCssAsset =
           cssFileName != null && bundle[cssFileName]?.type === "asset";
-        if (!hasCssAsset && !clientEntriesWithoutCss.has(item.fileName)) {
+        if (
+          !isCommonJsEntry &&
+          !hasCssAsset &&
+          !clientEntriesWithoutCss.has(item.fileName)
+        ) {
           continue;
         }
 
@@ -167,7 +172,7 @@ function injectLibraryCssEntry() {
           ""
         );
 
-        if (!hasCssAsset || !cssFileName) {
+        if (isCommonJsEntry || !hasCssAsset || !cssFileName) {
           item.code = `"use client";\n${withoutClientDirective}`;
           continue;
         }
@@ -258,11 +263,54 @@ export default defineConfig(({ command, mode }) => {
     command === "build" && mode === "library-components";
   const isTextInputLibraryBuild =
     command === "build" && mode === "library-text-input";
+  const communityLibraryEntries = {
+    "library-bool-editor": {
+      name: "BoolEditor",
+      source: "./src/editors/BoolEditor.tsx",
+    },
+    "library-date-editor": {
+      name: "DateEditor",
+      source: "./src/editors/DateEditor.tsx",
+    },
+    "library-numeric-editor": {
+      name: "NumericEditor",
+      source: "./src/editors/NumericEditor.tsx",
+    },
+    "library-string-filter": {
+      name: "StringFilter",
+      source: "./src/filters/editors/StringFilter.tsx",
+    },
+    "library-bool-filter": {
+      name: "BoolFilter",
+      source: "./src/filters/editors/BoolFilter.tsx",
+    },
+    "library-date-filter": {
+      name: "DateFilter",
+      source: "./src/filters/editors/DateFilter.tsx",
+    },
+    "library-number-filter": {
+      name: "NumberFilter",
+      source: "./src/filters/editors/NumberFilter.tsx",
+    },
+    "library-select-filter": {
+      name: "SelectFilter",
+      source: "./src/filters/editors/SelectFilter.tsx",
+    },
+    "library-community-types": {
+      name: "types/index",
+      source: "./src/types/index.ts",
+    },
+  } as const;
+  const communityLibraryEntry =
+    communityLibraryEntries[mode as keyof typeof communityLibraryEntries];
+  const isCommunityLibraryBuild =
+    command === "build" && communityLibraryEntry != null;
   const isSupplementalLibraryBuild =
     isSearchLibraryBuild ||
     isColumnVisibilityLibraryBuild ||
     isComponentsLibraryBuild ||
-    isTextInputLibraryBuild;
+    isTextInputLibraryBuild ||
+    isCommunityLibraryBuild;
   const isCoreDependentSupplementalBuild =
     isSearchLibraryBuild || isColumnVisibilityLibraryBuild;
   const resolveAlias = {
@@ -319,7 +367,7 @@ export default defineConfig(({ command, mode }) => {
         ? "components"
         : isTextInputLibraryBuild
           ? "packages/TextInput/index"
-          : "index";
+          : (communityLibraryEntry?.name ?? "index");
   const coreLibraryEntry = fileURLToPath(
     new URL("./src/main.ts", import.meta.url)
   );
@@ -343,7 +391,11 @@ export default defineConfig(({ command, mode }) => {
           ? fileURLToPath(
               new URL("./src/packages/TextInput/index.tsx", import.meta.url)
             )
-          : coreLibraryEntry;
+          : communityLibraryEntry
+            ? fileURLToPath(
+                new URL(communityLibraryEntry.source, import.meta.url)
+              )
+            : coreLibraryEntry;
   const externalDependencies = new Set([
     REACT_EXTERNAL_ID,
     REACT_DOM_EXTERNAL_ID,
@@ -397,8 +449,15 @@ export default defineConfig(({ command, mode }) => {
         entry: {
           [libraryEntryName]: libraryEntry,
         },
-        formats: ["es"],
-        fileName: (_format, entryName) => `${entryName}.js`,
+        formats:
+          isSearchLibraryBuild ||
+          isColumnVisibilityLibraryBuild ||
+          isComponentsLibraryBuild ||
+          isTextInputLibraryBuild
+            ? ["es"]
+            : ["es", "cjs"],
+        fileName: (format, entryName) =>
+          `${entryName}.${format === "cjs" ? "cjs" : "js"}`,
         cssFileName: isTextInputLibraryBuild
           ? "packages/TextInput/style"
           : libraryEntryName,

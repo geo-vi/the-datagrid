@@ -96,6 +96,14 @@ const topLevelJavaScript = fs
 if (
   JSON.stringify(topLevelJavaScript) !==
   JSON.stringify([
+    "BoolEditor.js",
+    "BoolFilter.js",
+    "DateEditor.js",
+    "DateFilter.js",
+    "NumberFilter.js",
+    "NumericEditor.js",
+    "SelectFilter.js",
+    "StringFilter.js",
     "column-visibility.js",
     "components.js",
     "index.js",

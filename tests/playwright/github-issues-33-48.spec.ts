@@ -44,8 +44,8 @@ async function renderedRowHeight(row: Locator) {
   return Math.round((await row.boundingBox())?.height ?? Number.NaN);
 }
 
-// Known parity debt: the remaining fixme tests for #36 and #41–#46
-// record unimplemented behavior. This PR does not fix that functionality.
+// Issues #41–#46 are release-gate contracts. Each scenario remains executable
+// so the umbrella audit cannot be closed by types or documentation alone.
 test("GitHub issue #33: controlled sortInfo does not reorder a local array", async ({
   page,
 }) => {
@@ -1409,7 +1409,7 @@ test("GitHub issue #40: 10k dynamic spans remain virtualized and within producti
   expect(metrics.mountedCells).toBeLessThan(180);
 });
 
-test.fixme("GitHub issue #41: async getEditStartValue seeds the inline editor", async ({
+test("GitHub issue #41: async getEditStartValue seeds the inline editor", async ({
   page,
 }) => {
   const scope = await openIssue(page, 41);
@@ -1423,9 +1423,72 @@ test.fixme("GitHub issue #41: async getEditStartValue seeds the inline editor", 
   await expect(nameCell.locator('[data-slot="cell-editor"]')).toHaveValue(
     "seeded-by-getEditStartValue"
   );
+  await expect(scope.getByTestId("issue-41-edit-events")).toContainText(
+    "start:row-1:seeded-by-getEditStartValue"
+  );
 });
 
-test.fixme("GitHub issue #42: rowHeights applies a stable per-row override map", async ({
+test("GitHub issue #41: default and custom edit shortcuts use the guarded start-value lifecycle", async ({
+  page,
+}) => {
+  let scope = await openIssue(page, 41);
+  let surface = scope.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  await page.keyboard.press("Control+e");
+  await expect(
+    scope
+      .locator('[data-slot="grid-row"][data-row-id="row-1"]')
+      .locator('[data-slot="cell-editor"]')
+  ).toHaveValue("seeded-by-getEditStartValue");
+
+  scope = await openIssue(page, 41, "editingMode=shortcut");
+  surface = scope.locator('[data-slot="grid-surface"]');
+  await surface.focus();
+  await page.keyboard.press("F2");
+  await expect(
+    scope
+      .locator('[data-slot="grid-row"][data-row-id="row-1"]')
+      .locator('[data-slot="cell-editor"]')
+  ).toHaveValue("seeded-by-getEditStartValue");
+});
+
+test("GitHub issue #41: rejected start values do not leak an editor or lifecycle callback", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=reject");
+  const nameCell = scope
+    .locator(
+      '[data-slot="grid-row"][data-row-id="row-1"] [data-column-id="name"]'
+    )
+    .first();
+
+  await nameCell.dblclick();
+  await expect(nameCell.locator('[data-slot="cell-editor"]')).toHaveCount(0);
+  await expect(scope.getByTestId("issue-41-edit-events")).toHaveText("[]");
+});
+
+test("GitHub issue #41: an always-mounted inline editor participates in start, change, and complete", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=inline");
+  const input = scope.getByTestId("issue-41-inline-row-1");
+  const cell = input.locator("xpath=ancestor::*[@data-slot='grid-cell']");
+
+  await expect(input).toHaveValue("Ada Lovelace");
+  await input.focus();
+  await expect(cell).toHaveAttribute("data-editing", "true");
+  await expect(input).toHaveValue("seeded-by-getEditStartValue");
+  await input.fill("Inline Ada");
+  await input.press("Enter");
+
+  const events = scope.getByTestId("issue-41-edit-events");
+  await expect(events).toContainText("start:row-1:seeded-by-getEditStartValue");
+  await expect(events).toContainText("change:Inline Ada");
+  await expect(events).toContainText("stop:Inline Ada");
+  await expect(events).toContainText("complete:Inline Ada");
+});
+
+test("GitHub issue #42: rowHeights applies a stable per-row override map", async ({
   page,
 }) => {
   const scope = await openIssue(page, 42);
@@ -1449,7 +1512,76 @@ test.fixme("GitHub issue #42: rowHeights applies a stable per-row override map",
   );
 });
 
-test.fixme("GitHub issue #43: initialScrollTop and initialScrollLeft initialize the viewport", async ({
+test("GitHub issue #42: defaultRowHeights is uncontrolled and imperative updates deduplicate", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 42, "heightMode=uncontrolled");
+  const rowTwo = scope.locator('[data-slot="grid-row"][data-row-id="row-2"]');
+  const rowThree = scope.locator('[data-slot="grid-row"][data-row-id="row-3"]');
+  const events = scope.getByTestId("issue-42-height-events");
+
+  await expect.poll(() => renderedRowHeight(rowTwo)).toBe(88);
+  await scope.getByTestId("issue-42-set-row-height").click();
+  await expect.poll(() => renderedRowHeight(rowThree)).toBe(96);
+  const eventCountAfterFirstUpdate = (
+    JSON.parse((await events.textContent()) || "[]") as unknown[]
+  ).length;
+  await scope.getByTestId("issue-42-set-row-height").click();
+  await expect
+    .poll(async () => {
+      const parsed = JSON.parse((await events.textContent()) || "[]");
+      return Array.isArray(parsed) ? parsed.length : -1;
+    })
+    .toBe(eventCountAfterFirstUpdate);
+
+  await scope.getByTestId("issue-42-clear-row-two").click();
+  await expect.poll(() => renderedRowHeight(rowTwo)).toBe(40);
+});
+
+test("GitHub issue #42: stable row IDs preserve overrides through reorder and replacement", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 42);
+  const rowTwo = scope.locator('[data-slot="grid-row"][data-row-id="row-2"]');
+
+  await expect.poll(() => renderedRowHeight(rowTwo)).toBe(88);
+  await scope.getByTestId("issue-42-reverse-rows").click();
+  await expect(rowTwo).toHaveAttribute("data-row-index", "1");
+  await expect.poll(() => renderedRowHeight(rowTwo)).toBe(88);
+  await scope.getByTestId("issue-42-replace-rows").click();
+  await expect.poll(() => renderedRowHeight(rowTwo)).toBe(88);
+});
+
+test("GitHub issue #42: virtual offsets and scroll anchoring update when a preceding row grows", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 42, "heightMode=virtualized");
+  const viewport = scope.locator(".tdg-body-viewport");
+  await viewport.evaluate((element) => {
+    element.scrollTop = 3200;
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(3000);
+  const before = await viewport.evaluate((element) => element.scrollTop);
+
+  await scope.getByTestId("issue-42-grow-first-row").click();
+  await expect
+    .poll(async () =>
+      viewport.evaluate(
+        (element, initialScrollTop) => element.scrollTop - initialScrollTop,
+        before
+      )
+    )
+    .toBe(60);
+  await expect
+    .poll(async () =>
+      scope.locator('[data-slot="grid-row"][data-row-index]').count()
+    )
+    .toBeLessThan(25);
+});
+
+test("GitHub issue #43: initialScrollTop and initialScrollLeft initialize the viewport", async ({
   page,
 }) => {
   const scope = await openIssue(page, 43);
@@ -1457,7 +1589,7 @@ test.fixme("GitHub issue #43: initialScrollTop and initialScrollLeft initialize 
 
   await expect(viewport).toBeVisible();
   await expect
-    .poll(() =>
+    .poll(async () =>
       viewport.evaluate((element) => ({
         top: element.scrollTop,
         left: element.scrollLeft,
@@ -1466,7 +1598,296 @@ test.fixme("GitHub issue #43: initialScrollTop and initialScrollLeft initialize 
     .toEqual({ top: 120, left: 90 });
 });
 
-test.fixme("GitHub issue #44: a browser consumer loads documented module and stylesheet exports", async ({
+test("GitHub issue #43: native and custom scrollbars share wheel and callback behavior", async ({
+  page,
+}) => {
+  let scope = await openIssue(page, 43, "scrollMode=custom");
+  let viewport = scope.locator(".tdg-body-viewport");
+  const customScrollbars = scope.locator('[data-slot="scroll-area-scrollbar"]');
+
+  await expect(scope.locator(".tdg-root")).toHaveAttribute(
+    "data-native-scroll",
+    "false"
+  );
+  await expect(customScrollbars).toHaveCount(2);
+  await expect(customScrollbars.first()).toHaveCSS("width", "13px");
+  await viewport.hover();
+  await page.mouse.wheel(0, 280);
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(
+          (await scope.getByTestId("issue-43-scroll-report").textContent()) ||
+            "null"
+        ).events
+    )
+    .toBeGreaterThan(0);
+
+  const horizontalThumb = customScrollbars
+    .nth(1)
+    .locator('[data-slot="scroll-area-thumb"]');
+  const thumbBox = await horizontalThumb.boundingBox();
+  expect(thumbBox).not.toBeNull();
+  await page.mouse.move(
+    (thumbBox?.x ?? 0) + (thumbBox?.width ?? 0) / 2,
+    (thumbBox?.y ?? 0) + (thumbBox?.height ?? 0) / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    (thumbBox?.x ?? 0) + (thumbBox?.width ?? 0) / 2 + 90,
+    (thumbBox?.y ?? 0) + (thumbBox?.height ?? 0) / 2,
+    { steps: 5 }
+  );
+  await page.mouse.up();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0);
+
+  scope = await openIssue(page, 43, "scrollMode=native");
+  viewport = scope.locator(".tdg-body-viewport");
+  await expect(scope.locator(".tdg-root")).toHaveAttribute(
+    "data-native-scroll",
+    "true"
+  );
+  await expect(
+    scope.locator('[data-slot="scroll-area-scrollbar"]')
+  ).toHaveCount(0);
+  await expect(viewport).toHaveCSS("overflow", "auto");
+  await viewport.hover();
+  await page.mouse.wheel(0, 240);
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
+test("GitHub issue #43: keyboard scrolling works when row navigation is disabled", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 43, "scrollMode=keyboard");
+  const surface = scope.locator('[data-slot="grid-surface"]');
+  const viewport = scope.locator(".tdg-body-viewport");
+
+  await surface.focus();
+  await expect(scope.locator(".tdg-root")).toHaveAttribute(
+    "data-active-index",
+    "none"
+  );
+  await page.keyboard.press("PageDown");
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() =>
+      viewport.evaluate((element) => ({
+        top: element.scrollTop,
+        left: element.scrollLeft,
+      }))
+    )
+    .toMatchObject({ top: expect.any(Number), left: expect.any(Number) });
+  expect(
+    await viewport.evaluate((element) => element.scrollTop)
+  ).toBeGreaterThan(0);
+  expect(
+    await viewport.evaluate((element) => element.scrollLeft)
+  ).toBeGreaterThan(0);
+  await page.keyboard.press("Home");
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBe(0);
+});
+
+test("GitHub issue #43: writable public offsets and smooth-scroll completion work", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 43, "scrollMode=custom");
+  const viewport = scope.locator(".tdg-body-viewport");
+
+  await scope.getByTestId("issue-43-set-scroll").click();
+  await expect
+    .poll(() =>
+      viewport.evaluate((element) => ({
+        top: element.scrollTop,
+        left: element.scrollLeft,
+      }))
+    )
+    .toEqual({ top: 360, left: 240 });
+
+  await scope.getByTestId("issue-43-smooth-scroll").click();
+  await expect
+    .poll(async () =>
+      JSON.parse(
+        (await scope.getByTestId("issue-43-scroll-report").textContent()) ||
+          "null"
+      )
+    )
+    .toMatchObject({ top: 420, smoothValue: 420 });
+});
+
+test("GitHub issue #43: RTL mirrors geometry, resize keys, virtualization, menus, and logical scrolling", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 43, "scrollMode=rtl");
+  const root = scope.locator(".tdg-root");
+  const viewport = scope.locator(".tdg-body-viewport");
+  const firstHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="column-0"]'
+  );
+  const secondHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="column-1"]'
+  );
+
+  await expect(root).toHaveAttribute("dir", "rtl");
+  await expect(root).toHaveAttribute("data-direction", "rtl");
+  const firstBox = await firstHeader.boundingBox();
+  const secondBox = await secondHeader.boundingBox();
+  expect(firstBox?.x ?? 0).toBeGreaterThan(secondBox?.x ?? 0);
+  const renderedHeaderCount = await scope
+    .locator('[data-slot="grid-header-cell"][data-column-id]')
+    .count();
+  expect(renderedHeaderCount).toBeGreaterThan(0);
+  expect(renderedHeaderCount).toBeLessThan(10);
+
+  const beforeWidth = firstBox?.width ?? 0;
+  const resizeHandle = firstHeader.locator('[data-slot="column-resizer"]');
+  await resizeHandle.focus();
+  await resizeHandle.press("ArrowLeft");
+  await expect
+    .poll(async () => (await firstHeader.boundingBox())?.width ?? 0)
+    .toBe(beforeWidth + 10);
+
+  await firstHeader.getByRole("button", { name: "Column menu" }).click();
+  const menu = page.getByRole("menu", { name: "Column menu" });
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  const frameBox = await scope.getByTestId("issue-grid-frame").boundingBox();
+  expect((menuBox?.x ?? 0) + (menuBox?.width ?? 0)).toBeLessThanOrEqual(
+    (frameBox?.x ?? 0) + (frameBox?.width ?? 0) + 1
+  );
+  await page.keyboard.press("Escape");
+
+  const thirdHeader = scope.locator(
+    '[data-slot="grid-header-cell"][data-column-id="column-2"]'
+  );
+  await firstHeader.dragTo(thirdHeader);
+  await expect(scope.getByTestId("issue-43-column-order")).toHaveText(
+    '["column-1","column-0","column-2","column-3","column-4","column-5","column-6","column-7","column-8","column-9"]'
+  );
+
+  await scope.getByTestId("issue-43-set-scroll").click();
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(
+          (await scope.getByTestId("issue-43-scroll-report").textContent()) ||
+            "null"
+        ).left
+    )
+    .toBe(240);
+  expect(
+    Math.abs(await viewport.evaluate((element) => element.scrollLeft))
+  ).toBe(240);
+});
+
+test("GitHub issue #43: RTL mobile mode keeps custom scrolling and mirrored layout", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 800, height: 700 });
+  const scope = await openIssue(page, 43, "scrollMode=mobile-rtl");
+  const root = scope.locator(".tdg-root");
+  const viewport = scope.locator(".tdg-body-viewport");
+
+  await expect(root).toHaveAttribute("data-layout", "mobile-list");
+  await expect(root).toHaveAttribute("dir", "rtl");
+  await expect(scope.locator('[data-slot="mobile-grid-list"]')).toBeVisible();
+  await expect(
+    scope.locator('[data-slot="scroll-area-scrollbar"]')
+  ).toHaveCount(2);
+  const viewportBox = await viewport.boundingBox();
+  expect(viewportBox).not.toBeNull();
+  const cdp = await context.newCDPSession(page);
+  const touchX = (viewportBox?.x ?? 0) + (viewportBox?.width ?? 0) / 2;
+  const touchStartY = (viewportBox?.y ?? 0) + (viewportBox?.height ?? 0) - 24;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: touchX, y: touchStartY }],
+  });
+  for (let offset = 30; offset <= 180; offset += 30) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: touchX, y: touchStartY - offset }],
+    });
+  }
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await scope.getByTestId("issue-43-set-scroll").click();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBe(360);
+});
+
+test("GitHub issue #43: 10k-row bidirectional scrolling stays virtualized and within frame budgets @production-performance", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 43, "scrollMode=performance");
+  await expect(scope.locator('[data-slot="grid-row"]').first()).toBeVisible();
+
+  const metrics = await page.evaluate(async () => {
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-testid="github-issues-33-48-scenario"] .tdg-body-viewport'
+    );
+    if (!viewport) throw new Error("Issue #43 viewport was not mounted");
+
+    const longTasks: number[] = [];
+    const observer =
+      typeof PerformanceObserver === "function" &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+        ? new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              longTasks.push(entry.duration);
+            }
+          })
+        : null;
+    observer?.observe({ entryTypes: ["longtask"] });
+
+    const frameDurations: number[] = [];
+    let previousFrame = performance.now();
+    for (let index = 1; index <= 40; index += 1) {
+      viewport.scrollTop = index * 800;
+      viewport.scrollLeft = (index * 140) % 1200;
+      viewport.dispatchEvent(new Event("scroll"));
+      const frame = await new Promise<number>((resolve) =>
+        requestAnimationFrame(resolve)
+      );
+      frameDurations.push(frame - previousFrame);
+      previousFrame = frame;
+    }
+    observer?.disconnect();
+    frameDurations.sort((first, second) => first - second);
+
+    return {
+      p95Frame: frameDurations[Math.floor(frameDurations.length * 0.95)] ?? 0,
+      maxLongTask: Math.max(0, ...longTasks),
+      mountedRows: document.querySelectorAll('[data-slot="grid-row"]').length,
+      mountedHeaders: document.querySelectorAll(
+        '[data-slot="grid-header-cell"][data-column-id]'
+      ).length,
+    };
+  });
+
+  expect(metrics.p95Frame).toBeLessThan(34);
+  expect(metrics.maxLongTask).toBeLessThan(50);
+  expect(metrics.mountedRows).toBeLessThan(40);
+  expect(metrics.mountedHeaders).toBeLessThan(10);
+});
+
+test("GitHub issue #44: a browser consumer loads documented module and stylesheet exports", async ({
   page,
 }) => {
   const scope = await openIssue(page, 44);
@@ -1478,6 +1899,10 @@ test.fixme("GitHub issue #44: a browser consumer loads documented module and sty
     "./NumericEditor",
     "./StringFilter",
     "./BoolFilter",
+    "./DateFilter",
+    "./NumberFilter",
+    "./SelectFilter",
+    "./types",
     "./index.css",
     "./base.css",
     "./style/theme/default-light/index.css",
@@ -1517,6 +1942,10 @@ test.fixme("GitHub issue #44: a browser consumer loads documented module and sty
     "./NumericEditor": "loaded",
     "./StringFilter": "loaded",
     "./BoolFilter": "loaded",
+    "./DateFilter": "loaded",
+    "./NumberFilter": "loaded",
+    "./SelectFilter": "loaded",
+    "./types": "loaded",
     "./index.css": "loaded",
     "./base.css": "loaded",
     "./style/theme/default-light/index.css": "loaded",
@@ -1524,9 +1953,39 @@ test.fixme("GitHub issue #44: a browser consumer loads documented module and sty
   });
   expect.soft(missingPackedTargets).toEqual([]);
   expect.soft(packedFiles.has("LICENSE")).toBe(true);
+
+  await scope.getByRole("checkbox", { name: "Boolean value" }).click();
+  await expect(scope.getByTestId("issue-44-bool-editor-value")).toHaveText(
+    "true"
+  );
+
+  await scope.locator('[data-slot="date-editor"]').fill("2026-07-29");
+  await expect(scope.getByTestId("issue-44-date-editor-value")).toHaveText(
+    "2026-07-29"
+  );
+
+  const numericEditor = scope.locator('[data-slot="numeric-editor"]');
+  await numericEditor.fill("42");
+  await expect(scope.getByTestId("issue-44-numeric-editor-value")).toHaveText(
+    "42"
+  );
+  await numericEditor.press("Enter");
+  await expect(scope.getByTestId("issue-44-numeric-complete-value")).toHaveText(
+    "42"
+  );
+
+  await scope.locator('[data-slot="string-filter"]').fill("Ada");
+  await expect(scope.getByTestId("issue-44-string-filter-value")).toHaveText(
+    "Ada"
+  );
+
+  await scope.locator('[data-slot="bool-filter"]').selectOption("false");
+  await expect(scope.getByTestId("issue-44-bool-filter-value")).toHaveText(
+    "false"
+  );
 });
 
-test.fixme("GitHub issue #45: unknown computed API methods do not silently succeed", async ({
+test("GitHub issue #45: unknown computed API methods do not silently succeed", async ({
   page,
 }) => {
   const scope = await openIssue(page, 45);
@@ -1535,6 +1994,7 @@ test.fixme("GitHub issue #45: unknown computed API methods do not silently succe
   await expect(scope.getByTestId("issue-45-public-plugins")).toHaveText(
     '["sortable-columns","filters","menus","cell-selection"]'
   );
+  await expect(scope.getByTestId("issue-45-contract-errors")).toHaveText("[]");
   await expect(invoke).toBeEnabled();
   await invoke.click();
   await expect(scope.getByTestId("issue-45-unknown-result")).toHaveText(
@@ -1542,7 +2002,7 @@ test.fixme("GitHub issue #45: unknown computed API methods do not silently succe
   );
 });
 
-test.fixme("GitHub issue #46: every Community child issue has executable release-gate evidence", async ({
+test("GitHub issue #46: every Community child issue has executable release-gate evidence", async ({
   page,
 }) => {
   const softExpect = expect.configure({ soft: true });
@@ -1695,6 +2155,10 @@ test.fixme("GitHub issue #46: every Community child issue has executable release
       "./NumericEditor": "loaded",
       "./StringFilter": "loaded",
       "./BoolFilter": "loaded",
+      "./DateFilter": "loaded",
+      "./NumberFilter": "loaded",
+      "./SelectFilter": "loaded",
+      "./types": "loaded",
       "./index.css": "loaded",
       "./base.css": "loaded",
       "./style/theme/default-light/index.css": "loaded",

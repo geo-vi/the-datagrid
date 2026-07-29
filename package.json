@@ -3,13 +3,37 @@
   "version": "0.0.9",
   "description": "A modern, feature-rich React data grid component built with shadcn/ui and TanStack Table",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/main.d.ts",
   "typesVersions": {
     "*": {
       "column-visibility": [
         "./dist/column-visibility/index.d.ts"
+      ],
+      "BoolEditor": [
+        "./dist/editors/BoolEditor.d.ts"
+      ],
+      "DateEditor": [
+        "./dist/editors/DateEditor.d.ts"
+      ],
+      "NumericEditor": [
+        "./dist/editors/NumericEditor.d.ts"
+      ],
+      "StringFilter": [
+        "./dist/filters/editors/StringFilter.d.ts"
+      ],
+      "BoolFilter": [
+        "./dist/filters/editors/BoolFilter.d.ts"
+      ],
+      "DateFilter": [
+        "./dist/filters/editors/DateFilter.d.ts"
+      ],
+      "NumberFilter": [
+        "./dist/filters/editors/NumberFilter.d.ts"
+      ],
+      "SelectFilter": [
+        "./dist/filters/editors/SelectFilter.d.ts"
       ],
       "components": [
         "./dist/providers/index.d.ts"
@@ -19,13 +43,144 @@
       ],
       "search": [
         "./dist/search/index.d.ts"
+      ],
+      "types": [
+        "./dist/types/index.d.ts"
+      ],
+      "types/TypeColumn": [
+        "./dist/types/TypeColumn.d.ts"
+      ],
+      "types/TypeDataGridProps": [
+        "./dist/types/TypeDataGridProps.d.ts"
+      ],
+      "types/TypeDataSource": [
+        "./dist/types/TypeDataSource.d.ts"
+      ],
+      "types/TypeFilterValue": [
+        "./dist/types/TypeFilterValue.d.ts"
+      ],
+      "types/TypePaginationProps": [
+        "./dist/types/TypePaginationProps.d.ts"
+      ],
+      "types/TypeSelected": [
+        "./dist/types/TypeSelected.d.ts"
+      ],
+      "types/TypeSize": [
+        "./dist/types/TypeSize.d.ts"
+      ],
+      "types/TypeSortInfo": [
+        "./dist/types/TypeSortInfo.d.ts"
       ]
     }
   },
   "exports": {
     ".": {
       "types": "./dist/main.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./BoolEditor": {
+      "types": "./dist/editors/BoolEditor.d.ts",
+      "import": "./dist/BoolEditor.js",
+      "require": "./dist/BoolEditor.cjs",
+      "default": "./dist/BoolEditor.js"
+    },
+    "./DateEditor": {
+      "types": "./dist/editors/DateEditor.d.ts",
+      "import": "./dist/DateEditor.js",
+      "require": "./dist/DateEditor.cjs",
+      "default": "./dist/DateEditor.js"
+    },
+    "./NumericEditor": {
+      "types": "./dist/editors/NumericEditor.d.ts",
+      "import": "./dist/NumericEditor.js",
+      "require": "./dist/NumericEditor.cjs",
+      "default": "./dist/NumericEditor.js"
+    },
+    "./StringFilter": {
+      "types": "./dist/filters/editors/StringFilter.d.ts",
+      "import": "./dist/StringFilter.js",
+      "require": "./dist/StringFilter.cjs",
+      "default": "./dist/StringFilter.js"
+    },
+    "./BoolFilter": {
+      "types": "./dist/filters/editors/BoolFilter.d.ts",
+      "import": "./dist/BoolFilter.js",
+      "require": "./dist/BoolFilter.cjs",
+      "default": "./dist/BoolFilter.js"
+    },
+    "./DateFilter": {
+      "types": "./dist/filters/editors/DateFilter.d.ts",
+      "import": "./dist/DateFilter.js",
+      "require": "./dist/DateFilter.cjs",
+      "default": "./dist/DateFilter.js"
+    },
+    "./NumberFilter": {
+      "types": "./dist/filters/editors/NumberFilter.d.ts",
+      "import": "./dist/NumberFilter.js",
+      "require": "./dist/NumberFilter.cjs",
+      "default": "./dist/NumberFilter.js"
+    },
+    "./SelectFilter": {
+      "types": "./dist/filters/editors/SelectFilter.d.ts",
+      "import": "./dist/SelectFilter.js",
+      "require": "./dist/SelectFilter.cjs",
+      "default": "./dist/SelectFilter.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeColumn": {
+      "types": "./dist/types/TypeColumn.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeDataGridProps": {
+      "types": "./dist/types/TypeDataGridProps.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeDataSource": {
+      "types": "./dist/types/TypeDataSource.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeFilterValue": {
+      "types": "./dist/types/TypeFilterValue.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypePaginationProps": {
+      "types": "./dist/types/TypePaginationProps.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeSelected": {
+      "types": "./dist/types/TypeSelected.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeSize": {
+      "types": "./dist/types/TypeSize.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
+    },
+    "./types/TypeSortInfo": {
+      "types": "./dist/types/TypeSortInfo.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs",
+      "default": "./dist/types/index.js"
     },
     "./search": {
       "types": "./dist/search/index.d.ts",
@@ -45,11 +200,28 @@
     },
     "./column-visibility/style.css": "./dist/column-visibility.css",
     "./search/style.css": "./dist/search.css",
-    "./style.css": "./dist/index.css"
+    "./style.css": "./dist/index.css",
+    "./index.css": "./dist/index.css",
+    "./base.css": "./dist/base.css",
+    "./style/theme/amber-dark/index.css": "./dist/style/theme/amber-dark/index.css",
+    "./style/theme/amber-light/index.css": "./dist/style/theme/amber-light/index.css",
+    "./style/theme/blue-dark/index.css": "./dist/style/theme/blue-dark/index.css",
+    "./style/theme/blue-light/index.css": "./dist/style/theme/blue-light/index.css",
+    "./style/theme/default-dark/index.css": "./dist/style/theme/default-dark/index.css",
+    "./style/theme/default-light/index.css": "./dist/style/theme/default-light/index.css",
+    "./style/theme/green-dark/index.css": "./dist/style/theme/green-dark/index.css",
+    "./style/theme/green-light/index.css": "./dist/style/theme/green-light/index.css",
+    "./style/theme/pink-dark/index.css": "./dist/style/theme/pink-dark/index.css",
+    "./style/theme/pink-light/index.css": "./dist/style/theme/pink-light/index.css",
+    "./community-api-manifest.json": "./dist/community-api-manifest.json",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "community-api-manifest.json"
   ],
   "sideEffects": [
     "**/*.css"
@@ -74,7 +246,7 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
+    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && vite build --mode library-bool-editor && vite build --mode library-date-editor && vite build --mode library-numeric-editor && vite build --mode library-string-filter && vite build --mode library-bool-filter && vite build --mode library-date-filter && vite build --mode library-number-filter && vite build --mode library-select-filter && vite build --mode library-community-types && node scripts/prepare-community-artifacts.mjs && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "build:site:e2e": "yarn build:search-index && vite build --mode site --base /",
     "lint": "eslint .",

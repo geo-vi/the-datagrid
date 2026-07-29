@@ -29,6 +29,7 @@ type GridContextMenuLayerProps = {
   restoreFocusTo?: HTMLElement | null;
   ariaLabel: string;
   testId: string;
+  rtl?: boolean;
   children: React.ReactNode;
 };
 
@@ -76,6 +77,7 @@ export function GridContextMenuLayer({
   restoreFocusTo,
   ariaLabel,
   testId,
+  rtl = false,
   children,
 }: GridContextMenuLayerProps): React.ReactElement {
   const [point, setPoint] = React.useState(() => resolvePoint(alignTo));
@@ -131,7 +133,16 @@ export function GridContextMenuLayer({
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  const placement = resolveContextMenuPlacement(alignPositions);
+  const resolvedPlacement = resolveContextMenuPlacement(alignPositions);
+  const placement = {
+    ...resolvedPlacement,
+    align:
+      rtl && resolvedPlacement.align !== "center"
+        ? resolvedPlacement.align === "start"
+          ? ("end" as const)
+          : ("start" as const)
+        : resolvedPlacement.align,
+  };
   const collisionBoundary = open
     ? resolveContextMenuBoundary(constrainTo)
     : undefined;

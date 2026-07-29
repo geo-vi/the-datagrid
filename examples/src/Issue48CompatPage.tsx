@@ -464,6 +464,7 @@ function DidMountScenario() {
   const [mountKey, setMountKey] = React.useState(0);
   const [callbackVersion, setCallbackVersion] = React.useState(0);
   const [events, setEvents] = React.useState<MountEvent[]>([]);
+  const [handleCleanupCount, setHandleCleanupCount] = React.useState(0);
   const refs = React.useRef(new WeakMap<object, number>());
   const nextRefId = React.useRef(1);
 
@@ -497,7 +498,11 @@ function DidMountScenario() {
   );
   const handleCallback = React.useCallback(
     (ref: React.MutableRefObject<TypeComputedProps | null> | null) => {
-      if (ref) record("handle", ref, callbackVersion);
+      if (ref) {
+        record("handle", ref, callbackVersion);
+      } else {
+        setHandleCleanupCount((current) => current + 1);
+      }
     },
     [callbackVersion, record]
   );
@@ -527,6 +532,7 @@ function DidMountScenario() {
       </div>
 
       <Report testId="did-mount-events">{JSON.stringify(events)}</Report>
+      <Report testId="handle-cleanup-count">{handleCleanupCount}</Report>
 
       <div className="h-[260px] min-h-0 rounded-lg border">
         <CompatGrid
@@ -547,15 +553,25 @@ function DidMountScenario() {
 
 function DidMountZeroWidthScenario() {
   const [events, setEvents] = React.useState<MountEvent[]>([]);
+  const [revealed, setRevealed] = React.useState(false);
+  const [readyCount, setReadyCount] = React.useState(0);
   const refs = React.useRef(new WeakMap<object, number>());
   const nextRefId = React.useRef(1);
 
   return (
     <section className="space-y-4">
       <Report testId="did-mount-zero-events">{JSON.stringify(events)}</Report>
+      <Report testId="zero-width-ready-count">{readyCount}</Report>
+      <Button
+        type="button"
+        data-testid="reveal-zero-width-grid"
+        onClick={() => setRevealed(true)}
+      >
+        Reveal grid
+      </Button>
       <div
         data-testid="zero-width-host"
-        className="h-[180px] w-0 overflow-hidden"
+        className={`h-[180px] overflow-hidden ${revealed ? "w-[420px]" : "w-0"}`}
       >
         <CompatGrid
           idProperty="id"
@@ -580,6 +596,7 @@ function DidMountZeroWidthScenario() {
               },
             ]);
           }}
+          onReady={() => setReadyCount((current) => current + 1)}
         />
       </div>
     </section>

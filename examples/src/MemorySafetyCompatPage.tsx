@@ -68,25 +68,37 @@ function ReadyScenario() {
   const readyRefRef = React.useRef<
     React.MutableRefObject<TypeComputedProps | null> | undefined
   >(undefined);
+  const handledRefRef = React.useRef<
+    React.MutableRefObject<TypeComputedProps | null> | undefined
+  >(undefined);
   const firstApiRef = React.useRef<TypeComputedProps | null>(null);
   const [readyCalls, setReadyCalls] = React.useState(0);
   const [handleCalls, setHandleCalls] = React.useState(0);
   const [scrollChecks, setScrollChecks] = React.useState(0);
 
-  function reportReady(ref: React.MutableRefObject<TypeComputedProps | null>) {
-    readyRefRef.current = ref;
-    firstApiRef.current ??= ref.current;
-    if (readyCallsRef.current >= CALLBACK_CAP) return;
-    readyCallsRef.current += 1;
-    setReadyCalls(readyCallsRef.current);
-  }
+  const reportReady = React.useCallback(
+    (ref: React.MutableRefObject<TypeComputedProps | null>) => {
+      readyRefRef.current = ref;
+      firstApiRef.current ??= ref.current;
+      if (readyCallsRef.current >= CALLBACK_CAP) return;
+      readyCallsRef.current += 1;
+      setReadyCalls(readyCallsRef.current);
+    },
+    []
+  );
 
-  function reportHandle(ref: React.MutableRefObject<TypeComputedProps | null>) {
-    if (handleCallsRef.current >= CALLBACK_CAP) return;
-    handleCallsRef.current += 1;
-    setHandleCalls(handleCallsRef.current);
-    readyRefRef.current ??= ref;
-  }
+  const reportHandle = React.useCallback(
+    (ref: React.MutableRefObject<TypeComputedProps | null> | null) => {
+      if (!ref) return;
+      if (handledRefRef.current === ref) return;
+      handledRefRef.current = ref;
+      if (handleCallsRef.current >= CALLBACK_CAP) return;
+      handleCallsRef.current += 1;
+      setHandleCalls(handleCallsRef.current);
+      readyRefRef.current ??= ref;
+    },
+    []
+  );
 
   const apiStable = Boolean(
     firstApiRef.current && readyRefRef.current?.current === firstApiRef.current
