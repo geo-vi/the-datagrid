@@ -5,6 +5,7 @@ export type ExampleId =
   | "inovua-parity"
   | "mobile-transform"
   | "selection"
+  | "stacked-columns"
   | "users";
 
 export type ExampleCatalogEntry = {
@@ -96,6 +97,19 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
       "Shows a realistic account list with health, ARR, owners, and renewal timing, along with a compact checkbox column and direct setter wiring for onSelectionChange.",
     sourcePath: "examples/src/SelectionGridExample.tsx",
     tags: ["Selection", "Accounts", "Filtering"],
+  },
+  {
+    id: "stacked-columns",
+    to: "/examples/stacked-columns",
+    legacyTo: "/stacked-columns",
+    label: "Stacked columns",
+    title: "Stacked and nested columns",
+    summary:
+      "Nested Inovua-style column groups that stay coherent while users filter, sort, resize, reorder, hide, and horizontally virtualize columns.",
+    details:
+      "Exercises root groups, nested groups, static and custom headers, automatic split/rejoin behavior, controlled column-order ownership, proportional group resizing, and a wide virtualized grid.",
+    sourcePath: "examples/src/StackedColumnsExample.tsx",
+    tags: ["Stacked columns", "Inovua", "Reordering", "Virtualized"],
   },
   {
     id: "users",

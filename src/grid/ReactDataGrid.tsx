@@ -6,6 +6,7 @@ import type {
   TypeCheckboxColumn,
   TypeCheckboxProps,
   TypeColumn,
+  TypeColumnGroup,
   TypeCellProps,
   TypeColumnContextMenuProps,
   TypeComputedColumn,
@@ -131,6 +132,16 @@ import {
   resolveColumnLock,
 } from "./utils/lockedColumns";
 import {
+  buildColumnGroupHeaderRows,
+  buildColumnGroupModel,
+  canMoveColumnGroupSegment,
+  getColumnGroupSegmentKey,
+  haveSameColumnGroupPath,
+  moveColumnIdsBefore,
+  resizeColumnWidthsProportionally,
+  type TypeColumnGroupHeaderRenderItem,
+} from "./utils/columnGroups";
+import {
   DATA_GRID_SEARCH_RUNTIME_SYMBOL,
   getDataGridSearchRuntime,
 } from "./searchRuntime";
@@ -171,6 +182,7 @@ type ReactDataGridDefaultPropName =
   | "shareSpaceOnResize"
   | "columnResizeHandleWidth"
   | "columnResizeProxyWidth"
+  | "allowGroupSplitOnReorder"
   | "filterTypes"
   | "virtualized"
   | "virtualizeColumnsThreshold"
@@ -218,6 +230,7 @@ type ReactDataGridDefaultProps = Required<
 const DEFAULT_SORT_FUNCTIONS: TypeSortFunctions = {
   date: (value1, value2) => Number(value1) - Number(value2),
 };
+const EMPTY_COLUMN_GROUPS: TypeColumnGroup[] = [];
 
 type TypeSpanInterval = { start: number; end: number };
 
@@ -265,6 +278,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   // Inovua-compatible sizing controls.
   columnResizeHandleWidth: 24,
   columnResizeProxyWidth: 5,
+  allowGroupSplitOnReorder: true,
   filterTypes: DEFAULT_FILTER_TYPES,
   virtualized: true,
   virtualizeColumnsThreshold: 15,
@@ -470,6 +484,30 @@ type ColumnResizeSession = {
   appliedPreviewWidth: number | null;
   preview: LiveColumnResizePreview | null;
 };
+
+type GroupResizeSession = {
+  key: string;
+  inputType: "mouse" | "pointer";
+  pointerId: number | null;
+  startX: number;
+  startTotalWidth: number;
+  nextTotalWidth: number;
+  groupRight: number;
+  minTotalWidth: number;
+  maxTotalWidth: number;
+  columns: {
+    column: TypeColumn;
+    id: string;
+    width: number;
+    minWidth: number;
+    maxWidth: number;
+  }[];
+};
+
+type GroupHeaderRenderItem = Extract<
+  TypeColumnGroupHeaderRenderItem,
+  { type: "group" }
+>;
 
 function captureLiveColumnResizePreview(
   surface: HTMLElement,
@@ -897,6 +935,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     idProperty = REACT_DATA_GRID_DEFAULT_PROPS.idProperty,
     columns: inputColumns,
     dataSource,
+    groups = EMPTY_COLUMN_GROUPS,
+    allowGroupSplitOnReorder = REACT_DATA_GRID_DEFAULT_PROPS.allowGroupSplitOnReorder,
     onColumnVisibleChange,
     sortable = REACT_DATA_GRID_DEFAULT_PROPS.sortable,
     sortFunctions = REACT_DATA_GRID_DEFAULT_PROPS.sortFunctions,
@@ -1502,6 +1542,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
   // is deliberately independent from filter-row visibility: explicitly
   // hiding the row does not discard an uncontrolled default filter.
   const localFilterValue = filterControlled ? null : filterValue;
+  const activeLocalFilter = React.useMemo(
+    () =>
+      hasActiveLocalFilter(
+        resolveFilterValueForColumns(localFilterValue, allInputColumns),
+        filterTypes
+      ),
+    [allInputColumns, filterTypes, localFilterValue]
+  );
   // Inovua 5.10.2 uses controlled sortInfo for the UI and remote request
   // payload, but leaves an array dataSource in consumer order. Only
   // uncontrolled/default sorting owns the local transformation.
@@ -1650,6 +1698,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () => groupedColumns.map((column) => getColumnId(column)),
     [groupedColumns]
   );
+  const columnGroupModel = React.useMemo(
+    () =>
+      buildColumnGroupModel({
+        groups,
+        columns: orderedColumns,
+      }),
+    [groups, orderedColumns]
+  );
 
   const tanstackSorting = React.useMemo(
     () => toTanStackSortingState(sortInfo, allInputColumns),
@@ -1759,7 +1815,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           data = searchFilterRows(data, inputColumns);
         }
 
-        if (localFilterValue) {
+        if (activeLocalFilter) {
           data = applyLocalFilter(data, localFilterValue, {
             filterTypes,
             columns: orderedColumns,
@@ -1844,7 +1900,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         if (searchActive && searchFilterRows) {
           data = searchFilterRows(data, inputColumns);
         }
-        if (localFilterValue) {
+        if (activeLocalFilter) {
           data = applyLocalFilter(data, localFilterValue, {
             filterTypes,
             columns: orderedColumns,
@@ -1871,9 +1927,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             ? transformStaticPromiseRows(result.data)
             : result.data;
         const staticPromiseHasLocalPredicate =
-          !dsIsFn &&
-          localPagination &&
-          (searchActive || hasActiveLocalFilter(localFilterValue, filterTypes));
+          !dsIsFn && localPagination && (searchActive || activeLocalFilter);
         const reportedCount = Number(
           staticPromiseHasLocalPredicate
             ? resultData.length
@@ -1916,6 +1970,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     }
   }, [
     dataSource,
+    activeLocalFilter,
     computedFilterForFetch,
     computedSortForFetch,
     localSortInfo,
@@ -2021,10 +2076,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
       let data = dataSource;
 
-      if (localFilterValue) {
+      if (activeLocalFilter) {
         data = applyLocalFilter(data, localFilterValue, {
           filterTypes,
-          columns: orderedColumns,
+          columns: allInputColumns,
         });
       }
 
@@ -2033,10 +2088,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     return rows.slice(0, 25);
   }, [
+    activeLocalFilter,
+    allInputColumns,
     dataSource,
     filterTypes,
     localFilterValue,
-    orderedColumns,
     rows,
     searchActive,
   ]);
@@ -3457,12 +3513,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
       ),
     [spanVirtualizationIntervals.columnIntervals]
   );
-  const headerGroupCount = table.getHeaderGroups().length;
+  const headerGroupCount = columnGroupModel.depth + 1;
   const stickyHeaderOffset =
     (showHeader ? headerGroupCount * headerHeight : 0) +
-    (showHeader && effectiveEnableFiltering
-      ? headerGroupCount * filterRowHeight
-      : 0);
+    (showHeader && effectiveEnableFiltering ? filterRowHeight : 0);
   const computedMinRowHeight =
     typeof minRowHeight === "number" &&
     Number.isFinite(minRowHeight) &&
@@ -3491,7 +3545,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (rowIndex) => resolveRowHeight(rowIndex),
-    overscan: 10,
+    // Natural-height rows need the wider measurement buffer for accurate
+    // smooth-scroll completion. Deterministically sized rows can use the
+    // smaller buffer without reconciling another large set of horizontally
+    // virtualized cells on every column-range change.
+    overscan: rowHeight == null ? 10 : 3,
     scrollMargin: stickyHeaderOffset,
     // Keep start-aligned imperative scrolling below the sticky header and
     // filter rows instead of positioning the requested row underneath them.
@@ -3526,6 +3584,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
           (column) =>
             `${getColumnId(column)}:${columnWidths[getColumnId(column)]}`
         )
+        // TanStack Virtual caches measurements by the stable column key.
+        // Reordering equal-width columns can reuse those measurements; only
+        // membership or width changes need to invalidate the cache.
+        .sort()
         .join("|"),
     [columnWidths, orderedColumns]
   );
@@ -4531,6 +4593,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
       : 0,
   });
   const columnRenderItems = columnRenderRange.items;
+  const columnGroupHeaderRows = React.useMemo(
+    () =>
+      buildColumnGroupHeaderRows({
+        model: columnGroupModel,
+        columns: orderedColumns,
+        columnWidths,
+        columnRenderItems,
+      }),
+    [columnGroupModel, columnRenderItems, columnWidths, orderedColumns]
+  );
   const lockedEndViewportOffset =
     hasManualColumnWidths && tableMinWidth
       ? Math.max(0, columnViewportWidth - tableMinWidth)
@@ -4575,8 +4647,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const [resizingColumnId, setResizingColumnId] = React.useState<string | null>(
     null
   );
+  const [resizingGroupKey, setResizingGroupKey] = React.useState<string | null>(
+    null
+  );
   const resizeSessionRef = React.useRef<ColumnResizeSession | null>(null);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
+  const groupResizeSessionRef = React.useRef<GroupResizeSession | null>(null);
+  const groupResizeCleanupRef = React.useRef<(() => void) | null>(null);
 
   const cancelResizeProxyFrame = React.useCallback(() => {
     if (resizeProxyFrameRef.current != null) {
@@ -5079,6 +5156,71 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ]
   );
 
+  const getResizableGroupColumns = React.useCallback(
+    (
+      item: GroupHeaderRenderItem,
+      widthOverrides?: Readonly<Record<string, number>>
+    ) =>
+      item.columnIds.flatMap((columnId) => {
+        const column = orderedColumns.find(
+          (candidate) => getColumnId(candidate) === columnId
+        );
+        if (!column || column.resizable === false) return [];
+
+        const { minWidth, maxWidth } = getColumnWidthBounds(
+          column,
+          computedColumnMinWidth,
+          computedColumnMaxWidth
+        );
+        const width =
+          widthOverrides?.[columnId] ??
+          columnWidths[columnId] ??
+          column.width ??
+          column.defaultWidth ??
+          computedColumnDefaultWidth;
+        return [
+          {
+            column,
+            id: columnId,
+            width,
+            minWidth,
+            maxWidth,
+          },
+        ];
+      }),
+    [
+      columnWidths,
+      computedColumnDefaultWidth,
+      computedColumnMaxWidth,
+      computedColumnMinWidth,
+      orderedColumns,
+    ]
+  );
+
+  const resizeGroupBy = React.useCallback(
+    (item: GroupHeaderRenderItem, diff: number) => {
+      if (!Number.isFinite(diff) || diff === 0) return;
+      const columns = getResizableGroupColumns(item);
+      const startTotalWidth = columns.reduce(
+        (total, column) => total + column.width,
+        0
+      );
+      if (startTotalWidth <= 0) return;
+
+      const nextWidths = resizeColumnWidthsProportionally({
+        columns,
+        requestedTotalWidth: startTotalWidth + diff,
+      });
+      commitColumnResizeEntries(
+        columns.map(({ column, id }) => ({
+          column,
+          width: nextWidths[id],
+        }))
+      );
+    },
+    [commitColumnResizeEntries, getResizableGroupColumns]
+  );
+
   const autosizeColumn = React.useCallback(
     (columnId: string) => {
       const column = orderedColumns.find(
@@ -5142,6 +5284,240 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setResizingColumnId(null);
   }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
 
+  const stopGroupResize = React.useCallback(() => {
+    const cleanup = groupResizeCleanupRef.current;
+    groupResizeCleanupRef.current = null;
+    groupResizeSessionRef.current = null;
+    cancelResizeProxyFrame();
+    cleanup?.();
+    setResizeProxyLeft(null);
+    setResizingGroupKey(null);
+  }, [cancelResizeProxyFrame]);
+
+  const startGroupResize = React.useCallback(
+    (
+      event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
+      item: GroupHeaderRenderItem
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const isPointerEvent = "pointerId" in event;
+      const resizeHandle = event.currentTarget;
+      const pointerId = isPointerEvent ? event.pointerId : null;
+      if (
+        event.button !== 0 ||
+        (isPointerEvent && !event.isPrimary) ||
+        resizeSessionRef.current ||
+        groupResizeSessionRef.current
+      ) {
+        return;
+      }
+
+      const surfaceElement = surfaceRef.current;
+      const headerCell = resizeHandle.closest("th");
+      if (!surfaceElement || !(headerCell instanceof HTMLTableCellElement)) {
+        return;
+      }
+
+      const seededWidths = seedManualColumnWidthsFromDom();
+      const columns = getResizableGroupColumns(item, seededWidths ?? undefined);
+      if (columns.length === 0) return;
+      const surfaceRect = surfaceElement.getBoundingClientRect();
+      const headerRect = headerCell.getBoundingClientRect();
+      const startTotalWidth = columns.reduce(
+        (total, column) => total + column.width,
+        0
+      );
+      const minTotalWidth = columns.reduce(
+        (total, column) => total + column.minWidth,
+        0
+      );
+      const maxTotalWidth = columns.reduce(
+        (total, column) => total + column.maxWidth,
+        0
+      );
+      const key = getColumnGroupSegmentKey(item);
+      const groupRight = headerRect.right - surfaceRect.left;
+      const previousDraggable = headerCell.draggable;
+
+      headerCell.draggable = false;
+      groupResizeSessionRef.current = {
+        key,
+        inputType: isPointerEvent ? "pointer" : "mouse",
+        pointerId,
+        startX: event.clientX,
+        startTotalWidth,
+        nextTotalWidth: startTotalWidth,
+        groupRight,
+        minTotalWidth,
+        maxTotalWidth,
+        columns,
+      };
+
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const updateResize = (clientX: number) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (!activeSession) return;
+
+        const nextTotalWidth = clamp(
+          activeSession.startTotalWidth + (clientX - activeSession.startX),
+          activeSession.minTotalWidth,
+          activeSession.maxTotalWidth
+        );
+        activeSession.nextTotalWidth = nextTotalWidth;
+        scheduleResizeProxyPosition(
+          activeSession.groupRight +
+            (nextTotalWidth - activeSession.startTotalWidth)
+        );
+      };
+
+      const completeResize = () => {
+        const completedSession = groupResizeSessionRef.current;
+        if (
+          completedSession &&
+          completedSession.nextTotalWidth !== completedSession.startTotalWidth
+        ) {
+          const widths = resizeColumnWidthsProportionally({
+            columns: completedSession.columns,
+            requestedTotalWidth: completedSession.nextTotalWidth,
+          });
+          commitColumnResizeEntries(
+            completedSession.columns.map(({ column, id }) => ({
+              column,
+              width: widths[id],
+            }))
+          );
+        }
+        stopGroupResize();
+      };
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (!activeSession || activeSession.inputType !== "mouse") return;
+        updateResize(moveEvent.clientX);
+      };
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "mouse" ||
+          upEvent.button !== 0
+        ) {
+          return;
+        }
+        completeResize();
+      };
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== moveEvent.pointerId
+        ) {
+          return;
+        }
+        moveEvent.preventDefault();
+        updateResize(moveEvent.clientX);
+      };
+      const handlePointerUp = (upEvent: PointerEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== upEvent.pointerId
+        ) {
+          return;
+        }
+        completeResize();
+      };
+      const handlePointerCancel = (cancelEvent: PointerEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== cancelEvent.pointerId
+        ) {
+          return;
+        }
+        stopGroupResize();
+      };
+      const handleLostPointerCapture = (lostEvent: PointerEvent) => {
+        const activeSession = groupResizeSessionRef.current;
+        if (
+          !activeSession ||
+          activeSession.inputType !== "pointer" ||
+          activeSession.pointerId !== lostEvent.pointerId
+        ) {
+          return;
+        }
+        stopGroupResize();
+      };
+      const handleWindowBlur = () => stopGroupResize();
+
+      groupResizeCleanupRef.current?.();
+      groupResizeCleanupRef.current = () => {
+        if (pointerId != null && resizeHandle.hasPointerCapture(pointerId)) {
+          resizeHandle.releasePointerCapture(pointerId);
+        }
+        headerCell.draggable = previousDraggable;
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointercancel", handlePointerCancel);
+        resizeHandle.removeEventListener(
+          "lostpointercapture",
+          handleLostPointerCapture
+        );
+        window.removeEventListener("blur", handleWindowBlur);
+      };
+
+      if (isPointerEvent) {
+        window.addEventListener("pointermove", handlePointerMove, {
+          passive: false,
+        });
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerCancel);
+        resizeHandle.addEventListener(
+          "lostpointercapture",
+          handleLostPointerCapture
+        );
+        try {
+          resizeHandle.setPointerCapture(event.pointerId);
+        } catch {
+          // Window listeners keep the group gesture functional when pointer
+          // capture is unavailable.
+        }
+      } else {
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+      }
+      window.addEventListener("blur", handleWindowBlur);
+
+      setResizingGroupKey(key);
+      setResizingColumnId(null);
+      cancelResizeProxyFrame();
+      const initialProxyLeft = groupRight;
+      resizeProxyNextLeftRef.current = initialProxyLeft;
+      setResizeProxyLeft(initialProxyLeft);
+    },
+    [
+      cancelResizeProxyFrame,
+      commitColumnResizeEntries,
+      getResizableGroupColumns,
+      scheduleResizeProxyPosition,
+      seedManualColumnWidthsFromDom,
+      stopGroupResize,
+    ]
+  );
+
   const startColumnResize = React.useCallback(
     (
       event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
@@ -5160,7 +5536,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
         // The pointer session owns that gesture, so the compatibility
         // mousedown must not register a second set of listeners or commit it
         // twice.
-        resizeSessionRef.current
+        resizeSessionRef.current ||
+        groupResizeSessionRef.current
       ) {
         return;
       }
@@ -5423,12 +5800,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => {
       const session = resizeSessionRef.current;
       const cleanup = resizeCleanupRef.current;
+      const groupCleanup = groupResizeCleanupRef.current;
       resizeCleanupRef.current = null;
+      groupResizeCleanupRef.current = null;
       resizeSessionRef.current = null;
+      groupResizeSessionRef.current = null;
       cancelResizeProxyFrame();
       cancelLiveColumnResizeFrame();
       restoreLiveColumnResizePreview(session);
       cleanup?.();
+      groupCleanup?.();
     };
   }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
 
@@ -5459,9 +5840,54 @@ function ReactDataGrid(props: TypeDataGridProps) {
     stopColumnResize,
   ]);
 
+  React.useEffect(() => {
+    if (!resizingGroupKey) return;
+
+    const activeSession = groupResizeSessionRef.current;
+    const segmentStillExists = columnGroupHeaderRows.some((row) =>
+      row.some(
+        (item) =>
+          item.type === "group" &&
+          getColumnGroupSegmentKey(item) === resizingGroupKey
+      )
+    );
+    const columnsStillExist = activeSession?.columns.every(({ id }) =>
+      orderedColumns.some((column) => getColumnId(column) === id)
+    );
+
+    if (
+      mobileTransformActive ||
+      !resizable ||
+      !showHeader ||
+      !segmentStillExists ||
+      !columnsStillExist
+    ) {
+      stopGroupResize();
+    }
+  }, [
+    columnGroupHeaderRows,
+    mobileTransformActive,
+    orderedColumns,
+    resizable,
+    resizingGroupKey,
+    showHeader,
+    stopGroupResize,
+  ]);
+
   /** ---------------- header drag/drop reorder ---------------- */
 
-  const dragIdRef = React.useRef<string | null>(null);
+  const headerDragRef = React.useRef<
+    | {
+        type: "column";
+        columnIds: string[];
+      }
+    | {
+        type: "group";
+        columnIds: string[];
+        depth: number;
+      }
+    | null
+  >(null);
 
   const allowColumnReorder = (props as any).reorderColumns ?? true;
 
@@ -5469,7 +5895,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     if (!allowColumnReorder) return;
     if (checkboxEnabled && columnId === checkboxColId) return;
 
-    dragIdRef.current = columnId;
+    headerDragRef.current = {
+      type: "column",
+      columnIds: [columnId],
+    };
     try {
       e.dataTransfer.setData("text/plain", columnId);
     } catch {
@@ -5478,41 +5907,112 @@ function ReactDataGrid(props: TypeDataGridProps) {
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function onHeaderDrop(e: React.DragEvent, targetId: string) {
+  function onGroupHeaderDragStart(
+    e: React.DragEvent,
+    item: GroupHeaderRenderItem
+  ) {
+    if (!allowColumnReorder || item.group.draggable === false) return;
+
+    headerDragRef.current = {
+      type: "group",
+      columnIds: [...item.columnIds],
+      depth: item.depth,
+    };
+    try {
+      e.dataTransfer.setData(
+        "text/plain",
+        JSON.stringify({
+          type: "group",
+          group: item.groupName,
+          depth: item.depth,
+          columnIds: item.columnIds,
+        })
+      );
+    } catch {
+      // The in-memory drag state remains authoritative.
+    }
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function commitHeaderDrop(e: React.DragEvent, targetId: string) {
     if (!allowColumnReorder) return;
-    if (
-      checkboxEnabled &&
-      (targetId === checkboxColId || dragIdRef.current === checkboxColId)
-    )
-      return;
 
     e.preventDefault();
-    const sourceId = dragIdRef.current ?? e.dataTransfer.getData("text/plain");
-    dragIdRef.current = null;
-    if (!sourceId || sourceId === targetId) return;
-
-    const sourceColumn = orderedColumns.find(
-      (column) => getColumnId(column) === sourceId
-    );
-    const targetColumn = orderedColumns.find(
-      (column) => getColumnId(column) === targetId
-    );
+    const drag = headerDragRef.current;
+    headerDragRef.current = null;
+    if (!drag || drag.columnIds.length === 0) return;
     if (
-      !sourceColumn ||
-      !targetColumn ||
-      resolveColumnLock(sourceColumn) !== resolveColumnLock(targetColumn)
+      checkboxEnabled &&
+      (targetId === checkboxColId || drag.columnIds.includes(checkboxColId))
     ) {
       return;
     }
 
-    const next = [...renderColumnOrder];
-    const from = next.indexOf(sourceId);
-    const to = next.indexOf(targetId);
-    if (from < 0 || to < 0) return;
+    const targetColumn = orderedColumns.find(
+      (column) => getColumnId(column) === targetId
+    );
+    const sourceColumns = drag.columnIds.flatMap((columnId) => {
+      const column = orderedColumns.find(
+        (candidate) => getColumnId(candidate) === columnId
+      );
+      return column ? [column] : [];
+    });
+    if (
+      sourceColumns.length !== drag.columnIds.length ||
+      !targetColumn ||
+      sourceColumns.some(
+        (column) =>
+          resolveColumnLock(column) !== resolveColumnLock(targetColumn)
+      )
+    ) {
+      return;
+    }
 
-    next.splice(from, 1);
-    next.splice(to, 0, sourceId);
+    if (!allowGroupSplitOnReorder) {
+      const valid =
+        drag.type === "column"
+          ? haveSameColumnGroupPath(
+              columnGroupModel,
+              drag.columnIds[0]!,
+              targetId
+            )
+          : canMoveColumnGroupSegment({
+              model: columnGroupModel,
+              sourceDepth: drag.depth,
+              sourceColumnIds: drag.columnIds,
+              targetColumnId: targetId,
+            });
+      if (!valid) return;
+    }
+
+    const next = moveColumnIdsBefore(
+      renderColumnOrder,
+      drag.columnIds,
+      targetId
+    );
+    if (
+      next.length === renderColumnOrder.length &&
+      next.every((columnId, index) => columnId === renderColumnOrder[index])
+    ) {
+      return;
+    }
     table.setColumnOrder(next);
+  }
+
+  function onHeaderDrop(e: React.DragEvent, targetId: string) {
+    commitHeaderDrop(e, targetId);
+  }
+
+  function onGroupHeaderDrop(e: React.DragEvent, item: GroupHeaderRenderItem) {
+    const drag = headerDragRef.current;
+    if (drag?.type === "group" && drag.depth !== item.depth) {
+      e.preventDefault();
+      headerDragRef.current = null;
+      return;
+    }
+    const targetId = item.columnIds[0];
+    if (!targetId) return;
+    commitHeaderDrop(e, targetId);
   }
 
   function onHeaderDragOver(e: React.DragEvent) {
@@ -8187,6 +8687,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                         </colgroup>
                         <GridHeader
                           headerGroups={table.getHeaderGroups()}
+                          groupHeaderRows={columnGroupHeaderRows}
+                          orderedColumns={orderedColumns}
                           headerHeight={headerHeight}
                           filterRowHeight={filterRowHeight}
                           sortInfo={sortInfo}
@@ -8232,10 +8734,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           onHeaderDragStart={onHeaderDragStart}
                           onHeaderDragOver={onHeaderDragOver}
                           onHeaderDrop={onHeaderDrop}
+                          onGroupHeaderDragStart={onGroupHeaderDragStart}
+                          onGroupHeaderDrop={onGroupHeaderDrop}
                           resizingColumnId={resizingColumnId}
+                          resizingGroupKey={resizingGroupKey}
                           onColumnResizeStart={startColumnResize}
                           onColumnResizeBy={resizeColumnBy}
                           onColumnAutoResize={autosizeColumn}
+                          onGroupResizeStart={startGroupResize}
+                          onGroupResizeBy={resizeGroupBy}
                           enableFiltering={effectiveEnableFiltering}
                           enableColumnFilterContextMenu={
                             enableColumnFilterContextMenu

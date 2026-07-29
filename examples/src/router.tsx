@@ -22,6 +22,7 @@ import InovuaParityCompatPage from "./InovuaParityCompatPage";
 import InovuaParityExamplePage from "./InovuaParityExamplePage";
 import InovuaPendingParityCompatPage from "./InovuaPendingParityCompatPage";
 import Issue48CompatPage from "./Issue48CompatPage";
+import Issue58RowStyleColorCompatPage from "./Issue58RowStyleColorCompatPage";
 import Issue32DataSourceCompatPage from "./Issue32DataSourceCompatPage";
 import Issue33SortingCompatPage from "./Issue33SortingCompatPage";
 import Issue34FilteringCompatPage from "./Issue34FilteringCompatPage";
@@ -30,6 +31,8 @@ import MemorySafetyCompatPage from "./MemorySafetyCompatPage";
 import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
 import SelectionGridExample from "./SelectionGridExample";
+import StackedColumnsExample from "./StackedColumnsExample";
+import StackedColumnsExamplePage from "./StackedColumnsExamplePage";
 import UsersGridExample from "./UsersGridExample";
 import DocsHomePage from "./docs/DocsHomePage";
 import DocsIndexPage from "./docs/DocsIndexPage";
@@ -238,6 +241,12 @@ const exampleMobileTransformRoute = createRoute({
   component: MobileTransformExamplePage,
 });
 
+const exampleStackedColumnsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/stacked-columns",
+  component: StackedColumnsExamplePage,
+});
+
 const legacyBasicRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "basic",
@@ -272,6 +281,12 @@ const legacyUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "users",
   component: UsersExamplePage,
+});
+
+const legacyStackedColumnsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stacked-columns",
+  component: StackedColumnsExamplePage,
 });
 
 const removedIssueExamplePaths = [
@@ -355,6 +370,12 @@ const compatIssue35ColumnStateRoute = createRoute({
   component: Issue35ColumnStateCompatPage,
 });
 
+const compatIssue36StackedColumnsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/issue-36-stacked-columns",
+  component: StackedColumnsExample,
+});
+
 const compatGitHubIssues33To48Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/github-issues-33-48",
@@ -385,6 +406,12 @@ const compatIssue48Route = createRoute({
   component: Issue48CompatPage,
 });
 
+const compatIssue58RowStyleColorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/issue-58-row-style-color",
+  component: Issue58RowStyleColorCompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -404,10 +431,12 @@ const routeTree = rootRoute.addChildren([
   compatIssue33SortingRoute,
   compatIssue34FilteringRoute,
   compatIssue35ColumnStateRoute,
+  compatIssue36StackedColumnsRoute,
   compatGitHubIssues33To48Route,
   compatInovuaParityRoute,
   compatInovuaPendingParityRoute,
   compatIssue48Route,
+  compatIssue58RowStyleColorRoute,
   compatMemorySafetyRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,
@@ -418,11 +447,13 @@ const routeTree = rootRoute.addChildren([
   exampleSelectionRoute,
   exampleUsersRoute,
   exampleMobileTransformRoute,
+  exampleStackedColumnsRoute,
   legacyActionsRoute,
   legacyBasicRoute,
   legacyColumnsRoute,
   legacyInovuaParityRoute,
   legacySelectionRoute,
+  legacyStackedColumnsRoute,
   legacyUsersRoute,
   ...removedIssueExampleRedirectRoutes,
 ]);

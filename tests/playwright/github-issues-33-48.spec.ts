@@ -91,7 +91,7 @@ test("GitHub issue #35: visibility defaults initialize hidden columns", async ({
   ).toHaveCount(0);
 });
 
-test.fixme("GitHub issue #36: grouped columns render their shared group header", async ({
+test("GitHub issue #36: grouped columns render their shared group header", async ({
   page,
 }) => {
   const scope = await openIssue(page, 36);
@@ -761,6 +761,7 @@ test("GitHub issue #38: selected identities survive sorting, filtering, and virt
 }) => {
   const scope = await openIssue(page, 38, "dataMode=transforms");
   const grid = scope.locator(".tdg-root");
+  const selection = scope.getByTestId("issue-38-selection");
   const selectedRow = scope.locator(
     '[data-slot="grid-row"][data-row-id="active-2"]'
   );
@@ -771,24 +772,52 @@ test("GitHub issue #38: selected identities survive sorting, filtering, and virt
   await grid
     .locator('[data-slot="grid-header-cell"][data-column-id="name"]')
     .click();
-  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
 
   const nameFilter = grid
     .locator('.tdg-filter-cell[data-column-id="name"]')
     .getByRole("textbox");
+  await nameFilter.fill("Person 2");
+  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
   await nameFilter.fill("Person 39");
   await expect(selectedRow).toHaveCount(0);
-  await nameFilter.fill("");
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
+  await nameFilter.fill("Person 2");
   await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+  await nameFilter.fill("");
+  await expect(
+    scope.locator('[data-slot="grid-row"][data-row-id="active-0"]')
+  ).toBeVisible();
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
 
-  const surface = grid.locator('[data-slot="grid-surface"]');
-  await surface.focus();
-  await page.keyboard.press("End");
+  const viewport = grid.locator(".tdg-body-viewport");
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
   await expect(
     scope.locator('[data-slot="grid-row"][data-row-index="39"]')
   ).toBeVisible();
-  await page.keyboard.press("Home");
-  await expect(selectedRow).toHaveAttribute("aria-selected", "true");
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
+  await viewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await expect(selection).toHaveText(
+    '{"selected":["active-2"],"unselected":[]}'
+  );
 });
 
 test("GitHub issue #38: paginated select-all preserves exclusions and callback payloads across pages", async ({

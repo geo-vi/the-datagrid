@@ -23,6 +23,9 @@ const platformAssetMap = {
     arm64: "docfind-aarch64-unknown-linux-musl.tar.gz",
     x64: "docfind-x86_64-unknown-linux-musl.tar.gz",
   },
+  win32: {
+    x64: "docfind-x86_64-pc-windows-msvc.zip",
+  },
 } as const;
 
 function getRepoRoot() {
@@ -76,6 +79,28 @@ async function findDocfindBinary(directory: string): Promise<string | null> {
   return null;
 }
 
+async function extractArchive(archivePath: string, destinationDir: string) {
+  if (archivePath.endsWith(".zip")) {
+    // Windows ships GNU tar (via Git) on PATH which cannot read zip archives,
+    // so extract with PowerShell's Expand-Archive, which is always available.
+    if (os.platform() === "win32") {
+      await execFileAsync("powershell", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destinationDir}' -Force`,
+      ]);
+      return;
+    }
+
+    // bsdtar (macOS) can extract zip archives directly.
+    await execFileAsync("tar", ["-xf", archivePath, "-C", destinationDir]);
+    return;
+  }
+
+  await execFileAsync("tar", ["-xzf", archivePath, "-C", destinationDir]);
+}
+
 async function ensureDocfindBinary(repoRoot: string) {
   const assetName = getDocfindAssetName();
   const cacheDir = path.join(
@@ -106,7 +131,7 @@ async function ensureDocfindBinary(repoRoot: string) {
   }
 
   await writeFile(archivePath, Buffer.from(await response.arrayBuffer()));
-  await execFileAsync("tar", ["-xzf", archivePath, "-C", cacheDir]);
+  await extractArchive(archivePath, cacheDir);
 
   const extractedBinary = await findDocfindBinary(cacheDir);
 

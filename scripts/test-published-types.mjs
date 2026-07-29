@@ -9,7 +9,14 @@ const require = createRequire(import.meta.url);
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDirectory, "..");
 const sourceDirectory = path.join(repoRoot, "tests", "published-types");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npmCommand = isWindows ? "npm.cmd" : "npm";
+// Node's post-CVE-2024-27980 hardening refuses to spawn .cmd/.bat files
+// unless `shell: true`, so npm.cmd must run through the shell on Windows.
+// With a shell, arguments are not auto-quoted, so quote paths that may
+// contain spaces ourselves.
+const npmSpawnOptions = isWindows ? { shell: true } : {};
+const shellQuote = (value) => (isWindows ? `"${value}"` : value);
 
 if (!fs.existsSync(path.join(repoRoot, "dist", "main.d.ts"))) {
   console.error("Missing dist declarations. Run the library build first.");
@@ -33,8 +40,8 @@ const configurations = ["tsconfig.json", "tsconfig.node10.json"];
 try {
   const packResult = spawnSync(
     npmCommand,
-    ["pack", "--json", "--pack-destination", fixtureDirectory],
-    { cwd: repoRoot, encoding: "utf8" }
+    ["pack", "--json", "--pack-destination", shellQuote(fixtureDirectory)],
+    { cwd: repoRoot, encoding: "utf8", ...npmSpawnOptions }
   );
 
   if (packResult.stderr) process.stderr.write(packResult.stderr);
@@ -55,18 +62,22 @@ try {
     throw new Error("npm pack did not report a package archive.");
   }
 
-  const archivePath = path.join(fixtureDirectory, archiveFilename);
   fs.mkdirSync(installedPackageDirectory, { recursive: true });
+  // GNU tar (shipped with Git on Windows) misreads a drive-letter path like
+  // "C:\..." as a remote host, and also chokes on backslash paths passed to
+  // -C. Run tar from the archive's directory with a relative archive name and
+  // a forward-slash destination, which both GNU tar and bsdtar accept.
+  const toTarPath = (p) => (isWindows ? p.replace(/\\/g, "/") : p);
   const extractResult = spawnSync(
     "tar",
     [
       "-xzf",
-      archivePath,
+      path.basename(archiveFilename),
       "-C",
-      installedPackageDirectory,
+      toTarPath(installedPackageDirectory),
       "--strip-components=1",
     ],
-    { encoding: "utf8" }
+    { cwd: fixtureDirectory, encoding: "utf8" }
   );
 
   if (extractResult.stdout) process.stdout.write(extractResult.stdout);

@@ -35,6 +35,8 @@ const defaultVirtualized: boolean = defaultExportDefaults.virtualized;
 const defaultVirtualizeColumnsThreshold: number =
   defaultExportDefaults.virtualizeColumnsThreshold;
 const defaultLiveColumnResize: boolean = defaultExportDefaults.liveColumnResize;
+const defaultAllowGroupSplitOnReorder: boolean =
+  defaultExportDefaults.allowGroupSplitOnReorder;
 const defaultEmptyText: TypeDataGridProps["emptyText"] =
   defaultExportDefaults.emptyText;
 
@@ -46,6 +48,7 @@ export const defaultPropsCompat = {
   defaultVirtualized,
   defaultVirtualizeColumnsThreshold,
   defaultLiveColumnResize,
+  defaultAllowGroupSplitOnReorder,
   defaultEmptyText,
   stringOperatorCount: defaultFilterTypes.string.operators.length,
 };
