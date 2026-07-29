@@ -518,6 +518,25 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     );
     if (!api || !viewport) throw new Error("Stacked-column fixture not ready");
 
+    // Headless CI runners do not all expose the same presentation cadence:
+    // some deliver requestAnimationFrame at 20 Hz even when the page is idle.
+    // Calibrate that idle cadence first so this gate measures frames missed by
+    // grid work instead of assuming a particular virtual display refresh rate.
+    const idleFrameDurations: number[] = [];
+    let previousIdleFrame = await new Promise<number>((resolve) =>
+      requestAnimationFrame(resolve)
+    );
+    for (let index = 0; index < 8; index += 1) {
+      const frameAt = await new Promise<number>((resolve) =>
+        requestAnimationFrame(resolve)
+      );
+      idleFrameDurations.push(frameAt - previousIdleFrame);
+      previousIdleFrame = frameAt;
+    }
+    idleFrameDurations.sort((a, b) => a - b);
+    const baselineFrame =
+      idleFrameDurations[Math.floor(idleFrameDurations.length / 2)] ?? 16.67;
+
     const longTasks: number[] = [];
     const observer =
       typeof PerformanceObserver === "function" &&
@@ -536,13 +555,16 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     const [email] = moved.splice(emailIndex, 1);
     moved.splice(0, 0, email!);
     const frameDurations: number[] = [];
-    let previousFrame = performance.now();
+    const dispatchDurations: number[] = [];
+    let previousFrame = previousIdleFrame;
 
     for (let index = 0; index < 30; index += 1) {
+      const dispatchStartedAt = performance.now();
       api.setColumnOrder(index % 2 === 0 ? moved : original);
       viewport.scrollLeft =
         index % 2 === 0 ? viewport.scrollWidth : index % 3 === 0 ? 0 : 2400;
       viewport.dispatchEvent(new Event("scroll"));
+      dispatchDurations.push(performance.now() - dispatchStartedAt);
       const frameAt = await new Promise<number>((resolve) =>
         requestAnimationFrame(resolve)
       );
@@ -554,13 +576,23 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     );
     observer?.disconnect();
     frameDurations.sort((a, b) => a - b);
+    dispatchDurations.sort((a, b) => a - b);
+    const p95Frame =
+      frameDurations[Math.floor(frameDurations.length * 0.95)] ?? 0;
+    const maxFrame = Math.max(0, ...frameDurations);
 
     const root = document.querySelector<HTMLElement>(
       '[data-testid="stacked-columns-grid"] .tdg-root'
     );
     return {
-      p95Frame: frameDurations[Math.floor(frameDurations.length * 0.95)] ?? 0,
-      maxFrame: Math.max(0, ...frameDurations),
+      baselineFrame,
+      p95Frame,
+      maxFrame,
+      p95FrameMultiplier: p95Frame / baselineFrame,
+      maxFrameMultiplier: maxFrame / baselineFrame,
+      p95Dispatch:
+        dispatchDurations[Math.floor(dispatchDurations.length * 0.95)] ?? 0,
+      maxDispatch: Math.max(0, ...dispatchDurations),
       maxLongTask: Math.max(0, ...longTasks),
       mountedRows:
         root?.querySelectorAll('[data-slot="grid-row"][data-row-id]').length ??
@@ -573,8 +605,12 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     };
   });
 
-  expect(metrics.p95Frame).toBeLessThan(34);
-  expect(metrics.maxFrame).toBeLessThan(70);
+  // Bound synchronous work independently of the runner's display cadence.
+  // The frame ratios below remain the primary interaction-smoothness gate.
+  expect(metrics.p95Dispatch).toBeLessThan(20);
+  expect(metrics.maxDispatch).toBeLessThan(32);
+  expect(metrics.p95FrameMultiplier).toBeLessThan(1.5);
+  expect(metrics.maxFrameMultiplier).toBeLessThan(2.5);
   expect(metrics.maxLongTask).toBeLessThan(100);
   expect(metrics.mountedRows).toBeLessThan(80);
   expect(metrics.mountedLeafHeaders).toBeLessThan(18);
