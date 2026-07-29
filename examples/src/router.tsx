@@ -22,6 +22,7 @@ import InovuaParityCompatPage from "./InovuaParityCompatPage";
 import InovuaParityExamplePage from "./InovuaParityExamplePage";
 import InovuaPendingParityCompatPage from "./InovuaPendingParityCompatPage";
 import Issue48CompatPage from "./Issue48CompatPage";
+import Issue58RowStyleColorCompatPage from "./Issue58RowStyleColorCompatPage";
 import Issue32DataSourceCompatPage from "./Issue32DataSourceCompatPage";
 import Issue33SortingCompatPage from "./Issue33SortingCompatPage";
 import Issue34FilteringCompatPage from "./Issue34FilteringCompatPage";
@@ -405,6 +406,12 @@ const compatIssue48Route = createRoute({
   component: Issue48CompatPage,
 });
 
+const compatIssue58RowStyleColorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/issue-58-row-style-color",
+  component: Issue58RowStyleColorCompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -429,6 +436,7 @@ const routeTree = rootRoute.addChildren([
   compatInovuaParityRoute,
   compatInovuaPendingParityRoute,
   compatIssue48Route,
+  compatIssue58RowStyleColorRoute,
   compatMemorySafetyRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,
