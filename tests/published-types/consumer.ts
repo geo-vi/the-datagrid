@@ -98,6 +98,13 @@ export const boolEditorProps = {
     const next: boolean | null = value;
     void next;
   },
+  onTabNavigation(complete, direction, event) {
+    const shouldComplete: boolean | undefined = complete;
+    const nextDirection: -1 | 0 | 1 | undefined = direction;
+    void shouldComplete;
+    void nextDirection;
+    void event;
+  },
 } satisfies BoolEditorProps;
 
 export const dateEditorProps = {
@@ -116,10 +123,25 @@ export const stringFilterProps = {
     type: "string",
     value: "Ada",
   },
+  onChange(filterValue) {
+    const value: string | null | undefined = filterValue.value;
+    const operator: string | undefined = filterValue.operator;
+    void value;
+    void operator;
+  },
 } satisfies StringFilterProps;
 
 export const boolFilterProps = {
-  value: true,
+  filterValue: {
+    name: "active",
+    operator: "eq",
+    type: "bool",
+    value: true,
+  },
+  onChange(filterValue) {
+    const value: boolean | null | undefined = filterValue.value;
+    void value;
+  },
 } satisfies BoolFilterProps;
 
 export type PublishedTypesIColumn = TypesIColumn;

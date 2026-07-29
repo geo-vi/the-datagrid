@@ -34,6 +34,7 @@ import type {
   TypeStartEditArgs,
   TypeSortFunctions,
   TypeSortInfo,
+  TypeShowCellBorders,
   TypeTryStartEditArgs,
 } from "../types";
 
@@ -236,6 +237,16 @@ export const plugins: readonly TypeCommunityPlugin[] = [
       "setColumnSortInfo",
       "unsortColumn",
     ],
+    hook: (_props, computedProps) => ({
+      computedIsMultiSort: Array.isArray(computedProps.getSortInfo()),
+      computedSortInfo: computedProps.getSortInfo(),
+      getSortInfo: computedProps.getSortInfo,
+      setSortInfo: computedProps.setSortInfo,
+      toggleColumnSort: computedProps.toggleColumnSort,
+      setColumnSortInfo: computedProps.setColumnSortInfo,
+      unsortColumn: computedProps.unsortColumn,
+    }),
+    defaultProps: () => ({ sortable: true }),
     isEnabled: (props) => props.sortable !== false,
     getState: (computedProps) => computedProps.getSortInfo(),
   },
@@ -250,6 +261,20 @@ export const plugins: readonly TypeCommunityPlugin[] = [
       "setColumnFilterValue",
       "isColumnFiltered",
     ],
+    hook: (_props, computedProps) => ({
+      computedFilterValue: computedProps.getFilterValue(),
+      getFilterValue: computedProps.getFilterValue,
+      setFilterValue: computedProps.setFilterValue,
+      clearAllFilters: computedProps.clearAllFilters,
+      clearColumnFilter: computedProps.clearColumnFilter,
+      getColumnFilterValue: computedProps.getColumnFilterValue,
+      setColumnFilterValue: computedProps.setColumnFilterValue,
+      isColumnFiltered: computedProps.isColumnFiltered,
+    }),
+    defaultProps: () => ({
+      columnFilterContextMenuConstrainTo: true,
+      columnFilterContextMenuPosition: "absolute",
+    }),
     isEnabled: (props) =>
       props.enableFiltering === true ||
       Boolean(props.filterValue?.length || props.defaultFilterValue?.length),
@@ -265,6 +290,18 @@ export const plugins: readonly TypeCommunityPlugin[] = [
       "showRowContextMenu",
       "hideRowContextMenu",
     ],
+    hook: (_props, computedProps) => ({
+      getMenuAvailableHeight: computedProps.getMenuAvailableHeight,
+      showColumnFilterContextMenu: computedProps.showColumnFilterContextMenu,
+      hideColumnFilterContextMenu: computedProps.hideColumnFilterContextMenu,
+      showColumnContextMenu: computedProps.showColumnContextMenu,
+      hideColumnContextMenu: computedProps.hideColumnContextMenu,
+      showRowContextMenu: computedProps.showRowContextMenu,
+      hideRowContextMenu: computedProps.hideRowContextMenu,
+      columnContextMenuProps: computedProps.columnContextMenuProps,
+      rowContextMenuProps: computedProps.rowContextMenuProps,
+    }),
+    defaultProps: () => ({ showColumnMenuTool: true }),
     isEnabled: (props) =>
       props.enableColumnFilterContextMenu !== false ||
       Boolean(props.renderColumnContextMenu || props.renderRowContextMenu),
@@ -283,6 +320,19 @@ export const plugins: readonly TypeCommunityPlugin[] = [
       "setCellSelection",
       "isCellSelected",
     ],
+    hook: (_props, computedProps) => ({
+      computedActiveCell: computedProps.getActiveCell?.() ?? null,
+      computedCellSelection: computedProps.getCellSelection?.() ?? null,
+      getActiveCell: computedProps.getActiveCell,
+      setActiveCell: computedProps.setActiveCell,
+      incrementActiveCell: computedProps.incrementActiveCell,
+      getCellSelection: computedProps.getCellSelection,
+      setCellSelection: computedProps.setCellSelection,
+      isCellSelected: computedProps.isCellSelected,
+      toggleActiveCellSelection: computedProps.toggleActiveCellSelection,
+      getCellSelectionBetween: computedProps.getCellSelectionBetween,
+    }),
+    defaultProps: () => ({}),
     isEnabled: (props) =>
       props.activeCell !== undefined ||
       props.defaultActiveCell !== undefined ||
@@ -470,9 +520,9 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   nativeScroll: false,
   scrollProps: {
     autoHide: true,
-    scrollThumbMargin: 2,
-    scrollThumbWidth: 7,
-    scrollThumbOverWidth: 10,
+    scrollThumbMargin: 4,
+    scrollThumbWidth: 6,
+    scrollThumbOverWidth: 8,
     scrollThumbRadius: 3,
   },
   rtl: false,
@@ -513,8 +563,7 @@ const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   minRowHeight: 20,
   defaultShowZebraRows: true,
   editStartEvent: "dblclick",
-  isStartEditKeyPressed: ({ event }) =>
-    event.key.toLowerCase() === "e" && event.ctrlKey,
+  isStartEditKeyPressed: ({ event }) => event.key === "e" && event.ctrlKey,
   autoFocusOnEditComplete: true,
   autoFocusOnEditEscape: true,
   emptyText: "noRecords",
@@ -1183,7 +1232,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     rtl = REACT_DATA_GRID_DEFAULT_PROPS.rtl,
     allowMobileTransform = REACT_DATA_GRID_DEFAULT_PROPS.allowMobileTransform,
     columnUserSelect = REACT_DATA_GRID_DEFAULT_PROPS.columnUserSelect,
-    showCellBorders = REACT_DATA_GRID_DEFAULT_PROPS.showCellBorders,
+    showCellBorders:
+      showCellBordersProp = REACT_DATA_GRID_DEFAULT_PROPS.showCellBorders,
 
     i18n,
     showColumnMenuTool = REACT_DATA_GRID_DEFAULT_PROPS.showColumnMenuTool,
@@ -1206,8 +1256,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onCellDoubleClick,
     cellDOMProps,
     headerDOMProps,
-    showHoverRows = REACT_DATA_GRID_DEFAULT_PROPS.showHoverRows,
-    showEmptyRows = REACT_DATA_GRID_DEFAULT_PROPS.showEmptyRows,
+    showHoverRows:
+      showHoverRowsProp = REACT_DATA_GRID_DEFAULT_PROPS.showHoverRows,
+    showEmptyRows:
+      showEmptyRowsProp = REACT_DATA_GRID_DEFAULT_PROPS.showEmptyRows,
     showZebraRows: controlledShowZebraRows,
     defaultShowZebraRows,
     editable = false,
@@ -1405,6 +1457,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return () => observer.disconnect();
   }, [mobileTransformActive]);
   const [showHeader, setShowHeader] = React.useState(true);
+  const [showCellBorders, setShowCellBorders] =
+    React.useState<TypeShowCellBorders>(showCellBordersProp);
+  const [showHoverRows, setShowHoverRows] = React.useState(showHoverRowsProp);
+  const [showEmptyRows, setShowEmptyRows] = React.useState(showEmptyRowsProp);
+  React.useEffect(() => {
+    setShowCellBorders(showCellBordersProp);
+  }, [showCellBordersProp]);
+  React.useEffect(() => {
+    setShowHoverRows(showHoverRowsProp);
+  }, [showHoverRowsProp]);
+  React.useEffect(() => {
+    setShowEmptyRows(showEmptyRowsProp);
+  }, [showEmptyRowsProp]);
   const showHorizontalCellBorders =
     showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders =
@@ -2687,6 +2752,98 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setCellSelectionState,
     ]
   );
+  const getCellSelectionBetweenCompat = React.useCallback(
+    (
+      start: Exclude<TypeActiveCell, null> | null = normalizedActiveCell,
+      end: Exclude<TypeActiveCell, null> | null = normalizedActiveCell
+    ) => {
+      if (!start || !end) return {};
+
+      const selection: Record<string, boolean> = {};
+      const fromRow = Math.min(start[0], end[0]);
+      const toRow = Math.max(start[0], end[0]);
+      const fromColumn = Math.min(start[1], end[1]);
+      const toColumn = Math.max(start[1], end[1]);
+
+      for (let rowIndex = fromRow; rowIndex <= toRow; rowIndex += 1) {
+        for (
+          let columnIndex = fromColumn;
+          columnIndex <= toColumn;
+          columnIndex += 1
+        ) {
+          if (!selectableCellColumnIndexes.includes(columnIndex)) continue;
+          const key = getCellSelectionKey(rowIndex, columnIndex);
+          if (key) selection[key] = true;
+        }
+      }
+
+      return selection;
+    },
+    [getCellSelectionKey, normalizedActiveCell, selectableCellColumnIndexes]
+  );
+  const incrementActiveCellCompat = React.useCallback(
+    (direction: [number, number]) => {
+      const current =
+        normalizedActiveCell ??
+        (rows.length > 0 && selectableCellColumnIndexes.length > 0
+          ? ([0, selectableCellColumnIndexes[0]!] as const)
+          : null);
+      if (!current) return;
+      setActiveCellCompat([
+        current[0] + (direction[0] ?? 0),
+        current[1] + (direction[1] ?? 0),
+      ]);
+    },
+    [
+      normalizedActiveCell,
+      rows.length,
+      selectableCellColumnIndexes,
+      setActiveCellCompat,
+    ]
+  );
+  const toggleActiveCellSelectionCompat = React.useCallback(
+    (
+      event: {
+        shiftKey?: boolean;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+      } = {}
+    ) => {
+      if (!normalizedActiveCell) return;
+
+      const preserveCurrent =
+        cellMultiSelect && Boolean(event.ctrlKey || event.metaKey);
+      if (cellMultiSelect && event.shiftKey && cellSelectionAnchorRef.current) {
+        const range = getCellSelectionBetweenCompat(
+          cellSelectionAnchorRef.current,
+          normalizedActiveCell
+        );
+        setCellSelectionState(
+          preserveCurrent ? { ...(cellSelectionState ?? {}), ...range } : range
+        );
+        return;
+      }
+
+      const key = getCellSelectionKey(
+        normalizedActiveCell[0],
+        normalizedActiveCell[1]
+      );
+      if (!key) return;
+      const next = preserveCurrent ? { ...(cellSelectionState ?? {}) } : {};
+      if (cellSelectionState?.[key]) delete next[key];
+      else next[key] = true;
+      cellSelectionAnchorRef.current = normalizedActiveCell;
+      setCellSelectionState(next);
+    },
+    [
+      cellMultiSelect,
+      cellSelectionState,
+      getCellSelectionBetweenCompat,
+      getCellSelectionKey,
+      normalizedActiveCell,
+      setCellSelectionState,
+    ]
+  );
   const handleCellSelectionPointer = React.useCallback(
     (
       rowIndex: number,
@@ -3566,6 +3723,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const headerScrollRef = React.useRef<HTMLDivElement | null>(null);
   const lastImperativeScrollAtRef = React.useRef(Number.NEGATIVE_INFINITY);
+  const lastUserScrollAtRef = React.useRef(Number.NEGATIVE_INFINITY);
+  const filterScrollResetStartedAtRef = React.useRef(Number.NEGATIVE_INFINITY);
+  const handleScroll = React.useCallback<React.UIEventHandler<HTMLDivElement>>(
+    (event) => {
+      if (event.nativeEvent.isTrusted) {
+        lastUserScrollAtRef.current = window.performance.now();
+      }
+      onScroll?.(event);
+    },
+    [onScroll]
+  );
   const pendingFilterScrollResetRef = React.useRef(false);
   const rowsAtFilterScrollResetRef = React.useRef(rows);
   const currentRowsForScrollResetRef = React.useRef(rows);
@@ -3617,17 +3785,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
     previousFilterForScrollRef.current = filterValue;
 
     if (scrollTopOnFilter && filterChanged && scrollRef.current) {
+      const resetStartedAt = window.performance.now();
+      filterScrollResetStartedAtRef.current = resetStartedAt;
       pendingFilterScrollResetRef.current = true;
-      rowsAtFilterScrollResetRef.current =
-        currentRowsForScrollResetRef.current;
+      rowsAtFilterScrollResetRef.current = currentRowsForScrollResetRef.current;
       scrollRef.current.scrollTop = 0;
       rowVirtualizerScrollRef.current?.scrollToOffset(0);
       let frameId = 0;
       const timeoutId = window.setTimeout(() => {
         if (
-          window.performance.now() - lastImperativeScrollAtRef.current <
-          100
+          window.performance.now() - lastImperativeScrollAtRef.current < 100 ||
+          lastUserScrollAtRef.current > resetStartedAt
         ) {
+          pendingFilterScrollResetRef.current = false;
           return;
         }
 
@@ -3640,7 +3810,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
         frameId = window.requestAnimationFrame(() => {
           if (
             window.performance.now() - lastImperativeScrollAtRef.current <
-            100
+              100 ||
+            lastUserScrollAtRef.current > resetStartedAt
           ) {
             return;
           }
@@ -3685,7 +3856,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     pendingFilterScrollResetRef.current = false;
     if (
-      window.performance.now() - lastImperativeScrollAtRef.current < 100
+      window.performance.now() - lastImperativeScrollAtRef.current < 100 ||
+      lastUserScrollAtRef.current > filterScrollResetStartedAtRef.current
     ) {
       return;
     }
@@ -4015,10 +4187,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           (previousRowId !== undefined &&
             previousOverrides[previousRowId] !== undefined));
 
-      if (
-        rowIdentityRequiresReset ||
-        previousHeights[rowId] !== nextHeight
-      ) {
+      if (rowIdentityRequiresReset || previousHeights[rowId] !== nextHeight) {
         rowVirtualizer.resizeItem(rowIndex, nextHeight);
       }
     });
@@ -7381,6 +7550,92 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [idProperty, rows]
   );
+  const setItemAtCompat = React.useCallback(
+    (
+      index: number,
+      item: unknown,
+      config?: {
+        replace?: boolean;
+        property?: string;
+        value?: unknown;
+      }
+    ) => {
+      if (!Number.isInteger(index) || index < 0) return;
+      setRows((current) => {
+        if (index >= current.length) return current;
+        const existing = current[index];
+        let nextItem = item;
+        if (config?.property) {
+          nextItem = {
+            ...(existing && typeof existing === "object" ? existing : {}),
+            [config.property]: config.value,
+          };
+        } else if (
+          config?.replace === false &&
+          existing &&
+          typeof existing === "object" &&
+          item &&
+          typeof item === "object"
+        ) {
+          nextItem = { ...existing, ...item };
+        }
+        if (Object.is(existing, nextItem)) return current;
+        const next = [...current];
+        next[index] = nextItem;
+        return next;
+      });
+    },
+    []
+  );
+  const setItemPropertyAtCompat = React.useCallback(
+    (index: number, property: string, value: unknown) => {
+      setItemAtCompat(index, undefined, { property, value });
+    },
+    [setItemAtCompat]
+  );
+  const setItemPropertyForIdCompat = React.useCallback(
+    (id: string | number, property: string, value: unknown) => {
+      const index = getItemIndexByIdCompat(id);
+      if (index >= 0) setItemPropertyAtCompat(index, property, value);
+    },
+    [getItemIndexByIdCompat, setItemPropertyAtCompat]
+  );
+  const setItemsAtCompat = React.useCallback(
+    (
+      items: unknown[] | Record<number, unknown>,
+      config?: { replace?: boolean }
+    ) => {
+      const entries = Array.isArray(items)
+        ? items.map((item, index) => [index, item] as const)
+        : Object.entries(items).flatMap(([index, item]) => {
+            const numericIndex = Number(index);
+            return Number.isInteger(numericIndex)
+              ? ([[numericIndex, item]] as const)
+              : [];
+          });
+      setRows((current) => {
+        let changed = false;
+        const next = [...current];
+        for (const [index, item] of entries) {
+          if (index < 0 || index >= next.length) continue;
+          const existing = next[index];
+          const nextItem =
+            config?.replace === false &&
+            existing &&
+            typeof existing === "object" &&
+            item &&
+            typeof item === "object"
+              ? { ...existing, ...item }
+              : item;
+          if (Object.is(existing, nextItem)) continue;
+          next[index] = nextItem;
+          changed = true;
+        }
+        return changed ? next : current;
+      });
+    },
+    []
+  );
 
   const getScrollingElement = React.useCallback(() => scrollRef.current, []);
 
@@ -7445,13 +7700,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
           typeof rowHeight === "number" &&
           Number.isFinite(rowHeight)
         ) {
+          let rowStart = 0;
+          for (
+            let rowIndex = 0;
+            rowIndex < Math.min(index, rowModel.length);
+            rowIndex += 1
+          ) {
+            rowStart += resolveRowHeight(rowIndex);
+          }
           const resolvedHeight = resolveRowHeight(index);
           viewport.scrollTop =
             config?.direction === "bottom"
               ? stickyHeaderOffset +
-                (index + 1) * resolvedHeight -
+                rowStart +
+                resolvedHeight -
                 viewport.clientHeight
-              : index * resolvedHeight;
+              : rowStart;
         } else {
           rowVirtualizer.scrollToIndex(index, {
             align: config?.direction === "bottom" ? "end" : "start",
@@ -7475,6 +7739,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [
       resolveRowHeight,
       rowHeight,
+      rowModel.length,
       rowVirtualizer,
       stickyHeaderOffset,
       virtualized,
@@ -8372,6 +8637,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       originalData,
       count,
       dataCountAfterFilter: count,
+      filteredRowsCount: notifyFilteredRowsCount,
       computedSkip: loadSkip,
       computedLimit: limit,
       getData: () => rows,
@@ -8381,12 +8647,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
       setSkip: (next) => setSkip(next),
       setLimit: setLimitAndResetPage,
       computedSortInfo: sortInfo,
+      computedIsMultiSort: Array.isArray(sortInfo),
       getSortInfo: () => sortInfo,
       setSortInfo: setSortInfoAndResetPage,
       toggleColumnSort: toggleColumnSortCompat,
       setColumnSortInfo: setColumnSortInfoCompat,
       unsortColumn: (column) => setColumnSortInfoCompat(column, 0),
       computedFilterValue: filterValue,
+      computedFiltered: Boolean(
+        filterValue?.some(
+          (entry) => !isFilterEntryEmptyValue(entry, filterTypes)
+        )
+      ),
       computedFilterValueMap,
       getFilterValue: () => filterValue,
       setFilterValue: setFilterValueAndResetPage,
@@ -8476,6 +8748,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       showHorizontalCellBorders,
       showVerticalCellBorders,
       computedShowCellBorders: showCellBorders,
+      setShowCellBorders,
       computedRemoteData: !Array.isArray(dataSource),
       computedRemotePagination: remotePagination,
       computedRemoteFilter:
@@ -8484,6 +8757,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       computedPagination: paginationMode !== false,
       computedLivePagination: false,
       remoteSort: !Array.isArray(dataSource),
+      paginationProps,
+      hasNextPage,
+      hasPrevPage,
+      gotoNextPage,
+      gotoPrevPage,
+      gotoFirstPage,
+      gotoLastPage,
       getItemId,
       getItemAt: (index) => rows[index],
       getItemIdAt: (index) => {
@@ -8493,12 +8773,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getItemIndex: (id) => getItemIndexByIdCompat(id),
       getRowIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
       getItemIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
+      setItemPropertyAt: setItemPropertyAtCompat,
+      setItemPropertyForId: setItemPropertyForIdCompat,
+      setItemAt: setItemAtCompat,
+      setItemsAt: setItemsAtCompat,
       computedSelected: selected,
       computedUnselected: unselected,
       computedRowSelectionEnabled: selectionEnabled,
       computedRowMultiSelectionEnabled: Boolean(multiSelect),
       getSelectedMap: () => ({ ...selectedMap }),
       setSelected: setSelectedCompat,
+      setUnselected: (nextUnselected) => {
+        const resolved = resolveStateAction(nextUnselected, unselected);
+        emitSelectionChange(true, {
+          data: rows,
+          unselected: resolved,
+        });
+      },
       selectAll: selectAllCompat,
       deselectAll: deselectAllCompat,
       isRowSelected: (value) => {
@@ -8526,6 +8817,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
           ? Math.max(0, count - Object.keys(unselected ?? {}).length)
           : Object.keys(selectedMap).length,
       computedUnselectedCount: Object.keys(unselected ?? {}).length,
+      getUnselectedCount: (value = unselected) =>
+        Object.keys(value ?? {}).length,
+      isSelectionEmpty: () =>
+        unwrapSelectionState(selected) !== true &&
+        Object.keys(selectedMap).length === 0,
       setSelectedById: setSelectedByIdCompat,
       setSelectedAt: setSelectedAtCompat,
       setRowSelected: setSelectedAtCompat,
@@ -8567,6 +8863,18 @@ function ReactDataGrid(props: TypeDataGridProps) {
       },
       i18n: (key, defaultValue) =>
         t(i18n, key, defaultValue ?? key) as string | React.ReactNode,
+      getMenuAvailableHeight: () => {
+        const rect = rootNode?.getBoundingClientRect();
+        return Math.max(0, window.innerHeight - (rect?.top ?? 0));
+      },
+      isFilterable: () => effectiveEnableFiltering,
+      shouldShowFilteringMenuItems: () => effectiveEnableFiltering,
+      updateMenuPositions: () => {
+        setColumnContextMenu((current) => (current ? { ...current } : current));
+        setRowContextMenu((current) => (current ? { ...current } : current));
+      },
+      onScroll: handleScroll,
+      rtlOffset: getScrollLeftCompat(),
       columnFilterContextMenuProps: openFilterMenuColId
         ? { columnId: openFilterMenuColId }
         : null,
@@ -8641,16 +8949,55 @@ function ReactDataGrid(props: TypeDataGridProps) {
         normalizedActiveIndex >= 0 ? rows[normalizedActiveIndex] : null,
       computedHasRowNavigation: enableKeyboardNavigation && rows.length > 0,
       computedFocused: gridFocused,
+      computedSetFocused: setGridFocused,
+      computedOnKeyDown: handleGridKeyDown,
+      computedOnFocus: handleGridFocus,
+      toggleActiveRowSelection: (event = {}) => {
+        if (normalizedActiveIndex < 0) return;
+        commitRowSelection(normalizedActiveIndex, event);
+      },
+      computedOnRowClick: (event, rowProps) => {
+        onRowClick?.(rowProps, event);
+      },
+      computedRowDoubleClick: onRowDoubleClick,
+      computedCellDoubleClick: onCellDoubleClick,
       setActiveIndex: setActiveIndexCompat,
       incrementActiveIndex,
       computedActiveCell: normalizedActiveCell,
       computedCellSelection: cellSelectionState,
       computedCellSelectionEnabled: cellSelectionEnabled,
+      computedCellMultiSelectionEnabled: cellMultiSelect,
+      computedCellNavigationEnabled: cellSelectionEnabled,
       computedCellSelectionByIndex: cellSelectionByIndex,
       getActiveCell: () => normalizedActiveCell,
       setActiveCell: setActiveCellCompat,
       getCellSelection: () => cellSelectionState,
       setCellSelection: setCellSelectionState,
+      getCellSelectionIdKey: getCellSelectionKey,
+      getCellSelectionKey: (cell, column) => {
+        if (typeof cell === "object" && cell !== null) {
+          return typeof cell.rowIndex === "number" &&
+            typeof cell.columnIndex === "number"
+            ? getCellSelectionKey(cell.rowIndex, cell.columnIndex)
+            : "";
+        }
+
+        const rowIndex = getItemIndexByIdCompat(cell);
+        const columnId =
+          column === undefined ? undefined : getColumnIdCompat(column);
+        const columnIndex =
+          columnId === undefined
+            ? -1
+            : orderedColumns.findIndex(
+                (candidate) => getColumnId(candidate) === columnId
+              );
+        return rowIndex < 0 || columnIndex < 0
+          ? ""
+          : getCellSelectionKey(rowIndex, columnIndex);
+      },
+      incrementActiveCell: incrementActiveCellCompat,
+      toggleActiveCellSelection: toggleActiveCellSelectionCompat,
+      getCellSelectionBetween: getCellSelectionBetweenCompat,
       isCellSelected: (
         cell: TypeActiveCell | { rowIndex: number; columnIndex: number }
       ) =>
@@ -8659,7 +9006,33 @@ function ReactDataGrid(props: TypeDataGridProps) {
           Array.isArray(cell) ? cell[0] : cell.rowIndex,
           Array.isArray(cell) ? cell[1] : cell.columnIndex
         ),
+      isCellVisible: ({ rowIndex, columnIndex }) => {
+        const rowNode = surfaceNode?.querySelector<HTMLElement>(
+          `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
+        );
+        const column = orderedColumns[columnIndex];
+        const viewportNode = scrollRef.current;
+        if (!rowNode || !column || !viewportNode) return false;
+        const columnId = getColumnId(column);
+        const cellNode = Array.from(
+          rowNode.querySelectorAll<HTMLElement>("[data-column-id]")
+        ).find((node) => node.dataset.columnId === columnId);
+        if (!cellNode) return false;
+
+        const viewportRect = viewportNode.getBoundingClientRect();
+        const cellRect = cellNode.getBoundingClientRect();
+        const differences = {
+          topDiff: Math.max(0, viewportRect.top - cellRect.top),
+          bottomDiff: Math.max(0, cellRect.bottom - viewportRect.bottom),
+          leftDiff: Math.max(0, viewportRect.left - cellRect.left),
+          rightDiff: Math.max(0, cellRect.right - viewportRect.right),
+        };
+        return Object.values(differences).every((value) => value === 0)
+          ? true
+          : differences;
+      },
       computedShowHoverRows: showHoverRows,
+      setShowHoverRows,
       computedShowZebraRows: showZebraRows,
       setShowZebraRows,
       computedEditable: editable,
@@ -8678,6 +9051,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getRowHeightById: getRowHeightByIdCompat,
       getRowHeight: resolveRowHeight,
       computedShowEmptyRows: showEmptyRows,
+      setShowEmptyRows,
       lockedStartColumns,
       unlockedColumns,
       lockedEndColumns,
@@ -8740,10 +9114,36 @@ function ReactDataGrid(props: TypeDataGridProps) {
       },
       reservedViewportWidth,
       virtualizeColumns: computedVirtualizeColumns,
+      computedEnableRowspan: orderedColumns.some(
+        (column) => column.rowspan != null
+      ),
+      computedHasColSpan: orderedColumns.some(
+        (column) => column.colspan != null
+      ),
+      computedEnableColumnHover: showHoverRows,
+      availableWidth: viewportWidth,
+      edition: "community",
+      computedLicenseValid: true,
+      getColumnLayout: () => columnLayout,
       computedShowHeaderBorderRight: showVerticalCellBorders,
       silentSetData: setRows,
       setOriginalData: setRows,
       getVirtualList: () => virtualListCompat,
+      getState: () => ({
+        data: rows,
+        count,
+        skip: loadSkip,
+        limit,
+        sortInfo,
+        filterValue,
+        selected,
+        unselected,
+        activeIndex: normalizedActiveIndex,
+        activeCell: normalizedActiveCell,
+        cellSelection: cellSelectionState,
+        columnOrder: columnOrderForDs,
+        rowHeights: computedRowHeights,
+      }),
     };
 
     baseApi.publicAPI = stableApi;
@@ -8770,6 +9170,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [
     allComputedColumns,
     canNext,
+    cellMultiSelect,
     cellSelectionByIndex,
     cellSelectionEnabled,
     cellSelectionState,
@@ -8789,6 +9190,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnsMap,
     commitColumnPixelResize,
     commitColumnResizeEntries,
+    commitRowSelection,
     computedColumnDefaultWidth,
     computedColumnMaxWidth,
     computedColumnMinWidth,
@@ -8804,12 +9206,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
     enableKeyboardNavigation,
     enableFiltering,
     effectiveEnableFiltering,
+    emitSelectionChange,
     filterControlled,
     filterTypes,
     filterValue,
     getColumnByCompat,
     getColumnFilterValueCompat,
     getColumnIdCompat,
+    getCellSelectionBetweenCompat,
+    getCellSelectionKey,
     getItemIndexByIdCompat,
     getItemId,
     getScrollLeftCompat,
@@ -8818,6 +9223,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getRowHeightByIdCompat,
     getScrollingElement,
     gridFocused,
+    gotoFirstPage,
+    gotoLastPage,
+    gotoNextPage,
+    gotoPrevPage,
+    handleGridFocus,
+    handleGridKeyDown,
+    hasNextPage,
+    hasPrevPage,
+    incrementActiveCellCompat,
     cancelEditCompat,
     completeEditCompat,
     getCurrentEditInfoCompat,
@@ -8840,10 +9254,16 @@ function ReactDataGrid(props: TypeDataGridProps) {
     multiSelect,
     normalizedActiveIndex,
     normalizedActiveCell,
+    notifyFilteredRowsCount,
+    onCellDoubleClick,
+    onRowClick,
+    onRowDoubleClick,
     openFilterMenuColId,
+    handleScroll,
     orderedColumns,
     originalData,
     paginationMode,
+    paginationProps,
     publicProps,
     reload,
     remotePagination,
@@ -8871,6 +9291,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setColumnsSizesAutoCompat,
     setColumnSortInfoCompat,
     setFilterValueAndResetPage,
+    setItemAtCompat,
+    setItemPropertyAtCompat,
+    setItemPropertyForIdCompat,
+    setItemsAtCompat,
     setLimitAndResetPage,
     setRowHeightByIdCompat,
     setRowHeightsCompat,
@@ -8903,6 +9327,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     table,
     startEditCompat,
     toggleColumnSortCompat,
+    toggleActiveCellSelectionCompat,
     tryStartEditCompat,
     unlockedColumns,
     scrollToCellCompat,
@@ -9304,7 +9729,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 nativeScroll={nativeScroll}
                 scrollProps={scrollProps}
                 rtl={rtl}
-                onScroll={onScroll}
+                onScroll={handleScroll}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, rowIndex, event) =>
@@ -9349,7 +9774,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 dir={rtl ? "rtl" : "ltr"}
                 viewportProps={{
                   dir: rtl ? "rtl" : "ltr",
-                  onScroll,
+                  onScroll: handleScroll,
                 }}
               >
                 {showHeader ? (

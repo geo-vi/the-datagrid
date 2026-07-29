@@ -4,7 +4,10 @@ import ReactDataGrid, {
   BoolEditor,
   BoolFilter,
   DateEditor,
+  DateFilter,
+  NumberFilter,
   NumericEditor,
+  SelectFilter,
   StringFilter,
   plugins,
   type CellProps,
@@ -878,7 +881,48 @@ function Issue41EditStartValue() {
       : (new URLSearchParams(window.location.search).get("editingMode") ??
         "async-seed");
   const [events, setEvents] = React.useState<string[]>([]);
+  const editorModuleRows = React.useMemo(
+    () => [
+      {
+        id: "editor-row-1",
+        active: true,
+        amount: 42,
+        date: "2026-07-29",
+      },
+      {
+        id: "editor-row-2",
+        active: false,
+        amount: 84,
+        date: "2026-07-30",
+      },
+    ],
+    []
+  );
   const columns = React.useMemo<TypeColumns>(() => {
+    if (mode === "modules") {
+      return [
+        { name: "id", header: "ID", editable: false },
+        {
+          name: "active",
+          header: "Active",
+          editable: true,
+          editor: BoolEditor,
+        },
+        {
+          name: "amount",
+          header: "Amount",
+          editable: true,
+          editor: NumericEditor,
+        },
+        {
+          name: "date",
+          header: "Date",
+          editable: true,
+          editor: DateEditor,
+        },
+      ];
+    }
+
     const nameColumn = {
       ...baseColumns[1]!,
       editable: true,
@@ -933,12 +977,19 @@ function Issue41EditStartValue() {
       <output data-testid="issue-41-edit-events">
         {JSON.stringify(events)}
       </output>
+      <button type="button" data-testid="issue-41-blur-target">
+        Move focus outside the editor
+      </button>
       <GridFrame>
         <CompatibilityGrid
           idProperty="id"
           columns={columns}
-          dataSource={baseRows}
-          columnOrder={["id", "name"]}
+          dataSource={mode === "modules" ? editorModuleRows : baseRows}
+          columnOrder={
+            mode === "modules"
+              ? ["id", "active", "amount", "date"]
+              : ["id", "name"]
+          }
           virtualized={false}
           enableFiltering={false}
           editable
@@ -984,20 +1035,51 @@ function Issue42PerRowHeights() {
   const [ready, setReady] = React.useState(false);
   const initialRows = React.useMemo(
     () =>
-      mode === "virtualized"
-        ? Array.from({ length: 240 }, (_, index) => ({
-            id: `row-${index}`,
-            name: `Person ${index}`,
-            city: `City ${index % 7}`,
-          }))
+      mode === "virtualized" || mode === "matrix"
+        ? Array.from(
+            { length: mode === "virtualized" ? 240 : 30 },
+            (_, index) => ({
+              id: `row-${index}`,
+              name: `Person ${index}`,
+              city: `City ${index % 7}`,
+            })
+          )
         : baseRows,
     [mode]
   );
   const [displayRows, setDisplayRows] = React.useState(initialRows);
+  const columns = React.useMemo<TypeColumns>(
+    () =>
+      mode === "matrix"
+        ? baseColumns.map((column) => ({
+            ...column,
+            width: undefined,
+            defaultWidth: column.width,
+          }))
+        : baseColumns,
+    [mode]
+  );
   const [rowHeights, setRowHeights] = React.useState<Record<string, number>>({
-    ...(mode === "virtualized" ? { "row-0": 40 } : { "row-2": 88 }),
+    ...(mode === "virtualized"
+      ? { "row-0": 40 }
+      : mode === "matrix"
+        ? { "row-5": 88 }
+        : { "row-2": 88 }),
   });
   const [heightEvents, setHeightEvents] = React.useState<unknown[]>([]);
+  const [imperativeScrollTop, setImperativeScrollTop] = React.useState<
+    number | null
+  >(null);
+  const resolvedDataSource = React.useMemo(
+    () =>
+      mode === "remote"
+        ? async () => ({
+            data: displayRows,
+            count: displayRows.length,
+          })
+        : displayRows,
+    [displayRows, mode]
+  );
 
   return (
     <>
@@ -1029,6 +1111,20 @@ function Issue42PerRowHeights() {
       </button>
       <button
         type="button"
+        data-testid="issue-42-scroll-to-row-ten"
+        disabled={!ready}
+        onClick={() => {
+          apiRef.current?.scrollToIndex?.(10);
+          setImperativeScrollTop(apiRef.current?.getScrollTop?.() ?? null);
+        }}
+      >
+        Scroll to row 10
+      </button>
+      <output data-testid="issue-42-scroll-top">
+        {String(imperativeScrollTop)}
+      </output>
+      <button
+        type="button"
         data-testid="issue-42-clear-row-two"
         disabled={!ready}
         onClick={() => apiRef.current?.setRowHeightById(null, "row-2")}
@@ -1054,14 +1150,32 @@ function Issue42PerRowHeights() {
       <output data-testid="issue-42-height-events">
         {JSON.stringify(heightEvents)}
       </output>
-      <GridFrame className={mode === "virtualized" ? "h-[320px]" : undefined}>
+      <GridFrame
+        className={
+          mode === "virtualized" || mode === "matrix" ? "h-[420px]" : undefined
+        }
+      >
         <CompatibilityGrid
           idProperty="id"
-          columns={baseColumns}
-          dataSource={displayRows}
+          columns={columns}
+          dataSource={resolvedDataSource}
           columnOrder={["id", "name", "city"]}
-          virtualized={mode === "virtualized"}
-          enableFiltering={false}
+          virtualized={mode === "virtualized" || mode === "matrix"}
+          enableFiltering={mode === "matrix"}
+          defaultFilterValue={
+            mode === "matrix"
+              ? [
+                  {
+                    name: "city",
+                    operator: "contains",
+                    type: "string",
+                    value: "",
+                  },
+                ]
+              : null
+          }
+          pagination={mode === "matrix" ? "local" : false}
+          defaultLimit={10}
           rowHeight={40}
           {...(mode === "uncontrolled"
             ? { defaultRowHeights: rowHeights }
@@ -1107,8 +1221,9 @@ function Issue43InitialScroll() {
         name: `column-${index}`,
         header: `Column ${index}`,
         defaultWidth: 180,
+        filterDelay: mode === "filter-race" && index === 0 ? 0 : undefined,
       })),
-    []
+    [mode]
   );
   const [columnOrder, setColumnOrder] = React.useState(() =>
     columns.map((column) => String(column.name))
@@ -1184,19 +1299,35 @@ function Issue43InitialScroll() {
           }
           allowMobileTransform={mode === "mobile-rtl"}
           enableKeyboardNavigation={mode !== "keyboard"}
-          enableFiltering={false}
+          enableFiltering={mode === "filter-race"}
+          defaultFilterValue={
+            mode === "filter-race"
+              ? [
+                  {
+                    name: "column-0",
+                    operator: "contains",
+                    type: "string",
+                    value: "",
+                  },
+                ]
+              : null
+          }
           nativeScroll={nativeScroll}
           rtl={rtl}
-          scrollProps={{
-            autoHide: false,
-            scrollThumbMargin: 3,
-            scrollThumbWidth: 13,
-            scrollThumbOverWidth: 15,
-            scrollThumbRadius: 0,
-            scrollThumbStyle: {
-              outline: "1px solid var(--tdg-color-ring)",
-            },
-          }}
+          {...(mode === "defaults"
+            ? {}
+            : {
+                scrollProps: {
+                  autoHide: false,
+                  scrollThumbMargin: 3,
+                  scrollThumbWidth: 13,
+                  scrollThumbOverWidth: 15,
+                  scrollThumbRadius: 0,
+                  scrollThumbStyle: {
+                    outline: "1px solid var(--tdg-color-ring)",
+                  },
+                },
+              })}
           initialScrollTop={mode === "initial" ? 120 : 0}
           initialScrollLeft={mode === "initial" ? 90 : 0}
           onScroll={(event) => {
@@ -1259,12 +1390,36 @@ function Issue44PackageBrowserConsumer() {
   const [completedNumericValue, setCompletedNumericValue] = React.useState<
     string | number | null
   >(null);
-  const [stringFilterValue, setStringFilterValue] = React.useState<
-    string | null
-  >(null);
-  const [boolFilterValue, setBoolFilterValue] = React.useState<boolean | null>(
-    null
-  );
+  const [stringFilterValue, setStringFilterValue] = React.useState({
+    name: "name",
+    operator: "contains",
+    type: "string",
+    value: null as string | null,
+  });
+  const [boolFilterValue, setBoolFilterValue] = React.useState({
+    name: "active",
+    operator: "eq",
+    type: "bool",
+    value: null as boolean | null,
+  });
+  const [numberFilterValue, setNumberFilterValue] = React.useState({
+    name: "amount",
+    operator: "gte",
+    type: "number",
+    value: null as number | null,
+  });
+  const [dateFilterValue, setDateFilterValue] = React.useState({
+    name: "createdAt",
+    operator: "after",
+    type: "date",
+    value: null as Date | null,
+  });
+  const [selectFilterValue, setSelectFilterValue] = React.useState({
+    name: "status",
+    operator: "eq",
+    type: "select",
+    value: null as string | null,
+  });
 
   React.useEffect(() => {
     let active = true;
@@ -1356,6 +1511,23 @@ function Issue44PackageBrowserConsumer() {
         {results == null ? "pending" : JSON.stringify(results)}
       </output>
       <div className="grid max-w-lg gap-2">
+        <div data-testid="issue-44-select-filter">
+          <SelectFilter
+            filterValue={selectFilterValue}
+            dataSource={["draft", "published"]}
+            onChange={(next) =>
+              setSelectFilterValue({
+                name: next.name ?? "status",
+                operator: next.operator ?? "eq",
+                type: next.type ?? "select",
+                value: typeof next.value === "string" ? next.value : null,
+              })
+            }
+          />
+        </div>
+        <output data-testid="issue-44-select-filter-value">
+          {JSON.stringify(selectFilterValue)}
+        </output>
         <BoolEditor
           value={boolValue}
           onChange={setBoolValue}
@@ -1382,15 +1554,62 @@ function Issue44PackageBrowserConsumer() {
           {String(completedNumericValue)}
         </output>
         <StringFilter
-          value={stringFilterValue}
-          onChange={setStringFilterValue}
+          filterValue={stringFilterValue}
+          onChange={(next) =>
+            setStringFilterValue({
+              name: next.name ?? "name",
+              operator: next.operator ?? "contains",
+              type: next.type ?? "string",
+              value: next.value ?? null,
+            })
+          }
         />
         <output data-testid="issue-44-string-filter-value">
-          {String(stringFilterValue)}
+          {JSON.stringify(stringFilterValue)}
         </output>
-        <BoolFilter value={boolFilterValue} onChange={setBoolFilterValue} />
+        <BoolFilter
+          filterValue={boolFilterValue}
+          onChange={(next) =>
+            setBoolFilterValue({
+              name: next.name ?? "active",
+              operator: next.operator ?? "eq",
+              type: next.type ?? "bool",
+              value: next.value ?? null,
+            })
+          }
+        />
         <output data-testid="issue-44-bool-filter-value">
-          {String(boolFilterValue)}
+          {JSON.stringify(boolFilterValue)}
+        </output>
+        <NumberFilter
+          filterValue={numberFilterValue}
+          filterEditorProps={{ "data-testid": "issue-44-number-filter" }}
+          onChange={(next) =>
+            setNumberFilterValue({
+              name: next.name ?? "amount",
+              operator: next.operator ?? "gte",
+              type: next.type ?? "number",
+              value: typeof next.value === "number" ? next.value : null,
+            })
+          }
+        />
+        <output data-testid="issue-44-number-filter-value">
+          {JSON.stringify(numberFilterValue)}
+        </output>
+        <DateFilter
+          filterValue={dateFilterValue}
+          filterEditorProps={{ "data-testid": "issue-44-date-filter" }}
+          onChange={(next) =>
+            setDateFilterValue({
+              name: next.name ?? "createdAt",
+              operator: next.operator ?? "after",
+              type: next.type ?? "date",
+              value: next.value instanceof Date ? next.value : null,
+            })
+          }
+        />
+        <output data-testid="issue-44-date-filter-value">
+          {JSON.stringify(dateFilterValue)}
         </output>
       </div>
     </>
@@ -1404,6 +1623,7 @@ function Issue45UnknownComputedMethod() {
   const [contractErrors, setContractErrors] = React.useState<string[]>([
     "pending",
   ]);
+  const [behaviorResult, setBehaviorResult] = React.useState("not-run");
 
   return (
     <>
@@ -1449,6 +1669,40 @@ function Issue45UnknownComputedMethod() {
         Call unknown computed method
       </button>
       <output data-testid="issue-45-unknown-result">{result}</output>
+      <button
+        type="button"
+        data-testid="issue-45-run-behavior"
+        disabled={!ready}
+        onClick={() => {
+          const api = apiRef.current;
+          if (!api) return;
+          const range = api.getCellSelectionBetween?.([0, 0], [1, 1]) ?? {};
+          api.setCellSelection?.(range);
+          api.setRowHeightById(64, "row-1");
+          api.setShowHoverRows?.(false);
+          api.setShowEmptyRows?.(true);
+          api.setShowCellBorders?.("horizontal");
+          api.setSortInfo({ name: "name", dir: 1 });
+
+          window.setTimeout(() => {
+            const current = apiRef.current;
+            setBehaviorResult(
+              JSON.stringify({
+                range: Object.keys(range).sort(),
+                rowHeight: current?.getRowHeightById("row-1"),
+                hover: current?.computedShowHoverRows,
+                empty: current?.computedShowEmptyRows,
+                borders: current?.computedShowCellBorders,
+                sort: current?.getSortInfo(),
+                stateCount: current?.getState?.().count,
+              })
+            );
+          }, 0);
+        }}
+      >
+        Exercise computed contracts
+      </button>
+      <output data-testid="issue-45-behavior-result">{behaviorResult}</output>
       <GridFrame>
         <CompatibilityGrid
           idProperty="id"
@@ -1480,6 +1734,8 @@ function Issue45UnknownComputedMethod() {
             );
             for (const plugin of plugins) {
               if (
+                typeof plugin.hook !== "function" ||
+                typeof plugin.defaultProps !== "function" ||
                 typeof plugin.isEnabled !== "function" ||
                 typeof plugin.getState !== "function"
               ) {
@@ -1487,7 +1743,28 @@ function Issue45UnknownComputedMethod() {
                 continue;
               }
               try {
+                const defaults = plugin.defaultProps();
+                const hookResult = plugin.hook(
+                  (api.initialProps ?? {}) as TypeDataGridProps,
+                  api,
+                  ref
+                );
                 plugin.getState(api);
+                if (
+                  defaults == null ||
+                  typeof defaults !== "object" ||
+                  hookResult == null ||
+                  typeof hookResult !== "object"
+                ) {
+                  errors.push(`plugin:${plugin.name}:invalid-contract`);
+                  continue;
+                }
+                const hookRecord = hookResult as Record<string, unknown>;
+                for (const method of plugin.methods) {
+                  if (typeof hookRecord[method] !== "function") {
+                    errors.push(`plugin:${plugin.name}:${String(method)}`);
+                  }
+                }
               } catch {
                 errors.push(`plugin:${plugin.name}:state-error`);
               }

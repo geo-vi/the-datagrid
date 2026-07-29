@@ -19,8 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import {
+  type TypeCommunityFilterChange,
+  type TypeCommunityFilterValue,
+  withFilterEditorValue,
+} from "./editorTypes";
 
-type AnyRecord = Record<string, any>;
+type AnyRecord = Record<string, unknown>;
 
 function isRecord(v: unknown): v is AnyRecord {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -32,8 +37,8 @@ function toKey(v: unknown): string {
 }
 
 function normalizeOptions(
-  input: any[] | undefined
-): { key: string; raw: any; label: string }[] {
+  input: unknown[] | undefined
+): { key: string; raw: unknown; label: string }[] {
   const arr = Array.isArray(input) ? input : [];
   return arr.map((item) => {
     if (isRecord(item)) {
@@ -70,14 +75,9 @@ function splitStringList(v: string): string[] {
 }
 
 export type SelectFilterProps = {
-  filterValue?: {
-    value?: any;
-    operator?: string;
-    type?: string;
-    name?: string;
-  };
-  value?: any;
-  onChange?: (value: any) => void;
+  filterValue?: TypeCommunityFilterValue<unknown>;
+  value?: unknown;
+  onChange?: TypeCommunityFilterChange<unknown>;
   filterEditorProps?:
     | Record<string, unknown>
     | ((
@@ -89,8 +89,8 @@ export type SelectFilterProps = {
    * Inovua uses `dataSource`.
    * Some codebases use `options`.
    */
-  dataSource?: any[];
-  options?: any[];
+  dataSource?: unknown[];
+  options?: unknown[];
 
   /**
    * Inovua props
@@ -103,20 +103,22 @@ export type SelectFilterProps = {
 
   className?: string;
   style?: React.CSSProperties;
-
-  [key: string]: any;
 };
 
 export default function SelectFilter(
   props: SelectFilterProps
 ): React.ReactElement {
+  const configuredFilterEditorProps =
+    props.filterEditorProps ??
+    (props.filterValue
+      ?.filterEditorProps as SelectFilterProps["filterEditorProps"]);
   const resolvedFilterEditorProps =
-    typeof props.filterEditorProps === "function"
-      ? (props.filterEditorProps(
+    typeof configuredFilterEditorProps === "function"
+      ? (configuredFilterEditorProps(
           { ...props, value: props.value ?? props.filterValue?.value },
           { index: 0, value: props.value ?? props.filterValue?.value }
         ) ?? {})
-      : (props.filterEditorProps ?? {});
+      : (configuredFilterEditorProps ?? {});
   const mergedProps = {
     ...resolvedFilterEditorProps,
     ...props,
@@ -125,7 +127,7 @@ export default function SelectFilter(
     filterValue,
     value: valueProp,
     onChange,
-    dataSource,
+    dataSource: dataSourceProp,
     options,
     multiple: multipleProp,
     placeholder,
@@ -136,6 +138,11 @@ export default function SelectFilter(
 
   const current = valueProp !== undefined ? valueProp : filterValue?.value;
   const operator = filterValue?.operator;
+  const dataSource =
+    dataSourceProp ??
+    (filterValue?.dataSource as SelectFilterProps["dataSource"]);
+  const emitValue = (nextValue: unknown) =>
+    onChange?.(withFilterEditorValue(filterValue, nextValue, "select"));
 
   const multiple = Boolean(multipleProp) || operator === "inlist";
 
@@ -145,7 +152,7 @@ export default function SelectFilter(
   );
 
   const optionByKey = React.useMemo(() => {
-    const m = new Map<string, { raw: any; label: string }>();
+    const m = new Map<string, { raw: unknown; label: string }>();
     for (const o of optionList) m.set(o.key, { raw: o.raw, label: o.label });
     return m;
   }, [optionList]);
@@ -153,7 +160,7 @@ export default function SelectFilter(
   const clearLabel = placeholder ?? "All";
 
   if (multiple) {
-    const selectedRaw: any[] = Array.isArray(current)
+    const selectedRaw: unknown[] = Array.isArray(current)
       ? current
       : typeof current === "string"
         ? splitStringList(current)
@@ -185,7 +192,7 @@ export default function SelectFilter(
       // Map keys -> raw values (preserve original types)
       const nextRaw = nextKeys.map((k) => optionByKey.get(k)?.raw ?? k);
 
-      onChange?.(nextRaw.length ? nextRaw : null);
+      emitValue(nextRaw.length ? nextRaw : null);
     };
 
     return (
@@ -208,7 +215,7 @@ export default function SelectFilter(
           <DropdownMenuItem
             onSelect={(e: Event) => {
               e.preventDefault();
-              onChange?.(null);
+              emitValue(null);
             }}
           >
             {clearLabel}
@@ -245,10 +252,10 @@ export default function SelectFilter(
       value={selectedKey}
       onValueChange={(k) => {
         if (k === "__all__") {
-          onChange?.(null);
+          emitValue(null);
           return;
         }
-        onChange?.(optionByKey.get(k)?.raw ?? k);
+        emitValue(optionByKey.get(k)?.raw ?? k);
       }}
       disabled={disabled}
     >

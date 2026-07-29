@@ -87,7 +87,7 @@ const ScrollArea = React.forwardRef<
       ...scrollProps?.scrollThumbStyle,
     } as React.CSSProperties;
     const trackStyle: React.CSSProperties = {
-      padding: scrollProps?.scrollThumbMargin,
+      margin: scrollProps?.scrollThumbMargin,
       ...scrollProps?.scrollTrackStyle,
     };
 
@@ -122,7 +122,7 @@ const ScrollArea = React.forwardRef<
         <ScrollBar
           style={{
             ...trackStyle,
-            width: scrollbarThickness,
+            width: scrollbarOverThickness,
           }}
           thumbStyle={thumbStyle}
         />
@@ -130,7 +130,7 @@ const ScrollArea = React.forwardRef<
           orientation="horizontal"
           style={{
             ...trackStyle,
-            height: scrollbarThickness,
+            height: scrollbarOverThickness,
           }}
           thumbStyle={thumbStyle}
         />
@@ -157,19 +157,30 @@ function ScrollBar({
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
-        "z-30 flex touch-none p-px transition-colors select-none data-[state=hidden]:hidden",
+        "group z-30 flex touch-none transition-colors select-none data-[state=hidden]:hidden",
         orientation === "vertical" &&
-          "h-full w-2.5 border-l border-l-transparent",
+          "w-2.5 flex-col items-center justify-center border-l border-l-transparent",
         orientation === "horizontal" &&
-          "h-2.5 flex-col border-t border-t-transparent",
+          "h-2.5 flex-row items-center justify-center border-t border-t-transparent",
         className
       )}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-[var(--tdg-color-ring)] hover:bg-[var(--tdg-color-muted-foreground)]"
-        style={thumbStyle}
+        className={cn(
+          "relative flex-1 rounded-full bg-[var(--tdg-color-ring)] transition-[width,height,background-color] hover:bg-[var(--tdg-color-muted-foreground)]",
+          orientation === "vertical" &&
+            "group-hover:!w-[var(--tdg-scroll-thumb-over-width)]",
+          orientation === "horizontal" &&
+            "group-hover:!h-[var(--tdg-scroll-thumb-over-width)]"
+        )}
+        style={{
+          ...thumbStyle,
+          ...(orientation === "vertical"
+            ? { width: "var(--tdg-scroll-thumb-width)" }
+            : { height: "var(--tdg-scroll-thumb-width)" }),
+        }}
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   );

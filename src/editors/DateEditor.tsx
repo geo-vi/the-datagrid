@@ -41,9 +41,12 @@ export default function DateEditor({
   editorProps,
 }: DateEditorProps): React.ReactElement {
   const [draft, setDraft] = React.useState(() => toInputValue(value));
+  const draftRef = React.useRef(draft);
 
   React.useEffect(() => {
-    setDraft(toInputValue(value));
+    const nextDraft = toInputValue(value);
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
   }, [value]);
 
   return (
@@ -59,8 +62,13 @@ export default function DateEditor({
       style={{ ...editorProps?.style, ...style }}
       data-slot="date-editor"
       onChange={(event) => {
+        draftRef.current = event.target.value;
         setDraft(event.target.value);
         onChange?.(event.target.value || null, event);
+      }}
+      onBlur={(event) => {
+        editorProps?.onBlur?.(event);
+        onComplete?.(draftRef.current || null, event);
       }}
       onKeyDown={(event) => {
         editorProps?.onKeyDown?.(event);
@@ -71,9 +79,10 @@ export default function DateEditor({
           onCancel?.(event);
         } else if (event.key === "Enter") {
           event.preventDefault();
-          onComplete?.(draft || null, event);
+          onComplete?.(draftRef.current || null, event);
         } else if (event.key === "Tab") {
-          onTabNavigation?.(event.shiftKey ? -1 : 1, event);
+          event.preventDefault();
+          onTabNavigation?.(true, event.shiftKey ? -1 : 1, event);
         }
       }}
     />
@@ -81,5 +90,5 @@ export default function DateEditor({
 }
 
 DateEditor.defaultProps = {
-  relativeToViewport: true,
+  relativeToViewport: false,
 };

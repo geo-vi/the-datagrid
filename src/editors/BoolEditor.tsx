@@ -8,13 +8,10 @@ import type { TypeCommunityEditorProps } from "./editorTypes";
 
 export type BoolEditorProps = Omit<
   TypeCommunityEditorProps<boolean | null>,
-  "onTabNavigation"
+  "editorProps"
 > & {
   emptyValue?: boolean | null;
-  onTabNavigation?: (
-    direction: -1 | 1,
-    event?: React.KeyboardEvent<HTMLButtonElement>
-  ) => void;
+  editorProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
 };
 
 export default function BoolEditor({
@@ -23,14 +20,21 @@ export default function BoolEditor({
   onComplete,
   onCancel,
   onTabNavigation,
+  onKeyDown,
   autoFocus,
   disabled,
   readOnly,
   rtl,
   className,
   style,
+  editorProps,
 }: BoolEditorProps): React.ReactElement {
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const currentValueRef = React.useRef(value);
+
+  React.useEffect(() => {
+    currentValueRef.current = value;
+  }, [value]);
 
   React.useEffect(() => {
     if (autoFocus) buttonRef.current?.focus();
@@ -47,23 +51,35 @@ export default function BoolEditor({
       data-slot="bool-editor"
     >
       <Checkbox
+        {...editorProps}
         ref={buttonRef}
         checked={value === true}
         disabled={disabled || readOnly}
-        aria-label="Boolean value"
+        aria-label={editorProps?.["aria-label"] ?? "Boolean value"}
+        className={cn(editorProps?.className)}
+        style={editorProps?.style}
+        onBlur={(event) => {
+          editorProps?.onBlur?.(event);
+          onComplete?.(currentValueRef.current, event);
+        }}
         onCheckedChange={(checked) => {
           const next = checked === true;
+          currentValueRef.current = next;
           onChange?.(next);
         }}
         onKeyDown={(event) => {
+          editorProps?.onKeyDown?.(event);
+          onKeyDown?.(event);
+          if (event.defaultPrevented) return;
           if (event.key === "Escape") {
             event.preventDefault();
             onCancel?.(event);
           } else if (event.key === "Enter") {
             event.preventDefault();
-            onComplete?.(value, event);
+            onComplete?.(currentValueRef.current, event);
           } else if (event.key === "Tab") {
-            onTabNavigation?.(event.shiftKey ? -1 : 1, event);
+            event.preventDefault();
+            onTabNavigation?.(true, event.shiftKey ? -1 : 1, event);
           }
         }}
       />

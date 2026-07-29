@@ -2,18 +2,20 @@
 
 import * as React from "react";
 
+import { Checkbox } from "../../components/ui/checkbox";
 import { cn } from "../../lib/utils";
+import {
+  type TypeCommunityFilterChange,
+  type TypeCommunityFilterValue,
+  withFilterEditorValue,
+} from "./editorTypes";
 
 export type BoolFilterProps = {
-  filterValue?: {
-    name?: string;
-    operator?: string;
-    type?: string;
-    value?: boolean | null;
-  };
+  filterValue?: TypeCommunityFilterValue<boolean | null>;
   value?: boolean | null;
-  onChange?: (value: boolean | null) => void;
+  onChange?: TypeCommunityFilterChange<boolean | null>;
   emptyValue?: boolean | null;
+  filterDelay?: number;
   readOnly?: boolean;
   disabled?: boolean;
   rtl?: boolean;
@@ -21,8 +23,12 @@ export type BoolFilterProps = {
   className?: string;
   style?: React.CSSProperties;
   i18n?: (key: string, defaultLabel: string) => React.ReactNode;
-  filterEditorProps?: React.SelectHTMLAttributes<HTMLSelectElement>;
-  render?: (select: React.ReactElement) => React.ReactNode;
+  filterEditorProps?:
+    | React.ComponentPropsWithoutRef<typeof Checkbox>
+    | ((
+        props: BoolFilterProps
+      ) => React.ComponentPropsWithoutRef<typeof Checkbox>);
+  render?: (checkbox: React.ReactElement) => React.ReactNode;
 };
 
 export default function BoolFilter({
@@ -30,6 +36,7 @@ export default function BoolFilter({
   value,
   onChange,
   emptyValue = null,
+  filterDelay = 0,
   readOnly,
   disabled,
   rtl,
@@ -40,31 +47,88 @@ export default function BoolFilter({
   render,
 }: BoolFilterProps): React.ReactElement {
   const current = value !== undefined ? value : filterValue?.value;
-  const select = (
-    <select
-      {...filterEditorProps}
-      value={current == null ? "" : current ? "true" : "false"}
-      disabled={disabled || readOnly}
-      dir={rtl ? "rtl" : "ltr"}
-      className={cn(
-        "h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-        filterEditorProps?.className,
-        className
-      )}
-      style={{ ...filterEditorProps?.style, ...style }}
-      data-slot="bool-filter"
-      onChange={(event) => {
-        filterEditorProps?.onChange?.(event);
-        onChange?.(
-          event.target.value === "" ? emptyValue : event.target.value === "true"
-        );
-      }}
-    >
-      <option value="">{i18n?.("all", "All") ?? "All"}</option>
-      <option value="true">{i18n?.("true", "True") ?? "True"}</option>
-      <option value="false">{i18n?.("false", "False") ?? "False"}</option>
-    </select>
+  const [draft, setDraft] = React.useState<boolean | null>(
+    current === undefined ? emptyValue : current
+  );
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descriptorEditorProps =
+    filterValue?.filterEditorProps &&
+    typeof filterValue.filterEditorProps === "object"
+      ? (filterValue.filterEditorProps as React.ComponentPropsWithoutRef<
+          typeof Checkbox
+        >)
+      : {};
+  const propEditorProps =
+    typeof filterEditorProps === "function"
+      ? filterEditorProps({
+          filterValue,
+          value,
+          onChange,
+          emptyValue,
+          filterDelay,
+          readOnly,
+          disabled,
+          rtl,
+          className,
+          style,
+          i18n,
+          filterEditorProps,
+          render,
+        })
+      : (filterEditorProps ?? {});
+  const resolvedEditorProps = {
+    ...descriptorEditorProps,
+    ...propEditorProps,
+  };
+
+  React.useEffect(() => {
+    setDraft(current === undefined ? emptyValue : current);
+  }, [current, emptyValue]);
+
+  React.useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    []
   );
 
-  return <>{render ? render(select) : select}</>;
+  const emitValue = (nextValue: boolean | null) => {
+    const descriptor = withFilterEditorValue(
+      filterValue,
+      nextValue,
+      filterValue?.type ?? "bool"
+    );
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (filterDelay > 0) {
+      timerRef.current = setTimeout(() => onChange?.(descriptor), filterDelay);
+    } else {
+      onChange?.(descriptor);
+    }
+  };
+
+  const checkbox = (
+    <Checkbox
+      {...resolvedEditorProps}
+      checked={draft == null ? "indeterminate" : draft}
+      disabled={disabled || readOnly}
+      dir={rtl ? "rtl" : "ltr"}
+      className={cn("mx-auto", resolvedEditorProps.className, className)}
+      style={{ ...resolvedEditorProps.style, ...style }}
+      data-slot="bool-filter"
+      aria-label={
+        resolvedEditorProps["aria-label"] ??
+        String(i18n?.("boolFilter", "Boolean filter") ?? "Boolean filter")
+      }
+      onCheckedChange={() => {
+        resolvedEditorProps.onCheckedChange?.(
+          draft == null ? true : draft ? false : "indeterminate"
+        );
+        const next = draft == null ? true : draft ? false : emptyValue;
+        setDraft(next);
+        emitValue(next);
+      }}
+    />
+  );
+
+  return <>{render ? render(checkbox) : checkbox}</>;
 }

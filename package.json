@@ -246,11 +246,12 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && vite build --mode library-bool-editor && vite build --mode library-date-editor && vite build --mode library-numeric-editor && vite build --mode library-string-filter && vite build --mode library-bool-filter && vite build --mode library-date-filter && vite build --mode library-number-filter && vite build --mode library-select-filter && vite build --mode library-community-types && node scripts/prepare-community-artifacts.mjs && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
+    "build": "yarn test:community-audit && yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && vite build --mode library-bool-editor && vite build --mode library-date-editor && vite build --mode library-numeric-editor && vite build --mode library-string-filter && vite build --mode library-bool-filter && vite build --mode library-date-filter && vite build --mode library-number-filter && vite build --mode library-select-filter && vite build --mode library-community-types && node scripts/prepare-community-artifacts.mjs && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "build:site:e2e": "yarn build:search-index && vite build --mode site --base /",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
+    "test:community-audit": "node scripts/audit-community-api.mjs",
     "test:published-types": "node scripts/test-published-types.mjs",
     "test:react-compat": "node scripts/test-react-compat.mjs",
     "test:compat": "yarn test:types && playwright test tests/playwright/computed-props-compat.spec.ts",

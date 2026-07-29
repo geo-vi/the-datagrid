@@ -41,9 +41,12 @@ export default function NumericEditor({
   step,
 }: NumericEditorProps): React.ReactElement {
   const [draft, setDraft] = React.useState(value == null ? "" : String(value));
+  const draftRef = React.useRef(draft);
 
   React.useEffect(() => {
-    setDraft(value == null ? "" : String(value));
+    const nextDraft = value == null ? "" : String(value);
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
   }, [value]);
 
   return (
@@ -62,8 +65,13 @@ export default function NumericEditor({
       style={{ ...editorProps?.style, ...style }}
       data-slot="numeric-editor"
       onChange={(event) => {
+        draftRef.current = event.target.value;
         setDraft(event.target.value);
         onChange?.(parseNumericValue(event.target.value), event);
+      }}
+      onBlur={(event) => {
+        editorProps?.onBlur?.(event);
+        onComplete?.(parseNumericValue(draftRef.current), event);
       }}
       onKeyDown={(event) => {
         editorProps?.onKeyDown?.(event);
@@ -74,9 +82,10 @@ export default function NumericEditor({
           onCancel?.(event);
         } else if (event.key === "Enter") {
           event.preventDefault();
-          onComplete?.(parseNumericValue(draft), event);
+          onComplete?.(parseNumericValue(draftRef.current), event);
         } else if (event.key === "Tab") {
-          onTabNavigation?.(event.shiftKey ? -1 : 1, event);
+          event.preventDefault();
+          onTabNavigation?.(true, event.shiftKey ? -1 : 1, event);
         }
       }}
     />

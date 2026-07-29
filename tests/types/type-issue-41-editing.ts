@@ -7,6 +7,7 @@ import type {
   TypeDataGridProps,
   TypeInlineEditorProps,
 } from "../../src/main";
+import { BoolEditor, DateEditor, NumericEditor } from "../../src/main";
 
 const columns = [
   {
@@ -37,6 +38,32 @@ const columns = [
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           editProps?.onChange(event.target.value, event),
       });
+    },
+  },
+  {
+    name: "bool",
+    editable: true,
+    editor: BoolEditor,
+  },
+  {
+    name: "date",
+    editable: true,
+    editor: DateEditor,
+  },
+  {
+    name: "number",
+    editable: true,
+    editor: NumericEditor,
+    editorProps: {
+      onTabNavigation: (
+        complete: boolean,
+        direction: -1 | 0 | 1,
+        event: React.KeyboardEvent<HTMLElement>
+      ) => {
+        void complete;
+        void direction;
+        void event;
+      },
     },
   },
 ] satisfies TypeColumns;

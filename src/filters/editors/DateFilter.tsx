@@ -3,6 +3,11 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 import { Input } from "../../components/ui/input";
+import {
+  type TypeCommunityFilterChange,
+  type TypeCommunityFilterValue,
+  withFilterEditorValue,
+} from "./editorTypes";
 
 function isRangeOperator(op?: string): boolean {
   return op === "inrange" || op === "notinrange";
@@ -57,14 +62,9 @@ function parseInputValue(
 }
 
 export type DateFilterProps = {
-  filterValue?: {
-    value?: any;
-    operator?: string;
-    type?: string;
-    name?: string;
-  };
-  value?: any;
-  onChange?: (value: any) => void;
+  filterValue?: TypeCommunityFilterValue<unknown>;
+  value?: unknown;
+  onChange?: TypeCommunityFilterChange<unknown>;
   filterEditorProps?:
     | Record<string, unknown>
     | ((
@@ -86,8 +86,6 @@ export type DateFilterProps = {
 
   className?: string;
   style?: React.CSSProperties;
-
-  [key: string]: any;
 };
 
 export default function DateFilter(props: DateFilterProps): React.ReactElement {
@@ -112,23 +110,34 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
     type === "time" ? "datetime-local" : "date";
 
   const raw = valueProp !== undefined ? valueProp : filterValue?.value;
+  const configuredFilterEditorProps =
+    filterEditorProps ??
+    (filterValue?.filterEditorProps as DateFilterProps["filterEditorProps"]);
   const resolveInputProps = (value: unknown, index: number) => {
-    if (typeof filterEditorProps === "function") {
-      return filterEditorProps({ ...props, value }, { index, value }) ?? {};
+    if (typeof configuredFilterEditorProps === "function") {
+      return (
+        configuredFilterEditorProps({ ...props, value }, { index, value }) ?? {}
+      );
     }
-    return filterEditorProps ?? {};
+    return configuredFilterEditorProps ?? {};
   };
+  const emitValue = (nextValue: unknown) =>
+    onChange?.(withFilterEditorValue(filterValue, nextValue, type ?? "date"));
 
   if (isRangeOperator(operator)) {
+    const rangeRecord =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : null;
     const startRaw = Array.isArray(raw)
       ? raw[0]
-      : raw && typeof raw === "object"
-        ? raw.start
+      : rangeRecord
+        ? rangeRecord.start
         : raw;
     const endRaw = Array.isArray(raw)
       ? raw[1]
-      : raw && typeof raw === "object"
-        ? raw.end
+      : rangeRecord
+        ? rangeRecord.end
         : undefined;
     const start = toDate(startRaw);
     const end = toDate(endRaw);
@@ -163,7 +172,7 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
           )}
           onChange={(e) => {
             const nextStart = parseInputValue(e.target.value, inputMode);
-            onChange?.(makeRangeValue(nextStart, end));
+            emitValue(makeRangeValue(nextStart, end));
           }}
         />
         <Input
@@ -177,7 +186,7 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
           )}
           onChange={(e) => {
             const nextEnd = parseInputValue(e.target.value, inputMode);
-            onChange?.(makeRangeValue(start, nextEnd));
+            emitValue(makeRangeValue(start, nextEnd));
           }}
         />
       </div>
@@ -203,7 +212,7 @@ export default function DateFilter(props: DateFilterProps): React.ReactElement {
       placeholder={String(inputProps.placeholder ?? placeholder ?? "")}
       onChange={(e) => {
         const next = parseInputValue(e.target.value, inputMode);
-        onChange?.(next);
+        emitValue(next);
       }}
     />
   );

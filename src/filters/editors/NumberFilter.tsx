@@ -3,6 +3,11 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 import { Input } from "../../components/ui/input";
+import {
+  type TypeCommunityFilterChange,
+  type TypeCommunityFilterValue,
+  withFilterEditorValue,
+} from "./editorTypes";
 
 function isRangeOperator(op?: string): boolean {
   return op === "inrange" || op === "notinrange";
@@ -16,14 +21,9 @@ function toNumber(value: unknown): number | null {
 }
 
 export type NumberFilterProps = {
-  filterValue?: {
-    value?: any;
-    operator?: string;
-    type?: string;
-    name?: string;
-  };
-  value?: any;
-  onChange?: (value: any) => void;
+  filterValue?: TypeCommunityFilterValue<unknown>;
+  value?: unknown;
+  onChange?: TypeCommunityFilterChange<unknown>;
   filterEditorProps?:
     | Record<string, unknown>
     | ((
@@ -43,8 +43,6 @@ export type NumberFilterProps = {
 
   className?: string;
   style?: React.CSSProperties;
-
-  [key: string]: any;
 };
 
 export default function NumberFilter(
@@ -68,23 +66,34 @@ export default function NumberFilter(
 
   const operator = filterValue?.operator;
   const raw = valueProp !== undefined ? valueProp : filterValue?.value;
+  const configuredFilterEditorProps =
+    filterEditorProps ??
+    (filterValue?.filterEditorProps as NumberFilterProps["filterEditorProps"]);
   const resolveInputProps = (value: unknown, index: number) => {
-    if (typeof filterEditorProps === "function") {
-      return filterEditorProps({ ...props, value }, { index, value }) ?? {};
+    if (typeof configuredFilterEditorProps === "function") {
+      return (
+        configuredFilterEditorProps({ ...props, value }, { index, value }) ?? {}
+      );
     }
-    return filterEditorProps ?? {};
+    return configuredFilterEditorProps ?? {};
   };
+  const emitValue = (nextValue: unknown) =>
+    onChange?.(withFilterEditorValue(filterValue, nextValue, "number"));
 
   if (isRangeOperator(operator)) {
+    const rangeRecord =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : null;
     const startRaw = Array.isArray(raw)
       ? raw[0]
-      : raw && typeof raw === "object"
-        ? raw.start
+      : rangeRecord
+        ? rangeRecord.start
         : raw;
     const endRaw = Array.isArray(raw)
       ? raw[1]
-      : raw && typeof raw === "object"
-        ? raw.end
+      : rangeRecord
+        ? rangeRecord.end
         : undefined;
     const start = toNumber(startRaw);
     const end = toNumber(endRaw);
@@ -117,7 +126,7 @@ export default function NumberFilter(
           onChange={(e) => {
             const nextStart =
               e.target.value === "" ? null : Number(e.target.value);
-            onChange?.(
+            emitValue(
               makeRangeValue(Number.isFinite(nextStart) ? nextStart : null, end)
             );
           }}
@@ -137,7 +146,7 @@ export default function NumberFilter(
           onChange={(e) => {
             const nextEnd =
               e.target.value === "" ? null : Number(e.target.value);
-            onChange?.(
+            emitValue(
               makeRangeValue(start, Number.isFinite(nextEnd) ? nextEnd : null)
             );
           }}
@@ -163,7 +172,7 @@ export default function NumberFilter(
       max={(inputProps.max as number | undefined) ?? max}
       onChange={(e) => {
         const next = e.target.value === "" ? null : Number(e.target.value);
-        onChange?.(Number.isFinite(next) ? next : null);
+        emitValue(Number.isFinite(next) ? next : null);
       }}
     />
   );
