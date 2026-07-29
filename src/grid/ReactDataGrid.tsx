@@ -1982,7 +1982,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (activeLocalFilter) {
         data = applyLocalFilter(data, localFilterValue, {
           filterTypes,
-          columns: orderedColumns,
+          columns: allInputColumns,
         });
       }
 
@@ -1992,10 +1992,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     return rows.slice(0, 25);
   }, [
     activeLocalFilter,
+    allInputColumns,
     dataSource,
     filterTypes,
     localFilterValue,
-    orderedColumns,
     rows,
     searchActive,
   ]);
@@ -3054,7 +3054,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (rowIndex) => resolveRowHeight(rowIndex),
-    overscan: 10,
+    // Natural-height rows need the wider measurement buffer for accurate
+    // smooth-scroll completion. Deterministically sized rows can use the
+    // smaller buffer without reconciling another large set of horizontally
+    // virtualized cells on every column-range change.
+    overscan: rowHeight == null ? 10 : 3,
     scrollMargin: stickyHeaderOffset,
     // Keep start-aligned imperative scrolling below the sticky header and
     // filter rows instead of positioning the requested row underneath them.
@@ -3087,6 +3091,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
           (column) =>
             `${getColumnId(column)}:${columnWidths[getColumnId(column)]}`
         )
+        // TanStack Virtual caches measurements by the stable column key.
+        // Reordering equal-width columns can reuse those measurements; only
+        // membership or width changes need to invalidate the cache.
+        .sort()
         .join("|"),
     [columnWidths, orderedColumns]
   );
