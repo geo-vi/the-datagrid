@@ -91,7 +91,7 @@ test("GitHub issue #35: visibility defaults initialize hidden columns", async ({
   ).toHaveCount(0);
 });
 
-test.fixme("GitHub issue #36: grouped columns render their shared group header", async ({
+test("GitHub issue #36: grouped columns render their shared group header", async ({
   page,
 }) => {
   const scope = await openIssue(page, 36);

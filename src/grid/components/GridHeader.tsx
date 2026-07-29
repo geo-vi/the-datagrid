@@ -18,6 +18,10 @@ import type {
 import { TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { HeaderCell } from "./HeaderCell";
 import { FilterCell } from "./FilterCell";
+import { ColumnGroupHeaderCell } from "./ColumnGroupHeaderCell";
+import { cn } from "../../lib/utils";
+import type { TypeColumnGroupHeaderRenderItem } from "../utils/columnGroups";
+import { getColumnGroupSegmentKey } from "../utils/columnGroups";
 import type {
   TypeGridColumnRenderItem,
   TypeLockedColumnLayout,
@@ -25,6 +29,8 @@ import type {
 
 export type GridHeaderProps = {
   headerGroups: any[];
+  groupHeaderRows: TypeColumnGroupHeaderRenderItem[][];
+  orderedColumns: TypeColumn[];
 
   headerHeight: number;
   filterRowHeight: number;
@@ -61,13 +67,30 @@ export type GridHeaderProps = {
   onHeaderDragStart: (e: React.DragEvent, columnId: string) => void;
   onHeaderDragOver: (e: React.DragEvent) => void;
   onHeaderDrop: (e: React.DragEvent, targetId: string) => void;
+  onGroupHeaderDragStart: (
+    e: React.DragEvent,
+    item: Extract<TypeColumnGroupHeaderRenderItem, { type: "group" }>
+  ) => void;
+  onGroupHeaderDrop: (
+    e: React.DragEvent,
+    item: Extract<TypeColumnGroupHeaderRenderItem, { type: "group" }>
+  ) => void;
   resizingColumnId: string | null;
+  resizingGroupKey: string | null;
   onColumnResizeStart: (
     event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
     columnId: string
   ) => void;
   onColumnResizeBy: (columnId: string, diff: number) => void;
   onColumnAutoResize: (columnId: string) => void;
+  onGroupResizeStart: (
+    event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
+    item: Extract<TypeColumnGroupHeaderRenderItem, { type: "group" }>
+  ) => void;
+  onGroupResizeBy: (
+    item: Extract<TypeColumnGroupHeaderRenderItem, { type: "group" }>,
+    diff: number
+  ) => void;
 
   // filtering
   enableFiltering: boolean;
@@ -112,9 +135,41 @@ function ColumnSpacerHeader(props: { width: number }) {
   );
 }
 
+function resolveSegmentLockedLayout(
+  columnIds: readonly string[],
+  lockedColumnLayout: Record<string, TypeLockedColumnLayout>
+): TypeLockedColumnLayout | undefined {
+  const layouts = columnIds.flatMap((columnId) => {
+    const layout = lockedColumnLayout[columnId];
+    return layout ? [layout] : [];
+  });
+  if (
+    layouts.length !== columnIds.length ||
+    layouts.length === 0 ||
+    layouts.some((layout) => layout.side !== layouts[0]!.side)
+  ) {
+    return undefined;
+  }
+
+  const side = layouts[0]!.side;
+  const edgeLayout =
+    side === "start" ? layouts[0]! : layouts[layouts.length - 1]!;
+  const boundaryLayout =
+    side === "start" ? layouts[layouts.length - 1]! : layouts[0]!;
+
+  return {
+    side,
+    offset: edgeLayout.offset,
+    viewportOffset: edgeLayout.viewportOffset,
+    boundary: boundaryLayout.boundary,
+  };
+}
+
 export function GridHeader(props: GridHeaderProps) {
   const {
     headerGroups,
+    groupHeaderRows,
+    orderedColumns,
     headerHeight,
     filterRowHeight,
     sortInfo,
@@ -141,10 +196,15 @@ export function GridHeader(props: GridHeaderProps) {
     onHeaderDragStart,
     onHeaderDragOver,
     onHeaderDrop,
+    onGroupHeaderDragStart,
+    onGroupHeaderDrop,
     resizingColumnId,
+    resizingGroupKey,
     onColumnResizeStart,
     onColumnResizeBy,
     onColumnAutoResize,
+    onGroupResizeStart,
+    onGroupResizeBy,
     enableFiltering,
     enableColumnFilterContextMenu,
     filterControlled,
@@ -164,11 +224,102 @@ export function GridHeader(props: GridHeaderProps) {
     columnRenderItems,
     lockedColumnLayout,
   } = props;
+  const leafHeaderGroup = headerGroups[headerGroups.length - 1];
+  if (!leafHeaderGroup) return null;
+  const orderedColumnsMap = new Map(
+    orderedColumns.map((column) => [column.id ?? column.name ?? "", column])
+  );
 
   return (
     <TableHeader className="InovuaReactDataGrid__header [&_tr]:!border-b-0">
-      {/* Header row */}
-      {headerGroups.map((hg) => (
+      {groupHeaderRows.map((row, depth) => (
+        <TableRow
+          key={`group-row-${depth}`}
+          className="tdg-header-row tdg-header-group-row InovuaReactDataGrid__header-row InovuaReactDataGrid__header-group-row bg-[var(--tdg-header-bg)]"
+          data-slot="grid-header-group-row"
+          data-group-depth={depth}
+          style={{ height: headerHeight }}
+        >
+          {row.map((item) => {
+            if (item.type === "spacer") {
+              return <ColumnSpacerHeader key={item.key} width={item.width} />;
+            }
+
+            const lockedLayout = resolveSegmentLockedLayout(
+              item.columnIds,
+              lockedColumnLayout
+            );
+            if (item.type === "placeholder") {
+              return (
+                <TableHead
+                  key={item.key}
+                  aria-hidden="true"
+                  colSpan={item.colSpan}
+                  data-slot="grid-header-group-placeholder"
+                  className={cn(
+                    "tdg-header-cell tdg-header-group-placeholder pointer-events-none !p-0 bg-[var(--tdg-header-bg)]",
+                    lockedLayout
+                      ? [
+                          "tdg-locked-column",
+                          `tdg-locked-column--${lockedLayout.side}`,
+                          lockedLayout.boundary
+                            ? `tdg-locked-column--${lockedLayout.side}-boundary`
+                            : "",
+                        ]
+                      : "",
+                    showHorizontalCellBorders
+                      ? "border-b [border-bottom-color:var(--tdg-header-border-color)]"
+                      : "",
+                    showVerticalCellBorders
+                      ? "border-r [border-right-color:var(--tdg-header-border-color)]"
+                      : ""
+                  )}
+                  style={{
+                    width: item.width,
+                    height: headerHeight,
+                    ...(lockedLayout
+                      ? ({
+                          "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
+                          "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
+                        } as React.CSSProperties)
+                      : {}),
+                  }}
+                />
+              );
+            }
+
+            const columns = item.columnIds.flatMap((columnId) => {
+              const column = orderedColumnsMap.get(columnId);
+              return column ? [column] : [];
+            });
+
+            return (
+              <ColumnGroupHeaderCell
+                key={item.key}
+                item={item}
+                columns={columns}
+                headerHeight={headerHeight}
+                showHorizontalCellBorders={showHorizontalCellBorders}
+                showVerticalCellBorders={showVerticalCellBorders}
+                allowColumnReorder={allowColumnReorder}
+                allowColumnResize={allowColumnResize}
+                resizing={resizingGroupKey === getColumnGroupSegmentKey(item)}
+                lockedLayout={lockedLayout}
+                gridRef={gridRef}
+                gridProps={gridProps}
+                onDragStart={onGroupHeaderDragStart}
+                onDragOver={onHeaderDragOver}
+                onDrop={onGroupHeaderDrop}
+                onResizeStart={onGroupResizeStart}
+                onResizeBy={onGroupResizeBy}
+              />
+            );
+          })}
+        </TableRow>
+      ))}
+
+      {/* Leaf column header row */}
+      {[leafHeaderGroup].map((hg) => (
         <TableRow
           key={hg.id}
           className="tdg-header-row InovuaReactDataGrid__header-row bg-[var(--tdg-header-bg)]"
@@ -243,7 +394,7 @@ export function GridHeader(props: GridHeaderProps) {
 
       {/* Filter row */}
       {enableFiltering &&
-        headerGroups.map((hg) => (
+        [leafHeaderGroup].map((hg) => (
           <TableRow
             key={`${hg.id}-filters`}
             className="tdg-filter-row InovuaReactDataGrid__filter-row bg-[var(--tdg-filter-bg)]"

@@ -12,6 +12,7 @@ Documentation and live examples: https://geo-vi.github.io/the-datagrid/
 - Opt-in global table search through a separate, tree-shakeable entry
 - Opt-in contextual column-visibility toolbar with a right-side action slot
 - Column management (reorder, resize, auto-size)
+- Stacked and nested column headers with split/rejoin and group resizing
 - Pagination (local + remote)
 - Row selection (checkbox column)
 - Modern shadcn-aligned look-and-feel with packaged styles
@@ -32,8 +33,8 @@ TypeScript fields: it includes defaults, runtime behavior, callback payloads
 and timing, controlled/uncontrolled state, local and remote data flow, layout,
 keyboard and focus interaction, and accessibility behavior.
 
-The audited Issue 17, Issue 31, and Issue 48 compatibility batches now implement and
-regression-test:
+The audited Issue 17, Issue 31, Issue 36, and Issue 48 compatibility batches
+now implement and regression-test:
 
 - Inovua's `idProperty`, theme, row/filter height, text-selection, filter-menu,
   and column-menu defaults;
@@ -49,6 +50,9 @@ regression-test:
 - inline editing (`editable`, `editStartEvent`, column editors, lifecycle
   callbacks, cancellation, focus, and keyboard navigation);
 - object- or function-valued whole-row `rowStyle`.
+- stacked and nested column groups, custom group headers, split/rejoin
+  reordering, controlled group moves, proportional group resizing, and
+  horizontal-virtualization geometry;
 - the standalone
   `@geovi/the-datagrid/packages/TextInput` compatibility entry, including its
   value-first callbacks, clear tool, legacy class hooks, and imperative ref;
@@ -107,7 +111,9 @@ method allowlists.
 - **Columns and cells:** stable `id`/`name` identity, controlled rendered order,
   callback-driven drag reordering, explicit visibility, custom headers and cell
   renderers, per-column sorting/filtering/search configuration, alignment, cell
-  classes/styles, and header props.
+  classes/styles, and header props. Root `groups`, `column.group`, and nested
+  `groups[].group` render accessible stacked headers with automatic split/rejoin
+  segments, block dragging, and proportional min/max-clamped resizing.
 - **Column and row sizing:** controlled `width`/`flex`, uncontrolled
   `defaultWidth`/`defaultFlex`, `minWidth`/`maxWidth` clamps, proportional flex
   allocation, the upstream 40px implicit column minimum (while preserving an
@@ -203,7 +209,9 @@ The main entry, `@geovi/the-datagrid`, exports:
   `TypeColumns`, `TypeColumnEditorProps`, `TypeColumnResizeContext`,
   `TypeColumnResizeInfo`, `TypeColumnEditorCell`, `TypeComputedColumn`,
   `TypeComputedColumnsMap`, `TypeComputedProps`, `TypeDataGridProps`,
-  `TypeDataSourceArgs`, `TypeDataSource`, `TypeDataSourceResult`,
+  `TypeColumnGroup`, `TypeColumnGroupDOMProps`,
+  `TypeColumnGroupHeaderProps`, `TypeDataSourceArgs`, `TypeDataSource`,
+  `TypeDataSourceResult`,
   `TypePaginationProps`, `TypeLoadMaskProps`, `TypeEditInfo`, `TypeStartEditArgs`,
   `TypeTryStartEditArgs`, `TypeCompleteEditArgs`, `TypeCancelEditArgs`,
   `TypeFilterOperator`, `TypeFilterType`, `TypeFilterTypes`, `TypeFilterValue`,
@@ -768,11 +776,12 @@ Note: this is a curated overview. For the complete contract, refer to the export
 
 ### Core
 
-| Prop         | Type             | Default  | Description                                                  |
-| ------------ | ---------------- | -------- | ------------------------------------------------------------ |
-| `idProperty` | `string`         | `"id"`   | Property name used as unique row identifier; JSX may omit it |
-| `columns`    | `TypeColumns`    | required | Column definitions                                           |
-| `dataSource` | `TypeDataSource` | required | Data source (array, function, or promise)                    |
+| Prop         | Type                | Default  | Description                                                  |
+| ------------ | ------------------- | -------- | ------------------------------------------------------------ |
+| `idProperty` | `string`            | `"id"`   | Property name used as unique row identifier; JSX may omit it |
+| `columns`    | `TypeColumns`       | required | Column definitions                                           |
+| `groups`     | `TypeColumnGroup[]` | `[]`     | Stacked and nested column-header descriptors                 |
+| `dataSource` | `TypeDataSource`    | required | Data source (array, function, or promise)                    |
 
 ### Display
 
@@ -812,26 +821,27 @@ custom cell metadata. That callback value preserves upstream’s raw shape:
 
 ### Columns
 
-| Prop                      | Type                            | Default | Description                                                                     |
-| ------------------------- | ------------------------------- | ------- | ------------------------------------------------------------------------------- |
-| `columnOrder`             | `string[]`                      | -       | Controlled ordered array of column ids/names                                    |
-| `defaultColumnOrder`      | `string[]`                      | columns | Initial order for grid-owned ordering                                           |
-| `onColumnOrderChange`     | `(order: string[]) => void`     | -       | Receives reorder proposals; optional for grid-owned ordering                    |
-| `onColumnVisibleChange`   | `({ column, visible }) => void` | -       | Receives controlled or uncontrolled visibility proposals                        |
-| `reorderColumns`          | `boolean`                       | `true`  | Disable user drag reordering                                                    |
-| `resizable`               | `boolean`                       | `true`  | Enable header resize handles                                                    |
-| `columnDefaultWidth`      | `number`                        | `150`   | Root fallback when a column has no width/defaultWidth                           |
-| `columnMinWidth`          | `number`                        | `40`    | Root fallback when a column has no minWidth                                     |
-| `columnMaxWidth`          | `number \| null`                | `null`  | Root fallback when a column has no maxWidth                                     |
-| `shareSpaceOnResize`      | `boolean`                       | `false` | Resize the adjacent visible column in the opposite direction                    |
-| `columnResizeHandleWidth` | `number`                        | `24`    | Header resize pointer-target width                                              |
-| `columnResizeProxyWidth`  | `number`                        | `5`     | Deferred resize-proxy width                                                     |
-| `liveColumnResize`        | `boolean`                       | `false` | Resize rendered geometry during drag; callbacks remain completion-only          |
-| `onColumnResize`          | `(info, context) => void`       | -       | Reports each proposed width/flex and reserved viewport width                    |
-| `onBatchColumnResize`     | `(entries, context) => void`    | -       | Reports one coherent callback for every resize transaction                      |
-| `enableColumnAutosize`    | `boolean`                       | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied     |
-| `skipHeaderOnAutoSize`    | `boolean`                       | `false` | Skip header text when estimating an automatic width                             |
-| `showColumnMenuTool`      | `boolean`                       | `true`  | Show sort, visibility, auto-size, and fit actions in the accessible column menu |
+| Prop                       | Type                            | Default | Description                                                                     |
+| -------------------------- | ------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `columnOrder`              | `string[]`                      | -       | Controlled ordered array of column ids/names                                    |
+| `defaultColumnOrder`       | `string[]`                      | columns | Initial order for grid-owned ordering                                           |
+| `onColumnOrderChange`      | `(order: string[]) => void`     | -       | Receives reorder proposals; optional for grid-owned ordering                    |
+| `onColumnVisibleChange`    | `({ column, visible }) => void` | -       | Receives controlled or uncontrolled visibility proposals                        |
+| `reorderColumns`           | `boolean`                       | `true`  | Disable user drag reordering                                                    |
+| `allowGroupSplitOnReorder` | `boolean`                       | `true`  | Allow reordering to split one logical group into visual segments                |
+| `resizable`                | `boolean`                       | `true`  | Enable header resize handles                                                    |
+| `columnDefaultWidth`       | `number`                        | `150`   | Root fallback when a column has no width/defaultWidth                           |
+| `columnMinWidth`           | `number`                        | `40`    | Root fallback when a column has no minWidth                                     |
+| `columnMaxWidth`           | `number \| null`                | `null`  | Root fallback when a column has no maxWidth                                     |
+| `shareSpaceOnResize`       | `boolean`                       | `false` | Resize the adjacent visible column in the opposite direction                    |
+| `columnResizeHandleWidth`  | `number`                        | `24`    | Header resize pointer-target width                                              |
+| `columnResizeProxyWidth`   | `number`                        | `5`     | Deferred resize-proxy width                                                     |
+| `liveColumnResize`         | `boolean`                       | `false` | Resize rendered geometry during drag; callbacks remain completion-only          |
+| `onColumnResize`           | `(info, context) => void`       | -       | Reports each proposed width/flex and reserved viewport width                    |
+| `onBatchColumnResize`      | `(entries, context) => void`    | -       | Reports one coherent callback for every resize transaction                      |
+| `enableColumnAutosize`     | `boolean`                       | `true`  | Estimate widths from a bounded row sample when no numeric width is supplied     |
+| `skipHeaderOnAutoSize`     | `boolean`                       | `false` | Skip header text when estimating an automatic width                             |
+| `showColumnMenuTool`       | `boolean`                       | `true`  | Show sort, visibility, auto-size, and fit actions in the accessible column menu |
 
 When `columnOrder` is omitted, `defaultColumnOrder` seeds grid-owned ordering
 and drag changes persist even without a callback. When `columnOrder` is

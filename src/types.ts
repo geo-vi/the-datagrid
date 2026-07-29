@@ -429,9 +429,63 @@ export type TypeRowStyle =
   | TypeRowStyleObject
   | ((args: TypeRowStyleArgs) => TypeRowStyleObject | undefined);
 
+export type TypeColumnGroupHeaderProps = {
+  group: TypeColumnGroup;
+  groupName: string;
+  depth: number;
+  computedDepth: number;
+  segmentIndex: number;
+  segmentCount: number;
+  split: boolean;
+  width: number;
+  fullWidth: number;
+  columnIds: string[];
+  columns: TypeColumn[];
+  grid: TypeComputedProps;
+  computedProps: TypeComputedProps;
+  computedPropsRef: React.MutableRefObject<TypeComputedProps | null>;
+};
+
+export type TypeColumnGroupDOMProps =
+  React.ThHTMLAttributes<HTMLTableCellElement> & {
+    [key: `data-${string}`]: unknown;
+  };
+
+/**
+ * Inovua-compatible stacked-column descriptor.
+ *
+ * `group` points at another descriptor by name and creates a nested header.
+ * Header groups are derived from the live visible column order, so separated
+ * siblings render as independent segments of the same logical group.
+ */
+export type TypeColumnGroup = {
+  name: string;
+  header?:
+    | React.ReactNode
+    | ((props: TypeColumnGroupHeaderProps) => React.ReactNode);
+  group?: string;
+  computedDepth?: number;
+  draggable?: boolean;
+  resizable?: boolean;
+  headerClassName?:
+    | string
+    | ((props: TypeColumnGroupHeaderProps) => string | undefined);
+  headerStyle?:
+    | React.CSSProperties
+    | ((props: TypeColumnGroupHeaderProps) => React.CSSProperties | undefined);
+  headerDOMProps?:
+    | TypeColumnGroupDOMProps
+    | ((
+        props: TypeColumnGroupHeaderProps
+      ) => TypeColumnGroupDOMProps | undefined);
+};
+
 export interface IColumn {
   name?: string;
   id?: string;
+
+  /** Name of the stacked-column descriptor this leaf belongs to. */
+  group?: string;
 
   header?: React.ReactNode;
   renderHeader?: (cellProps: unknown) => React.ReactNode;
@@ -1153,6 +1207,14 @@ export type TypeDataGridProps = {
 
   columns: TypeColumns;
   dataSource: TypeDataSource;
+
+  /** Stacked and nested column-header descriptors. */
+  groups?: TypeColumnGroup[];
+  /**
+   * When false, leaf and group drag operations stay inside their existing
+   * group parent. The Inovua Community default is true.
+   */
+  allowGroupSplitOnReorder?: boolean;
 
   columnOrder?: string[];
   defaultColumnOrder?: string[];
