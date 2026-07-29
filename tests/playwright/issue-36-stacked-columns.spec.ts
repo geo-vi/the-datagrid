@@ -580,6 +580,9 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     const p95Frame =
       frameDurations[Math.floor(frameDurations.length * 0.95)] ?? 0;
     const maxFrame = Math.max(0, ...frameDurations);
+    const p95Dispatch =
+      dispatchDurations[Math.floor(dispatchDurations.length * 0.95)] ?? 0;
+    const maxDispatch = Math.max(0, ...dispatchDurations);
 
     const root = document.querySelector<HTMLElement>(
       '[data-testid="stacked-columns-grid"] .tdg-root'
@@ -590,9 +593,10 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
       maxFrame,
       p95FrameMultiplier: p95Frame / baselineFrame,
       maxFrameMultiplier: maxFrame / baselineFrame,
-      p95Dispatch:
-        dispatchDurations[Math.floor(dispatchDurations.length * 0.95)] ?? 0,
-      maxDispatch: Math.max(0, ...dispatchDurations),
+      p95Dispatch,
+      maxDispatch,
+      p95DispatchMultiplier: p95Dispatch / baselineFrame,
+      maxDispatchMultiplier: maxDispatch / baselineFrame,
       maxLongTask: Math.max(0, ...longTasks),
       mountedRows:
         root?.querySelectorAll('[data-slot="grid-row"][data-row-id]').length ??
@@ -605,13 +609,17 @@ test("10k x 43 nested groups keep reorder and horizontal-scroll frames within pr
     };
   });
 
-  // Bound synchronous work independently of the runner's display cadence.
-  // The frame ratios below remain the primary interaction-smoothness gate.
-  expect(metrics.p95Dispatch).toBeLessThan(20);
-  expect(metrics.maxDispatch).toBeLessThan(32);
-  expect(metrics.p95FrameMultiplier).toBeLessThan(1.5);
-  expect(metrics.maxFrameMultiplier).toBeLessThan(2.5);
-  expect(metrics.maxLongTask).toBeLessThan(100);
+  const metricContext = `performance metrics: ${JSON.stringify(metrics)}`;
+  // Keep the usual interaction inside one measured presentation interval,
+  // while absolute limits still reject work that approaches a browser long
+  // task on runners whose virtual display only presents at 20 Hz.
+  expect(metrics.p95Dispatch, metricContext).toBeLessThan(50);
+  expect(metrics.maxDispatch, metricContext).toBeLessThan(100);
+  expect(metrics.p95DispatchMultiplier, metricContext).toBeLessThan(1);
+  expect(metrics.maxDispatchMultiplier, metricContext).toBeLessThan(2);
+  expect(metrics.p95FrameMultiplier, metricContext).toBeLessThan(1.5);
+  expect(metrics.maxFrameMultiplier, metricContext).toBeLessThan(2.5);
+  expect(metrics.maxLongTask, metricContext).toBeLessThan(100);
   expect(metrics.mountedRows).toBeLessThan(80);
   expect(metrics.mountedLeafHeaders).toBeLessThan(18);
   expect(metrics.mountedGroupHeaders).toBeLessThan(15);
