@@ -920,7 +920,11 @@
 
 .tdg-root .InovuaReactDataGrid__cell {
   box-sizing: border-box !important;
-  color: var(--tdg-color-foreground) !important;
+  /* Inherit color from the row so a `rowStyle` color (applied inline on the
+     `<tr>`) and row-state colors (selected/active/hover) reach the cell text.
+     A directly-set cell color would beat any inherited row color, so the cell
+     must not assert its own. The default foreground comes from `.tdg-root`. */
+  color: inherit !important;
   padding: 0.5rem !important;
   position: relative !important;
 }
