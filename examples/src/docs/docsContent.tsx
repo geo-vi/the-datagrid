@@ -729,6 +729,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Column definitions. Every column should have a stable id or name.",
       },
       {
+        name: "groups",
+        type: "TypeColumnGroup[]",
+        defaultValue: "[]",
+        description:
+          "Inovua-compatible stacked-header descriptors. A column joins a group through column.group, and a descriptor joins a parent through groups[].group.",
+      },
+      {
         name: "dataSource",
         type: "TypeDataSource",
         defaultValue: "required",
@@ -775,6 +782,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "true",
         description:
           "Disables drag-reordering when false. The grid still respects the provided columnOrder.",
+      },
+      {
+        name: "allowGroupSplitOnReorder",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Allows leaf and group drag operations to separate siblings into multiple visual segments. When false, leaf drops stay within the same complete group path and group drops stay within the same parent.",
       },
       {
         name: "resizable",
@@ -1968,6 +1982,13 @@ const columnSections: ReferenceSection[] = [
           "Explicit stable identifier. Prefer setting this when you need an id that differs from the accessor key.",
       },
       {
+        name: "group",
+        type: "string",
+        defaultValue: "-",
+        description:
+          "Name of the leaf TypeColumnGroup descriptor used to build stacked and nested header rows.",
+      },
+      {
         name: "header",
         type: "ReactNode",
         defaultValue: "column name or id",
@@ -2694,6 +2715,53 @@ type TypeFilterTypes = Record<string, TypeFilterType>;`}
     rows: computedPropsRows,
   },
   {
+    id: "column-group-types",
+    title: "Stacked-column group types",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <CodeBlock
+          code={`type TypeColumnGroup = {
+  name: string;
+  header?:
+    | React.ReactNode
+    | ((props: TypeColumnGroupHeaderProps) => React.ReactNode);
+  group?: string;
+  computedDepth?: number;
+  draggable?: boolean;
+  resizable?: boolean;
+  headerClassName?: string | ((props) => string | undefined);
+  headerStyle?: React.CSSProperties | ((props) => React.CSSProperties | undefined);
+  headerDOMProps?: TypeColumnGroupDOMProps | ((props) => TypeColumnGroupDOMProps | undefined);
+};
+
+type TypeColumnGroupHeaderProps = {
+  group: TypeColumnGroup;
+  groupName: string;
+  depth: number;
+  computedDepth: number;
+  segmentIndex: number;
+  segmentCount: number;
+  split: boolean;
+  width: number;
+  fullWidth: number;
+  columnIds: string[];
+  columns: TypeColumn[];
+  grid: TypeComputedProps;
+  computedProps: TypeComputedProps;
+  computedPropsRef: React.MutableRefObject<TypeComputedProps | null>;
+};`}
+          language="ts"
+        />
+        <p>
+          <code>computedDepth</code> is normalized from the live parent chain.
+          Custom header and styling callbacks receive logical segment metadata,
+          the complete leaf-column list, and the stable computed grid API. Split
+          segments share one group name and expose distinct segment indexes.
+        </p>
+      </div>
+    ),
+  },
+  {
     id: "typei18n",
     title: "TypeI18n",
     body: (
@@ -3414,6 +3482,38 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
       <>
         Preserve total scroll width and header/body alignment while mounting
         only the active horizontal range and keeping filter/edit APIs usable.
+      </>
+    ),
+    status: "compatible",
+  },
+  {
+    id: "stacked-column-headers",
+    feature: "Stacked and nested column headers",
+    upstreamContract: (
+      <>
+        Community 5.10.2 accepts root <code>groups</code>, leaf{" "}
+        <code>column.group</code> membership, and nested{" "}
+        <code>groups[].group</code> parents. Static or custom group headers
+        split when reordering separates siblings; group segments can be dragged
+        and proportionally resized, subject to{" "}
+        <code>allowGroupSplitOnReorder</code>.
+      </>
+    ),
+    currentBehavior: (
+      <>
+        The same descriptor graph produces accessible <code>colgroup</code>{" "}
+        headers at every live depth. Visibility, filtering, sorting, controlled
+        order, locked sections, and horizontal virtualization share leaf-width
+        geometry. Split segments retain logical metadata, block drag proposals
+        preserve controlled ownership, and group resize emits one coherent
+        per-leaf batch.
+      </>
+    ),
+    requiredOutcome: (
+      <>
+        Preserve the descriptor names, nested depth, custom callback payloads,
+        split/rejoin rules, proportional min/max-clamped resizing, and
+        header/filter/body alignment under horizontal virtualization.
       </>
     ),
     status: "compatible",
@@ -5514,6 +5614,178 @@ const columns: TypeColumns = [
               className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
             >
               Open the locked actions example
+            </Link>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    group: "guides",
+    slug: "stacked-columns",
+    title: "Guide: stacked and nested columns",
+    summary:
+      "Build Inovua-compatible multi-row headers with root groups, nested parents, custom content, controlled reordering, and proportional group resizing.",
+    description:
+      "Column groups are derived from the current visible leaf order, so their header depth and geometry stay coherent with filtering, sorting, visibility, resizing, and horizontal virtualization.",
+    tags: ["Guide", "Columns", "Inovua", "Virtualization"],
+    sections: [
+      {
+        id: "declare-groups",
+        title: "Declare root and nested groups",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              A leaf column joins its nearest group with{" "}
+              <code>column.group</code>. A group joins a parent with{" "}
+              <code>groups[].group</code>. Parent chains may be as deep as the
+              header needs; the grid derives the live row count from visible
+              columns.
+            </p>
+            <CodeBlock
+              code={`import ReactDataGrid, {
+  type TypeColumnGroup,
+  type TypeColumns,
+} from "@geovi/the-datagrid";
+
+const groups: TypeColumnGroup[] = [
+  {
+    name: "profile",
+    header: ({ columnIds, split }) => (
+      <span>
+        Customer profile · {columnIds.length}
+        {split ? " (split)" : ""}
+      </span>
+    ),
+  },
+  { name: "identity", header: "Identity", group: "profile" },
+  { name: "contact", header: "Contact", group: "profile" },
+];
+
+const columns: TypeColumns = [
+  { name: "id", header: "ID", group: "identity", defaultWidth: 90 },
+  { name: "name", header: "Name", group: "identity", defaultWidth: 180 },
+  { name: "email", header: "Email", group: "contact", defaultWidth: 240 },
+  { name: "city", header: "City", group: "contact", defaultWidth: 150 },
+];
+
+<ReactDataGrid
+  idProperty="id"
+  columns={columns}
+  groups={groups}
+  dataSource={rows}
+  virtualized
+/>;`}
+              language="tsx"
+            />
+            <p>
+              <code>header</code> accepts a React node or callback. The callback
+              receives group depth, segment index/count, split state, logical
+              and rendered widths, leaf IDs/definitions, and the computed grid
+              API. <code>headerClassName</code>, <code>headerStyle</code>, and{" "}
+              <code>headerDOMProps</code> accept static values or the same live
+              payload.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "split-and-controlled-order",
+        title: "Split groups and controlled order",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Group headers are projections of the visible leaf order. If a
+              reorder places an unrelated column between two siblings, the
+              logical group renders as two segments. Moving the siblings
+              together rejoins it automatically; consumer definitions are never
+              mutated.
+            </p>
+            <CodeBlock
+              code={`const [columnOrder, setColumnOrder] = useState([
+  "id",
+  "name",
+  "email",
+  "city",
+]);
+
+<ReactDataGrid
+  idProperty="id"
+  columns={columns}
+  groups={groups}
+  dataSource={rows}
+  columnOrder={columnOrder}
+  onColumnOrderChange={setColumnOrder}
+  allowGroupSplitOnReorder
+/>;`}
+              language="tsx"
+            />
+            <p>
+              Leaf dragging emits one proposed order. Dragging a group segment
+              moves all of its leaf IDs as one ordered block and also emits one
+              proposal. A controlled <code>columnOrder</code> remains
+              authoritative: the DOM changes only after the parent returns the
+              proposal.
+            </p>
+            <p>
+              <code>allowGroupSplitOnReorder</code> defaults to true, matching
+              Community 5.10.2. When false, leaf drops must stay inside the same
+              complete group path, and a group segment may move only within its
+              current parent at that depth.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "resize-and-virtualization",
+        title: "Resize and virtualize safely",
+        body: (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              Drag a group&apos;s trailing-edge handle to scale its resizable
+              leaf widths proportionally. Every leaf honors its own min/max
+              bounds.
+            </li>
+            <li>
+              Group resize uses the normal ownership contract: controlled column
+              widths remain prop-owned, while uncontrolled widths persist
+              internally. Each leaf emits <code>onColumnResize</code>, followed
+              by one <code>onBatchColumnResize</code> transaction.
+            </li>
+            <li>
+              Focus a group resize handle and use Arrow Left/Right for 10px
+              total-width adjustments.
+            </li>
+            <li>
+              Horizontal virtualization mounts only the active group fragments
+              and leaf cells while spacer geometry preserves the full scroll
+              width. Header, filter, and body columns share the same rendered
+              range.
+            </li>
+            <li>
+              Hiding a leaf recomputes its ancestors&apos; spans and widths.
+              Sorting and filtering transform rows only and do not disturb the
+              group hierarchy.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "live-example",
+        title: "Live example",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The stacked-columns example includes three nested levels, a custom
+              header callback, split/rejoin controls, controlled-order
+              inspection, visibility, pointer/keyboard group resize, filtering,
+              sorting, and 43 horizontally virtualized columns.
+            </p>
+            <Link
+              to="/examples/stacked-columns"
+              className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
+            >
+              Open the stacked columns example
             </Link>
           </div>
         ),

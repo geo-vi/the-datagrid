@@ -9,6 +9,7 @@ import {
   type ExampleId,
 } from "./exampleCatalog";
 import selectionExampleSource from "./SelectionGridExample.tsx?raw";
+import stackedColumnsExampleSource from "./StackedColumnsExample.tsx?raw";
 import usersExampleSource from "./UsersGridExample.tsx?raw";
 
 export type ExampleMeta = ExampleCatalogEntry & {
@@ -22,6 +23,7 @@ const sourceById: Record<ExampleId, string> = {
   "inovua-parity": inovuaParityExampleSource,
   "mobile-transform": mobileTransformExampleSource,
   selection: selectionExampleSource,
+  "stacked-columns": stackedColumnsExampleSource,
   users: usersExampleSource,
 };
 
