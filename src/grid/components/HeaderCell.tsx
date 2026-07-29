@@ -12,6 +12,8 @@ import {
 import type {
   TypeCellProps,
   TypeColumn,
+  TypeComputedProps,
+  TypeDataGridProps,
   TypeRenderSortTool,
   TypeSortFunctions,
   TypeSortInfo,
@@ -127,7 +129,21 @@ export type HeaderCellProps = {
   ) => void;
   onResizeBy: (columnId: string, diff: number) => void;
   onAutoResize: (columnId: string) => void;
+  headerDOMProps?: TypeDataGridProps["headerDOMProps"];
+  gridProps: TypeComputedProps;
+  theme: string;
+  isCheckboxColumn: boolean;
 };
+
+function humanizeColumnName(value: string): string {
+  const words = value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return words
+    ? `${words.charAt(0).toUpperCase()}${words.slice(1).toLowerCase()}`
+    : value;
+}
 
 export function HeaderCell(props: HeaderCellProps) {
   const {
@@ -160,6 +176,10 @@ export function HeaderCell(props: HeaderCellProps) {
     onResizeStart,
     onResizeBy,
     onAutoResize,
+    headerDOMProps,
+    gridProps,
+    theme,
+    isCheckboxColumn,
   } = props;
 
   const canSort = (col?.sortable ?? sortable) && header.column.getCanSort();
@@ -230,9 +250,48 @@ export function HeaderCell(props: HeaderCellProps) {
       column: col,
       header: col?.header,
       headerCell: true,
+      computedWidth: width,
+      computedLocked: lockedLayout?.side ?? false,
+      computedSortable: canSort,
+      computedSortInfo: columnSortInfo,
+      sortInfo,
+      grid: gridProps,
+      theme,
     }),
-    [col, colId, columnIndex]
+    [
+      canSort,
+      col,
+      colId,
+      columnIndex,
+      columnSortInfo,
+      gridProps,
+      lockedLayout?.side,
+      sortInfo,
+      theme,
+      width,
+    ]
   );
+  const rootHeaderDOMProps = headerDOMProps
+    ? typeof headerDOMProps === "function"
+      ? (headerDOMProps(cellProps) ?? {})
+      : headerDOMProps
+    : {};
+  const columnHeaderDOMProps = col?.headerDOMProps
+    ? typeof col.headerDOMProps === "function"
+      ? (col.headerDOMProps(cellProps) ?? {})
+      : col.headerDOMProps
+    : {};
+  const inheritedHeaderDOMProps = {
+    ...rootHeaderDOMProps,
+    ...columnHeaderDOMProps,
+  };
+  const headerContent = isCheckboxColumn
+    ? flexRender(header.column.columnDef.header, header.getContext())
+    : (col?.renderHeader?.(cellProps) ??
+      (typeof col?.header === "function"
+        ? col.header(cellProps)
+        : col?.header) ??
+      humanizeColumnName(String(col?.name ?? col?.id ?? colId)));
 
   const cancelLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
@@ -244,6 +303,7 @@ export function HeaderCell(props: HeaderCellProps) {
 
   return (
     <TableHead
+      {...inheritedHeaderDOMProps}
       key={header.id}
       colSpan={header.colSpan}
       data-slot="grid-header-cell"
@@ -277,7 +337,8 @@ export function HeaderCell(props: HeaderCellProps) {
           ? "border-r last:border-r-0 [border-right-color:var(--tdg-header-border-color)]"
           : "",
         headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
-        col?.headerProps?.className
+        col?.headerProps?.className,
+        inheritedHeaderDOMProps.className
       )}
       style={{
         width,
@@ -285,6 +346,7 @@ export function HeaderCell(props: HeaderCellProps) {
         maxWidth: col?.maxWidth,
         height: headerHeight,
         ...col?.headerProps?.style,
+        ...inheritedHeaderDOMProps.style,
         ...(lockedLayout
           ? ({
               "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
@@ -312,6 +374,9 @@ export function HeaderCell(props: HeaderCellProps) {
       aria-haspopup={showColumnMenuTool ? "menu" : undefined}
       aria-expanded={showColumnMenuTool ? columnMenuOpen : undefined}
       onContextMenu={(event) => {
+        rootHeaderDOMProps.onContextMenu?.(event);
+        columnHeaderDOMProps.onContextMenu?.(event);
+        if (event.defaultPrevented) return;
         if (!showColumnMenuTool) return;
         event.preventDefault();
         event.stopPropagation();
@@ -322,6 +387,9 @@ export function HeaderCell(props: HeaderCellProps) {
         );
       }}
       onClick={(event) => {
+        rootHeaderDOMProps.onClick?.(event);
+        columnHeaderDOMProps.onClick?.(event);
+        if (event.defaultPrevented) return;
         if (Date.now() <= suppressClickUntilRef.current) {
           suppressClickUntilRef.current = 0;
           event.preventDefault();
@@ -334,6 +402,9 @@ export function HeaderCell(props: HeaderCellProps) {
         handleSort();
       }}
       onKeyDown={(event) => {
+        rootHeaderDOMProps.onKeyDown?.(event);
+        columnHeaderDOMProps.onKeyDown?.(event);
+        if (event.defaultPrevented) return;
         if (
           showColumnMenuTool &&
           (event.key === "ContextMenu" ||
@@ -354,6 +425,9 @@ export function HeaderCell(props: HeaderCellProps) {
         handleSort();
       }}
       onPointerDown={(event) => {
+        rootHeaderDOMProps.onPointerDown?.(event);
+        columnHeaderDOMProps.onPointerDown?.(event);
+        if (event.defaultPrevented) return;
         if (
           !showColumnMenuTool ||
           event.pointerType !== "touch" ||
@@ -397,22 +471,12 @@ export function HeaderCell(props: HeaderCellProps) {
         >
           {header.isPlaceholder ? null : canSort ? (
             <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between">
-              <span className="truncate text-inherit">
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext()
-                )}
-              </span>
+              <span className="truncate text-inherit">{headerContent}</span>
               {renderedSortTool}
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center">
-              <span className="truncate">
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext()
-                )}
-              </span>
+              <span className="truncate">{headerContent}</span>
             </div>
           )}
 

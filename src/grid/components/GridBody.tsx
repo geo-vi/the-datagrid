@@ -5,6 +5,7 @@ import { flexRender } from "@tanstack/react-table";
 
 import type {
   CellProps,
+  TypeActiveCell,
   TypeColumn,
   TypeCellProps,
   TypeColumnEditorCell,
@@ -26,6 +27,7 @@ import type {
   TypeGridColumnRenderItem,
   TypeLockedColumnLayout,
 } from "../utils/lockedColumns";
+import { resolveColumnLock } from "../utils/lockedColumns";
 
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 
@@ -221,6 +223,17 @@ export type GridBodyProps = {
   activeIndex: number;
   gridFocused: boolean;
   selectionEnabled: boolean;
+  cellSelectionEnabled: boolean;
+  activeCell: TypeActiveCell;
+  isCellSelected: (rowIndex: number, columnIndex: number) => boolean;
+  onCellSelectionPointer: (
+    rowIndex: number,
+    columnIndex: number,
+    event: Pick<
+      React.PointerEvent<HTMLTableCellElement>,
+      "button" | "ctrlKey" | "metaKey" | "shiftKey"
+    >
+  ) => void;
   rowIdPrefix: string;
   rowFocusClassName?: string;
   showActiveRowIndicator: boolean;
@@ -232,6 +245,17 @@ export type GridBodyProps = {
     rowIndex: number,
     e: React.MouseEvent
   ) => void;
+  publicOnRowClick?: TypeDataGridProps["onRowClick"];
+  publicOnRowDoubleClick?: TypeDataGridProps["onRowDoubleClick"];
+  publicOnCellClick?: TypeDataGridProps["onCellClick"];
+  publicOnCellDoubleClick?: TypeDataGridProps["onCellDoubleClick"];
+  rowProps?: TypeDataGridProps["rowProps"];
+  rowClassName?: TypeDataGridProps["rowClassName"];
+  renderRow?: TypeDataGridProps["renderRow"];
+  onRenderRow?: TypeDataGridProps["onRenderRow"];
+  cellDOMProps?: TypeDataGridProps["cellDOMProps"];
+  showHoverRows: boolean;
+  showEmptyRows: boolean;
   onRowContextMenu?: (
     rowProps: TypeRowProps,
     cellProps: TypeCellProps | undefined,
@@ -257,6 +281,7 @@ export type GridBodyProps = {
     virtualizeColumns: boolean;
     columnsMap: TypeComputedColumnsMap;
     dataSourceArray: any[];
+    totalCount: number;
     theme: string;
     multiSelect: boolean;
     selection: TypeRowSelection;
@@ -317,12 +342,27 @@ export function GridBody(props: GridBodyProps) {
     activeIndex,
     gridFocused,
     selectionEnabled,
+    cellSelectionEnabled,
+    activeCell,
+    isCellSelected,
+    onCellSelectionPointer,
     rowIdPrefix,
     rowFocusClassName,
     showActiveRowIndicator,
     activeRowIndicatorClassName,
     getDisabledRowState,
     onRowClick,
+    publicOnRowClick,
+    publicOnRowDoubleClick,
+    publicOnCellClick,
+    publicOnCellDoubleClick,
+    rowProps,
+    rowClassName,
+    renderRow,
+    onRenderRow,
+    cellDOMProps,
+    showHoverRows,
+    showEmptyRows,
     onRowContextMenu,
     rowHeight,
     minRowHeight,
@@ -341,6 +381,7 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
+  const draggingCellSelectionRef = React.useRef(false);
   const rowLongPressTimerRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -365,6 +406,35 @@ export function GridBody(props: GridBodyProps) {
   }, []);
 
   React.useEffect(() => cancelRowLongPress, [cancelRowLongPress]);
+  React.useEffect(() => {
+    const stopDragging = () => {
+      draggingCellSelectionRef.current = false;
+    };
+    const extendDragging = (event: PointerEvent) => {
+      if (!draggingCellSelectionRef.current) return;
+      const target = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>('[data-slot="grid-cell"]');
+      const row = target?.closest<HTMLElement>('[data-slot="grid-row"]');
+      const rowIndex = Number(row?.dataset.rowIndex);
+      const columnIndex = Number(target?.dataset.columnIndex);
+      if (!Number.isInteger(rowIndex) || !Number.isInteger(columnIndex)) return;
+      onCellSelectionPointer(rowIndex, columnIndex, {
+        button: 0,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: true,
+      });
+    };
+    window.addEventListener("pointermove", extendDragging);
+    window.addEventListener("pointerup", stopDragging);
+    window.addEventListener("pointercancel", stopDragging);
+    return () => {
+      window.removeEventListener("pointermove", extendDragging);
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("pointercancel", stopDragging);
+    };
+  }, [onCellSelectionPointer]);
 
   function getContextRowProps(
     row: GridContextRow,
@@ -455,29 +525,14 @@ export function GridBody(props: GridBodyProps) {
       .find((candidate) => candidate.column.id === columnId);
     if (!column || !cell) return undefined;
 
-    return buildEditCellProps({
-      value: cell.getValue(),
-      data: row.original,
+    return getDataCellProps({
+      row,
       rowIndex,
-      remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
-      rowId: getCompatRowId(row, rowStyleMetadata.getItemId),
-      rowSelected: Boolean(selectedMap[String(row.id)]),
-      disabledRow: getDisabledRowState(rowIndex),
-      selection: rowStyleMetadata.selection,
-      multiSelect: rowStyleMetadata.multiSelect,
-      naturalRowHeight: rowHeight == null,
-      resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
-      minRowHeight,
       column,
       columnId,
       columnIndex: cellIndex,
-      columnCount: orderedColumns.length,
-      computedWidth: columnWidths[columnId],
-      editable: rowStyleMetadata.editable,
-      editStartEvent,
-      theme: rowStyleMetadata.theme,
-      totalDataCount: rowStyleMetadata.dataSourceArray.length,
-      virtualizeColumns,
+      value: cell.getValue(),
+      width: columnWidths[columnId],
     }) as TypeCellProps;
   }
 
@@ -563,15 +618,38 @@ export function GridBody(props: GridBodyProps) {
       "tdg-row InovuaReactDataGrid__row",
       showZebraRows
         ? odd
-          ? "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-          : "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)] hover:bg-[var(--tdg-row-even-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-        : "tdg-row--no-zebra InovuaReactDataGrid__row--no-zebra bg-[var(--tdg-grid-bg)] hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]",
+          ? cn(
+              "tdg-row--odd InovuaReactDataGrid__row--odd bg-[var(--tdg-row-odd-bg)]",
+              showHoverRows &&
+                "hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+            )
+          : cn(
+              "tdg-row--even InovuaReactDataGrid__row--even bg-[var(--tdg-row-even-bg)]",
+              showHoverRows &&
+                "hover:bg-[var(--tdg-row-even-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+            )
+        : cn(
+            "tdg-row--no-zebra InovuaReactDataGrid__row--no-zebra bg-[var(--tdg-grid-bg)]",
+            showHoverRows &&
+              "hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+          ),
       rowIsSelected
         ? showZebraRows
           ? odd
-            ? "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-            : "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
-          : "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-selected-bg)] [color:var(--tdg-row-active-color)] hover:bg-[var(--tdg-row-selected-hover-bg)]"
+            ? cn(
+                "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-odd-selected-bg)] [color:var(--tdg-row-active-color)]",
+                showHoverRows &&
+                  "hover:bg-[var(--tdg-row-odd-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+              )
+            : cn(
+                "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-even-selected-bg)] [color:var(--tdg-row-active-color)]",
+                showHoverRows &&
+                  "hover:bg-[var(--tdg-row-even-selected-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
+              )
+          : cn(
+              "tdg-row--selected InovuaReactDataGrid__row--selected bg-[var(--tdg-row-selected-bg)] [color:var(--tdg-row-active-color)]",
+              showHoverRows && "hover:bg-[var(--tdg-row-selected-hover-bg)]"
+            )
         : "",
       rowIsActive ? "tdg-row--active InovuaReactDataGrid__row--active" : "",
       rowIsActive && gridFocused
@@ -610,6 +688,62 @@ export function GridBody(props: GridBodyProps) {
       minRowHeight,
       maxRowHeight,
     });
+  }
+
+  function getDataCellProps(args: {
+    row: any;
+    rowIndex: number;
+    column: TypeColumn;
+    columnId: string;
+    columnIndex: number;
+    value: unknown;
+    width?: number;
+    empty?: boolean;
+    inEdit?: boolean;
+    editValue?: unknown;
+  }): CellProps {
+    const rowId = getCompatRowId(args.row, rowStyleMetadata.getItemId);
+    return buildEditCellProps({
+      value: args.value,
+      data: args.row.original,
+      rowIndex: args.rowIndex,
+      remoteRowIndex: rowStyleMetadata.remoteRowOffset + args.rowIndex,
+      rowId,
+      rowSelected: Boolean(selectedMap[String(args.row.id)]),
+      rowActive: args.rowIndex === activeIndex,
+      cellSelected: isCellSelected(args.rowIndex, args.columnIndex),
+      cellActive:
+        activeCell?.[0] === args.rowIndex &&
+        activeCell?.[1] === args.columnIndex,
+      empty: args.empty ?? false,
+      disabledRow: getDisabledRowState(args.rowIndex),
+      selection: rowStyleMetadata.selection,
+      multiSelect: rowStyleMetadata.multiSelect,
+      naturalRowHeight: rowHeight == null,
+      resolvedRowHeight: getResolvedRowHeight(args.rowIndex) ?? minRowHeight,
+      minRowHeight,
+      column: args.column,
+      columnId: args.columnId,
+      columnIndex: args.columnIndex,
+      columnCount: orderedColumns.length,
+      computedWidth: args.width,
+      editValue: args.editValue,
+      inEdit: args.inEdit,
+      editable: rowStyleMetadata.editable,
+      editStartEvent,
+      theme: rowStyleMetadata.theme,
+      totalDataCount: rowStyleMetadata.dataSourceArray.length,
+      totalCount: rowStyleMetadata.totalCount,
+      virtualizeColumns,
+    });
+  }
+
+  function resolveCellDOMProps(
+    config: TypeDataGridProps["cellDOMProps"] | TypeColumn["cellDOMProps"],
+    cellProps: CellProps
+  ): React.TdHTMLAttributes<HTMLTableCellElement> {
+    if (!config) return {};
+    return typeof config === "function" ? (config(cellProps) ?? {}) : config;
   }
 
   function getRowStyle(
@@ -750,31 +884,16 @@ export function GridBody(props: GridBodyProps) {
 
     const configuredEditorProps = column.editorProps ?? {};
     const cellKey = `${String(row.id)}\u0000${columnId}`;
-    const cellProps = buildEditCellProps({
-      value: editingCell.originalValue,
-      data: row.original,
+    const cellProps = getDataCellProps({
+      row,
       rowIndex,
-      remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
-      rowId,
-      rowSelected: Boolean(selectedMap[String(row.id)]),
-      disabledRow: getDisabledRowState(rowIndex),
-      selection: rowStyleMetadata.selection,
-      multiSelect: rowStyleMetadata.multiSelect,
-      naturalRowHeight: rowHeight == null,
-      resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
-      minRowHeight,
       column,
       columnId,
       columnIndex: cellIndex,
-      columnCount: orderedColumns.length,
-      computedWidth: columnWidths[columnId],
+      value: editingCell.originalValue,
+      width: columnWidths[columnId],
       editValue: editingCell.value,
       inEdit: true,
-      editable: rowStyleMetadata.editable,
-      editStartEvent,
-      theme: rowStyleMetadata.theme,
-      totalDataCount: rowStyleMetadata.dataSourceArray.length,
-      virtualizeColumns,
     });
 
     const toNavigation = (
@@ -916,13 +1035,169 @@ export function GridBody(props: GridBodyProps) {
     );
   }
 
+  type SpanEntry = {
+    covered: boolean;
+    rowSpan: number;
+    colSpan: number;
+  };
+  const spanDataSourceArray = rowStyleMetadata.dataSourceArray;
+  const spanEditable = rowStyleMetadata.editable;
+  const spanGetItemId = rowStyleMetadata.getItemId;
+  const spanMultiSelect = rowStyleMetadata.multiSelect;
+  const spanRemoteRowOffset = rowStyleMetadata.remoteRowOffset;
+  const spanSelection = rowStyleMetadata.selection;
+  const spanTheme = rowStyleMetadata.theme;
+  const spanTotalCount = rowStyleMetadata.totalCount;
+  const spanPlan = React.useMemo(() => {
+    if (
+      !orderedColumns.some(
+        (column) => column.rowspan != null || column.colspan != null
+      )
+    ) {
+      return null;
+    }
+
+    const plan = new Map<string, SpanEntry>();
+    const spanRows = spanDataSourceArray;
+    for (let rowIndex = 0; rowIndex < spanRows.length; rowIndex += 1) {
+      const data = spanRows[rowIndex];
+      const resolvedRowId = spanGetItemId(data);
+      const row = {
+        id: resolvedRowId == null ? String(rowIndex) : String(resolvedRowId),
+        original: data,
+      };
+      for (
+        let columnIndex = 0;
+        columnIndex < orderedColumns.length;
+        columnIndex += 1
+      ) {
+        const key = `${rowIndex},${columnIndex}`;
+        if (plan.get(key)?.covered) continue;
+        const column = orderedColumns[columnIndex]!;
+        const columnId = getColumnIdCompat(column);
+        const value = data?.[columnId];
+        const resolvedSpanRowHeight =
+          rowHeight == null
+            ? null
+            : resolveConfiguredRowHeight({
+                rowHeight,
+                rowIndex,
+                minRowHeight,
+                maxRowHeight,
+              });
+        const cellPropsForSpan = buildEditCellProps({
+          value,
+          data,
+          rowIndex,
+          remoteRowIndex: spanRemoteRowOffset + rowIndex,
+          rowId: getCompatRowId(row, spanGetItemId),
+          rowSelected: Boolean(selectedMap[String(row.id)]),
+          rowActive: rowIndex === activeIndex,
+          cellSelected: isCellSelected(rowIndex, columnIndex),
+          cellActive:
+            activeCell?.[0] === rowIndex && activeCell?.[1] === columnIndex,
+          empty: false,
+          disabledRow: getDisabledRowState(rowIndex),
+          selection: spanSelection,
+          multiSelect: spanMultiSelect,
+          naturalRowHeight: rowHeight == null,
+          resolvedRowHeight: resolvedSpanRowHeight ?? minRowHeight,
+          minRowHeight,
+          column,
+          columnId,
+          columnIndex,
+          columnCount: orderedColumns.length,
+          computedWidth: columnWidths[columnId],
+          editable: spanEditable,
+          editStartEvent,
+          theme: spanTheme,
+          totalDataCount: spanRows.length,
+          totalCount: spanTotalCount,
+          virtualizeColumns,
+        });
+        const configuredRowSpan =
+          typeof column.rowspan === "function"
+            ? column.rowspan(cellPropsForSpan)
+            : column.rowspan;
+        const configuredColSpan =
+          typeof column.colspan === "function"
+            ? column.colspan(cellPropsForSpan)
+            : column.colspan;
+        const rowSpan = clampSpan(
+          configuredRowSpan,
+          spanRows.length - rowIndex
+        );
+        let colSpan = clampSpan(
+          configuredColSpan,
+          orderedColumns.length - columnIndex
+        );
+        const lockedSide = resolveColumnLock(column);
+        while (
+          colSpan > 1 &&
+          resolveColumnLock(orderedColumns[columnIndex + colSpan - 1]!) !==
+            lockedSide
+        ) {
+          colSpan -= 1;
+        }
+        plan.set(key, { covered: false, rowSpan, colSpan });
+        for (let rowOffset = 0; rowOffset < rowSpan; rowOffset += 1) {
+          for (
+            let columnOffset = 0;
+            columnOffset < colSpan;
+            columnOffset += 1
+          ) {
+            if (rowOffset === 0 && columnOffset === 0) continue;
+            plan.set(`${rowIndex + rowOffset},${columnIndex + columnOffset}`, {
+              covered: true,
+              rowSpan: 1,
+              colSpan: 1,
+            });
+          }
+        }
+      }
+    }
+    return plan;
+  }, [
+    activeCell,
+    activeIndex,
+    columnWidths,
+    editStartEvent,
+    getDisabledRowState,
+    isCellSelected,
+    maxRowHeight,
+    minRowHeight,
+    orderedColumns,
+    rowHeight,
+    selectedMap,
+    spanDataSourceArray,
+    spanEditable,
+    spanGetItemId,
+    spanMultiSelect,
+    spanRemoteRowOffset,
+    spanSelection,
+    spanTheme,
+    spanTotalCount,
+    virtualizeColumns,
+  ]);
+
+  function getColumnIdCompat(column: TypeColumn): string {
+    return String(column.id ?? column.name);
+  }
+
+  function clampSpan(value: unknown, available: number): number {
+    const numeric =
+      typeof value === "number" && Number.isFinite(value)
+        ? Math.trunc(value)
+        : 1;
+    return Math.max(1, Math.min(available, numeric));
+  }
+
   function renderCells(
     row: any,
     rowIndex: number,
     virtualRowHeight?: number
   ): React.ReactNode {
     const resolvedRowHeight = getResolvedRowHeight(rowIndex);
-    const disabledRow = getDisabledRowState(rowIndex);
     const contentHeightLimit =
       rowHeight == null ? maxRowHeight : resolvedRowHeight;
     const contentStyle =
@@ -972,6 +1247,44 @@ export function GridBody(props: GridBodyProps) {
           const editor = column
             ? renderEditor(row, rowIndex, cellIndex, column, columnId)
             : null;
+          const cellProps = column
+            ? getDataCellProps({
+                row,
+                rowIndex,
+                column,
+                columnId,
+                columnIndex: cellIndex,
+                value: cell.getValue(),
+                width,
+                ...(isEditingThisCell
+                  ? {
+                      inEdit: true,
+                      editValue: editingCell?.value,
+                    }
+                  : {}),
+              })
+            : null;
+          const spanEntry = spanPlan?.get(`${rowIndex},${cellIndex}`);
+          if (spanEntry?.covered) return null;
+          const rootCellDOMProps = cellProps
+            ? resolveCellDOMProps(cellDOMProps, cellProps)
+            : {};
+          const columnCellDOMProps =
+            cellProps && column
+              ? resolveCellDOMProps(column.cellDOMProps, cellProps)
+              : {};
+          const inheritedCellDOMProps = {
+            ...rootCellDOMProps,
+            ...columnCellDOMProps,
+          };
+          const configuredClassName =
+            typeof column?.className === "function" && cellProps
+              ? column.className(cellProps)
+              : column?.className;
+          const configuredStyle =
+            typeof column?.style === "function" && cellProps
+              ? column.style(cellProps)
+              : column?.style;
 
           const startEdit = () => {
             // The editor's own click/double-click events can bubble through
@@ -979,30 +1292,7 @@ export function GridBody(props: GridBodyProps) {
             // edit, so repeated activation must be idempotent.
             if (!column || isEditingThisCell) return;
             const value = cell.getValue();
-            const cellProps = buildEditCellProps({
-              value,
-              data: row.original,
-              rowIndex,
-              remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
-              rowId,
-              rowSelected: Boolean(selectedMap[String(row.id)]),
-              disabledRow,
-              selection: rowStyleMetadata.selection,
-              multiSelect: rowStyleMetadata.multiSelect,
-              naturalRowHeight: rowHeight == null,
-              resolvedRowHeight: getResolvedRowHeight(rowIndex) ?? minRowHeight,
-              minRowHeight,
-              column,
-              columnId,
-              columnIndex: cellIndex,
-              columnCount: orderedColumns.length,
-              computedWidth: width,
-              editable: rowStyleMetadata.editable,
-              editStartEvent,
-              theme: rowStyleMetadata.theme,
-              totalDataCount: rowStyleMetadata.dataSourceArray.length,
-              virtualizeColumns,
-            });
+            if (!cellProps) return;
 
             onCellEditStart({
               rowId,
@@ -1019,17 +1309,45 @@ export function GridBody(props: GridBodyProps) {
             });
           };
           const normalizedStartEvent = editStartEvent.toLowerCase();
+          const cellIsSelected = isCellSelected(rowIndex, cellIndex);
+          const cellIsActive =
+            activeCell?.[0] === rowIndex && activeCell?.[1] === cellIndex;
+          const renderCellContent = () => {
+            if (!column?.render || !cellProps) {
+              return flexRender(cell.column.columnDef.cell, cell.getContext());
+            }
+            const render = column.render as (
+              valueOrCellProps: unknown,
+              args?: CellProps
+            ) => React.ReactNode;
+            if (render.length <= 1) return render(cellProps);
+            return render(cell.getValue(), cellProps);
+          };
 
           return (
             <TableCell
+              {...inheritedCellDOMProps}
               ref={(node) => {
                 if (node) cellNodesRef.current.set(cellKey, node);
                 else cellNodesRef.current.delete(cellKey);
               }}
               key={cell.id}
+              data-slot="grid-cell"
               data-column-id={columnId}
               data-column-index={cellIndex}
               data-editing={isEditingThisCell ? "true" : "false"}
+              data-cell-active={cellIsActive ? "true" : "false"}
+              data-cell-selected={cellIsSelected ? "true" : "false"}
+              aria-selected={cellSelectionEnabled ? cellIsSelected : undefined}
+              tabIndex={
+                cellSelectionEnabled
+                  ? cellIsActive
+                    ? 0
+                    : -1
+                  : inheritedCellDOMProps.tabIndex
+              }
+              rowSpan={spanEntry?.rowSpan}
+              colSpan={spanEntry?.colSpan}
               className={cn(
                 userSelectClass,
                 "InovuaReactDataGrid__cell",
@@ -1051,8 +1369,12 @@ export function GridBody(props: GridBodyProps) {
                   ? "InovuaReactDataGrid__cell--show-border-right"
                   : "",
                 isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-                hoveredCellId === cell.id
+                showHoverRows && hoveredCellId === cell.id
                   ? "InovuaReactDataGrid__cell--over"
+                  : "",
+                cellIsSelected ? "tdg-cell--selected bg-accent/50" : "",
+                cellIsActive
+                  ? "tdg-cell--active outline outline-2 -outline-offset-2 outline-ring"
                   : "",
                 showHorizontalCellBorders
                   ? "border-b [border-bottom-color:var(--tdg-cell-border-color)]"
@@ -1061,15 +1383,15 @@ export function GridBody(props: GridBodyProps) {
                   ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
                   : "",
                 align === "right" || align === "end" ? "text-right" : "",
-                column?.className
+                configuredClassName,
+                inheritedCellDOMProps.className
               )}
               style={{
                 width,
                 minWidth: column?.minWidth,
                 maxWidth: column?.maxWidth,
-                ...(typeof column?.style === "object" && column?.style
-                  ? column.style
-                  : {}),
+                ...(configuredStyle ?? {}),
+                ...(inheritedCellDOMProps.style ?? {}),
                 ...(lockedLayout
                   ? ({
                       "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
@@ -1083,25 +1405,54 @@ export function GridBody(props: GridBodyProps) {
                     }
                   : {}),
               }}
-              onClick={() => {
+              onPointerDown={(event) => {
+                rootCellDOMProps.onPointerDown?.(event);
+                columnCellDOMProps.onPointerDown?.(event);
+                if (!event.defaultPrevented) {
+                  onCellSelectionPointer(rowIndex, cellIndex, event);
+                }
+              }}
+              onClick={(event) => {
+                rootCellDOMProps.onClick?.(event);
+                columnCellDOMProps.onClick?.(event);
+                if (cellProps) publicOnCellClick?.(event, cellProps);
                 if (
-                  normalizedStartEvent === "click" ||
-                  normalizedStartEvent === "onclick"
+                  !event.defaultPrevented &&
+                  (normalizedStartEvent === "click" ||
+                    normalizedStartEvent === "onclick")
                 ) {
                   startEdit();
                 }
               }}
-              onDoubleClick={() => {
+              onDoubleClick={(event) => {
+                rootCellDOMProps.onDoubleClick?.(event);
+                columnCellDOMProps.onDoubleClick?.(event);
+                if (cellProps) publicOnCellDoubleClick?.(event, cellProps);
                 if (
-                  normalizedStartEvent === "dblclick" ||
-                  normalizedStartEvent === "doubleclick" ||
-                  normalizedStartEvent === "ondoubleclick"
+                  !event.defaultPrevented &&
+                  (normalizedStartEvent === "dblclick" ||
+                    normalizedStartEvent === "doubleclick" ||
+                    normalizedStartEvent === "ondoubleclick")
                 ) {
                   startEdit();
                 }
               }}
-              onMouseEnter={() => setHoveredCellId(cell.id)}
-              onMouseLeave={() => {
+              onMouseEnter={(event) => {
+                rootCellDOMProps.onMouseEnter?.(event);
+                columnCellDOMProps.onMouseEnter?.(event);
+                if (showHoverRows) setHoveredCellId(cell.id);
+                if (draggingCellSelectionRef.current) {
+                  onCellSelectionPointer(rowIndex, cellIndex, {
+                    button: 0,
+                    ctrlKey: false,
+                    metaKey: false,
+                    shiftKey: true,
+                  });
+                }
+              }}
+              onMouseLeave={(event) => {
+                rootCellDOMProps.onMouseLeave?.(event);
+                columnCellDOMProps.onMouseLeave?.(event);
                 setHoveredCellId((current) =>
                   current === cell.id ? null : current
                 );
@@ -1117,7 +1468,22 @@ export function GridBody(props: GridBodyProps) {
                     {editor}
                   </>
                 ) : (
-                  flexRender(cell.column.columnDef.cell, cell.getContext())
+                  <>
+                    {renderCellContent()}
+                    {cellSelectionEnabled && cellIsActive && cellIsSelected ? (
+                      <button
+                        type="button"
+                        data-slot="cell-selection-drag-handle"
+                        aria-label="Extend cell selection"
+                        className="absolute bottom-0 right-0 z-10 size-2.5 translate-x-1/2 translate-y-1/2 cursor-crosshair rounded-full border border-background bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          draggingCellSelectionRef.current = true;
+                        }}
+                      />
+                    ) : null}
+                  </>
                 )}
               </div>
             </TableCell>
@@ -1126,6 +1492,279 @@ export function GridBody(props: GridBodyProps) {
       </>
     );
   }
+
+  function renderDataRow(
+    row: any,
+    rowIndex: number,
+    virtualSize?: number,
+    measure = false
+  ): React.ReactNode {
+    const rowIsSelected = Boolean(selectedMap[row.id]);
+    const rowIsActive = rowIndex === activeIndex;
+    const disabledRow = getDisabledRowState(rowIndex);
+    const rowIsDisabled = Boolean(disabledRow);
+    const compatibilityRowProps = getContextRowProps(
+      row,
+      rowIndex,
+      rowIsSelected,
+      rowIsActive,
+      disabledRow
+    );
+    onRenderRow?.(compatibilityRowProps);
+    const inheritedRowProps =
+      typeof rowProps === "function"
+        ? (rowProps(compatibilityRowProps) ?? {})
+        : (rowProps ?? {});
+    const configuredRowClassName =
+      typeof rowClassName === "function"
+        ? rowClassName(compatibilityRowProps)
+        : rowClassName;
+    const contextHandlers = getRowContextMenuHandlers({
+      row,
+      rowIndex,
+      rowIsSelected,
+      rowIsActive,
+      disabledRow,
+    });
+    const children = renderCells(row, rowIndex, virtualSize);
+    const renderedRowProps = {
+      ...inheritedRowProps,
+      ref: measure ? measureNaturalRow : undefined,
+      className: cn(
+        getRowThemeClasses(rowIndex, rowIsSelected, rowIsDisabled, rowIsActive),
+        showHorizontalCellBorders
+          ? "InovuaReactDataGrid__row--show-horizontal-borders"
+          : "",
+        rowIndex === 0 ? "InovuaReactDataGrid__row--first" : "",
+        configuredRowClassName,
+        inheritedRowProps.className
+      ),
+      id: `${rowIdPrefix}-${rowIndex}`,
+      "data-selected": rowIsSelected ? "true" : "false",
+      "data-active": rowIsActive ? "true" : "false",
+      "data-disabled": rowIsDisabled ? "true" : undefined,
+      "data-row-parity": rowIndex % 2 === 0 ? "odd" : "even",
+      "data-row-id": row.id,
+      "data-row-index": rowIndex,
+      "data-index": rowIndex,
+      "data-slot": "grid-row",
+      "aria-disabled": rowIsDisabled || undefined,
+      "aria-current": rowIsActive || undefined,
+      "aria-selected": selectionEnabled ? rowIsSelected : undefined,
+      style: {
+        ...getRowStyle(
+          row,
+          rowIndex,
+          rowIsSelected,
+          rowIsActive,
+          disabledRow,
+          virtualSize
+        ),
+        ...(inheritedRowProps.style ?? {}),
+      },
+      onClick: (event: React.MouseEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onClick?.(event);
+        if (event.defaultPrevented || rowIsDisabled) return;
+        onRowClick?.(row.id, row.original, rowIndex, event);
+        publicOnRowClick?.(compatibilityRowProps, event);
+      },
+      onDoubleClick: (event: React.MouseEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onDoubleClick?.(event);
+        if (event.defaultPrevented || rowIsDisabled) return;
+        publicOnRowDoubleClick?.(event, compatibilityRowProps);
+      },
+      onClickCapture: (event: React.MouseEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onClickCapture?.(event);
+        contextHandlers.onClickCapture?.(event);
+      },
+      onContextMenu: (event: React.MouseEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onContextMenu?.(event);
+        if (!event.defaultPrevented) contextHandlers.onContextMenu?.(event);
+      },
+      onPointerDown: (event: React.PointerEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onPointerDown?.(event);
+        if (!event.defaultPrevented) contextHandlers.onPointerDown?.(event);
+      },
+      onPointerMove: (event: React.PointerEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onPointerMove?.(event);
+        if (!event.defaultPrevented) contextHandlers.onPointerMove?.(event);
+      },
+      onPointerUp: (event: React.PointerEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onPointerUp?.(event);
+        contextHandlers.onPointerUp?.(event);
+      },
+      onPointerCancel: (event: React.PointerEvent<HTMLTableRowElement>) => {
+        inheritedRowProps.onPointerCancel?.(event);
+        contextHandlers.onPointerCancel?.(event);
+      },
+      children,
+      rowProps: compatibilityRowProps,
+    };
+
+    if (renderRow) {
+      return (
+        <React.Fragment key={row.id}>
+          {renderRow(renderedRowProps)}
+        </React.Fragment>
+      );
+    }
+
+    const { rowProps: _compatibilityRowProps, ...nativeRowProps } =
+      renderedRowProps;
+    void _compatibilityRowProps;
+    return (
+      <TableRow key={row.id} {...nativeRowProps}>
+        {children}
+      </TableRow>
+    );
+  }
+
+  function renderEmptyRow(emptyIndex: number): React.ReactNode {
+    const rowIndex = rowModel.length + emptyIndex;
+    const row = {
+      id: `__empty-${emptyIndex}`,
+      original: {},
+    };
+    const compatibilityRowProps: TypeRowProps = {
+      data: row.original,
+      rowIndex,
+      index: rowIndex,
+      realIndex: rowIndex,
+      remoteRowIndex: rowStyleMetadata.remoteRowOffset + rowIndex,
+      id: row.id,
+      empty: true,
+      active: false,
+      selected: false,
+      rowSelected: false,
+    };
+    onRenderRow?.(compatibilityRowProps);
+    const inheritedRowProps =
+      typeof rowProps === "function"
+        ? (rowProps(compatibilityRowProps) ?? {})
+        : (rowProps ?? {});
+    const configuredRowClassName =
+      typeof rowClassName === "function"
+        ? rowClassName(compatibilityRowProps)
+        : rowClassName;
+    const children = columnRenderItems.map((renderItem) => {
+      if (renderItem.type === "spacer") {
+        return (
+          <TableCell
+            key={`empty-${emptyIndex}-${renderItem.id}`}
+            aria-hidden="true"
+            className="pointer-events-none !p-0"
+            style={{
+              width: renderItem.width,
+              minWidth: renderItem.width,
+              maxWidth: renderItem.width,
+            }}
+          />
+        );
+      }
+      const columnIndex = renderItem.index;
+      const column = orderedColumns[columnIndex];
+      if (!column) return null;
+      const columnId = getColumnIdCompat(column);
+      const cellPropsForEmpty = getDataCellProps({
+        row,
+        rowIndex,
+        column,
+        columnId,
+        columnIndex,
+        value: undefined,
+        width: columnWidths[columnId],
+        empty: true,
+      });
+      const rootCellDOMProps = resolveCellDOMProps(
+        cellDOMProps,
+        cellPropsForEmpty
+      );
+      const columnCellDOMProps = resolveCellDOMProps(
+        column.cellDOMProps,
+        cellPropsForEmpty
+      );
+      const domProps = { ...rootCellDOMProps, ...columnCellDOMProps };
+      const configuredClassName =
+        typeof column.className === "function"
+          ? column.className(cellPropsForEmpty)
+          : column.className;
+      const configuredStyle =
+        typeof column.style === "function"
+          ? column.style(cellPropsForEmpty)
+          : column.style;
+      const render = column.render as
+        | ((valueOrCellProps: unknown, args?: CellProps) => React.ReactNode)
+        | undefined;
+      const content = render
+        ? render.length <= 1
+          ? render(cellPropsForEmpty)
+          : render(undefined, cellPropsForEmpty)
+        : null;
+
+      return (
+        <TableCell
+          {...domProps}
+          key={`empty-${emptyIndex}-${columnId}`}
+          data-slot="grid-cell"
+          data-empty="true"
+          data-column-id={columnId}
+          data-column-index={columnIndex}
+          aria-hidden="true"
+          className={cn(
+            "InovuaReactDataGrid__cell InovuaReactDataGrid__cell--empty",
+            configuredClassName,
+            domProps.className
+          )}
+          style={{
+            width: columnWidths[columnId],
+            minWidth: column.minWidth,
+            maxWidth: column.maxWidth,
+            ...(configuredStyle ?? {}),
+            ...(domProps.style ?? {}),
+          }}
+        >
+          <div className="tdg-cell-content">{content}</div>
+        </TableCell>
+      );
+    });
+    const renderedRowProps = {
+      ...inheritedRowProps,
+      className: cn(
+        "tdg-row tdg-row--empty InovuaReactDataGrid__row InovuaReactDataGrid__row--empty",
+        configuredRowClassName,
+        inheritedRowProps.className
+      ),
+      "data-slot": "grid-empty-row",
+      "data-row-index": rowIndex,
+      "data-empty": "true",
+      "aria-hidden": true,
+      style: {
+        height: getResolvedRowHeight(rowIndex) ?? minRowHeight,
+        ...(inheritedRowProps.style ?? {}),
+      },
+      children,
+      rowProps: compatibilityRowProps,
+    };
+    if (renderRow) {
+      return (
+        <React.Fragment key={row.id}>
+          {renderRow(renderedRowProps)}
+        </React.Fragment>
+      );
+    }
+    const { rowProps: _compatibilityRowProps, ...nativeRowProps } =
+      renderedRowProps;
+    void _compatibilityRowProps;
+    return <TableRow key={row.id} {...nativeRowProps} />;
+  }
+
+  const emptyRowCount = showEmptyRows
+    ? Math.max(0, rowStyleMetadata.maxVisibleRows - rowModel.length)
+    : 0;
+  const renderedEmptyRows = Array.from(
+    { length: emptyRowCount },
+    (_, emptyIndex) => renderEmptyRow(emptyIndex)
+  );
 
   if (loading && rowModel.length === 0) {
     return (
@@ -1189,63 +1828,7 @@ export function GridBody(props: GridBodyProps) {
 
           {virtualItems.map((vi) => {
             const row = rowModel[vi.index]!;
-            const rowIsSelected = Boolean(selectedMap[row.id]);
-            const rowIsActive = vi.index === activeIndex;
-            const disabledRow = getDisabledRowState(vi.index);
-            const rowIsDisabled = Boolean(disabledRow);
-
-            return (
-              <TableRow
-                ref={rowHeight == null ? measureNaturalRow : undefined}
-                key={row.id}
-                className={cn(
-                  getRowThemeClasses(
-                    vi.index,
-                    rowIsSelected,
-                    rowIsDisabled,
-                    rowIsActive
-                  ),
-                  showHorizontalCellBorders
-                    ? "InovuaReactDataGrid__row--show-horizontal-borders"
-                    : "",
-                  vi.index === 0 ? "InovuaReactDataGrid__row--first" : ""
-                )}
-                id={`${rowIdPrefix}-${vi.index}`}
-                data-selected={rowIsSelected ? "true" : "false"}
-                data-active={rowIsActive ? "true" : "false"}
-                data-disabled={rowIsDisabled ? "true" : undefined}
-                data-row-parity={vi.index % 2 === 0 ? "odd" : "even"}
-                data-row-id={row.id}
-                data-row-index={vi.index}
-                data-index={vi.index}
-                data-slot="grid-row"
-                aria-disabled={rowIsDisabled || undefined}
-                aria-current={rowIsActive ? "true" : undefined}
-                aria-selected={selectionEnabled ? rowIsSelected : undefined}
-                style={getRowStyle(
-                  row,
-                  vi.index,
-                  rowIsSelected,
-                  rowIsActive,
-                  disabledRow,
-                  vi.size
-                )}
-                onClick={
-                  rowIsDisabled
-                    ? undefined
-                    : (e) => onRowClick?.(row.id, row.original, vi.index, e)
-                }
-                {...getRowContextMenuHandlers({
-                  row,
-                  rowIndex: vi.index,
-                  rowIsSelected,
-                  rowIsActive,
-                  disabledRow,
-                })}
-              >
-                {renderCells(row, vi.index, vi.size)}
-              </TableRow>
-            );
+            return renderDataRow(row, vi.index, vi.size, rowHeight == null);
           })}
 
           {paddingBottom > 0 && (
@@ -1256,6 +1839,7 @@ export function GridBody(props: GridBodyProps) {
               />
             </TableRow>
           )}
+          {renderedEmptyRows}
         </>
       ) : (
         <>
@@ -1268,61 +1852,9 @@ export function GridBody(props: GridBodyProps) {
             </TableRow>
           ) : null}
           {rowModel.map((row, displayIndex) => {
-            const rowIsSelected = Boolean(selectedMap[row.id]);
-            const rowIsActive = displayIndex === activeIndex;
-            const disabledRow = getDisabledRowState(displayIndex);
-            const rowIsDisabled = Boolean(disabledRow);
-
-            return (
-              <TableRow
-                key={row.id}
-                className={cn(
-                  getRowThemeClasses(
-                    displayIndex,
-                    rowIsSelected,
-                    rowIsDisabled,
-                    rowIsActive
-                  ),
-                  showHorizontalCellBorders
-                    ? "InovuaReactDataGrid__row--show-horizontal-borders"
-                    : "",
-                  displayIndex === 0 ? "InovuaReactDataGrid__row--first" : ""
-                )}
-                id={`${rowIdPrefix}-${displayIndex}`}
-                data-selected={rowIsSelected ? "true" : "false"}
-                data-active={rowIsActive ? "true" : "false"}
-                data-disabled={rowIsDisabled ? "true" : undefined}
-                data-row-parity={displayIndex % 2 === 0 ? "odd" : "even"}
-                data-row-id={row.id}
-                data-row-index={displayIndex}
-                data-slot="grid-row"
-                aria-disabled={rowIsDisabled || undefined}
-                aria-current={rowIsActive ? "true" : undefined}
-                aria-selected={selectionEnabled ? rowIsSelected : undefined}
-                style={getRowStyle(
-                  row,
-                  displayIndex,
-                  rowIsSelected,
-                  rowIsActive,
-                  disabledRow
-                )}
-                onClick={
-                  rowIsDisabled
-                    ? undefined
-                    : (e) => onRowClick?.(row.id, row.original, displayIndex, e)
-                }
-                {...getRowContextMenuHandlers({
-                  row,
-                  rowIndex: displayIndex,
-                  rowIsSelected,
-                  rowIsActive,
-                  disabledRow,
-                })}
-              >
-                {renderCells(row, displayIndex)}
-              </TableRow>
-            );
+            return renderDataRow(row, displayIndex);
           })}
+          {renderedEmptyRows}
         </>
       )}
     </TableBody>

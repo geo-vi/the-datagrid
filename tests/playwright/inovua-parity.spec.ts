@@ -1663,7 +1663,7 @@ test.describe("Inovua Community parity", () => {
       computedEditableIsPredicate: true,
       hasEditValue: false,
       hasInEdit: false,
-      rowActive: false,
+      rowActive: true,
       rowSelected: false,
       multiSelect: false,
       naturalRowHeight: false,
