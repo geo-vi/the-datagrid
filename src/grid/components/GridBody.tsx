@@ -1256,8 +1256,12 @@ export function GridBody(props: GridBodyProps) {
                 columnIndex: cellIndex,
                 value: cell.getValue(),
                 width,
-                inEdit: isEditingThisCell,
-                editValue: isEditingThisCell ? editingCell?.value : undefined,
+                ...(isEditingThisCell
+                  ? {
+                      inEdit: true,
+                      editValue: editingCell?.value,
+                    }
+                  : {}),
               })
             : null;
           const spanEntry = spanPlan?.get(`${rowIndex},${cellIndex}`);
