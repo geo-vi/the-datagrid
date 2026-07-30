@@ -154,7 +154,8 @@ export default function SearchDataSourceCompatPage() {
   );
 
   const inspectPromiseApi = React.useCallback(
-    (apiRef: React.MutableRefObject<TypeComputedProps | null>) => {
+    (apiRef: React.MutableRefObject<TypeComputedProps | null> | null) => {
+      if (!apiRef) return;
       const api = apiRef.current;
       const privateKey = "__rdgSearchController";
       const initialProps = api?.initialProps;

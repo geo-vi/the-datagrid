@@ -132,6 +132,7 @@ export type HeaderCellProps = {
   headerDOMProps?: TypeDataGridProps["headerDOMProps"];
   gridProps: TypeComputedProps;
   theme: string;
+  rtl: boolean;
   isCheckboxColumn: boolean;
 };
 
@@ -179,6 +180,7 @@ export function HeaderCell(props: HeaderCellProps) {
     headerDOMProps,
     gridProps,
     theme,
+    rtl,
     isCheckboxColumn,
   } = props;
 
@@ -257,6 +259,7 @@ export function HeaderCell(props: HeaderCellProps) {
       sortInfo,
       grid: gridProps,
       theme,
+      rtl,
     }),
     [
       canSort,
@@ -268,6 +271,7 @@ export function HeaderCell(props: HeaderCellProps) {
       lockedLayout?.side,
       sortInfo,
       theme,
+      rtl,
       width,
     ]
   );
@@ -541,7 +545,8 @@ export function HeaderCell(props: HeaderCellProps) {
 
               event.preventDefault();
               event.stopPropagation();
-              const direction = event.key === "ArrowRight" ? 1 : -1;
+              const direction =
+                (event.key === "ArrowRight" ? 1 : -1) * (rtl ? -1 : 1);
               onResizeBy(colId, direction * (event.shiftKey ? 40 : 10));
             }}
             onDoubleClick={(event) => {

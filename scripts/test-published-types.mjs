@@ -89,6 +89,43 @@ try {
   }
 
   for (const relativePath of [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "dist/index.js",
+    "dist/index.cjs",
+    "dist/index.css",
+    "dist/base.css",
+    "dist/BoolEditor.js",
+    "dist/BoolEditor.cjs",
+    "dist/editors/BoolEditor.d.ts",
+    "dist/DateEditor.js",
+    "dist/DateEditor.cjs",
+    "dist/NumericEditor.js",
+    "dist/NumericEditor.cjs",
+    "dist/StringFilter.js",
+    "dist/StringFilter.cjs",
+    "dist/BoolFilter.js",
+    "dist/BoolFilter.cjs",
+    "dist/DateFilter.js",
+    "dist/DateFilter.cjs",
+    "dist/NumberFilter.js",
+    "dist/NumberFilter.cjs",
+    "dist/SelectFilter.js",
+    "dist/SelectFilter.cjs",
+    "dist/types/index.js",
+    "dist/types/index.cjs",
+    "dist/types/index.d.ts",
+    "dist/community-api-manifest.json",
+    "dist/style/theme/amber-dark/index.css",
+    "dist/style/theme/amber-light/index.css",
+    "dist/style/theme/blue-dark/index.css",
+    "dist/style/theme/blue-light/index.css",
+    "dist/style/theme/default-light/index.css",
+    "dist/style/theme/default-dark/index.css",
+    "dist/style/theme/green-dark/index.css",
+    "dist/style/theme/green-light/index.css",
+    "dist/style/theme/pink-dark/index.css",
+    "dist/style/theme/pink-light/index.css",
     "dist/column-visibility.js",
     "dist/column-visibility.css",
     "dist/column-visibility/index.d.ts",
@@ -103,6 +140,58 @@ try {
       throw new Error(`Packed package is missing ${relativePath}.`);
     }
   }
+
+  const commonJsProbe = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      [
+        'const grid = require("@geovi/the-datagrid");',
+        'const BoolEditor = require("@geovi/the-datagrid/BoolEditor");',
+        'const StringFilter = require("@geovi/the-datagrid/StringFilter");',
+        "const defaultExport = (value) => value.default ?? value;",
+        'const isReactComponent = (value) => typeof value === "function" || (value != null && typeof value === "object" && "$$typeof" in value);',
+        'if (typeof grid.default !== "function") throw new Error("missing CJS grid");',
+        'if (!isReactComponent(defaultExport(BoolEditor))) throw new Error("missing CJS BoolEditor");',
+        'if (!isReactComponent(defaultExport(StringFilter))) throw new Error("missing CJS StringFilter");',
+      ].join("\n"),
+    ],
+    { cwd: fixtureDirectory, encoding: "utf8" }
+  );
+  if (commonJsProbe.stdout) process.stdout.write(commonJsProbe.stdout);
+  if (commonJsProbe.stderr) process.stderr.write(commonJsProbe.stderr);
+  if (commonJsProbe.status !== 0) {
+    throw new Error(
+      `Packed CommonJS runtime failed (exit ${commonJsProbe.status ?? 1}).`
+    );
+  }
+
+  const esmProbe = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      [
+        'import BoolEditor from "@geovi/the-datagrid/BoolEditor";',
+        'import StringFilter from "@geovi/the-datagrid/StringFilter";',
+        'import DateFilter from "@geovi/the-datagrid/DateFilter";',
+        'const isReactComponent = (value) => typeof value === "function" || (value != null && typeof value === "object" && "$$typeof" in value);',
+        'if (!isReactComponent(BoolEditor)) throw new Error("missing ESM BoolEditor");',
+        'if (!isReactComponent(StringFilter)) throw new Error("missing ESM StringFilter");',
+        'if (!isReactComponent(DateFilter)) throw new Error("missing ESM DateFilter");',
+      ].join("\n"),
+    ],
+    { cwd: fixtureDirectory, encoding: "utf8" }
+  );
+  if (esmProbe.stdout) process.stdout.write(esmProbe.stdout);
+  if (esmProbe.stderr) process.stderr.write(esmProbe.stderr);
+  if (esmProbe.status !== 0) {
+    throw new Error(
+      `Packed ESM runtime failed (exit ${esmProbe.status ?? 1}).`
+    );
+  }
+
+  console.log("Packed CommonJS and ESM runtime entrypoints loaded.");
 
   fs.writeFileSync(
     path.join(fixtureDirectory, "package.json"),
@@ -144,7 +233,7 @@ try {
     }
 
     console.log(
-      `Packed root, search, column-visibility, components, and TextInput types resolved with ${configuration}.`
+      `Packed root, Community editors/filters/types, search, column-visibility, components, and TextInput types resolved with ${configuration}.`
     );
   }
 } finally {

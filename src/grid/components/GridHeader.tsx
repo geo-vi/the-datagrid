@@ -57,6 +57,8 @@ export type GridHeaderProps = {
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
   theme: string;
+  rtl: boolean;
+  nativeScroll: boolean;
   gridRef: React.MutableRefObject<TypeComputedProps | null>;
   gridProps: TypeComputedProps;
 
@@ -189,6 +191,8 @@ export function GridHeader(props: GridHeaderProps) {
     showVerticalCellBorders,
     i18n,
     theme,
+    rtl,
+    nativeScroll,
     gridRef,
     gridProps,
     allowColumnReorder,
@@ -310,6 +314,7 @@ export function GridHeader(props: GridHeaderProps) {
                 lockedLayout={lockedLayout}
                 gridRef={gridRef}
                 gridProps={gridProps}
+                rtl={rtl}
                 onDragStart={onGroupHeaderDragStart}
                 onDragOver={onHeaderDragOver}
                 onDrop={onGroupHeaderDrop}
@@ -392,6 +397,7 @@ export function GridHeader(props: GridHeaderProps) {
                 headerDOMProps={headerDOMProps}
                 gridProps={gridProps}
                 theme={theme}
+                rtl={rtl}
                 isCheckboxColumn={checkboxEnabled && colId === checkboxColId}
               />
             );
@@ -452,6 +458,8 @@ export function GridHeader(props: GridHeaderProps) {
                   filterTypes={filterTypes}
                   i18n={i18n}
                   theme={theme}
+                  rtl={rtl}
+                  nativeScroll={nativeScroll}
                   gridRef={gridRef}
                   gridProps={gridProps}
                   renderColumnFilterContextMenu={renderColumnFilterContextMenu}

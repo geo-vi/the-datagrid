@@ -1181,6 +1181,7 @@ function PerformanceScenario(): React.ReactElement {
           virtualized
           showColumnMenuTool={false}
           handle={(computedPropsRef) => {
+            if (!computedPropsRef) return;
             apiRef.current = computedPropsRef.current;
           }}
           onFilterValueChange={recordSettledFilter}

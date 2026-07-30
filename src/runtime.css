@@ -559,6 +559,89 @@
   --tdg-color-ring: var(--ring, oklch(0.556 0 0));
 }
 
+.tdg-root[data-theme-base="dark"] {
+  --tdg-theme-color-background: oklch(0.145 0 0);
+  --tdg-theme-color-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-card: oklch(0.205 0 0);
+  --tdg-theme-color-card-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-popover: oklch(0.205 0 0);
+  --tdg-theme-color-popover-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-primary: oklch(0.922 0 0);
+  --tdg-theme-color-primary-foreground: oklch(0.205 0 0);
+  --tdg-theme-color-secondary: oklch(0.269 0 0);
+  --tdg-theme-color-secondary-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-muted: oklch(0.269 0 0);
+  --tdg-theme-color-muted-foreground: oklch(0.708 0 0);
+  --tdg-theme-color-accent: oklch(0.269 0 0);
+  --tdg-theme-color-accent-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-destructive: oklch(0.704 0.191 22.216);
+  --tdg-theme-color-destructive-foreground: oklch(0.985 0 0);
+  --tdg-theme-color-border: oklch(1 0 0 / 10%);
+  --tdg-theme-color-input: oklch(1 0 0 / 15%);
+  --tdg-theme-color-ring: oklch(0.556 0 0);
+}
+
+/* Inovua Community theme-name aliases use the same semantic token contract.
+   Consumers can override these slots without importing a global reset. */
+.tdg-root[data-theme^="amber-"] {
+  --tdg-theme-color-primary: oklch(0.769 0.188 70.08);
+  --tdg-theme-color-ring: oklch(0.666 0.179 58.318);
+}
+
+.tdg-root[data-theme^="blue-"] {
+  --tdg-theme-color-primary: oklch(0.546 0.245 262.881);
+  --tdg-theme-color-ring: oklch(0.623 0.214 259.815);
+}
+
+.tdg-root[data-theme^="green-"] {
+  --tdg-theme-color-primary: oklch(0.627 0.194 149.214);
+  --tdg-theme-color-ring: oklch(0.723 0.219 149.579);
+}
+
+.tdg-root[data-theme^="pink-"] {
+  --tdg-theme-color-primary: oklch(0.592 0.249 0.584);
+  --tdg-theme-color-ring: oklch(0.656 0.241 354.308);
+}
+
+.tdg-root[data-theme$="-dark"] {
+  --tdg-theme-color-primary-foreground: oklch(0.985 0 0);
+}
+
+.tdg-root
+  [data-slot="scroll-area-scrollbar"]:hover
+  [data-slot="scroll-area-thumb"] {
+  transition:
+    width 120ms ease,
+    height 120ms ease,
+    background-color 120ms ease;
+}
+
+.tdg-root
+  [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]
+  [data-slot="scroll-area-thumb"] {
+  width: var(--tdg-scroll-thumb-width);
+  align-self: center;
+}
+
+.tdg-root
+  [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]:hover
+  [data-slot="scroll-area-thumb"] {
+  width: var(--tdg-scroll-thumb-over-width);
+}
+
+.tdg-root
+  [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]
+  [data-slot="scroll-area-thumb"] {
+  height: var(--tdg-scroll-thumb-width);
+  align-self: center;
+}
+
+.tdg-root
+  [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]:hover
+  [data-slot="scroll-area-thumb"] {
+  height: var(--tdg-scroll-thumb-over-width);
+}
+
 .tdg-root *,
 .tdg-root ::before,
 .tdg-root ::after {
@@ -837,6 +920,11 @@
   user-select: none !important;
 }
 
+.tdg-root[dir="rtl"] .tdg-column-resizer {
+  right: auto !important;
+  left: calc(-0.75rem - 0.5rem) !important;
+}
+
 .tdg-root .tdg-column-resizer::before {
   content: "" !important;
   display: block !important;
@@ -867,6 +955,14 @@
   right: -0.5rem !important;
 }
 
+.tdg-root[dir="rtl"]
+  .tdg-header-row
+  > .tdg-header-cell:first-child
+  .tdg-column-resizer {
+  right: auto !important;
+  left: -0.5rem !important;
+}
+
 /*
  * The final resize target intentionally sits inside the grid boundary, so
  * reserve its hit area instead of letting it cover the column-menu trigger.
@@ -876,6 +972,16 @@
   > .tdg-header-cell:last-child
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: calc(
+    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+  ) !important;
+}
+
+.tdg-root[dir="rtl"]
+  .tdg-header-row
+  > .tdg-header-cell:first-child
+  .InovuaReactDataGrid__column-header__menu-tool {
+  margin-right: 0 !important;
+  margin-left: calc(
     var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
   ) !important;
 }

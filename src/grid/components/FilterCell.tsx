@@ -89,6 +89,8 @@ export type FilterCellProps = {
   showVerticalCellBorders: boolean;
   i18n?: TypeI18n;
   theme: string;
+  rtl: boolean;
+  nativeScroll: boolean;
   gridRef: React.MutableRefObject<TypeComputedProps | null>;
   gridProps: TypeComputedProps;
   renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
@@ -181,6 +183,8 @@ export function FilterCell(props: FilterCellProps) {
     showVerticalCellBorders,
     i18n,
     theme,
+    rtl,
+    nativeScroll,
     gridRef,
     gridProps,
     renderColumnFilterContextMenu,
@@ -378,8 +382,8 @@ export function FilterCell(props: FilterCellProps) {
     },
     render: (node: React.ReactNode) => node,
     renderInPortal: (node: React.ReactNode) => node,
-    nativeScroll: true,
-    rtl: false,
+    nativeScroll,
+    rtl,
   };
   const resolvedEditorProps =
     typeof filterEditorPropsAny === "function" ? {} : filterEditorPropsAny;

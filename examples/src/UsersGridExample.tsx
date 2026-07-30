@@ -389,7 +389,8 @@ export default function UsersGridExample({
   const gridApiRef = useRef<TypeComputedProps | null>(null);
 
   const captureGridApi = useCallback(
-    (ref: { current: TypeComputedProps | null }) => {
+    (ref: { current: TypeComputedProps | null } | null) => {
+      if (!ref) return;
       gridApiRef.current = ref.current;
     },
     []

@@ -27,14 +27,15 @@ public API and observable behavior of
 After changing the package dependency and import specifier, public
 Inovua-shaped application business logic should not require a rewrite.
 
-That statement is the product contract, **not a claim that the current release
-has already completed parity**. Compatibility covers more than similarly named
-TypeScript fields: it includes defaults, runtime behavior, callback payloads
-and timing, controlled/uncontrolled state, local and remote data flow, layout,
-keyboard and focus interaction, and accessibility behavior.
+The audited Community 5.10.2 release gate is implemented and backed by
+type, runtime, browser, packed-package, and performance tests. Compatibility
+covers more than similarly named TypeScript fields: it includes defaults,
+runtime behavior, callback payloads and timing, controlled/uncontrolled state,
+local and remote data flow, layout, keyboard and focus interaction, and
+accessibility behavior.
 
-The audited Issue 17, Issue 31, Issue 36, and Issue 48 compatibility batches
-now implement and regression-test:
+The Issue 17 and Issue 31–45 compatibility batches implement and
+regression-test:
 
 - Inovua's `idProperty`, theme, row/filter height, text-selection, filter-menu,
   and column-menu defaults;
@@ -60,14 +61,14 @@ now implement and regression-test:
 - `getVirtualList().adjustHeights()` for instantiated variable-height rows in
   virtual and non-virtual layouts.
 
-This closes those audited differences; it does not certify the entire Inovua
-Community API as complete. Remaining mismatches stay in the public status
-ledger until their types and observable behavior have executable evidence. No
-technical-impossibility exceptions are currently approved. Any future exception
-must identify the exact upstream contract, prove why equivalent behavior is
-technically impossible, document consumer impact and a safe migration path, and
-carry executable coverage. Cost, bundle size, schedule, or architectural
-preference alone do not qualify.
+This closes the audited Community gate. The
+[source release ledger](docs/inovua-community-5.10.2-compatibility.md) maps
+every child issue to executable evidence, and
+[`community-api-manifest.json`](community-api-manifest.json) records the
+behavior-backed computed API, plugins, types, and Enterprise exclusions.
+Unknown computed method names are absent instead of being fabricated as no-op
+functions. Any future mismatch is a compatibility regression and must be
+tracked with executable coverage.
 
 Issue 48 explicitly adopts Inovua's standalone `TextInput` toolkit path. Migrate
 its default import to `@geovi/the-datagrid/packages/TextInput`; the package also
@@ -83,8 +84,7 @@ before treating the current package as a drop-in runtime replacement.
 ## Implemented today
 
 The following inventory describes behavior that ships in the current package.
-It is a statement of current capability, not a declaration that the wider
-Inovua compatibility audit is complete. The public docs contain the full
+The public docs contain the full
 [source-backed implemented-surface reference](https://geo-vi.github.io/the-datagrid/docs/reference/implemented-surface),
 including exact defaults, timing, transform order, exports, and imperative
 method allowlists.
@@ -172,9 +172,8 @@ method allowlists.
   observers.
   The editing subset includes `startEdit`, `tryStartEdit`, `completeEdit`,
   `cancelEdit`, `getCurrentEditInfo`, `isInEdit`, and
-  `currentEditCompletePromise`. This is an implemented subset;
-  compatibility-shaped placeholder methods are not a claim of working
-  behavior.
+  `currentEditCompletePromise`. The API is explicit and behavior-backed;
+  unknown method-like properties resolve to `undefined`.
 
 ### Migration: data-transform ownership
 
@@ -200,9 +199,10 @@ for rationale and migration examples.
 
 The main entry, `@geovi/the-datagrid`, exports:
 
-- default and named `ReactDataGrid`, plus the compatibility-shaped `plugins`
-  empty list;
-- `DateFilter`, `NumberFilter`, `SelectFilter`, `CheckBox`, and the named
+- default and named `ReactDataGrid`, plus executable descriptors for the
+  built-in sorting, filtering, menu, and cell-selection plugins;
+- `BoolEditor`, `DateEditor`, `NumericEditor`, `StringFilter`, `BoolFilter`,
+  `DateFilter`, `NumberFilter`, `SelectFilter`, `CheckBox`, and the named
   `TextInput`;
 - `DEFAULT_FILTER_TYPES` and its `filterTypes` alias;
 - the public types `CellProps`, `IColumn`, `SortDirection`, `TypeColumn`,
@@ -224,10 +224,16 @@ The main entry, `@geovi/the-datagrid`, exports:
   `TextInputProps`, `TypeTextInputProps`, and the TextInput
   callback/input/wrapper/clear-button helper types.
 
+The same editors and filters are available through their documented deep
+imports. `@geovi/the-datagrid/types` and the documented
+`@geovi/the-datagrid/types/Type*` paths expose the migration type vocabulary.
+The main and Community compatibility entries publish both ESM and CommonJS.
+
 The optional `@geovi/the-datagrid/search` entry exports `RDGSearchProvider`,
 `RDGSearchBar`, `RDGSearchTarget`, and their prop types. The explicit stylesheet
-fallbacks are `@geovi/the-datagrid/style.css` and
-`@geovi/the-datagrid/search/style.css`.
+fallbacks include `@geovi/the-datagrid/index.css`,
+`@geovi/the-datagrid/base.css`, every documented default/amber/blue/green/pink
+light/dark theme path, and `@geovi/the-datagrid/search/style.css`.
 
 The optional `@geovi/the-datagrid/components` entry is the one-import choice for
 mixed contextual controls. It exports `RDGProvider`, `RDGTarget`,

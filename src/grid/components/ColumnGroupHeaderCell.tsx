@@ -30,6 +30,7 @@ export type ColumnGroupHeaderCellProps = {
   lockedLayout?: TypeLockedColumnLayout;
   gridRef: React.MutableRefObject<TypeComputedProps | null>;
   gridProps: TypeComputedProps;
+  rtl: boolean;
   onDragStart: (event: React.DragEvent, item: GroupItem) => void;
   onDragOver: (event: React.DragEvent) => void;
   onDrop: (event: React.DragEvent, item: GroupItem) => void;
@@ -82,6 +83,7 @@ export function ColumnGroupHeaderCell(props: ColumnGroupHeaderCellProps) {
     lockedLayout,
     gridRef,
     gridProps,
+    rtl,
     onDragStart,
     onDragOver,
     onDrop,
@@ -235,7 +237,9 @@ export function ColumnGroupHeaderCell(props: ColumnGroupHeaderCellProps) {
               }
               event.preventDefault();
               event.stopPropagation();
-              onResizeBy(item, event.key === "ArrowLeft" ? -10 : 10);
+              const direction =
+                (event.key === "ArrowLeft" ? -1 : 1) * (rtl ? -1 : 1);
+              onResizeBy(item, direction * 10);
             }}
             onClick={(event) => {
               event.preventDefault();

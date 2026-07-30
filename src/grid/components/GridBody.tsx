@@ -55,6 +55,11 @@ export type GridCellEditStartArgs = {
   column: TypeColumn;
   cellProps: CellProps;
   initialCellHeight: number | null;
+  /**
+   * When true, `column.getEditStartValue` resolves the initial editor value.
+   * Imperative callers that supplied an explicit value set this to false.
+   */
+  useEditStartValue?: boolean;
 };
 
 export type GridEditNavigation = {
@@ -267,6 +272,7 @@ export type GridBodyProps = {
   ) => void;
 
   rowHeight: number | ((rowIndex: number) => number) | null;
+  resolveRowHeight?: (rowIndex: number) => number;
   minRowHeight: number;
   maxRowHeight?: number;
   measureElement?: (element: Element | null) => void;
@@ -283,6 +289,8 @@ export type GridBodyProps = {
     dataSourceArray: any[];
     totalCount: number;
     theme: string;
+    rtl: boolean;
+    nativeScroll: boolean;
     multiSelect: boolean;
     selection: TypeRowSelection;
     maxVisibleRows: number;
@@ -365,6 +373,7 @@ export function GridBody(props: GridBodyProps) {
     showEmptyRows,
     onRowContextMenu,
     rowHeight,
+    resolveRowHeight,
     minRowHeight,
     maxRowHeight,
     measureElement,
@@ -502,6 +511,8 @@ export function GridBody(props: GridBodyProps) {
       editStartEvent,
       virtualizeColumns: rowStyleMetadata.virtualizeColumns,
       theme: rowStyleMetadata.theme,
+      rtl: rowStyleMetadata.rtl,
+      nativeScroll: rowStyleMetadata.nativeScroll,
       getItemId: rowStyleMetadata.getItemId,
     };
   }
@@ -680,6 +691,7 @@ export function GridBody(props: GridBodyProps) {
   }
 
   function getResolvedRowHeight(rowIndex: number): number | null {
+    if (resolveRowHeight) return resolveRowHeight(rowIndex);
     if (rowHeight == null) return null;
 
     return resolveConfiguredRowHeight({
@@ -766,7 +778,7 @@ export function GridBody(props: GridBodyProps) {
       ...(rowHeight == null ? { minHeight: minRowHeight } : {}),
       width: rowStyleMetadata.totalComputedWidth,
       minWidth: rowStyleMetadata.totalComputedWidth,
-      direction: "ltr",
+      direction: rowStyleMetadata.rtl ? "rtl" : "ltr",
       ...(typeof rowHeight !== "number" &&
       typeof maxRowHeight === "number" &&
       Number.isFinite(maxRowHeight)
@@ -942,6 +954,7 @@ export function GridBody(props: GridBodyProps) {
             column,
             cellProps,
             initialCellHeight: editingCell.initialCellHeight,
+            useEditStartValue: false,
           });
           if (!started) return errBack?.(false);
           return nextValue;
@@ -957,6 +970,12 @@ export function GridBody(props: GridBodyProps) {
         void onEditComplete(undefined, value);
       },
       getCurrentEditValue: () => editingCell.value,
+      getEditStartValue: (propsForEdit = cellProps) =>
+        Promise.resolve(
+          typeof column.getEditStartValue === "function"
+            ? column.getEditStartValue(propsForEdit.value, propsForEdit)
+            : propsForEdit.value
+        ),
       gotoNextEditor: () => onEditStop({ type: "tab", direction: 1 }),
       gotoPrevEditor: () => onEditStop({ type: "tab", direction: -1 }),
       onEditorEnterNavigation: (complete = true, direction = 0) => {
@@ -977,12 +996,12 @@ export function GridBody(props: GridBodyProps) {
     };
     const editorProps: TypeColumnEditorProps = {
       ...configuredEditorProps,
-      nativeScroll: true,
+      nativeScroll: rowStyleMetadata.nativeScroll,
       editorProps: configuredEditorProps,
       cell: compatCell,
       value: editingCell.value,
       theme: rowStyleMetadata.theme,
-      rtl: false,
+      rtl: rowStyleMetadata.rtl,
       autoFocus: true,
       cellProps,
       column,
@@ -1244,9 +1263,6 @@ export function GridBody(props: GridBodyProps) {
             String(editingCell.rowId) === String(rowId) &&
             editingCell.columnId === columnId
           );
-          const editor = column
-            ? renderEditor(row, rowIndex, cellIndex, column, columnId)
-            : null;
           const cellProps = column
             ? getDataCellProps({
                 row,
@@ -1264,6 +1280,127 @@ export function GridBody(props: GridBodyProps) {
                   : {}),
               })
             : null;
+          let lastInlineStartSucceeded = false;
+          const startInlineEdit = async (
+            editValue?: unknown,
+            errBack?: (...args: any[]) => any
+          ) => {
+            lastInlineStartSucceeded = false;
+            if (!column || !cellProps) return errBack?.(false);
+            try {
+              const started = await onCellEditStart({
+                rowId,
+                rowIndex,
+                columnId,
+                columnIndex: cellIndex,
+                value: editValue === undefined ? cell.getValue() : editValue,
+                data: row.original,
+                column,
+                cellProps,
+                initialCellHeight:
+                  cellNodesRef.current.get(cellKey)?.getBoundingClientRect()
+                    .height ?? null,
+                useEditStartValue: editValue === undefined,
+              });
+              if (!started) return errBack?.(false);
+              lastInlineStartSucceeded = true;
+              return (
+                editingCell?.value ??
+                (editValue === undefined ? cell.getValue() : editValue)
+              );
+            } catch (error) {
+              return errBack?.(error);
+            }
+          };
+          let rendersInlineEditor = false;
+          if (column?.rendersInlineEditor && cellProps) {
+            try {
+              rendersInlineEditor =
+                typeof column.rendersInlineEditor === "function"
+                  ? Boolean(column.rendersInlineEditor(cellProps))
+                  : true;
+            } catch {
+              rendersInlineEditor = false;
+            }
+          }
+          if (rendersInlineEditor && cellProps) {
+            const ensureEditing = async (value?: unknown) => {
+              if (isEditingThisCell) return true;
+              await startInlineEdit(value);
+              return lastInlineStartSucceeded;
+            };
+            cellProps.rendersInlineEditor = column?.rendersInlineEditor;
+            cellProps.editProps = {
+              inEdit: isEditingThisCell,
+              value: isEditingThisCell ? editingCell?.value : cell.getValue(),
+              startEdit: startInlineEdit,
+              onClick: (event) => event.stopPropagation(),
+              onChange: (value) => {
+                const normalized = normalizeEditorValue(value);
+                void (async () => {
+                  if (await ensureEditing()) onEditValueChange(normalized);
+                })();
+              },
+              onComplete: (value) => {
+                const normalized =
+                  value === undefined ? undefined : normalizeEditorValue(value);
+                void (async () => {
+                  if (await ensureEditing(normalized)) {
+                    await onEditComplete(undefined, normalized);
+                  }
+                })();
+              },
+              onCancel: () => {
+                if (isEditingThisCell) onEditCancel();
+              },
+              onEnterNavigation: (complete = true, direction = 0) => {
+                const navigation =
+                  direction === 0
+                    ? undefined
+                    : ({
+                        type: "enter",
+                        direction: direction < 0 ? -1 : 1,
+                      } as const);
+                void (async () => {
+                  if (!(await ensureEditing())) return;
+                  if (complete) await onEditComplete(navigation);
+                  else await onEditStop(navigation);
+                })();
+              },
+              onTabNavigation: (complete = true, direction = 0) => {
+                const navigation =
+                  direction === 0
+                    ? undefined
+                    : ({
+                        type: "tab",
+                        direction: direction < 0 ? -1 : 1,
+                      } as const);
+                void (async () => {
+                  if (!(await ensureEditing())) return;
+                  if (complete) await onEditComplete(navigation);
+                  else await onEditStop(navigation);
+                })();
+              },
+              gotoNext: () => {
+                void (async () => {
+                  if (await ensureEditing()) {
+                    await onEditStop({ type: "tab", direction: 1 });
+                  }
+                })();
+              },
+              gotoPrev: () => {
+                void (async () => {
+                  if (await ensureEditing()) {
+                    await onEditStop({ type: "tab", direction: -1 });
+                  }
+                })();
+              },
+            };
+          }
+          const editor =
+            column && !rendersInlineEditor
+              ? renderEditor(row, rowIndex, cellIndex, column, columnId)
+              : null;
           const spanEntry = spanPlan?.get(`${rowIndex},${cellIndex}`);
           if (spanEntry?.covered) return null;
           const rootCellDOMProps = cellProps
@@ -1306,6 +1443,7 @@ export function GridBody(props: GridBodyProps) {
               initialCellHeight:
                 cellNodesRef.current.get(cellKey)?.getBoundingClientRect()
                   .height ?? null,
+              useEditStartValue: true,
             });
           };
           const normalizedStartEvent = editStartEvent.toLowerCase();

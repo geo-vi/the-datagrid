@@ -2,7 +2,32 @@ import "./index.css";
 
 export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
-export { DateFilter, NumberFilter, SelectFilter } from "./filters/editors";
+export { BoolEditor, DateEditor, NumericEditor } from "./editors";
+export type {
+  BoolEditorProps,
+  DateEditorProps,
+  DateEditorValue,
+  NumericEditorProps,
+  NumericEditorValue,
+  TypeCommunityEditorProps,
+} from "./editors";
+export {
+  BoolFilter,
+  DateFilter,
+  NumberFilter,
+  SelectFilter,
+  StringFilter,
+} from "./filters/editors";
+export type {
+  BoolFilterProps,
+  DateFilterProps,
+  NumberFilterProps,
+  SelectFilterProps,
+  StringFilterHandle,
+  StringFilterProps,
+  TypeCommunityFilterChange,
+  TypeCommunityFilterValue,
+} from "./filters/editors";
 export { default as CheckBox } from "./packages/CheckBox";
 export { default as TextInput } from "./packages/TextInput";
 export type {
@@ -23,7 +48,10 @@ export { DEFAULT_FILTER_TYPES, filterTypes } from "./filters/utils";
 export type {
   CellProps,
   IColumn,
+  RangeResultType,
+  RowProps,
   SortDirection,
+  TypeBatchUpdateQueue,
   TypeActiveCell,
   TypeCellSelection,
   TypeCellDOMProps,
@@ -40,6 +68,7 @@ export type {
   TypeOnCellDoubleClick,
   TypeColumn,
   TypeColumnGroup,
+  TypeColumnWithId,
   TypeColumnGroupDOMProps,
   TypeColumnGroupHeaderProps,
   TypeCellProps,
@@ -58,28 +87,43 @@ export type {
   TypeDataSourceArgs,
   TypeDataSource,
   TypeDataSourceResult,
+  TypeConfig,
+  TypeConstrainRegion,
+  TypeDiff,
+  TypeDragHelper,
   TypeEditInfo,
   TypeStartEditArgs,
   TypeTryStartEditArgs,
   TypeCompleteEditArgs,
   TypeCancelEditArgs,
   TypeFilterOperator,
+  TypeFilter,
+  TypeFilterParam,
   TypeFilterType,
   TypeFilterTypes,
   TypeFilterValue,
+  TypeFnParam,
   TypeGetColumnByParam,
+  TypeHeaderProps,
   TypeI18n,
   TypeOnSelectionChangeArg,
   TypeColumnEditorProps,
   TypeColumnEditorCell,
+  TypeCommunityPlugin,
+  TypeInlineEditorProps,
+  TypeStartEditKeyArgs,
   TypeColumnResizeContext,
   TypeColumnResizeInfo,
   TypePaginationMode,
   TypePaginationProps,
+  TypePlugin,
   TypeLoadMaskProps,
   TypeShowCellBorders,
   TypeBoolMap,
   TypeRowSelection,
+  TypeRowUnselected,
+  TypeRowHeights,
+  TypeScrollProps,
   TypeRowContextMenuProps,
   TypeRowProps,
   TypeRowStyle,
@@ -98,6 +142,7 @@ export type {
   TypeOnRowContextMenu,
   TypeSortToolProps,
   TypeSortInfo,
+  TypeWithId,
   // plus your checkbox/selection compat types if you added them
   TypeCheckboxColumn,
   TypeCheckboxProps,
