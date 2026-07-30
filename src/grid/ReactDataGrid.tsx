@@ -56,7 +56,6 @@ import {
   resolveThemeBase,
   toThemeClassSuffix,
 } from "../theme/context";
-import { useLegacyThemeBridge } from "../theme/use-legacy-theme-bridge";
 
 import { getColumnId } from "../utils/column";
 import {
@@ -1423,11 +1422,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     allowMobileTransform && isMobileViewport && !editable && !hasColumnEditing;
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
-  const shouldUseLegacyThemeBridge =
-    themeClassSuffix !== "default" &&
-    themeClassSuffix !== "default-light" &&
-    themeClassSuffix !== "light" &&
-    themeClassSuffix !== "dark";
   const gridIdRef = React.useRef<number>(nextGridId++);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [portalContainer, setPortalContainer] =
@@ -1474,12 +1468,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showCellBorders === true || showCellBorders === "horizontal";
   const showVerticalCellBorders =
     showCellBorders === true || showCellBorders === "vertical";
-
-  useLegacyThemeBridge(
-    portalContainer,
-    themeClassSuffix,
-    shouldUseLegacyThemeBridge
-  );
 
   /** ---------------- selection / checkbox column ---------------- */
 
