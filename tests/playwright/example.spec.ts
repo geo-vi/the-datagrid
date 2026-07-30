@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
+// @inovua/reactdatagrid-community is kept as a dev-only dependency solely so
+// this test can assert the grid's styling survives a consumer app that still
+// ships Inovua's global CSS. The grid itself no longer depends on Inovua.
 const INOVUA_INDEX_CSS = readFileSync(
   resolve(
     process.cwd(),
@@ -380,9 +383,12 @@ test("loads the example app and switches the grid theme", async ({ page }) => {
     };
   });
 
+  // #222222 is the same color as the previous rgb(34, 34, 34) expectation;
+  // themes now declare these tokens in CSS, so they read back as authored hex
+  // rather than a computed rgb() written by the old runtime theme bridge.
   expect(hoverVars).toEqual({
-    odd: "rgb(34, 34, 34)",
-    even: "rgb(34, 34, 34)",
+    odd: "#222222",
+    even: "#222222",
   });
 
   const firstHeaderCell = page.locator(".tdg-header-cell").first();
@@ -1304,7 +1310,9 @@ test("keeps custom theme select focus chrome on the grid-owned border", async ({
   );
   await page.keyboard.press("Escape");
 
-  expect(ikarusLightBorders.rootVars.border).toBe("rgb(228, 227, 226)");
+  // Same color as before (rgb(228, 227, 226)); themes now declare the token in
+  // CSS, so it reads back as the authored hex instead of a computed rgb().
+  expect(ikarusLightBorders.rootVars.border).toBe("#e4e3e2");
   expect(ikarusLightBorders.rootVars.focusBorder).toBe(
     ikarusLightBorders.rootVars.border
   );
