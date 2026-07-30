@@ -850,6 +850,13 @@
   border-right: 1px solid var(--tdg-cell-border-color) !important;
 }
 
+/* Horizontal cell borders need the same explicit rule as the vertical ones:
+   without it the color falls back to the generic .tdg-root * border-color
+   (--tdg-color-border) and ignores --tdg-cell-border-color. */
+.tdg-root .InovuaReactDataGrid__cell--show-border-bottom {
+  border-bottom-color: var(--tdg-cell-border-color) !important;
+}
+
 .tdg-root
   .InovuaReactDataGrid__cell:not(.InovuaReactDataGrid__cell--show-border-right),
 .tdg-root
