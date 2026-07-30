@@ -390,6 +390,10 @@
   --tdg-grid-bg: var(--tdg-color-background);
   --tdg-grid-border-color: var(--tdg-color-border);
 
+  /* Base grid font size. Cells and controls inherit this; the header uses its
+     own --tdg-header-font-size so it can be sized independently. */
+  --tdg-font-size: 0.875rem;
+
   --tdg-header-bg: var(--tdg-color-muted);
   --tdg-header-color: var(--tdg-color-foreground);
   --tdg-header-border-color: var(--tdg-color-border);
@@ -658,7 +662,7 @@
     "Apple Color Emoji",
     "Segoe UI Emoji"
   ) !important;
-  font-size: 0.875rem !important;
+  font-size: var(--tdg-font-size, 0.875rem) !important;
   line-height: 1.5 !important;
   text-align: start !important;
   text-indent: 0 !important;
