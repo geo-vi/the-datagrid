@@ -1,4 +1,61 @@
-$DATAGRID_THEME_NAME: "ikarus-light";
+// ikarus-light — custom light theme authored with the-datagrid's own CSS
+// variables (no @inovua import, no runtime bridge). The original theme
+// declared no grid colors; it imported Inovua's amber-light preset. Values
+// reproduce that preset as compiled (subtle gray zebra, warm cream hover,
+// amber checkbox), so the example looks the same as before.
+.tdg-root[data-theme="ikarus-light"] {
+  --tdg-color-background: #ffffff;
+  --tdg-color-foreground: #555e68;
+  --tdg-color-border: #e4e3e2;
+  // amber-light applies its amber accent at low opacity for control hovers
+  // (rgba(202,174,83,.15) ≈ #f7f3e5 over white); the solid amber is reserved
+  // for the checkbox. Keep the accent pale so button/select/menu hovers match.
+  --tdg-color-accent: #f7f3e5;
 
-@import "./components/amber-light-checkbox.scss";
-@import "@inovua/reactdatagrid-community/style/theme/amber-light/index.scss";
+  --tdg-grid-bg: #ffffff;
+  --tdg-grid-border-color: #e4e3e2;
+
+  --tdg-header-bg: #ffffff;
+  --tdg-header-color: #555e68;
+  --tdg-header-border-color: #e4e3e2;
+
+  --tdg-filter-bg: #ffffff;
+  --tdg-filter-color: #555e68;
+  --tdg-filter-border-color: #e4e3e2;
+
+  --tdg-cell-border-color: #e4e3e2;
+
+  --tdg-row-odd-bg: #f8f8f8;
+  --tdg-row-even-bg: #ffffff;
+  --tdg-row-odd-hover-bg: #f7f3e5;
+  --tdg-row-even-hover-bg: #f7f3e5;
+  --tdg-row-selected-bg: #ece5cf;
+  --tdg-row-odd-selected-bg: #ece5cf;
+  --tdg-row-even-selected-bg: #ece5cf;
+  --tdg-row-active-color: #555e68;
+
+  // Inputs and selects intentionally follow the grid's own border chrome
+  // (#e4e3e2) rather than the legacy toolkit's control border, so a custom
+  // theme cannot take over hover/focus borders.
+  --tdg-input-bg: #ffffff;
+  --tdg-input-color: #555e68;
+  --tdg-input-border-color: #e4e3e2;
+  --tdg-input-border-color-hover: #e4e3e2;
+  --tdg-input-border-color-focus: #e4e3e2;
+  --tdg-select-bg: #ffffff;
+  --tdg-select-color: #555e68;
+  --tdg-select-border-color: #e4e3e2;
+  --tdg-select-border-color-hover: #e4e3e2;
+  --tdg-select-border-color-focus: #e4e3e2;
+  --tdg-select-list-bg: #ffffff;
+  --tdg-select-item-selected-bg: #ece5cf;
+  --tdg-dropdown-bg: #ffffff;
+  --tdg-dropdown-color: #555e68;
+  --tdg-dropdown-border-color: #e4e3e2;
+
+  // Solid amber for the checkbox and the resize indicator (accent is pale).
+  --tdg-column-header-resizer-constrained-color: #caae53;
+  --tdg-checkbox-checked-bg: #caae53;
+  --tdg-checkbox-checked-border-color: #caae53;
+  --tdg-checkbox-checked-color: #e8e8e8;
+}

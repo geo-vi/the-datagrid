@@ -1,14 +1,59 @@
-$DATAGRID_THEME_NAME: "ikarus-dark";
-$INOVUA_DATAGRID_BG_COLOR: #212121;
-$INOVUA_DATAGRID_HEADER_BG: #181818;
-$INOVUA_DATAGRID_ACCENT_COLOR: #252525;
-$INOVUA_DATAGRID_BORDER_COLOR: #383838;
-$INOVUA_DATAGRID_FONT_COLOR: #ffffff;
-$INOVUA_DATAGRID_HEADER_BORDER_COLOR: $INOVUA_DATAGRID_BORDER_COLOR;
-$INOVUA_DATAGRID_HEADER_PROXY_BORDER_COLOR: $INOVUA_DATAGRID_BORDER_COLOR;
-$INOVUA_DATAGRID_ROW_INDEX_BG: red;
-$INOVUA_DATAGRID_ROW_ODD_BG_COLOR: #282828;
-$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
-$HEADER: #1b1b1b;
+// ikarus-dark — custom dark theme authored with the-datagrid's own CSS
+// variables (no @inovua import, no runtime bridge). Values reproduce the theme
+// as it rendered on Inovua's default-dark preset (compiled from the original
+// SCSS), so the example looks the same as before.
+.tdg-root[data-theme="ikarus-dark"] {
+  --tdg-color-background: #212121;
+  --tdg-color-foreground: #ffffff;
+  --tdg-color-border: #383838;
 
-@import "@inovua/reactdatagrid-community/style/theme/default-dark/index.scss";
+  --tdg-grid-bg: #212121;
+  --tdg-grid-border-color: #383838;
+
+  --tdg-header-bg: #181818;
+  --tdg-header-color: #ffffff;
+  --tdg-header-border-color: #383838;
+  --tdg-header-proxy-border-color: #383838;
+
+  --tdg-filter-bg: #212121;
+  --tdg-filter-color: #ffffff;
+  --tdg-filter-border-color: #383838;
+
+  // The theme never declared a cell border, so Inovua's default-dark preset
+  // supplied its own lighter gridline color here — the header/structural
+  // borders stay on the theme's #383838.
+  --tdg-cell-border-color: #4f575f;
+
+  --tdg-row-odd-bg: #282828;
+  --tdg-row-even-bg: #343434;
+  --tdg-row-odd-hover-bg: #222222;
+  --tdg-row-even-hover-bg: #222222;
+  --tdg-row-selected-bg: #252525;
+  --tdg-row-odd-selected-bg: #252525;
+  --tdg-row-even-selected-bg: #252525;
+  --tdg-row-active-color: #ffffff;
+
+  --tdg-input-bg: #464d56;
+  --tdg-input-color: #ffffff;
+  --tdg-input-border-color: #383838;
+  --tdg-input-border-color-hover: #383838;
+  --tdg-input-border-color-focus: #383838;
+  --tdg-select-bg: #464d56;
+  --tdg-select-color: #ffffff;
+  --tdg-select-border-color: #383838;
+  --tdg-select-border-color-hover: #383838;
+  --tdg-select-border-color-focus: #383838;
+  // The select trigger (#464d56) and its dropdown list (#313943) are separate
+  // surfaces in Inovua's default-dark preset. Item hover/selected are the
+  // accent (#252525) at 15%/25% over the list background, composited here.
+  --tdg-select-list-bg: #313943;
+  --tdg-select-item-hover-bg: #2f363e;
+  --tdg-select-item-selected-bg: #2e343c;
+  // Menus/dropdowns are their own surface in Inovua's default-dark preset
+  // (#313943) rather than the grid background.
+  --tdg-dropdown-bg: #313943;
+  --tdg-dropdown-color: #ffffff;
+  --tdg-dropdown-border-color: #383838;
+  // accent (#252525) at 15% over the menu surface (#313943)
+  --tdg-dropdown-item-hover-bg: #2f363e;
+}

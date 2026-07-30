@@ -1,50 +1,56 @@
-$DATAGRID_THEME_NAME: "hf-light";
-$INOVUA_DATAGRID_BG_COLOR: #fefefe;
-$INOVUA_DATAGRID_HEADER_BG: #fafafa;
-$INOVUA_DATAGRID_ACCENT_COLOR: #f6f8fc;
-$INOVUA_DATAGRID_FONT_COLOR: #333333;
-$INOVUA_DATAGRID_BORDER_COLOR: #e5e5e5;
-$INOVUA_DATAGRID_CELL_BORDER_COLOR: #e5e5e5;
-$INOVUA_DATAGRID_HEADER_BORDER_COLOR: #e5e5e5;
+// hf-light — custom light theme authored with the-datagrid's own CSS variables
+// (no @inovua import, no runtime bridge). Values reproduce the theme as it
+// rendered on Inovua's default-light preset plus the theme's own overrides
+// (flat rows, soft blue accent hover, #f0f3fb selection, #426dcd checkbox).
+.tdg-root[data-theme="hf-light"] {
+  --tdg-color-background: #fefefe;
+  --tdg-color-foreground: #333333;
+  --tdg-color-border: #e5e5e5;
+  --tdg-color-accent: #f6f8fc;
 
-$INOVUA_DATAGRID_ROW_ODD_BG_COLOR: $INOVUA_DATAGRID_BG_COLOR;
-$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: $INOVUA_DATAGRID_BG_COLOR;
-$INOVUA_DATAGRID_ROW_ODD_HOVER_BG_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
-$INOVUA_DATAGRID_ROW_EVEN_HOVER_BG_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-grid-bg: #fefefe;
+  --tdg-grid-border-color: #e5e5e5;
 
-$INOVUA_TEXT_INPUT_BG_COLOR: #fefefe;
-$INOVUA_TEXT_INPUT_BORDER_COLOR: #e5e5e5;
-$INOVUA_TEXT_INPUT_BORDER_COLOR_FOCUSED: $INOVUA_TEXT_INPUT_BORDER_COLOR;
-$INOVUA_TEXT_INPUT_BORDER_COLOR_HOVER: $INOVUA_TEXT_INPUT_BORDER_COLOR;
+  --tdg-header-bg: #fafafa;
+  --tdg-header-color: #333333;
+  --tdg-header-border-color: #e5e5e5;
 
-$INOVUA_COMBO_BOX_BG: #fefefe;
-$INOVUA_COMBO_BOX_FOCUS_BACKGROUND: $INOVUA_COMBO_BOX_BG;
-$INOVUA_COMBO_BOX_LIST_BG: $INOVUA_COMBO_BOX_BG;
-$INOVUA_COMBO_BOX_BORDER_COLOR: #e5e5e5;
-$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR: #e5e5e5;
-$INOVUA_COMBO_BOX_FOCUSED_BORDER_COLOR: $INOVUA_COMBO_BOX_HOVER_BORDER_COLOR;
-$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR: $INOVUA_COMBO_BOX_HOVER_BORDER_COLOR;
-$INOVUA_COMBO_BOX_SELECTED_ITEM_BACKGROUND: $INOVUA_DATAGRID_ACCENT_COLOR;
-$INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-filter-bg: #fefefe;
+  --tdg-filter-color: #333333;
+  --tdg-filter-border-color: #e5e5e5;
 
-$INOVUA_DATAGRID_COLUMN_HEADER_RESIZER_CONSTRAINED_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-cell-border-color: #e5e5e5;
 
-.InovuaReactDataGrid--theme-hf-light .InovuaReactDataGrid__row--active,
-.InovuaReactDataGrid--theme-hf-light .InovuaReactDataGrid__row--selected {
-  background-color: #f0f3fb !important;
+  --tdg-row-odd-bg: #fefefe;
+  --tdg-row-even-bg: #fefefe;
+  --tdg-row-odd-hover-bg: #f6f8fc;
+  --tdg-row-even-hover-bg: #f6f8fc;
+  --tdg-row-selected-bg: #f0f3fb;
+  --tdg-row-odd-selected-bg: #f0f3fb;
+  --tdg-row-even-selected-bg: #f0f3fb;
+  --tdg-row-selected-hover-bg: #f6f8fc;
+  --tdg-row-active-color: #333333;
+
+  --tdg-input-bg: #fefefe;
+  --tdg-input-color: #333333;
+  --tdg-input-border-color: #e5e5e5;
+  --tdg-input-border-color-hover: #e5e5e5;
+  --tdg-input-border-color-focus: #e5e5e5;
+  --tdg-select-bg: #fefefe;
+  --tdg-select-color: #333333;
+  --tdg-select-border-color: #e5e5e5;
+  --tdg-select-border-color-hover: #e5e5e5;
+  --tdg-select-border-color-focus: #e5e5e5;
+  --tdg-select-list-bg: #fefefe;
+  --tdg-select-item-hover-bg: #f6f8fc;
+  --tdg-select-item-selected-bg: #f6f8fc;
+  --tdg-dropdown-bg: #fefefe;
+  --tdg-dropdown-color: #333333;
+  --tdg-dropdown-border-color: #e5e5e5;
+
+  --tdg-checkbox-checked-bg: #426dcd;
+  --tdg-checkbox-checked-border-color: #426dcd;
+  --tdg-checkbox-checked-color: #fefefe;
+
+  --tdg-column-header-resizer-constrained-color: #f6f8fc;
 }
-
-.InovuaReactDataGrid--theme-hf-light .InovuaReactDataGrid__resize-proxy {
-  background: $INOVUA_DATAGRID_ACCENT_COLOR;
-}
-
-.inovua-react-toolkit-checkbox.inovua-react-toolkit-checkbox--theme-hf-light.inovua-react-toolkit-checkbox--checked .inovua-react-toolkit-checkbox__icon-wrapper {
-  fill: #426dcd !important;
-  stroke: $INOVUA_DATAGRID_BG_COLOR !important;
-}
-
-.inovua-react-toolkit-checkbox.inovua-react-toolkit-checkbox--theme-hf-light.inovua-react-toolkit-checkbox--indeterminate .inovua-react-toolkit-checkbox__icon-wrapper svg {
-  background: #426dcd !important;
-}
-
-@import "@inovua/reactdatagrid-community/style/theme/default-light/index.scss";
