@@ -884,6 +884,26 @@
   position: relative !important;
 }
 
+/*
+ * The non-sortable header label is a block box that grows into the header
+ * content area, so content sizing itself against it (a centered checkbox, a
+ * full-width custom renderer) lines up with the matching body cell.
+ *
+ * It must stay a block rather than a flex container: the label text span is
+ * then an inline box, where its `truncate` overflow clipping is inert. As a
+ * flex container the span would blockify, and in a column too narrow to fit
+ * the label at all (a checkbox column next to a column-menu tool) the
+ * collapsed span would clip the overflowing checkbox out of existence and
+ * swallow its clicks. Long header text is still clipped at the boundary by
+ * `.InovuaReactDataGrid__column-header__content`, which owns the overflow.
+ */
+.tdg-root .tdg-header-cell__label {
+  display: block !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  overflow: visible !important;
+}
+
 .tdg-root .tdg-header-row,
 .tdg-root .tdg-filter-row {
   position: static !important;
@@ -1068,8 +1088,21 @@
   position: relative !important;
 }
 
+/*
+ * Checkbox affordances the grid used to inherit from the legacy toolkit's
+ * stylesheet. The box itself is sized and colored by the component's own
+ * tokens; only the interaction chrome needs restating here. Focus outlines are
+ * deliberately left to the component so its focus ring still renders, and the
+ * disabled cursor stays with the component's `disabled:` variant.
+ */
 .tdg-root .tdg-checkbox {
   box-shadow: none !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+}
+
+.tdg-root .tdg-checkbox:not(:disabled) {
+  cursor: pointer !important;
 }
 
 /*
