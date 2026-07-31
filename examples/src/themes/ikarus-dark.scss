@@ -31,7 +31,10 @@
   --tdg-row-selected-bg: #252525;
   --tdg-row-odd-selected-bg: #252525;
   --tdg-row-even-selected-bg: #252525;
-  --tdg-row-active-color: #ffffff;
+  --tdg-row-active-color: #c5cae9;
+  // Pinned: this theme sets no --tdg-color-accent for the border to inherit.
+  --tdg-row-active-border-width: 2px;
+  --tdg-row-active-border-color: #252525;
 
   --tdg-input-bg: #464d56;
   --tdg-input-color: #ffffff;
