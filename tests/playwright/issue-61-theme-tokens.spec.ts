@@ -49,14 +49,16 @@ const THEME_SEQUENCE: ThemeCase[] = [
   },
 ];
 
-// The only `--tdg-*` custom properties the grid legitimately writes inline are
-// these two, derived from the `columnResizeHandleWidth` /
-// `columnResizeProxyWidth` props rather than from a theme. Asserting the exact
-// set (not just "no row tokens") means a reintroduced runtime theme bridge fails
-// this test whichever token it decides to inline.
+// The only `--tdg-*` custom properties the grid legitimately writes inline come
+// from props or runtime measurement rather than from a theme: the first two
+// from `columnResizeHandleWidth` / `columnResizeProxyWidth`, the third from the
+// measured scrollbar footprint. Asserting the exact set (not just "no row
+// tokens") means a reintroduced runtime theme bridge fails this test whichever
+// token it decides to inline. Kept sorted, since the assertion sorts.
 const PROP_DRIVEN_INLINE_TOKENS = [
   "--tdg-column-resize-handle-width",
   "--tdg-column-resize-proxy-width",
+  "--tdg-scroll-vertical-footprint",
 ];
 
 function hexToRgb(hex: string): string {
