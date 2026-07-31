@@ -1864,6 +1864,44 @@ test("GitHub issue #43: Community scrollbar defaults are applied without overrid
   await expect(
     scrollbars.nth(1).locator('[data-slot="scroll-area-thumb"]')
   ).toHaveCSS("height", "6px");
+
+  // Thickness above is the cross axis; the scroll-axis length must stay
+  // proportional to the visible fraction, or the thumb reads as a solid rail.
+  const thumbLengthRatios = await scope.evaluate((root) => {
+    const measure = (orientation: "vertical" | "horizontal") => {
+      const bar = root.querySelector(
+        `[data-slot="scroll-area-scrollbar"][data-orientation="${orientation}"]`
+      );
+      const thumb = bar?.querySelector('[data-slot="scroll-area-thumb"]');
+      if (!bar || !thumb) return null;
+      const barRect = bar.getBoundingClientRect();
+      const thumbRect = thumb.getBoundingClientRect();
+      return orientation === "vertical"
+        ? thumbRect.height / barRect.height
+        : thumbRect.width / barRect.width;
+    };
+    const viewport = root.querySelector(".tdg-body-viewport") as HTMLElement;
+    return {
+      vertical: measure("vertical"),
+      horizontal: measure("horizontal"),
+      expectedVertical: viewport.clientHeight / viewport.scrollHeight,
+      expectedHorizontal: viewport.clientWidth / viewport.scrollWidth,
+    };
+  });
+
+  expect(thumbLengthRatios.vertical).not.toBeNull();
+  expect(thumbLengthRatios.horizontal).not.toBeNull();
+  // Both axes must actually overflow, otherwise the ratios below prove nothing.
+  expect(thumbLengthRatios.expectedVertical).toBeLessThan(0.9);
+  expect(thumbLengthRatios.expectedHorizontal).toBeLessThan(0.9);
+  expect(thumbLengthRatios.vertical!).toBeCloseTo(
+    thumbLengthRatios.expectedVertical,
+    1
+  );
+  expect(thumbLengthRatios.horizontal!).toBeCloseTo(
+    thumbLengthRatios.expectedHorizontal,
+    1
+  );
 });
 
 test("GitHub issue #43: a user scroll after filtering is not overwritten by delayed reset work", async ({
