@@ -33,6 +33,9 @@
   --tdg-row-odd-selected-bg: #ece5cf;
   --tdg-row-even-selected-bg: #ece5cf;
   --tdg-row-active-color: #555e68;
+  // Solid amber, not the pale --tdg-color-accent the border would inherit.
+  --tdg-row-active-border-width: 2px;
+  --tdg-row-active-border-color: #caae53;
 
   // Inputs and selects intentionally follow the grid's own border chrome
   // (#e4e3e2) rather than the legacy toolkit's control border, so a custom
