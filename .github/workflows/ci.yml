@@ -125,4 +125,5 @@ jobs:
         run: yarn playwright test tests/playwright/published-search.spec.ts tests/playwright/published-column-visibility.spec.ts tests/playwright/published-combined-provider.spec.ts
 
       - name: Run packed-consumer test (issue #44)
-        run: yarn playwright test tests/playwright/github-issues-33-48.spec.ts -g "GitHub issue #44"
+        run: |
+          yarn playwright test tests/playwright/github-issues-33-48.spec.ts -g "GitHub issue #44"
