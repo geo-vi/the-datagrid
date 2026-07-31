@@ -16,6 +16,14 @@ type ThemeCase = {
   /** Authored `--tdg-row-odd-bg` / `--tdg-row-even-bg`, as declared by the theme. */
   rowOddBg: string;
   rowEvenBg: string;
+  /**
+   * Authored `--tdg-row-active-border-color` / `--tdg-row-active-color`. Both
+   * are pinned per theme rather than derived: the border used to follow
+   * `--tdg-color-accent`, which these themes set to a pale hover tint, so it
+   * resolved to a near-invisible near-white.
+   */
+  rowActiveBorderColor: string;
+  rowActiveColor: string;
 };
 
 // Values come straight from examples/src/themes/*.scss. HF Dark deliberately
@@ -27,18 +35,24 @@ const THEME_SEQUENCE: ThemeCase[] = [
     theme: "ikarus-dark",
     rowOddBg: "#282828",
     rowEvenBg: "#343434",
+    rowActiveBorderColor: "#252525",
+    rowActiveColor: "#c5cae9",
   },
   {
     button: "Ikarus Light",
     theme: "ikarus-light",
     rowOddBg: "#f8f8f8",
     rowEvenBg: "#ffffff",
+    rowActiveBorderColor: "#caae53",
+    rowActiveColor: "#555e68",
   },
   {
     button: "HF Dark",
     theme: "hf-dark",
     rowOddBg: "#191919",
     rowEvenBg: "#191919",
+    rowActiveBorderColor: "#26324a",
+    rowActiveColor: "#c5cae9",
   },
   // Re-entering the first theme catches a switch that only works on the way out.
   {
@@ -46,6 +60,8 @@ const THEME_SEQUENCE: ThemeCase[] = [
     theme: "ikarus-dark",
     rowOddBg: "#282828",
     rowEvenBg: "#343434",
+    rowActiveBorderColor: "#252525",
+    rowActiveColor: "#c5cae9",
   },
 ];
 
@@ -98,6 +114,12 @@ test("GitHub issue #61: custom-to-custom theme switches update row tokens", asyn
         inlineTokens,
         rowOddVar: rootStyle.getPropertyValue("--tdg-row-odd-bg").trim(),
         rowEvenVar: rootStyle.getPropertyValue("--tdg-row-even-bg").trim(),
+        rowActiveBorderVar: rootStyle
+          .getPropertyValue("--tdg-row-active-border-color")
+          .trim(),
+        rowActiveColorVar: rootStyle
+          .getPropertyValue("--tdg-row-active-color")
+          .trim(),
         oddRowBackgroundColor: oddRow
           ? getComputedStyle(oddRow).backgroundColor
           : null,
@@ -134,6 +156,14 @@ test("GitHub issue #61: custom-to-custom theme switches update row tokens", asyn
       rowState.evenRowBackgroundColor,
       `${themeCase.theme} even row background`
     ).toBe(hexToRgb(themeCase.rowEvenBg));
+    expect(
+      rowState.rowActiveBorderVar,
+      `${themeCase.theme} --tdg-row-active-border-color`
+    ).toBe(themeCase.rowActiveBorderColor);
+    expect(
+      rowState.rowActiveColorVar,
+      `${themeCase.theme} --tdg-row-active-color`
+    ).toBe(themeCase.rowActiveColor);
 
     // No inline theme state means nothing can go stale on the next switch.
     expect(
