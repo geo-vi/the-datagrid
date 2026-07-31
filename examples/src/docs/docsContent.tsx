@@ -4551,18 +4551,18 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "default-light preserves the Inovua-compatible default name and uses a fixed shadcn light base even below a .dark ancestor; default follows a .dark ancestor; light/dark force a base; custom names become data-theme/class hooks and may inherit a suffix-based base. Explicit --tdg-color-* and component tokens remain overrideable.",
       },
       {
-        name: "Legacy theme bridge",
-        type: "automatic for custom names",
-        defaultValue: "browser-only",
+        name: "Custom themes",
+        type: "--tdg-* tokens under data-theme",
+        defaultValue: "CSS variables",
         description:
-          "For custom names, the browser scans already-loaded readable legacy grid/header/filter/cell/zebra and toolkit input/combo/list/menu rules into scoped --tdg-* colors/borders/backgrounds, while emitting normalized legacy hooks.",
+          "Author a custom theme by assigning --tdg-* tokens under .tdg-root[data-theme=\"your-theme\"] in your own CSS. The grid reads the variables directly, so no Inovua stylesheet or runtime bridge is required.",
       },
       {
-        name: "Legacy bridge limits",
-        type: "migration aid",
-        defaultValue: "not full CSS parity",
+        name: "Theme switching",
+        type: "deterministic",
+        defaultValue: "SSR-friendly",
         description:
-          "Cross-origin/inaccessible sheets are skipped, late-loaded sheets are not observed automatically, and SSR cannot scan. Switching to a built-in removes bridge-written vars; direct --tdg-* tokens are deterministic.",
+          "Setting the theme prop swaps the data-theme attribute on the grid root; every --tdg-* token re-resolves through the CSS cascade with no JavaScript scanning, so switching is deterministic and SSR-safe.",
       },
       {
         name: "Menus and focus",
@@ -4888,27 +4888,363 @@ pnpm add @geovi/the-datagrid`}
         ),
       },
       {
-        id: "legacy-theme-bridge",
-        title: "Legacy Inovua theme bridge",
+        id: "custom-themes",
+        title: "Custom themes (no Inovua)",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              For a non-built-in theme name, the browser bridge reads accessible
-              same-origin legacy Inovua grid, TextInput, combo/select, and menu
-              rules and maps their observable backgrounds, colors, and borders
-              into the grid&apos;s <code>--tdg-*</code> tokens. The rendered
-              grid also exposes compatibility class hooks for existing
-              selectors.
+              A custom theme is just a set of <code>--tdg-*</code> variables
+              scoped to a <code>data-theme</code> value. Pass any name to the{" "}
+              <code>theme</code> prop and the grid exposes it on the root as{" "}
+              <code>data-theme=&quot;your-theme&quot;</code>; assign the tokens
+              under a matching selector in your own CSS. No Inovua stylesheet
+              and no runtime bridge is involved, so switching the{" "}
+              <code>theme</code> prop re-resolves every token through the CSS
+              cascade.
+            </p>
+            <CodeBlock
+              code={`/* ocean-dark.css — imported once by your app, no @inovua import */
+.tdg-root[data-theme="ocean-dark"] {
+  --tdg-color-background: #0b1f2a;
+  --tdg-color-foreground: #e6f1f5;
+  --tdg-color-border: #1c3a49;
+
+  --tdg-header-bg: #08161d;
+  --tdg-header-border-color: #1c3a49;
+  --tdg-cell-border-color: #1c3a49;
+
+  --tdg-row-odd-bg: #0b1f2a;
+  --tdg-row-even-bg: #0f2a38;
+  --tdg-row-odd-hover-bg: #14384a;
+  --tdg-row-even-hover-bg: #14384a;
+  --tdg-row-selected-bg: #17506b;
+}
+
+/* then: <ReactDataGrid theme="ocean-dark" ... /> */`}
+              language="css"
+            />
+            <p>
+              Override only the tokens you care about &mdash; anything you leave
+              out falls back to the built-in light or dark base, which is picked
+              from the theme-name suffix (a <code>-dark</code> name resolves a
+              dark base, <code>-light</code> a light base). The example themes
+              in <code>examples/src/themes</code> are authored exactly this way.
+            </p>
+            <p className="font-medium text-foreground">
+              Migrating an Inovua SCSS theme
             </p>
             <p>
-              The bridge safely ignores cross-origin stylesheets that the
-              browser does not allow JavaScript to inspect. It is browser-only,
-              scans already-loaded rules rather than observing late stylesheet
-              loads, and maps colors/borders/backgrounds rather than legacy
-              layout CSS. Native <code>--tdg-*</code> variables remain the
-              deterministic, SSR-friendly path; switching to a built-in theme
-              removes bridge-written inline variables.
+              Earlier themes were authored by setting Inovua SCSS variables and
+              importing an Inovua theme partial. Delete the <code>@import</code>{" "}
+              (the source of the Dart Sass deprecation warning) and the{" "}
+              <code>$INOVUA_*</code> variables, and assign the matching{" "}
+              <code>--tdg-*</code> tokens under your theme selector instead:
             </p>
+            <CodeBlock
+              code={`// Before — ikarus-dark.scss (SCSS vars + Inovua import)
+$INOVUA_DATAGRID_BG_COLOR: #212121;
+$INOVUA_DATAGRID_HEADER_BG: #181818;
+$INOVUA_DATAGRID_BORDER_COLOR: #383838;
+$INOVUA_DATAGRID_FONT_COLOR: #ffffff;
+$INOVUA_DATAGRID_ROW_ODD_BG_COLOR: #282828;
+$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
+@import "@inovua/reactdatagrid-community/style/theme/default-dark/index.scss";`}
+              language="scss"
+            />
+            <CodeBlock
+              code={`/* After — ikarus-dark.css (plain --tdg-* tokens, no import) */
+.tdg-root[data-theme="ikarus-dark"] {
+  --tdg-color-background: #212121;
+  --tdg-color-foreground: #ffffff;
+  --tdg-color-border: #383838;
+  --tdg-header-bg: #181818;
+  --tdg-row-odd-bg: #282828;
+  --tdg-row-even-bg: #343434;
+}`}
+              language="css"
+            />
+            <p>
+              The commonly used Inovua theme variables map to these tokens:
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[34rem] border-collapse text-left text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-1.5 pr-4 font-medium text-foreground">
+                      Inovua SCSS variable
+                    </th>
+                    <th className="py-1.5 font-medium text-foreground">
+                      the-datagrid token
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(
+                    [
+                      ["$INOVUA_DATAGRID_BG_COLOR", "--tdg-color-background"],
+                      ["$INOVUA_DATAGRID_FONT_COLOR", "--tdg-color-foreground"],
+                      ["$INOVUA_DATAGRID_BORDER_COLOR", "--tdg-color-border"],
+                      ["$INOVUA_DATAGRID_FONT_SIZE", "--tdg-font-size"],
+                      [
+                        "$INOVUA_DATAGRID_HEADER_FONT_SIZE",
+                        "--tdg-header-font-size",
+                      ],
+                      [
+                        "$INOVUA_DATAGRID_ACCENT_COLOR",
+                        "--tdg-color-accent (hover / selection accent)",
+                      ],
+                      ["$INOVUA_DATAGRID_HEADER_BG", "--tdg-header-bg"],
+                      [
+                        "$INOVUA_DATAGRID_HEADER_BORDER_COLOR",
+                        "--tdg-header-border-color",
+                      ],
+                      [
+                        "$INOVUA_DATAGRID_HEADER_PROXY_BORDER_COLOR",
+                        "--tdg-header-proxy-border-color",
+                      ],
+                      [
+                        "$INOVUA_DATAGRID_CELL_BORDER_COLOR",
+                        "--tdg-cell-border-color",
+                      ],
+                      ["$INOVUA_DATAGRID_ROW_ODD_BG_COLOR", "--tdg-row-odd-bg"],
+                      ["$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR", "--tdg-row-even-bg"],
+                      [
+                        "$INOVUA_DATAGRID_ROW_ODD_HOVER_BG_COLOR",
+                        "--tdg-row-odd-hover-bg",
+                      ],
+                      [
+                        "$INOVUA_DATAGRID_ROW_EVEN_HOVER_BG_COLOR",
+                        "--tdg-row-even-hover-bg",
+                      ],
+                      ["$INOVUA_DATAGRID_ROW_INDEX_BG", "--tdg-row-index-bg"],
+                      ["$INOVUA_TEXT_INPUT_BG_COLOR", "--tdg-input-bg"],
+                      [
+                        "$INOVUA_TEXT_INPUT_BORDER_COLOR",
+                        "--tdg-input-border-color",
+                      ],
+                      [
+                        "$INOVUA_TEXT_INPUT_BORDER_COLOR_HOVER",
+                        "--tdg-input-border-color-hover",
+                      ],
+                      [
+                        "$INOVUA_TEXT_INPUT_BORDER_COLOR_FOCUSED",
+                        "--tdg-input-border-color-focus",
+                      ],
+                      ["$INOVUA_COMBO_BOX_BG", "--tdg-select-bg"],
+                      ["$INOVUA_COMBO_BOX_LIST_BG", "--tdg-select-list-bg"],
+                      [
+                        "$INOVUA_COMBO_BOX_BORDER_COLOR",
+                        "--tdg-select-border-color",
+                      ],
+                      [
+                        "$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR",
+                        "--tdg-select-border-color-hover",
+                      ],
+                      [
+                        "$INOVUA_COMBO_BOX_FOCUSED_BORDER_COLOR",
+                        "--tdg-select-border-color-focus",
+                      ],
+                      [
+                        "$INOVUA_COMBO_BOX_SELECTED_ITEM_BACKGROUND",
+                        "--tdg-select-item-selected-bg",
+                      ],
+                      [
+                        "$INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND",
+                        "--tdg-select-item-hover-bg",
+                      ],
+                      [
+                        "$INOVUA_DATAGRID_COLUMN_HEADER_RESIZER_CONSTRAINED_COLOR",
+                        "--tdg-column-header-resizer-constrained-color",
+                      ],
+                      [
+                        "$INOVUA_CHECKBOX_PRIMARY_COLOR",
+                        "--tdg-checkbox-checked-bg / --tdg-checkbox-checked-border-color",
+                      ],
+                      [
+                        "(selected rows)",
+                        "--tdg-row-selected-bg, --tdg-row-odd-selected-bg, --tdg-row-even-selected-bg",
+                      ],
+                      [
+                        "(filter row)",
+                        "--tdg-filter-bg, --tdg-filter-color, --tdg-filter-border-color",
+                      ],
+                      [
+                        "(menus / dropdowns)",
+                        "--tdg-dropdown-bg, --tdg-dropdown-color, --tdg-dropdown-border-color",
+                      ],
+                    ] as const
+                  ).map(([from, to]) => (
+                    <tr key={from} className="border-b border-border/60">
+                      <td className="py-1.5 pr-4 font-mono">{from}</td>
+                      <td className="py-1.5 font-mono">{to}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p>
+              <code>$DATAGRID_THEME_NAME</code> and one-off helper variables such
+              as <code>$HEADER</code> have no token &mdash; the theme name is now
+              simply the value passed to the <code>theme</code> prop (exposed as{" "}
+              <code>data-theme</code>). Any color the table does not list can be
+              set through the corresponding <code>--tdg-*</code> token from the
+              styling reference.
+            </p>
+            <p className="font-medium text-foreground">
+              Four things that surprise people when migrating
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                <strong>
+                  Colors your SCSS never declared still had a value.
+                </strong>{" "}
+                Anything a theme left unset came from the Inovua preset it
+                imported, not from a default of your own. A theme that only set{" "}
+                <code>$INOVUA_DATAGRID_BORDER_COLOR</code>, for example, still
+                got the preset&apos;s own (different) cell gridline color. When
+                porting, check the rendered result rather than only the
+                variables you wrote.
+              </li>
+              <li>
+                <strong>Hover and selection were derived, not declared.</strong>{" "}
+                Inovua painted item and row hover as the accent color at{" "}
+                <code>15%</code> opacity and selection at <code>25%</code>, over
+                whatever surface sat beneath. The grid&apos;s tokens are opaque,
+                so use the composited result (or a pre-tinted pale accent) &mdash;
+                assigning the full-strength accent makes hovers far too heavy.
+              </li>
+              <li>
+                <strong>Gridlines and the grid frame are separate tokens.</strong>{" "}
+                <code>--tdg-cell-border-color</code> draws the cell gridlines on
+                both axes, while <code>--tdg-grid-border-color</code> draws the
+                outer frame, locked-column separators, footer, and pagination.
+                They are often the same color, but they do not have to be.
+              </li>
+              <li>
+                <strong>Inputs and selects follow the grid border.</strong>{" "}
+                Control borders intentionally use the grid&apos;s border chrome
+                rather than the legacy toolkit&apos;s own control border, so a
+                theme cannot quietly take over hover and focus rings. Set{" "}
+                <code>--tdg-input-border-color</code> /{" "}
+                <code>--tdg-select-border-color</code> to your grid border color
+                unless you deliberately want them to differ.
+              </li>
+            </ul>
+            <p className="font-medium text-foreground">
+              Base theme defaults (copy to start a new theme)
+            </p>
+            <p>
+              <code>light</code> and <code>dark</code> ship built in &mdash; use{" "}
+              <code>theme=&quot;light&quot;</code> or{" "}
+              <code>theme=&quot;dark&quot;</code> directly and skip the CSS. The
+              palettes below are the same defaults, provided so you can fork one
+              into your own <code>data-theme</code>. Header, filter row, and
+              zebra striping derive automatically from the core{" "}
+              <code>--tdg-color-*</code> tokens, so a neutral theme only needs
+              these.
+            </p>
+            <CodeBlock
+              code={`/* Light base — identical to the built-in \`light\` theme */
+.tdg-root[data-theme="my-light"] {
+  --tdg-color-background: oklch(1 0 0);
+  --tdg-color-foreground: oklch(0.145 0 0);
+  --tdg-color-card: oklch(1 0 0);
+  --tdg-color-card-foreground: oklch(0.145 0 0);
+  --tdg-color-popover: oklch(1 0 0);
+  --tdg-color-popover-foreground: oklch(0.145 0 0);
+  --tdg-color-primary: oklch(0.205 0 0);
+  --tdg-color-primary-foreground: oklch(0.985 0 0);
+  --tdg-color-secondary: oklch(0.97 0 0);
+  --tdg-color-secondary-foreground: oklch(0.205 0 0);
+  --tdg-color-muted: oklch(0.97 0 0);
+  --tdg-color-muted-foreground: oklch(0.556 0 0);
+  --tdg-color-accent: oklch(0.97 0 0);
+  --tdg-color-accent-foreground: oklch(0.205 0 0);
+  --tdg-color-destructive: oklch(0.577 0.245 27.325);
+  --tdg-color-border: oklch(0.922 0 0);
+  --tdg-color-input: oklch(0.922 0 0);
+  --tdg-color-ring: oklch(0.708 0 0);
+}`}
+              language="css"
+            />
+            <CodeBlock
+              code={`/* Dark base — identical to the built-in \`dark\` theme's fallback palette */
+.tdg-root[data-theme="my-dark"] {
+  --tdg-color-background: oklch(0.145 0 0);
+  --tdg-color-foreground: oklch(0.985 0 0);
+  --tdg-color-card: oklch(0.205 0 0);
+  --tdg-color-card-foreground: oklch(0.985 0 0);
+  --tdg-color-popover: oklch(0.205 0 0);
+  --tdg-color-popover-foreground: oklch(0.985 0 0);
+  --tdg-color-primary: oklch(0.922 0 0);
+  --tdg-color-primary-foreground: oklch(0.205 0 0);
+  --tdg-color-secondary: oklch(0.269 0 0);
+  --tdg-color-secondary-foreground: oklch(0.985 0 0);
+  --tdg-color-muted: oklch(0.269 0 0);
+  --tdg-color-muted-foreground: oklch(0.708 0 0);
+  --tdg-color-accent: oklch(0.269 0 0);
+  --tdg-color-accent-foreground: oklch(0.985 0 0);
+  --tdg-color-destructive: oklch(0.704 0.191 22.216);
+  --tdg-color-border: oklch(1 0 0 / 10%);
+  --tdg-color-input: oklch(1 0 0 / 15%);
+  --tdg-color-ring: oklch(0.556 0 0);
+}`}
+              language="css"
+            />
+            <p>
+              The <strong>amber</strong> base is the one worth copying in full:
+              it is not built in, and its warm zebra rows do not derive from a
+              neutral background. These values mirror Inovua&apos;s{" "}
+              <code>amber-light</code> theme.
+            </p>
+            <CodeBlock
+              code={`/* Amber base — mirrors Inovua's amber-light theme */
+.tdg-root[data-theme="my-amber"] {
+  --tdg-color-background: #ffffff;
+  --tdg-color-foreground: #555e68;
+  --tdg-color-border: #e4e3e2;
+  /* pale accent drives control hovers; solid amber stays on the checkbox */
+  --tdg-color-accent: #f7f3e5;
+
+  --tdg-header-bg: #ffffff;
+  --tdg-header-border-color: #e4e3e2;
+  --tdg-cell-border-color: #e4e3e2;
+
+  --tdg-row-odd-bg: #f8f8f8;
+  --tdg-row-even-bg: #ffffff;
+  --tdg-row-odd-hover-bg: #f7f3e5;
+  --tdg-row-even-hover-bg: #f7f3e5;
+  --tdg-row-selected-bg: #ece5cf;
+  --tdg-row-odd-selected-bg: #ece5cf;
+  --tdg-row-even-selected-bg: #ece5cf;
+
+  /* controls follow the grid's border chrome, not their own accent */
+  --tdg-input-bg: #ffffff;
+  --tdg-input-border-color: #e4e3e2;
+  --tdg-select-bg: #ffffff;
+  --tdg-select-border-color: #e4e3e2;
+
+  --tdg-checkbox-checked-bg: #caae53;
+  --tdg-checkbox-checked-border-color: #caae53;
+  --tdg-checkbox-checked-color: #e8e8e8;
+}`}
+              language="css"
+            />
+            <p className="font-medium text-foreground">Font size</p>
+            <p>
+              The grid&apos;s type scale is controlled by two tokens (the
+              equivalents of Inovua&apos;s{" "}
+              <code>$INOVUA_DATAGRID_FONT_SIZE</code> /{" "}
+              <code>$INOVUA_DATAGRID_HEADER_FONT_SIZE</code>). Cells inherit{" "}
+              <code>--tdg-font-size</code>; the header can be sized separately:
+            </p>
+            <CodeBlock
+              code={`.tdg-root[data-theme="my-theme"] {
+  --tdg-font-size: 0.875rem;        /* whole grid (cells, filters, controls) */
+  --tdg-header-font-size: 0.875rem; /* column header only */
+}`}
+              language="css"
+            />
           </div>
         ),
       },

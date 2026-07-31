@@ -1,50 +1,58 @@
-$DATAGRID_THEME_NAME: "hf-dark";
-$INOVUA_DATAGRID_BG_COLOR: #191919;
-$INOVUA_DATAGRID_HEADER_BG: #1e1e1e;
-$INOVUA_DATAGRID_ACCENT_COLOR: #26324a;
-$INOVUA_DATAGRID_FONT_COLOR: #e5e5e5;
-$INOVUA_DATAGRID_BORDER_COLOR: #2c2c2c;
-$INOVUA_DATAGRID_CELL_BORDER_COLOR: #2c2c2c;
-$INOVUA_DATAGRID_HEADER_BORDER_COLOR: #2c2c2c;
+// hf-dark — custom dark theme authored with the-datagrid's own CSS variables
+// (no @inovua import, no runtime bridge). Values reproduce the theme as it
+// rendered on Inovua's default-dark preset plus the theme's own overrides
+// (flat rows, blue accent hover, #1a2740 selection, #688ad7 checkbox).
+.tdg-root[data-theme="hf-dark"] {
+  --tdg-color-background: #191919;
+  --tdg-color-foreground: #e5e5e5;
+  --tdg-color-border: #2c2c2c;
+  --tdg-color-accent: #26324a;
 
-$INOVUA_DATAGRID_ROW_ODD_BG_COLOR: $INOVUA_DATAGRID_BG_COLOR;
-$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: $INOVUA_DATAGRID_BG_COLOR;
-$INOVUA_DATAGRID_ROW_ODD_HOVER_BG_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
-$INOVUA_DATAGRID_ROW_EVEN_HOVER_BG_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-grid-bg: #191919;
+  --tdg-grid-border-color: #2c2c2c;
 
-$INOVUA_TEXT_INPUT_BG_COLOR: #191919;
-$INOVUA_TEXT_INPUT_BORDER_COLOR: #383838;
-$INOVUA_TEXT_INPUT_BORDER_COLOR_FOCUSED: $INOVUA_TEXT_INPUT_BORDER_COLOR;
-$INOVUA_TEXT_INPUT_BORDER_COLOR_HOVER: $INOVUA_TEXT_INPUT_BORDER_COLOR;
+  --tdg-header-bg: #1e1e1e;
+  --tdg-header-color: #e5e5e5;
+  --tdg-header-border-color: #2c2c2c;
 
-$INOVUA_COMBO_BOX_BG: #191919;
-$INOVUA_COMBO_BOX_FOCUS_BACKGROUND: $INOVUA_COMBO_BOX_BG;
-$INOVUA_COMBO_BOX_LIST_BG: $INOVUA_COMBO_BOX_BG;
-$INOVUA_COMBO_BOX_BORDER_COLOR: #383838;
-$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR: #383838;
-$INOVUA_COMBO_BOX_FOCUSED_BORDER_COLOR: $INOVUA_COMBO_BOX_HOVER_BORDER_COLOR;
-$INOVUA_COMBO_BOX_HOVER_BORDER_COLOR: $INOVUA_COMBO_BOX_HOVER_BORDER_COLOR;
-$INOVUA_COMBO_BOX_SELECTED_ITEM_BACKGROUND: $INOVUA_DATAGRID_ACCENT_COLOR;
-$INOVUA_COMBO_BOX_HOVER_ITEM_BACKGROUND: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-filter-bg: #191919;
+  --tdg-filter-color: #e5e5e5;
+  --tdg-filter-border-color: #2c2c2c;
 
-$INOVUA_DATAGRID_COLUMN_HEADER_RESIZER_CONSTRAINED_COLOR: $INOVUA_DATAGRID_ACCENT_COLOR;
+  --tdg-cell-border-color: #2c2c2c;
 
-.InovuaReactDataGrid--theme-hf-dark .InovuaReactDataGrid__row--active,
-.InovuaReactDataGrid--theme-hf-dark .InovuaReactDataGrid__row--selected {
-  background-color: #1a2740 !important;
+  --tdg-row-odd-bg: #191919;
+  --tdg-row-even-bg: #191919;
+  --tdg-row-odd-hover-bg: #26324a;
+  --tdg-row-even-hover-bg: #26324a;
+  --tdg-row-selected-bg: #1a2740;
+  --tdg-row-odd-selected-bg: #1a2740;
+  --tdg-row-even-selected-bg: #1a2740;
+  --tdg-row-selected-hover-bg: #26324a;
+  --tdg-row-active-color: #e5e5e5;
+
+  --tdg-input-bg: #191919;
+  --tdg-input-color: #e5e5e5;
+  --tdg-input-border-color: #383838;
+  --tdg-input-border-color-hover: #383838;
+  --tdg-input-border-color-focus: #383838;
+  --tdg-select-bg: #191919;
+  --tdg-select-color: #e5e5e5;
+  --tdg-select-border-color: #383838;
+  --tdg-select-border-color-hover: #383838;
+  --tdg-select-border-color-focus: #383838;
+  --tdg-select-list-bg: #191919;
+  --tdg-select-item-hover-bg: #26324a;
+  --tdg-select-item-selected-bg: #26324a;
+  // Menus/dropdowns are their own surface in Inovua's default-dark preset
+  // (#313943) rather than the grid background.
+  --tdg-dropdown-bg: #313943;
+  --tdg-dropdown-color: #e5e5e5;
+  --tdg-dropdown-border-color: #383838;
+
+  --tdg-checkbox-checked-bg: #688ad7;
+  --tdg-checkbox-checked-border-color: #688ad7;
+  --tdg-checkbox-checked-color: #e5e5e5;
+
+  --tdg-column-header-resizer-constrained-color: #26324a;
 }
-
-.InovuaReactDataGrid--theme-hf-dark .InovuaReactDataGrid__resize-proxy {
-  background: $INOVUA_DATAGRID_ACCENT_COLOR;
-}
-
-.inovua-react-toolkit-checkbox.inovua-react-toolkit-checkbox--theme-hf-dark.inovua-react-toolkit-checkbox--checked .inovua-react-toolkit-checkbox__icon-wrapper {
-  fill: #688ad7ff !important;
-  stroke: $INOVUA_DATAGRID_FONT_COLOR !important;
-}
-
-.inovua-react-toolkit-checkbox.inovua-react-toolkit-checkbox--theme-hf-dark.inovua-react-toolkit-checkbox--indeterminate .inovua-react-toolkit-checkbox__icon-wrapper svg {
-  background: #688ad7ff !important;
-}
-
-@import "@inovua/reactdatagrid-community/style/theme/default-dark/index.scss";

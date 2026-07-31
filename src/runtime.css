@@ -390,6 +390,10 @@
   --tdg-grid-bg: var(--tdg-color-background);
   --tdg-grid-border-color: var(--tdg-color-border);
 
+  /* Base grid font size. Cells and controls inherit this; the header uses its
+     own --tdg-header-font-size so it can be sized independently. */
+  --tdg-font-size: 0.875rem;
+
   --tdg-header-bg: var(--tdg-color-muted);
   --tdg-header-color: var(--tdg-color-foreground);
   --tdg-header-border-color: var(--tdg-color-border);
@@ -658,7 +662,7 @@
     "Apple Color Emoji",
     "Segoe UI Emoji"
   ) !important;
-  font-size: 0.875rem !important;
+  font-size: var(--tdg-font-size, 0.875rem) !important;
   line-height: 1.5 !important;
   text-align: start !important;
   text-indent: 0 !important;
@@ -850,6 +854,13 @@
   border-right: 1px solid var(--tdg-cell-border-color) !important;
 }
 
+/* Horizontal cell borders need the same explicit rule as the vertical ones:
+   without it the color falls back to the generic .tdg-root * border-color
+   (--tdg-color-border) and ignores --tdg-cell-border-color. */
+.tdg-root .InovuaReactDataGrid__cell--show-border-bottom {
+  border-bottom-color: var(--tdg-cell-border-color) !important;
+}
+
 .tdg-root
   .InovuaReactDataGrid__cell:not(.InovuaReactDataGrid__cell--show-border-right),
 .tdg-root
@@ -871,6 +882,26 @@
   font-weight: var(--tdg-header-font-weight) !important;
   color: inherit !important;
   position: relative !important;
+}
+
+/*
+ * The non-sortable header label is a block box that grows into the header
+ * content area, so content sizing itself against it (a centered checkbox, a
+ * full-width custom renderer) lines up with the matching body cell.
+ *
+ * It must stay a block rather than a flex container: the label text span is
+ * then an inline box, where its `truncate` overflow clipping is inert. As a
+ * flex container the span would blockify, and in a column too narrow to fit
+ * the label at all (a checkbox column next to a column-menu tool) the
+ * collapsed span would clip the overflowing checkbox out of existence and
+ * swallow its clicks. Long header text is still clipped at the boundary by
+ * `.InovuaReactDataGrid__column-header__content`, which owns the overflow.
+ */
+.tdg-root .tdg-header-cell__label {
+  display: block !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  overflow: visible !important;
 }
 
 .tdg-root .tdg-header-row,
@@ -1065,8 +1096,21 @@
   position: relative !important;
 }
 
+/*
+ * Checkbox affordances the grid used to inherit from the legacy toolkit's
+ * stylesheet. The box itself is sized and colored by the component's own
+ * tokens; only the interaction chrome needs restating here. Focus outlines are
+ * deliberately left to the component so its focus ring still renders, and the
+ * disabled cursor stays with the component's `disabled:` variant.
+ */
 .tdg-root .tdg-checkbox {
   box-shadow: none !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+}
+
+.tdg-root .tdg-checkbox:not(:disabled) {
+  cursor: pointer !important;
 }
 
 /*

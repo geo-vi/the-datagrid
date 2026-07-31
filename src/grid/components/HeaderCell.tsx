@@ -479,7 +479,7 @@ export function HeaderCell(props: HeaderCellProps) {
               {renderedSortTool}
             </div>
           ) : (
-            <div className="flex min-w-0 flex-1 items-center">
+            <div className="tdg-header-cell__label min-w-0 flex-1">
               <span className="truncate">{headerContent}</span>
             </div>
           )}
