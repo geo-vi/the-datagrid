@@ -1,10 +1,6 @@
-import { resolve } from "node:path";
-
 import { expect, test } from "@playwright/test";
 
-function viteFsUrl(filePath: string): string {
-  return `/@fs${resolve(process.cwd(), filePath)}`;
-}
+import { viteFsUrl } from "./helpers/vite-fs-url";
 
 test("published combined provider shares legacy search and visibility contexts", async ({
   page,

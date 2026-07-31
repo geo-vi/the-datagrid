@@ -2110,10 +2110,17 @@ test("GitHub issue #44: a browser consumer loads documented module and styleshee
   const manifest = JSON.parse(await readFile("package.json", "utf8")) as {
     exports?: Record<string, PackageExportValue>;
   };
+  // Node's post-CVE-2024-27980 hardening refuses to spawn .cmd/.bat files
+  // unless `shell: true`, so npm.cmd must run through the shell on Windows.
+  const isWindows = process.platform === "win32";
   const { stdout } = await execFile(
-    process.platform === "win32" ? "npm.cmd" : "npm",
+    isWindows ? "npm.cmd" : "npm",
     ["pack", "--dry-run", "--json"],
-    { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
+    {
+      cwd: process.cwd(),
+      maxBuffer: 10 * 1024 * 1024,
+      ...(isWindows ? { shell: true } : {}),
+    }
   );
   const pack = JSON.parse(stdout) as Array<{
     files?: Array<{ path: string }>;
