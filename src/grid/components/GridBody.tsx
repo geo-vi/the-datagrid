@@ -662,11 +662,14 @@ export function GridBody(props: GridBodyProps) {
               showHoverRows && "hover:bg-[var(--tdg-row-selected-hover-bg)]"
             )
         : "",
-      rowIsActive ? "tdg-row--active InovuaReactDataGrid__row--active" : "",
+      rowIsActive
+        ? "tdg-row--active InovuaReactDataGrid__row--active [color:var(--tdg-row-active-color)]"
+        : "",
       rowIsActive && gridFocused
         ? cn(
             "tdg-row--focused InovuaReactDataGrid__row--focused",
             rowFocusClassName,
+            showActiveRowIndicator ? "tdg-row--active-indicator" : "",
             showActiveRowIndicator ? activeRowIndicatorClassName : ""
           )
         : "",
@@ -674,20 +677,6 @@ export function GridBody(props: GridBodyProps) {
         ? "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
         : ""
     );
-  }
-
-  function getRowThemeStyle(
-    rowIsActive: boolean
-  ): React.CSSProperties | undefined {
-    if (!rowIsActive || !gridFocused || !showActiveRowIndicator) {
-      return undefined;
-    }
-
-    return {
-      outline:
-        "var(--tdg-row-active-border-width) var(--tdg-row-active-border-style) var(--tdg-row-active-border-color)",
-      outlineOffset: "-1px",
-    };
   }
 
   function getResolvedRowHeight(rowIndex: number): number | null {
@@ -762,7 +751,6 @@ export function GridBody(props: GridBodyProps) {
     row: any,
     rowIndex: number,
     rowIsSelected: boolean,
-    rowIsActive: boolean,
     disabledRow: boolean | null | undefined,
     virtualSize?: number
   ): React.CSSProperties {
@@ -784,7 +772,6 @@ export function GridBody(props: GridBodyProps) {
       Number.isFinite(maxRowHeight)
         ? { maxHeight: maxRowHeight }
         : {}),
-      ...getRowThemeStyle(rowIsActive),
     };
 
     const configuredStyle =
@@ -1690,14 +1677,7 @@ export function GridBody(props: GridBodyProps) {
       "aria-current": rowIsActive || undefined,
       "aria-selected": selectionEnabled ? rowIsSelected : undefined,
       style: {
-        ...getRowStyle(
-          row,
-          rowIndex,
-          rowIsSelected,
-          rowIsActive,
-          disabledRow,
-          virtualSize
-        ),
+        ...getRowStyle(row, rowIndex, rowIsSelected, disabledRow, virtualSize),
         ...(inheritedRowProps.style ?? {}),
       },
       onClick: (event: React.MouseEvent<HTMLTableRowElement>) => {

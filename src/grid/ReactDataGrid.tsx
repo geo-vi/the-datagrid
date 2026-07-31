@@ -7857,6 +7857,29 @@ function ReactDataGrid(props: TypeDataGridProps) {
     );
   }, []);
 
+  /**
+   * Pressing a row focuses the surface on pointerdown, before the row's own
+   * click handler runs, so activateRowOnFocus would light up the first visible
+   * row and the click would immediately move it — a flash on the wrong row.
+   * Scoped to the press in flight: a press while already focused fires no focus
+   * event to consume it, and a stale flag would swallow the next focus restore.
+   */
+  const pointerActivatesRowRef = React.useRef(false);
+
+  const handleGridPointerDownCapture = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target;
+      pointerActivatesRowRef.current =
+        target instanceof Element &&
+        Boolean(target.closest('[data-slot="grid-row"]'));
+    },
+    []
+  );
+
+  const clearPointerActivatesRow = React.useCallback(() => {
+    pointerActivatesRowRef.current = false;
+  }, []);
+
   const handleGridFocus = React.useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
       onFocusProp?.(event);
@@ -7870,8 +7893,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
         return;
       }
 
+      const pressedRow = pointerActivatesRowRef.current;
+      pointerActivatesRowRef.current = false;
+
       setGridFocused(true);
       if (
+        !pressedRow &&
         enableKeyboardNavigation &&
         activateRowOnFocus &&
         normalizedActiveIndex < 0 &&
@@ -7908,6 +7935,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       ) {
         return;
       }
+
+      // A press that released outside the grid never reached the pointer-up.
+      pointerActivatesRowRef.current = false;
 
       onBlurProp?.(event);
       if (event.defaultPrevented) return;
@@ -9663,6 +9693,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
         } as React.CSSProperties
       }
       onKeyDown={handleGridKeyDown}
+      onPointerDownCapture={handleGridPointerDownCapture}
+      onPointerUpCapture={clearPointerActivatesRow}
+      onPointerCancelCapture={clearPointerActivatesRow}
       onFocus={handleGridFocus}
       onBlur={handleGridBlur}
     >

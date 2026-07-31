@@ -442,7 +442,9 @@
   --tdg-row-even-selected-hover-bg: var(--tdg-row-selected-hover-bg);
   --tdg-row-active-border-width: 1px;
   --tdg-row-active-border-style: solid;
-  --tdg-row-active-border-color: var(--tdg-color-accent);
+  /* Not --tdg-color-accent: unlike Inovua's ACCENT_COLOR, that token is a pale
+     hover surface here, which left this indicator near-invisible. */
+  --tdg-row-active-border-color: var(--tdg-color-ring);
   --tdg-row-active-color: var(--tdg-color-foreground);
   --tdg-field-active-bg: var(--tdg-row-selected-bg);
   --tdg-column-header-resizer-constrained-color: var(--tdg-color-accent);
@@ -1146,6 +1148,35 @@
   transform: translateX(
     var(--tdg-locked-column-viewport-offset, 0px)
   ) !important;
+}
+
+/* Active-row indicator, drawn per cell rather than as an outline on the row:
+   locked cells are sticky with an opaque inherited background, so they paint
+   over anything the row draws beneath them. */
+.tdg-root .tdg-row--active-indicator > * {
+  position: relative;
+}
+
+.tdg-root .tdg-row--active-indicator > *::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-top: var(--tdg-row-active-border-width)
+    var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
+  border-bottom: var(--tdg-row-active-border-width)
+    var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
+}
+
+.tdg-root .tdg-row--active-indicator > *:first-child::after {
+  border-left: var(--tdg-row-active-border-width)
+    var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
+}
+
+.tdg-root .tdg-row--active-indicator > *:last-child::after {
+  border-right: var(--tdg-row-active-border-width)
+    var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
 }
 
 .tdg-root .tdg-locked-column--start-boundary {
