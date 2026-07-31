@@ -158,10 +158,12 @@ function ScrollBar({
       orientation={orientation}
       className={cn(
         "group z-30 flex touch-none transition-colors select-none data-[state=hidden]:hidden",
+        // Main-axis alignment stays at the default start: Radix positions the
+        // thumb by transform from its laid-out offset.
         orientation === "vertical" &&
-          "w-2.5 flex-col items-center justify-center border-l border-l-transparent",
+          "w-2.5 flex-col items-center border-l border-l-transparent",
         orientation === "horizontal" &&
-          "h-2.5 flex-row items-center justify-center border-t border-t-transparent",
+          "h-2.5 flex-row items-center border-t border-t-transparent",
         className
       )}
       {...props}
@@ -169,7 +171,9 @@ function ScrollBar({
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
         className={cn(
-          "relative flex-1 rounded-full bg-[var(--tdg-color-ring)] transition-[width,height,background-color] hover:bg-[var(--tdg-color-muted-foreground)]",
+          // No `flex-1`: the main axis is the scroll axis, so growing would
+          // stretch the thumb over the whole track. Radix sizes that axis.
+          "relative rounded-full bg-[var(--tdg-color-ring)] transition-[width,height,background-color] hover:bg-[var(--tdg-color-muted-foreground)]",
           orientation === "vertical" &&
             "group-hover:!w-[var(--tdg-scroll-thumb-over-width)]",
           orientation === "horizontal" &&

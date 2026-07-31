@@ -990,15 +990,23 @@
  * Radix scrollbars overlay the viewport instead of consuming layout space.
  * When the vertical bar is visible, move the final 24px hit target fully to
  * its left. The header still reaches the viewport edge, so column geometry
- * and horizontal scroll alignment remain unchanged.
+ * and horizontal scroll alignment remain unchanged. A smaller offset leaves
+ * the handle over the track, which swallows the pointer.
+ *
+ * :not([data-state="hidden"]), not [data-state="visible"]: Radix omits
+ * data-state entirely on an always-visible bar (autoHide: false).
  */
 .tdg-root:has(
-    [data-slot="scroll-area-scrollbar"][data-orientation="vertical"][data-state="visible"]
+    [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]:not(
+        [data-state="hidden"]
+      )
   )
   .tdg-header-row
   > .tdg-header-cell:last-child
   .tdg-column-resizer {
-  right: calc(0.625rem - 0.5rem) !important;
+  right: calc(
+    var(--tdg-scroll-vertical-footprint, 0.75rem) - 0.5rem
+  ) !important;
 }
 
 .tdg-root .tdg-column-resizer:focus-visible {

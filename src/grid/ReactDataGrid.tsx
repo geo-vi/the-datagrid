@@ -1358,6 +1358,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
     1,
     25
   );
+  // Track + margin of an overlay vertical scrollbar, resolved as `ScrollArea`
+  // resolves it. `runtime.css` needs it to pull the trailing resize handle
+  // clear of the bar, and `scrollProps` can change it.
+  const computedVerticalScrollbarFootprint =
+    (scrollProps?.scrollThumbOverWidth ?? scrollProps?.scrollThumbWidth ?? 10) +
+    (scrollProps?.scrollThumbMargin ?? 0);
   const disabledRowsRef = React.useRef(disabledRows);
   disabledRowsRef.current = disabledRows;
   const getDisabledRowState = React.useCallback(
@@ -9665,6 +9671,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
           ...style,
           "--tdg-column-resize-handle-width": `${computedColumnResizeHandleWidth}px`,
           "--tdg-column-resize-proxy-width": `${computedColumnResizeProxyWidth}px`,
+          "--tdg-scroll-vertical-footprint": `${computedVerticalScrollbarFootprint}px`,
         } as React.CSSProperties
       }
       onKeyDown={handleGridKeyDown}
