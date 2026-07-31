@@ -1,14 +1,6 @@
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
-// Vite serves absolute filesystem paths under `/@fs/`. A Windows path resolves
-// to `C:\...` with no leading slash and with backslashes, so it has to be
-// normalised into the `/@fs/C:/...` form Vite recognises; POSIX paths already
-// supply their own leading slash.
-function viteFsUrl(filePath: string): string {
-  const absolutePath = resolve(process.cwd(), filePath).replace(/\\/g, "/");
-  return `/@fs/${absolutePath.replace(/^\//, "")}`;
-}
+import { viteFsUrl } from "./helpers/vite-fs-url";
 
 test("published core and column-visibility entries hide and show a column", async ({
   page,
