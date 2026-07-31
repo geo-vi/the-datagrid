@@ -89,3 +89,40 @@ jobs:
 
       - name: Run end-to-end tests
         run: yarn test:e2e
+
+  windows-packaged-consumer:
+    name: Windows packaged-consumer tests
+    runs-on: windows-latest
+    # Use bash so the corepack/yarn steps match the Linux jobs verbatim.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack and pin Yarn
+        run: |
+          corepack enable
+          corepack prepare "yarn@${YARN_VERSION}" --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build the package
+        run: yarn build
+
+      # --with-deps is Linux-only and fails on Windows runners.
+      - name: Install Playwright Chromium
+        run: yarn playwright install chromium
+
+      - name: Run published-entry specs
+        run: yarn playwright test tests/playwright/published-search.spec.ts tests/playwright/published-column-visibility.spec.ts tests/playwright/published-combined-provider.spec.ts
+
+      - name: Run packed-consumer test (issue #44)
+        run: yarn playwright test tests/playwright/github-issues-33-48.spec.ts -g "GitHub issue #44"
