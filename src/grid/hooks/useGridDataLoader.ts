@@ -111,6 +111,16 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
   React.useLayoutEffect(() => {
     controlledLoadingRef.current = controlledLoading;
   }, [controlledLoading]);
+
+  // The theme only ever reaches the data source as a reported value; it does
+  // not influence what is fetched, filtered or sorted. Keeping it in a ref
+  // rather than in `loadData`'s dependencies means a theme switch no longer
+  // rebuilds the callback and re-runs the whole load. Any genuine load still
+  // reports the current theme.
+  const themeNameRef = React.useRef(themeName);
+  React.useLayoutEffect(() => {
+    themeNameRef.current = themeName;
+  }, [themeName]);
   const setInternalLoading = React.useCallback(
     (nextLoading: boolean) => {
       loadingStore.setAutomatic(nextLoading);
@@ -206,7 +216,7 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
         columnOrder: dataSourceColumnOrder,
         columns: columnsForDs,
         idProperty,
-        theme: themeName,
+        theme: themeNameRef.current,
         ...(searchConnected ? { searchValue } : {}),
       };
       if (requestAbortController) {
@@ -338,7 +348,6 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
     paginationMode,
     remoteDataSource,
     remotePagination,
-    themeName,
     dataSourceColumnOrder,
     columnsForDs,
     filterTypes,
