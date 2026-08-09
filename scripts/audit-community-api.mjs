@@ -157,7 +157,12 @@ const upstreamTypesFile = path.join(
 );
 const localTypesFile = path.join(root, "src/types.ts");
 const localTypesEntry = path.join(root, "src/types/index.ts");
-const gridRuntimeFile = path.join(root, "src/grid/ReactDataGrid.tsx");
+// The `baseApi` literal lives in the hook that assembles the computed props,
+// not in the component module.
+const gridRuntimeFile = path.join(
+  root,
+  "src/grid/hooks/useGridImperativeApi.ts"
+);
 
 const upstreamComputed = typeMembers(upstreamComputedFile, "TypeComputedProps");
 const localComputed = typeMembers(localTypesFile, "TypeComputedProps");
