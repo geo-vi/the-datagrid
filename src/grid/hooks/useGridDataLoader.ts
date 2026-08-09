@@ -20,6 +20,32 @@ import { stripFromOrder } from "../utils/gridUtils";
 import { createLoadingStore } from "../utils/loadingStore";
 import type { InternalSearchController } from "../internalProps";
 
+/**
+ * Returns the previous array when the next one holds the same rows in the same
+ * order, so a load that recomputed an identical result does not hand React a
+ * fresh identity.
+ *
+ * Rows are compared by reference, matching how React and the row model already
+ * decide what changed. A load that genuinely alters the data produces
+ * different row references and is passed through untouched.
+ *
+ * Only the local array path uses this. On the remote paths `setRows` doubles as
+ * the re-render that publishes the finished load: `setInternalLoading` writes
+ * to a store that only re-renders the load mask, so the grid's own `loading`
+ * value refreshes on the next render from somewhere else. Reusing the array
+ * there swallows that render, and a remote load resolving to empty data never
+ * reveals `emptyText`. The local path takes no loading transition, so it has
+ * nothing to publish.
+ */
+function reuseRowsIfUnchanged<T>(prev: readonly T[], next: T[]): T[] {
+  if ((prev as unknown as T[]) === next) return next;
+  if (prev.length !== next.length) return next;
+  for (let index = 0; index < next.length; index += 1) {
+    if (prev[index] !== next[index]) return next;
+  }
+  return prev as T[];
+}
+
 export type UseGridDataLoaderParams = {
   activeLocalFilter: boolean;
   apiRef: React.MutableRefObject<TypeComputedProps | null>;
@@ -200,7 +226,7 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
           ? data.slice(loadSkip, loadSkip + limit)
           : data;
 
-        setRows(sliced);
+        setRows((previous) => reuseRowsIfUnchanged(previous, sliced));
         setCount(totalCount);
         notifyFilteredRowsCount(totalCount);
         return;
