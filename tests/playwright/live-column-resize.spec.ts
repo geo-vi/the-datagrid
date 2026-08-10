@@ -227,6 +227,40 @@ test.describe("live column resizing", () => {
     ).toHaveCount(0);
   });
 
+  test("keeps the drag guide above the sticky header layer", async ({
+    page,
+  }) => {
+    const { grid } = await openScenario(page, "resize-callback");
+    const resizer = header(grid, "description").locator(
+      '[data-slot="column-resizer"]'
+    );
+    const start = await dragStartPoint(resizer);
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 100, start.y, { steps: 12 });
+    await settleFrames(page);
+
+    await expect(
+      grid.locator(".InovuaReactDataGrid__resize-proxy")
+    ).toBeVisible();
+
+    // The proxy renders before the header layer, so an equal z-index is not a
+    // tie: the sticky header and filter rows paint over the guide. The filter
+    // row lives in that same layer, so clearing it clears both.
+    const [proxyZ, headerLayerZ] = await grid.evaluate((root) => [
+      Number(
+        getComputedStyle(
+          root.querySelector(".InovuaReactDataGrid__resize-proxy")!
+        ).zIndex
+      ),
+      Number(getComputedStyle(root.querySelector(".tdg-header-layer")!).zIndex),
+    ]);
+    expect(proxyZ).toBeGreaterThan(headerLayerZ);
+
+    await page.mouse.up();
+  });
+
   test("previews a controlled width but leaves ownership with the consumer", async ({
     page,
   }) => {

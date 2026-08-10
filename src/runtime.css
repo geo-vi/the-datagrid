@@ -1051,7 +1051,8 @@
   top: 0 !important;
   bottom: 0 !important;
   left: 0 !important;
-  z-index: 20 !important;
+  /* Above the sticky header layer (20); it renders later, so equal z-index loses. */
+  z-index: 30 !important;
   width: var(--tdg-column-resize-proxy-width, 5px) !important;
   pointer-events: none !important;
   will-change: transform !important;
