@@ -20,10 +20,7 @@ import type {
 } from "../types";
 
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import {
-  useVirtualizer,
-  type VirtualItem,
-} from "@tanstack/react-virtual";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 
 import { cn } from "../lib/utils";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -35,11 +32,7 @@ import {
 } from "../theme/context";
 
 import { getColumnId } from "../utils/column";
-import {
-  clamp,
-  coerceUserSelect,
-  t,
-} from "../utils/helpers";
+import { clamp, coerceUserSelect, t } from "../utils/helpers";
 import { useControllableState } from "../hooks/useControllableState";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
@@ -74,9 +67,7 @@ import {
 
 import { GridHeader } from "./components/GridHeader";
 import { GridContextMenuLayer } from "./components/GridContextMenuLayer";
-import {
-  GridBody,
-} from "./components/GridBody";
+import { GridBody } from "./components/GridBody";
 import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
@@ -114,14 +105,8 @@ import {
   type InternalDataGridProps,
 } from "./internalProps";
 import { GridLoadingLayer } from "./components/GridLoadingLayer";
-import {
-  getLogicalScrollLeft,
-  setLogicalScrollLeft,
-} from "./utils/rtlScroll";
-import {
-  equalRowHeights,
-  normalizeRowHeightsMap,
-} from "./utils/rowHeightsMap";
+import { getLogicalScrollLeft, setLogicalScrollLeft } from "./utils/rtlScroll";
+import { equalRowHeights, normalizeRowHeightsMap } from "./utils/rowHeightsMap";
 import {
   createSpanAwareRangeExtractor,
   type TypeSpanInterval,
@@ -1030,43 +1015,48 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () => toTanStackRowSelectionState(selectedMap),
     [selectedMap]
   );
-  const { columnOrderForDs, controlledLoadingRef, loading, loadingStore, reload } =
-    useGridDataLoader({
-      activeLocalFilter,
-      apiRef,
-      checkboxColId,
-      checkboxEnabled,
-      controlledLoading: props.loading,
-      dataSource,
-      draftFilterValue,
-      effectiveColumnOrder,
-      filterTypes,
-      filterValue,
-      idProperty,
-      inputColumns,
-      limit,
-      loadAbortControllerRef,
-      loadRequestIdRef,
-      loadSkip,
-      localFilterValue,
-      localPagination,
-      localSortInfo,
-      notifyFilteredRowsCount,
-      orderedColumns,
-      paginationMode,
-      remoteDataSource,
-      remotePagination,
-      searchActive,
-      searchConnected,
-      searchFilterRows,
-      searchValue,
-      setCount,
-      setFilterValue,
-      setRows,
-      sortFunctions,
-      sortInfo,
-      themeName,
-    });
+  const {
+    columnOrderForDs,
+    controlledLoadingRef,
+    loading,
+    loadingStore,
+    reload,
+  } = useGridDataLoader({
+    activeLocalFilter,
+    apiRef,
+    checkboxColId,
+    checkboxEnabled,
+    controlledLoading: props.loading,
+    dataSource,
+    draftFilterValue,
+    effectiveColumnOrder,
+    filterTypes,
+    filterValue,
+    idProperty,
+    inputColumns,
+    limit,
+    loadAbortControllerRef,
+    loadRequestIdRef,
+    loadSkip,
+    localFilterValue,
+    localPagination,
+    localSortInfo,
+    notifyFilteredRowsCount,
+    orderedColumns,
+    paginationMode,
+    remoteDataSource,
+    remotePagination,
+    searchActive,
+    searchConnected,
+    searchFilterRows,
+    searchValue,
+    setCount,
+    setFilterValue,
+    setRows,
+    sortFunctions,
+    sortInfo,
+    themeName,
+  });
 
   const autosizeSample = React.useMemo(() => {
     if (Array.isArray(dataSource)) {
@@ -2982,13 +2972,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [onReady]);
 
   /** ---------------- render ---------------- */
-
-  console.log("api ref current: ", apiRef.current);
-  console.log("stable api:", stableApi);
-  console.log("stable api target:", stableApiTarget);
-
-  console.log("================================");
-
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
   const loadingText = props.loadingText ?? "Loading";
   const customPaginationToolbar =
