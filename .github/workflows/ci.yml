@@ -38,6 +38,9 @@ jobs:
       - name: Test source type contract
         run: yarn test:types
 
+      - name: Run unit tests
+        run: yarn test:unit
+
   build:
     name: Build and packed type contract
     runs-on: ubuntu-latest
