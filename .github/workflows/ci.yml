@@ -38,6 +38,26 @@ jobs:
       - name: Test source type contract
         run: yarn test:types
 
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack and pin Yarn
+        run: |
+          corepack enable
+          corepack prepare "yarn@${YARN_VERSION}" --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
       - name: Run unit tests
         run: yarn test:unit
 
