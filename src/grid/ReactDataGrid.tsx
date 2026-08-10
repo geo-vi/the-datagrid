@@ -589,6 +589,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     shiftKey: false,
   });
 
+  // Read off props once, so the callback below depends on this one function
+  // rather than on the whole `props` object.
+  const onSelectionChange = props.onSelectionChange;
   const emitSelectionChange = React.useCallback(
     (
       nextSelected: TypeRowSelection,
@@ -605,7 +608,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (!controlledSelected) setInternalSelected(nextSelected);
       if (!controlledUnselected) setInternalUnselected(nextUnselected);
 
-      props.onSelectionChange?.({
+      onSelectionChange?.({
         selected: nextSelected,
         data: meta?.data,
         unselected: nextUnselected,
@@ -616,7 +619,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       controlledSelected,
       controlledUnselected,
       dataSource,
-      props,
+      // Depends on the one callback this reads, not the whole props object. A
+      // parent re-render always mints a new `props`, which rebuilt this while
+      // the row-height callbacks (keyed on `rowModel`) stayed cached — and the
+      // opposite happened on sort. Alternating the two left every render's
+      // scope holding a callback from a different render, so no generation was
+      // ever collectable.
+      onSelectionChange,
       selectionEnabled,
     ]
   );
