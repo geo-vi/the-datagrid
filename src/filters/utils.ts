@@ -497,6 +497,28 @@ export function getFilterEntry(
   return filterValue.find((f) => f.name === name);
 }
 
+/**
+ * Whether a filter descriptor carries no value to filter on.
+ *
+ * Each type nominates one `emptyValue` — `""` for string/date/time, `null` for
+ * number/select/bool — and matching only that exact value leaves a descriptor
+ * that is plainly empty marked as active: it runs the predicate over every row
+ * and reports the column as filtered. A cleared editor reports `null` as
+ * readily as `""`, and a custom type that declares no `emptyValue` treats
+ * every value except `undefined` as a live filter.
+ *
+ * `null` and `undefined` mean "no value" for every type, so they count as
+ * empty regardless of what the type nominates.
+ *
+ * `""` deliberately does **not** get the same treatment. It is the nominated
+ * empty for string/date/time, but a real value elsewhere: a number filter with
+ * `eq` and `""` matches rows whose cell is an empty string, which is
+ * documented Inovua behaviour and covered by the issue #34 parity suite.
+ */
+function isEmptyFilterEntryValue(value: unknown, emptyValue: unknown): boolean {
+  return value === emptyValue || value == null;
+}
+
 export function isFilterEntryEmptyValue(
   entry: TypeSingleFilterValue,
   customFilterTypes?: TypeFilterTypes
@@ -504,7 +526,7 @@ export function isFilterEntryEmptyValue(
   const typeDef = getTypeDef(customFilterTypes, entry.type);
   const emptyValue =
     entry.emptyValue !== undefined ? entry.emptyValue : typeDef.emptyValue;
-  return entry.value === emptyValue;
+  return isEmptyFilterEntryValue(entry.value, emptyValue);
 }
 
 function getTypeDef(
@@ -534,7 +556,7 @@ function isRunnableFilterEntry(
 
   const emptyValue =
     filter.emptyValue !== undefined ? filter.emptyValue : typeDef.emptyValue;
-  const isEmptyValue = filter.value === emptyValue;
+  const isEmptyValue = isEmptyFilterEntryValue(filter.value, emptyValue);
 
   return (
     !isEmptyValue ||

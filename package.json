@@ -251,6 +251,7 @@
     "build:site:e2e": "yarn build:search-index && vite build --mode site --base /",
     "lint": "eslint .",
     "test:types": "tsc -p ./tests/types/tsconfig.json --noEmit",
+    "test:unit": "tsx --test tests/engine/**/*.test.ts",
     "test:community-audit": "node scripts/audit-community-api.mjs",
     "test:published-types": "node scripts/test-published-types.mjs",
     "test:react-compat": "node scripts/test-react-compat.mjs",
