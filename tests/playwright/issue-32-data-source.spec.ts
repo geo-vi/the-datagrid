@@ -271,6 +271,45 @@ test.describe("issue #32 complete data-source ownership", () => {
       .poll(async () => (await readJson<string[]>(eventsOutput)).length)
       .toBe(requestsBeforeReload + 1);
   });
+
+  test("reloads a function data source when its theme argument changes", async ({
+    page,
+  }) => {
+    await page.goto("/compat/issue-32-data-source?scenario=reload-contracts");
+    const scope = page.getByTestId("issue-32-reload-contracts");
+    const remote = scope.getByTestId("reload-remote-theme");
+    const calls = scope.getByTestId("reload-remote-calls");
+
+    await expect(
+      remote.getByText("Remote theme default-light", { exact: true })
+    ).toBeVisible();
+    await expect
+      .poll(async () => Number(await calls.textContent()))
+      .toBeGreaterThan(0);
+    const callsBeforeThemeChange = Number(await calls.textContent());
+
+    await scope.getByTestId("reload-toggle-theme").click();
+    await expect(
+      remote.getByText("Remote theme default-dark", { exact: true })
+    ).toBeVisible();
+    await expect(calls).toHaveText(String(callsBeforeThemeChange + 1));
+  });
+
+  test("an explicit local reload refreshes rows reused by reference", async ({
+    page,
+  }) => {
+    await page.goto("/compat/issue-32-data-source?scenario=reload-contracts");
+    const scope = page.getByTestId("issue-32-reload-contracts");
+    const local = scope.getByTestId("reload-local-mutation");
+
+    await expect(
+      local.getByText("Local original", { exact: true })
+    ).toBeVisible();
+    await scope.getByTestId("reload-mutate-local").click();
+    await expect(
+      local.getByText("Local mutated", { exact: true })
+    ).toBeVisible();
+  });
 });
 
 test("replacement performance stays within a frame budget and commits only the latest request", async ({

@@ -29,13 +29,13 @@ import type { InternalSearchController } from "../internalProps";
  * decide what changed. A load that genuinely alters the data produces
  * different row references and is passed through untouched.
  *
- * Only the local array path uses this. On the remote paths `setRows` doubles as
- * the re-render that publishes the finished load: `setInternalLoading` writes
- * to a store that only re-renders the load mask, so the grid's own `loading`
- * value refreshes on the next render from somewhere else. Reusing the array
- * there swallows that render, and a remote load resolving to empty data never
- * reveals `emptyText`. The local path takes no loading transition, so it has
- * nothing to publish.
+ * Only effect-driven local array loads use this; an explicit `reload()` asks to
+ * publish the newly evaluated page and bypasses reuse. On the remote paths
+ * `setRows` doubles as the re-render that publishes the finished load:
+ * `setInternalLoading` writes to a store that only re-renders the load mask, so
+ * the grid's own `loading` value refreshes on the next render from somewhere
+ * else. Reusing the array there swallows that render, and a remote load
+ * resolving to empty data never reveals `emptyText`.
  */
 function reuseRowsIfUnchanged<T>(prev: readonly T[], next: T[]): T[] {
   if ((prev as unknown as T[]) === next) return next;
@@ -45,6 +45,10 @@ function reuseRowsIfUnchanged<T>(prev: readonly T[], next: T[]): T[] {
   }
   return prev as T[];
 }
+
+type LoadDataOptions = {
+  bypassLocalRowReuse?: boolean;
+};
 
 export type UseGridDataLoaderParams = {
   activeLocalFilter: boolean;
@@ -138,15 +142,15 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
     controlledLoadingRef.current = controlledLoading;
   }, [controlledLoading]);
 
-  // The theme only ever reaches the data source as a reported value; it does
-  // not influence what is fetched, filtered or sorted. Keeping it in a ref
-  // rather than in `loadData`'s dependencies means a theme switch no longer
-  // rebuilds the callback and re-runs the whole load. Any genuine load still
-  // reports the current theme.
+  // Non-function sources cannot observe the data-source argument object, so a
+  // theme change should not reload them. Function sources do receive `theme`
+  // as part of the public request contract and must reload when it changes.
   const themeNameRef = React.useRef(themeName);
   React.useLayoutEffect(() => {
     themeNameRef.current = themeName;
   }, [themeName]);
+  const functionDataSourceTheme =
+    typeof dataSource === "function" ? themeName : null;
   const setInternalLoading = React.useCallback(
     (nextLoading: boolean) => {
       loadingStore.setAutomatic(nextLoading);
@@ -180,7 +184,7 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
     [columnsForDs]
   );
 
-  const loadData = React.useCallback(async () => {
+  const loadData = React.useCallback(async (options?: LoadDataOptions) => {
     if (!loadMountedRef.current) return;
 
     const requestId = ++loadRequestIdRef.current;
@@ -226,7 +230,11 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
           ? data.slice(loadSkip, loadSkip + limit)
           : data;
 
-        setRows((previous) => reuseRowsIfUnchanged(previous, sliced));
+        if (options?.bypassLocalRowReuse) {
+          setRows(sliced);
+        } else {
+          setRows((previous) => reuseRowsIfUnchanged(previous, sliced));
+        }
         setCount(totalCount);
         notifyFilteredRowsCount(totalCount);
         return;
@@ -242,7 +250,7 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
         columnOrder: dataSourceColumnOrder,
         columns: columnsForDs,
         idProperty,
-        theme: themeNameRef.current,
+        theme: functionDataSourceTheme ?? themeNameRef.current,
         ...(searchConnected ? { searchValue } : {}),
       };
       if (requestAbortController) {
@@ -360,6 +368,7 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
     }
   }, [
     dataSource,
+    functionDataSourceTheme,
     activeLocalFilter,
     computedFilterForFetch,
     computedSortForFetch,
@@ -406,7 +415,9 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
   }, [loadData]);
 
   const reload = React.useCallback(() => {
-    void loadData();
+    // An explicit reload is a request to publish freshly evaluated local
+    // rows, even when filtering/pagination produced the same row references.
+    void loadData({ bypassLocalRowReuse: true });
   }, [loadData]);
 
   const filterCommitDelay = React.useMemo(() => {
