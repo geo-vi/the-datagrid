@@ -603,4 +603,64 @@ test.describe("browser memory safety", () => {
     expect(finalAudit.resizeObservers).toBe(baseline.resizeObservers);
     assertHealthy();
   });
+
+  // Regression gate for the render-generation leak: ReactDataGrid used to be one
+  // ~10k-line component scope, so a memoised callback from an older render kept
+  // that whole render alive, and each generation chained on to the previous one.
+  // Sorting with a large dataSource grew the heap monotonically until Chrome
+  // killed the tab. Splitting the component into per-feature hooks broke the
+  // chain. If that regresses, the heap stops plateauing here.
+  test("releases past render generations across repeated sorts", async ({
+    context,
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const assertHealthy = monitorBrowserHealth(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/compat/memory-safety?scenario=generations");
+    await expect(page.locator(".tdg-root")).toBeVisible();
+
+    const sortButton = page.getByTestId("generations-sort");
+    const cdp = await context.newCDPSession(page);
+
+    const measureHeap = async () => {
+      await cdp.send("HeapProfiler.collectGarbage");
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      );
+      await cdp.send("HeapProfiler.collectGarbage");
+      const heap = await cdp.send("Runtime.getHeapUsage");
+      return heap.usedSize;
+    };
+
+    // Sorting and a parent re-render, together. Measured separately, each of
+    // these is flat across six batches; only the combination retains. Keep both
+    // clicks in the loop or this stops testing anything.
+    const rerenderButton = page.getByTestId("generations-rerender");
+    const runBatch = async () => {
+      for (let iteration = 0; iteration < 8; iteration += 1) {
+        await sortButton.click();
+        await rerenderButton.click();
+        await page.waitForTimeout(120);
+      }
+      return measureHeap();
+    };
+
+    // The first batch settles caches and lazily-built structures, so it is a
+    // warm-up rather than a baseline. Compare the two batches after it: a grid
+    // that releases its generations plateaus, a leaking one keeps climbing.
+    const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
+    await runBatch();
+    const afterFirstBatch = await runBatch();
+    const afterSecondBatch = await runBatch();
+    const growth = afterSecondBatch - afterFirstBatch;
+
+    expect(
+      growth,
+      `heap grew ${mb(growth)} MB across 8 sorts (${mb(afterFirstBatch)} MB -> ` +
+        `${mb(afterSecondBatch)} MB); past render generations are being retained`
+    ).toBeLessThanOrEqual(12 * 1024 * 1024);
+    assertHealthy();
+  });
 });

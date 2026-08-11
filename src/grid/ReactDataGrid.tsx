@@ -4,51 +4,25 @@ import * as React from "react";
 import type {
   TypeActiveCell,
   TypeCheckboxColumn,
-  TypeCheckboxProps,
   TypeColumn,
-  TypeColumnGroup,
-  TypeCellProps,
-  TypeColumnContextMenuProps,
   TypeComputedColumn,
   TypeComputedColumnsMap,
   TypeComputedProps,
-  TypeCommunityPlugin,
-  TypeColumnFilterValueChangeArg,
   TypeCellSelection,
-  TypeComputedVirtualList,
-  TypeComputedVirtualListRow,
-  TypeCompleteEditArgs,
-  TypeCancelEditArgs,
-  TypeDataSourceArgs,
   TypeDataGridProps,
-  TypeEditInfo,
-  TypeGetColumnByParam,
   TypeSingleFilterValue,
   TypeFilterValue,
   TypeOnSelectionChangeArg,
-  TypeLoadMaskProps,
-  TypeRowContextMenuProps,
   TypeRowProps,
-  TypePaginationProps,
   TypeRowSelection,
-  TypeStartEditArgs,
-  TypeSortFunctions,
   TypeSortInfo,
   TypeShowCellBorders,
-  TypeTryStartEditArgs,
 } from "../types";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import {
-  defaultRangeExtractor,
-  useVirtualizer,
-  type Range,
-  type VirtualItem,
-} from "@tanstack/react-virtual";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 
 import { cn } from "../lib/utils";
-import { Checkbox } from "../components/ui/checkbox";
 import { ScrollArea } from "../components/ui/scroll-area";
 import {
   DatagridThemeProvider,
@@ -58,32 +32,17 @@ import {
 } from "../theme/context";
 
 import { getColumnId } from "../utils/column";
-import {
-  clamp,
-  coerceUserSelect,
-  estimateAutoWidth,
-  t,
-} from "../utils/helpers";
+import { clamp, coerceUserSelect, t } from "../utils/helpers";
 import { useControllableState } from "../hooks/useControllableState";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
 import {
   DEFAULT_FILTER_TYPES,
   applyLocalFilter,
-  clearAllFilters,
-  clearFilter,
-  getFilterEntry,
   hasActiveLocalFilter,
-  isFilterEntryEmptyValue,
   normalizeFilterValue,
   resolveFilterValueForColumns,
-  upsertFilterEntry,
 } from "../filters/utils";
-import {
-  applyLocalSort,
-  setColumnSortInfo,
-  toggleSortInfo,
-} from "../sorting/utils";
 
 import {
   fromTanStackColumnFiltersState,
@@ -101,7 +60,6 @@ import {
 import {
   injectIntoOrder,
   isColumnVisible,
-  isInteractiveClickTarget,
   stripFromOrder,
   toSelectionMap,
   unwrapSelectionState,
@@ -109,13 +67,7 @@ import {
 
 import { GridHeader } from "./components/GridHeader";
 import { GridContextMenuLayer } from "./components/GridContextMenuLayer";
-import {
-  GridBody,
-  type GridCellEditStartArgs,
-  type GridEditingCell,
-  type GridEditNavigation,
-} from "./components/GridBody";
-import { buildEditCellProps } from "./utils/editing";
+import { GridBody } from "./components/GridBody";
 import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
@@ -135,1023 +87,59 @@ import {
 import {
   buildColumnGroupHeaderRows,
   buildColumnGroupModel,
-  canMoveColumnGroupSegment,
-  getColumnGroupSegmentKey,
-  haveSameColumnGroupPath,
-  moveColumnIdsBefore,
-  resizeColumnWidthsProportionally,
-  type TypeColumnGroupHeaderRenderItem,
 } from "./utils/columnGroups";
 import {
   DATA_GRID_SEARCH_RUNTIME_SYMBOL,
   getDataGridSearchRuntime,
 } from "./searchRuntime";
+import {
+  EMPTY_COLUMN_GROUPS,
+  REACT_DATA_GRID_DEFAULT_PROPS,
+  plugins,
+  type ReactDataGridDefaultProps,
+} from "./gridDefaultProps";
+import {
+  allocateGridId,
+  getPublicProps,
+  resolveStateAction,
+  type InternalDataGridProps,
+} from "./internalProps";
+import { GridLoadingLayer } from "./components/GridLoadingLayer";
+import { getLogicalScrollLeft, setLogicalScrollLeft } from "./utils/rtlScroll";
+import { equalRowHeights, normalizeRowHeightsMap } from "./utils/rowHeightsMap";
+import {
+  createSpanAwareRangeExtractor,
+  type TypeSpanInterval,
+} from "./utils/spanRangeExtractor";
+import {
+  ensureLastColumnHeaderFits,
+  getColumnWidthBounds,
+  resolveBaseColumnWidth,
+} from "./utils/columnWidthEstimation";
+import { useGridColumnDefs } from "./hooks/useGridColumnDefs";
+import { useGridColumnResize } from "./hooks/useGridColumnResize";
+import { useGridDataLoader } from "./hooks/useGridDataLoader";
+import { useGridEditing } from "./hooks/useGridEditing";
+import { useGridKeyboardNavigation } from "./hooks/useGridKeyboardNavigation";
+import { useGridColumnApi } from "./hooks/useGridColumnApi";
+import { useGridContextMenuLayers } from "./hooks/useGridContextMenuLayers";
+import { useGridContextMenus } from "./hooks/useGridContextMenus";
+import { useGridHeaderReorder } from "./hooks/useGridHeaderReorder";
+import { useGridImperativeApi } from "./hooks/useGridImperativeApi";
+import { useGridColumnSizingApi } from "./hooks/useGridColumnSizingApi";
+import { useGridPaginationApi } from "./hooks/useGridPaginationApi";
+import { useGridRowApi } from "./hooks/useGridRowApi";
+import { useGridScrollApi } from "./hooks/useGridScrollApi";
+import { useGridSelection } from "./hooks/useGridSelection";
+import { useGridVirtualListApi } from "./hooks/useGridVirtualListApi";
+
+export { plugins };
 
 const EMPTY_VIRTUAL_ITEMS: VirtualItem[] = [];
-
-type RtlScrollType = "negative" | "positive-ascending" | "positive-descending";
-let cachedRtlScrollType: RtlScrollType | null = null;
-
-function getRtlScrollType(): RtlScrollType {
-  if (cachedRtlScrollType) return cachedRtlScrollType;
-  if (typeof document === "undefined" || !document.body) return "negative";
-
-  const outer = document.createElement("div");
-  const inner = document.createElement("div");
-  Object.assign(outer.style, {
-    width: "4px",
-    height: "1px",
-    overflow: "scroll",
-    direction: "rtl",
-    position: "absolute",
-    top: "-10000px",
-  });
-  Object.assign(inner.style, { width: "8px", height: "1px" });
-  outer.appendChild(inner);
-  document.body.appendChild(outer);
-
-  if (outer.scrollLeft > 0) {
-    cachedRtlScrollType = "positive-descending";
-  } else {
-    outer.scrollLeft = 1;
-    cachedRtlScrollType =
-      outer.scrollLeft === 0 ? "negative" : "positive-ascending";
-  }
-
-  outer.remove();
-  return cachedRtlScrollType;
-}
-
-function getLogicalScrollLeft(element: HTMLElement, rtl: boolean): number {
-  const max = Math.max(0, element.scrollWidth - element.clientWidth);
-  if (!rtl) return clamp(element.scrollLeft, 0, max);
-
-  switch (getRtlScrollType()) {
-    case "negative":
-      return clamp(-element.scrollLeft, 0, max);
-    case "positive-descending":
-      return clamp(max - element.scrollLeft, 0, max);
-    case "positive-ascending":
-      return clamp(element.scrollLeft, 0, max);
-  }
-}
-
-function setLogicalScrollLeft(
-  element: HTMLElement,
-  value: number,
-  rtl: boolean
-): void {
-  const max = Math.max(0, element.scrollWidth - element.clientWidth);
-  const next = clamp(value, 0, max);
-  if (!rtl) {
-    element.scrollLeft = next;
-    return;
-  }
-
-  switch (getRtlScrollType()) {
-    case "negative":
-      element.scrollLeft = -next;
-      break;
-    case "positive-descending":
-      element.scrollLeft = max - next;
-      break;
-    case "positive-ascending":
-      element.scrollLeft = next;
-      break;
-  }
-}
-
-/**
- * Inovua exposes feature plugins. The implementation here is built in, so
- * these executable descriptors expose equivalent enablement and state rather
- * than asking consumers to register them.
- */
-export const plugins: readonly TypeCommunityPlugin[] = [
-  {
-    name: "sortable-columns",
-    methods: [
-      "getSortInfo",
-      "setSortInfo",
-      "toggleColumnSort",
-      "setColumnSortInfo",
-      "unsortColumn",
-    ],
-    hook: (_props, computedProps) => ({
-      computedIsMultiSort: Array.isArray(computedProps.getSortInfo()),
-      computedSortInfo: computedProps.getSortInfo(),
-      getSortInfo: computedProps.getSortInfo,
-      setSortInfo: computedProps.setSortInfo,
-      toggleColumnSort: computedProps.toggleColumnSort,
-      setColumnSortInfo: computedProps.setColumnSortInfo,
-      unsortColumn: computedProps.unsortColumn,
-    }),
-    defaultProps: () => ({ sortable: true }),
-    isEnabled: (props) => props.sortable !== false,
-    getState: (computedProps) => computedProps.getSortInfo(),
-  },
-  {
-    name: "filters",
-    methods: [
-      "getFilterValue",
-      "setFilterValue",
-      "clearAllFilters",
-      "clearColumnFilter",
-      "getColumnFilterValue",
-      "setColumnFilterValue",
-      "isColumnFiltered",
-    ],
-    hook: (_props, computedProps) => ({
-      computedFilterValue: computedProps.getFilterValue(),
-      getFilterValue: computedProps.getFilterValue,
-      setFilterValue: computedProps.setFilterValue,
-      clearAllFilters: computedProps.clearAllFilters,
-      clearColumnFilter: computedProps.clearColumnFilter,
-      getColumnFilterValue: computedProps.getColumnFilterValue,
-      setColumnFilterValue: computedProps.setColumnFilterValue,
-      isColumnFiltered: computedProps.isColumnFiltered,
-    }),
-    defaultProps: () => ({
-      columnFilterContextMenuConstrainTo: true,
-      columnFilterContextMenuPosition: "absolute",
-    }),
-    isEnabled: (props) =>
-      props.enableFiltering === true ||
-      Boolean(props.filterValue?.length || props.defaultFilterValue?.length),
-    getState: (computedProps) => computedProps.getFilterValue(),
-  },
-  {
-    name: "menus",
-    methods: [
-      "showColumnFilterContextMenu",
-      "hideColumnFilterContextMenu",
-      "showColumnContextMenu",
-      "hideColumnContextMenu",
-      "showRowContextMenu",
-      "hideRowContextMenu",
-    ],
-    hook: (_props, computedProps) => ({
-      getMenuAvailableHeight: computedProps.getMenuAvailableHeight,
-      showColumnFilterContextMenu: computedProps.showColumnFilterContextMenu,
-      hideColumnFilterContextMenu: computedProps.hideColumnFilterContextMenu,
-      showColumnContextMenu: computedProps.showColumnContextMenu,
-      hideColumnContextMenu: computedProps.hideColumnContextMenu,
-      showRowContextMenu: computedProps.showRowContextMenu,
-      hideRowContextMenu: computedProps.hideRowContextMenu,
-      columnContextMenuProps: computedProps.columnContextMenuProps,
-      rowContextMenuProps: computedProps.rowContextMenuProps,
-    }),
-    defaultProps: () => ({ showColumnMenuTool: true }),
-    isEnabled: (props) =>
-      props.enableColumnFilterContextMenu !== false ||
-      Boolean(props.renderColumnContextMenu || props.renderRowContextMenu),
-    getState: (computedProps) => ({
-      column: computedProps.columnContextMenuProps ?? null,
-      filter: computedProps.columnFilterContextMenuProps ?? null,
-      row: computedProps.rowContextMenuProps ?? null,
-    }),
-  },
-  {
-    name: "cell-selection",
-    methods: [
-      "getActiveCell",
-      "setActiveCell",
-      "getCellSelection",
-      "setCellSelection",
-      "isCellSelected",
-    ],
-    hook: (_props, computedProps) => ({
-      computedActiveCell: computedProps.getActiveCell?.() ?? null,
-      computedCellSelection: computedProps.getCellSelection?.() ?? null,
-      getActiveCell: computedProps.getActiveCell,
-      setActiveCell: computedProps.setActiveCell,
-      incrementActiveCell: computedProps.incrementActiveCell,
-      getCellSelection: computedProps.getCellSelection,
-      setCellSelection: computedProps.setCellSelection,
-      isCellSelected: computedProps.isCellSelected,
-      toggleActiveCellSelection: computedProps.toggleActiveCellSelection,
-      getCellSelectionBetween: computedProps.getCellSelectionBetween,
-    }),
-    defaultProps: () => ({}),
-    isEnabled: (props) =>
-      props.activeCell !== undefined ||
-      props.defaultActiveCell !== undefined ||
-      props.cellSelection !== undefined ||
-      props.defaultCellSelection !== undefined,
-    getState: (computedProps) => ({
-      activeCell: computedProps.getActiveCell?.() ?? null,
-      selection: computedProps.getCellSelection?.() ?? null,
-    }),
-  },
-] as const;
-
-type OpenColumnContextMenu = {
-  alignTo: HTMLElement | { left: number; top: number };
-  cellProps: TypeCellProps;
-  restoreFocusTo: HTMLElement | null;
-  onHide?: () => void;
-};
-
-type OpenRowContextMenu = {
-  alignTo: HTMLElement | { left: number; top: number };
-  rowProps: TypeRowProps;
-  cellProps?: TypeCellProps;
-  restoreFocusTo: HTMLElement | null;
-  onHide?: () => void;
-};
-
-type ReactDataGridDefaultPropName =
-  | "idProperty"
-  | "theme"
-  | "enableColumnFilterContextMenu"
-  | "enableColumnAutosize"
-  | "skipHeaderOnAutoSize"
-  | "resizable"
-  | "liveColumnResize"
-  | "columnDefaultWidth"
-  | "columnMinWidth"
-  | "columnMaxWidth"
-  | "shareSpaceOnResize"
-  | "columnResizeHandleWidth"
-  | "columnResizeProxyWidth"
-  | "allowGroupSplitOnReorder"
-  | "filterTypes"
-  | "virtualized"
-  | "virtualizeColumnsThreshold"
-  | "nativeScroll"
-  | "scrollProps"
-  | "rtl"
-  | "allowMobileTransform"
-  | "columnUserSelect"
-  | "showCellBorders"
-  | "showColumnMenuTool"
-  | "sortable"
-  | "sortFunctions"
-  | "scrollTopOnFilter"
-  | "scrollTopOnSort"
-  | "columnFilterContextMenuAlignPositions"
-  | "columnFilterContextMenuConstrainTo"
-  | "columnFilterContextMenuPosition"
-  | "updateMenuPositionOnScroll"
-  | "columnContextMenuAlignPositions"
-  | "columnContextMenuConstrainTo"
-  | "columnContextMenuPosition"
-  | "rowContextMenuAlignPositions"
-  | "rowContextMenuConstrainTo"
-  | "rowContextMenuPosition"
-  | "updateMenuPositionOnColumnsChange"
-  | "rowHeight"
-  | "minRowHeight"
-  | "defaultShowZebraRows"
-  | "editStartEvent"
-  | "isStartEditKeyPressed"
-  | "autoFocusOnEditComplete"
-  | "autoFocusOnEditEscape"
-  | "emptyText"
-  | "headerHeight"
-  | "filterRowHeight"
-  | "enableKeyboardNavigation"
-  | "activateRowOnFocus"
-  | "keyPageStep"
-  | "allowRowTabNavigation"
-  | "toggleRowSelectOnClick"
-  | "toggleCellSelectOnClick"
-  | "cellSelectionByIndex"
-  | "showHoverRows"
-  | "showEmptyRows"
-  | "showActiveRowIndicator";
-
-type ReactDataGridDefaultProps = Required<
-  Pick<TypeDataGridProps, ReactDataGridDefaultPropName>
->;
-
-const DEFAULT_SORT_FUNCTIONS: TypeSortFunctions = {
-  date: (value1, value2) => Number(value1) - Number(value2),
-};
-const EMPTY_COLUMN_GROUPS: TypeColumnGroup[] = [];
-
-function normalizeRowHeightsMap(
-  rowHeights: Record<string, number> | undefined,
-  minRowHeight: number,
-  maxRowHeight?: number
-): Record<string, number> {
-  if (!rowHeights) return {};
-
-  const normalized: Record<string, number> = {};
-  for (const [rowId, configuredHeight] of Object.entries(rowHeights)) {
-    if (
-      typeof configuredHeight !== "number" ||
-      !Number.isFinite(configuredHeight) ||
-      configuredHeight <= 0
-    ) {
-      continue;
-    }
-    normalized[String(rowId)] = clamp(
-      configuredHeight,
-      minRowHeight,
-      maxRowHeight ?? Number.MAX_SAFE_INTEGER
-    );
-  }
-  return normalized;
-}
-
-function equalRowHeights(
-  first: Record<string, number>,
-  second: Record<string, number>
-): boolean {
-  const firstKeys = Object.keys(first);
-  const secondKeys = Object.keys(second);
-  return (
-    firstKeys.length === secondKeys.length &&
-    firstKeys.every((key) => first[key] === second[key])
-  );
-}
-
-type TypeSpanInterval = { start: number; end: number };
-
-function createSpanAwareRangeExtractor(intervals: TypeSpanInterval[]) {
-  if (intervals.length === 0) return defaultRangeExtractor;
-
-  return (range: Range): number[] => {
-    const defaultIndexes = defaultRangeExtractor(range);
-    let start = defaultIndexes[0] ?? range.startIndex;
-    let end = defaultIndexes[defaultIndexes.length - 1] ?? range.endIndex;
-    let expanded = true;
-
-    while (expanded) {
-      expanded = false;
-      for (const interval of intervals) {
-        if (interval.end < start || interval.start > end) continue;
-        if (interval.start < start) {
-          start = interval.start;
-          expanded = true;
-        }
-        if (interval.end > end) {
-          end = interval.end;
-          expanded = true;
-        }
-      }
-    }
-
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-  };
-}
-
-const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
-  idProperty: "id",
-  theme: "default-light",
-  enableColumnFilterContextMenu: true,
-  enableColumnAutosize: true,
-  skipHeaderOnAutoSize: false,
-  resizable: true,
-  liveColumnResize: false,
-  columnDefaultWidth: 150,
-  columnMinWidth: 40,
-  columnMaxWidth: null,
-  shareSpaceOnResize: false,
-  // Preserve the library's accessible pointer target while exposing the
-  // Inovua-compatible sizing controls.
-  columnResizeHandleWidth: 24,
-  columnResizeProxyWidth: 5,
-  allowGroupSplitOnReorder: true,
-  filterTypes: DEFAULT_FILTER_TYPES,
-  virtualized: true,
-  virtualizeColumnsThreshold: 15,
-  nativeScroll: false,
-  scrollProps: {
-    autoHide: true,
-    scrollThumbMargin: 4,
-    scrollThumbWidth: 6,
-    scrollThumbOverWidth: 8,
-    scrollThumbRadius: 3,
-  },
-  rtl: false,
-  allowMobileTransform: false,
-  columnUserSelect: false,
-  showCellBorders: true,
-  showColumnMenuTool: true,
-  sortable: true,
-  sortFunctions: DEFAULT_SORT_FUNCTIONS,
-  scrollTopOnFilter: true,
-  scrollTopOnSort: true,
-  columnFilterContextMenuAlignPositions: ["tl-bl", "tr-br", "bl-tl", "br-tr"],
-  columnFilterContextMenuConstrainTo: true,
-  columnFilterContextMenuPosition: "absolute",
-  updateMenuPositionOnScroll: true,
-  columnContextMenuAlignPositions: [
-    "tl-bl",
-    "tr-br",
-    "tl-tr",
-    "tr-tl",
-    "br-tr",
-    "bl-tl",
-  ],
-  columnContextMenuConstrainTo: true,
-  columnContextMenuPosition: "absolute",
-  rowContextMenuAlignPositions: [
-    "tl-bl",
-    "tr-br",
-    "tl-tr",
-    "tr-tl",
-    "br-tr",
-    "bl-tl",
-  ],
-  rowContextMenuConstrainTo: true,
-  rowContextMenuPosition: "absolute",
-  updateMenuPositionOnColumnsChange: true,
-  rowHeight: 40,
-  minRowHeight: 20,
-  defaultShowZebraRows: true,
-  editStartEvent: "dblclick",
-  isStartEditKeyPressed: ({ event }) => event.key === "e" && event.ctrlKey,
-  autoFocusOnEditComplete: true,
-  autoFocusOnEditEscape: true,
-  emptyText: "noRecords",
-  headerHeight: 40,
-  filterRowHeight: 40,
-  enableKeyboardNavigation: true,
-  activateRowOnFocus: true,
-  keyPageStep: 10,
-  allowRowTabNavigation: false,
-  toggleRowSelectOnClick: false,
-  toggleCellSelectOnClick: true,
-  cellSelectionByIndex: false,
-  showHoverRows: true,
-  showEmptyRows: false,
-  showActiveRowIndicator: true,
-};
-
-type LoadingStore = {
-  getEffective: (controlledLoading: boolean | undefined) => boolean;
-  getOverride: () => boolean | null;
-  setAutomatic: (loading: boolean) => void;
-  setOverride: (loading: boolean) => void;
-  subscribe: (listener: () => void) => () => void;
-};
-
-function createLoadingStore(): LoadingStore {
-  let automaticLoading = false;
-  let loadingOverride: boolean | null = null;
-  const listeners = new Set<() => void>();
-
-  const notify = () => {
-    for (const listener of listeners) listener();
-  };
-
-  return {
-    getEffective(controlledLoading) {
-      return controlledLoading ?? loadingOverride ?? automaticLoading;
-    },
-    getOverride() {
-      return loadingOverride;
-    },
-    setAutomatic(loading) {
-      if (Object.is(automaticLoading, loading)) return;
-      automaticLoading = loading;
-      notify();
-    },
-    setOverride(loading) {
-      if (Object.is(loadingOverride, loading)) return;
-      loadingOverride = loading;
-      notify();
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-}
-
-type GridLoadingLayerProps = {
-  controlledLoading: boolean | undefined;
-  loadingText: React.ReactNode | (() => React.ReactNode);
-  onLoadingChange: ((loading: boolean) => void) | undefined;
-  renderLoadMask: TypeDataGridProps["renderLoadMask"];
-  store: LoadingStore;
-  surfaceRef: React.MutableRefObject<HTMLElement | null>;
-  theme: string;
-};
-
-const GridLoadingLayer = React.memo(function GridLoadingLayer(
-  props: GridLoadingLayerProps
-): React.ReactElement | null {
-  const {
-    controlledLoading,
-    loadingText,
-    onLoadingChange,
-    renderLoadMask,
-    store,
-    surfaceRef,
-    theme,
-  } = props;
-  const [, forceRender] = React.useState(0);
-  const loading = store.getEffective(controlledLoading);
-  const previousLoadingRef = React.useRef(false);
-
-  React.useLayoutEffect(
-    () => store.subscribe(() => forceRender((revision) => revision + 1)),
-    [store]
-  );
-  React.useLayoutEffect(() => {
-    surfaceRef.current?.setAttribute("aria-busy", String(loading));
-  }, [loading, surfaceRef]);
-  React.useEffect(() => {
-    if (Object.is(previousLoadingRef.current, loading)) return;
-
-    previousLoadingRef.current = loading;
-    onLoadingChange?.(loading);
-  }, [loading, onLoadingChange]);
-
-  const loadMaskProps: TypeLoadMaskProps = {
-    visible: loading,
-    livePagination: false,
-    loadingText,
-    zIndex: 10000,
-    theme,
-  };
-  const customLoadMask = renderLoadMask?.(loadMaskProps);
-
-  if (customLoadMask !== undefined) {
-    return <>{customLoadMask}</>;
-  }
-  if (!loading) return null;
-
-  return (
-    <div
-      className="tdg-load-mask absolute inset-0 flex items-center justify-center bg-background/75 text-sm text-muted-foreground backdrop-blur-[1px]"
-      style={{ zIndex: loadMaskProps.zIndex }}
-      role="status"
-      aria-live="polite"
-      data-slot="grid-load-mask"
-    >
-      {typeof loadingText === "function" ? loadingText() : loadingText}
-    </div>
-  );
-});
 
 type ReactDataGridComponent = React.FunctionComponent<TypeDataGridProps> & {
   defaultProps: ReactDataGridDefaultProps;
 };
-
-type LiveColumnResizePreview = {
-  baseColumnWidth: number;
-  columns: {
-    element: HTMLTableColElement;
-    inlineWidth: string;
-  }[];
-  tables: {
-    element: HTMLTableElement;
-    inlineWidth: string;
-    renderedWidth: number;
-  }[];
-  viewport: HTMLElement | null;
-  lockedColumns: {
-    side: "start" | "end";
-    columnId: string;
-    cells: {
-      element: HTMLElement;
-      inlineOffset: string;
-      inlineViewportOffset: string;
-    }[];
-  }[];
-};
-
-type ColumnResizeSession = {
-  columnId: string;
-  column: TypeColumn;
-  inputType: "mouse" | "pointer";
-  pointerId: number | null;
-  startX: number;
-  startWidth: number;
-  nextWidth: number;
-  columnLeft: number;
-  minWidth: number;
-  maxWidth: number;
-  liveColumnResize: boolean;
-  appliedPreviewWidth: number | null;
-  preview: LiveColumnResizePreview | null;
-};
-
-type GroupResizeSession = {
-  key: string;
-  inputType: "mouse" | "pointer";
-  pointerId: number | null;
-  startX: number;
-  startTotalWidth: number;
-  nextTotalWidth: number;
-  groupRight: number;
-  minTotalWidth: number;
-  maxTotalWidth: number;
-  columns: {
-    column: TypeColumn;
-    id: string;
-    width: number;
-    minWidth: number;
-    maxWidth: number;
-  }[];
-};
-
-type GroupHeaderRenderItem = Extract<
-  TypeColumnGroupHeaderRenderItem,
-  { type: "group" }
->;
-
-function captureLiveColumnResizePreview(
-  surface: HTMLElement,
-  columnId: string,
-  baseColumnWidth: number
-): LiveColumnResizePreview {
-  const columns = Array.from(
-    surface.querySelectorAll<HTMLTableColElement>("col[data-column-id]")
-  )
-    .filter((element) => element.dataset.columnId === columnId)
-    .map((element) => ({
-      element,
-      inlineWidth: element.style.width,
-    }));
-  const owningTables = new Set<HTMLTableElement>();
-
-  for (const { element } of columns) {
-    const table = element.closest("table");
-    if (table instanceof HTMLTableElement) owningTables.add(table);
-  }
-
-  const lockedColumnsByKey = new Map<
-    string,
-    LiveColumnResizePreview["lockedColumns"][number]
-  >();
-  for (const element of surface.querySelectorAll<HTMLElement>(
-    ".tdg-locked-column[data-column-id]"
-  )) {
-    const lockedColumnId = element.dataset.columnId;
-    const side = element.classList.contains("tdg-locked-column--start")
-      ? "start"
-      : element.classList.contains("tdg-locked-column--end")
-        ? "end"
-        : null;
-    if (!lockedColumnId || !side) continue;
-
-    const key = `${side}:${lockedColumnId}`;
-    let lockedColumn = lockedColumnsByKey.get(key);
-    if (!lockedColumn) {
-      lockedColumn = {
-        side,
-        columnId: lockedColumnId,
-        cells: [],
-      };
-      lockedColumnsByKey.set(key, lockedColumn);
-    }
-    lockedColumn.cells.push({
-      element,
-      inlineOffset: element.style.getPropertyValue(
-        "--tdg-locked-column-offset"
-      ),
-      inlineViewportOffset: element.style.getPropertyValue(
-        "--tdg-locked-column-viewport-offset"
-      ),
-    });
-  }
-
-  return {
-    baseColumnWidth,
-    columns,
-    tables: Array.from(owningTables, (element) => ({
-      element,
-      inlineWidth: element.style.width,
-      renderedWidth: element.getBoundingClientRect().width,
-    })),
-    viewport: surface.querySelector<HTMLElement>(".tdg-body-viewport"),
-    lockedColumns: Array.from(lockedColumnsByKey.values()),
-  };
-}
-
-function updateLiveLockedColumnLayout(preview: LiveColumnResizePreview) {
-  const root = preview.viewport?.closest<HTMLElement>(".tdg-root");
-  const fixedWidthMode = root?.dataset.columnWidthMode === "fixed";
-  const renderedTableWidth = preview.tables.reduce(
-    (width, table) =>
-      Math.max(width, table.element.getBoundingClientRect().width),
-    0
-  );
-  const viewportOffset =
-    fixedWidthMode && preview.viewport
-      ? Math.max(0, preview.viewport.clientWidth - renderedTableWidth)
-      : 0;
-
-  const updateSide = (side: "start" | "end") => {
-    const columns = preview.lockedColumns.filter(
-      (column) => column.side === side
-    );
-    const iteration = side === "end" ? [...columns].reverse() : columns;
-    let offset = 0;
-
-    for (const column of iteration) {
-      for (const cell of column.cells) {
-        cell.element.style.setProperty(
-          "--tdg-locked-column-offset",
-          `${offset}px`
-        );
-        cell.element.style.setProperty(
-          "--tdg-locked-column-viewport-offset",
-          side === "end" ? `${viewportOffset}px` : "0px"
-        );
-      }
-
-      const representativeCell = column.cells[0]?.element;
-      offset += representativeCell?.getBoundingClientRect().width ?? 0;
-    }
-  };
-
-  updateSide("start");
-  updateSide("end");
-}
-
-function applyLiveColumnResizePreview(
-  session: ColumnResizeSession,
-  nextWidth: number
-) {
-  if (!session.preview || session.appliedPreviewWidth === nextWidth) return;
-
-  const widthDelta = nextWidth - session.preview.baseColumnWidth;
-  for (const { element } of session.preview.columns) {
-    element.style.width = `${nextWidth}px`;
-  }
-  for (const { element, renderedWidth } of session.preview.tables) {
-    element.style.width = `${Math.max(1, renderedWidth + widthDelta)}px`;
-  }
-  updateLiveLockedColumnLayout(session.preview);
-  session.appliedPreviewWidth = nextWidth;
-}
-
-function restoreLiveColumnResizePreview(session: ColumnResizeSession | null) {
-  if (!session?.preview || session.appliedPreviewWidth == null) return;
-
-  for (const { element, inlineWidth } of session.preview.columns) {
-    element.style.width = inlineWidth;
-  }
-  for (const { element, inlineWidth } of session.preview.tables) {
-    element.style.width = inlineWidth;
-  }
-  for (const column of session.preview.lockedColumns) {
-    for (const cell of column.cells) {
-      if (cell.inlineOffset) {
-        cell.element.style.setProperty(
-          "--tdg-locked-column-offset",
-          cell.inlineOffset
-        );
-      } else {
-        cell.element.style.removeProperty("--tdg-locked-column-offset");
-      }
-      if (cell.inlineViewportOffset) {
-        cell.element.style.setProperty(
-          "--tdg-locked-column-viewport-offset",
-          cell.inlineViewportOffset
-        );
-      } else {
-        cell.element.style.removeProperty(
-          "--tdg-locked-column-viewport-offset"
-        );
-      }
-    }
-  }
-  session.appliedPreviewWidth = null;
-}
-
-type InternalSearchController = {
-  value: string;
-  filterRows: <Row>(rows: Row[], columns: TypeColumn[]) => Row[];
-};
-
-type InternalColumnVisibilitySnapshot = {
-  columns: readonly TypeColumn[];
-  columnOrder: readonly string[];
-  columnVisibilityMap: Readonly<Record<string, boolean>>;
-  theme: string;
-  setColumnVisible: (columnId: string, visible: boolean) => void;
-};
-
-type InternalColumnVisibilityController = {
-  publish: (snapshot: InternalColumnVisibilitySnapshot) => void;
-};
-
-type InternalDataGridProps = TypeDataGridProps & {
-  /** Injected by the optional search package; intentionally not public API. */
-  __rdgSearchController?: InternalSearchController;
-  /** Injected by the optional column-visibility package; not public API. */
-  __rdgColumnVisibilityController?: InternalColumnVisibilityController;
-};
-
-let publicPropsCache:
-  | WeakMap<InternalDataGridProps, InternalDataGridProps>
-  | undefined;
-
-function getPublicProps(
-  internalProps: InternalDataGridProps
-): InternalDataGridProps {
-  const cache =
-    publicPropsCache ??
-    (publicPropsCache = new WeakMap<
-      InternalDataGridProps,
-      InternalDataGridProps
-    >());
-  const cached = cache.get(internalProps);
-  if (cached) return cached;
-
-  const publicProps = { ...internalProps };
-  delete publicProps.__rdgSearchController;
-  delete publicProps.__rdgColumnVisibilityController;
-  cache.set(internalProps, publicProps);
-  return publicProps;
-}
-
-let nextGridId = 1;
-
-function resolveStateAction<T>(
-  action: React.SetStateAction<T>,
-  previous: T
-): T {
-  return typeof action === "function"
-    ? (action as (prevState: T) => T)(previous)
-    : action;
-}
-
-function resolveFilterTypeName(
-  column: TypeColumn | undefined,
-  entry?: TypeSingleFilterValue
-): string {
-  return (
-    entry?.type ??
-    column?.filterType ??
-    (typeof (column as any)?.type === "string"
-      ? ((column as any).type as string)
-      : undefined) ??
-    "string"
-  );
-}
-
-function resolveDefaultFilterOperator(
-  filterType: string,
-  entry?: TypeSingleFilterValue
-): string {
-  if (entry?.operator) return entry.operator;
-  if (filterType === "number") return "gte";
-  if (filterType === "select") return "eq";
-  if (filterType === "bool" || filterType === "boolean") return "eq";
-  if (filterType === "date" || filterType === "time") return "afterOrOn";
-  return "contains";
-}
-
-function getColumnHeaderText(
-  column: TypeColumn,
-  skipHeaderOnAutoSize: boolean
-): string {
-  if (skipHeaderOnAutoSize) return "";
-  if (typeof column.header === "string") return column.header;
-  if (typeof column.name === "string") return column.name;
-  if (typeof column.id === "string") return column.id;
-  return "";
-}
-
-function getKnownTextColumnHeader(column: TypeColumn): string {
-  if (
-    typeof (column as { renderHeader?: unknown }).renderHeader === "function"
-  ) {
-    return "";
-  }
-  if (typeof column.header === "string") return column.header;
-  if (column.header != null) return "";
-  if (typeof column.name === "string") return column.name;
-  if (typeof column.id === "string") return column.id;
-  return "";
-}
-
-function getColumnWidthBounds(
-  column: TypeColumn,
-  defaultMinWidth = 40,
-  defaultMaxWidth: number | null = null
-): {
-  minWidth: number;
-  maxWidth: number;
-} {
-  const minWidth =
-    typeof column.minWidth === "number" &&
-    Number.isFinite(column.minWidth) &&
-    column.minWidth >= 0
-      ? column.minWidth
-      : defaultMinWidth;
-  const normalizedDefaultMaxWidth =
-    typeof defaultMaxWidth === "number" &&
-    Number.isFinite(defaultMaxWidth) &&
-    defaultMaxWidth >= minWidth
-      ? defaultMaxWidth
-      : Number.MAX_SAFE_INTEGER;
-  const maxWidth =
-    typeof column.maxWidth === "number" &&
-    Number.isFinite(column.maxWidth) &&
-    column.maxWidth > 0
-      ? Math.max(minWidth, column.maxWidth)
-      : normalizedDefaultMaxWidth;
-
-  return { minWidth, maxWidth };
-}
-
-function estimateColumnContentWidth(args: {
-  column: TypeColumn;
-  rows: any[];
-  skipHeaderOnAutoSize: boolean;
-  columnMinWidth?: number;
-  columnMaxWidth?: number | null;
-}): number {
-  const { column, rows, skipHeaderOnAutoSize, columnMinWidth, columnMaxWidth } =
-    args;
-  const columnId = getColumnId(column);
-  const { minWidth, maxWidth } = getColumnWidthBounds(
-    column,
-    columnMinWidth,
-    columnMaxWidth
-  );
-  const header = getColumnHeaderText(column, skipHeaderOnAutoSize);
-  const values = rows.map((row) => (row as any)?.[columnId]);
-
-  return clamp(estimateAutoWidth({ header, values }), minWidth, maxWidth);
-}
-
-function resolveBaseColumnWidth(args: {
-  column: TypeColumn;
-  rows: any[];
-  enableColumnAutosize: boolean;
-  skipHeaderOnAutoSize: boolean;
-  columnDefaultWidth: number;
-  columnMinWidth: number;
-  columnMaxWidth: number | null;
-}): number {
-  const {
-    column,
-    rows,
-    enableColumnAutosize,
-    skipHeaderOnAutoSize,
-    columnDefaultWidth,
-    columnMinWidth,
-    columnMaxWidth,
-  } = args;
-  const explicit = column.width ?? column.defaultWidth;
-  const { minWidth, maxWidth } = getColumnWidthBounds(
-    column,
-    columnMinWidth,
-    columnMaxWidth
-  );
-
-  if (
-    typeof explicit === "number" &&
-    Number.isFinite(explicit) &&
-    explicit > 0
-  ) {
-    return clamp(explicit, minWidth, maxWidth);
-  }
-
-  if (enableColumnAutosize) {
-    return estimateColumnContentWidth({
-      column,
-      rows,
-      skipHeaderOnAutoSize,
-      columnMinWidth,
-      columnMaxWidth,
-    });
-  }
-
-  return clamp(columnDefaultWidth, minWidth, maxWidth);
-}
-
-function ensureLastColumnHeaderFits(args: {
-  column: TypeColumn;
-  baseWidth: number;
-  showColumnMenuTool: boolean;
-  columnMinWidth: number;
-  columnMaxWidth: number | null;
-}): number {
-  const {
-    column,
-    baseWidth,
-    showColumnMenuTool,
-    columnMinWidth,
-    columnMaxWidth,
-  } = args;
-  const header = getKnownTextColumnHeader(column);
-  if (!header) return baseWidth;
-
-  const { minWidth, maxWidth } = getColumnWidthBounds(
-    column,
-    columnMinWidth,
-    columnMaxWidth
-  );
-  const sortControlWidth = column.sortable === false ? 0 : 24;
-  const menuControlWidth = showColumnMenuTool ? 36 : 0;
-  const headerWidth =
-    estimateAutoWidth({ header, values: [] }) +
-    sortControlWidth +
-    menuControlWidth;
-
-  return clamp(Math.max(baseWidth, headerWidth), minWidth, maxWidth);
-}
 
 function ReactDataGrid(props: TypeDataGridProps) {
   const internalProps = props as InternalDataGridProps;
@@ -1428,7 +416,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     allowMobileTransform && isMobileViewport && !editable && !hasColumnEditing;
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
-  const gridIdRef = React.useRef<number>(nextGridId++);
+  const gridIdRef = React.useRef<number>(allocateGridId());
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [portalContainer, setPortalContainer] =
     React.useState<HTMLDivElement | null>(null);
@@ -1601,6 +589,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     shiftKey: false,
   });
 
+  // Read off props once, so the callback below depends on this one function
+  // rather than on the whole `props` object.
+  const onSelectionChange = props.onSelectionChange;
   const emitSelectionChange = React.useCallback(
     (
       nextSelected: TypeRowSelection,
@@ -1617,7 +608,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       if (!controlledSelected) setInternalSelected(nextSelected);
       if (!controlledUnselected) setInternalUnselected(nextUnselected);
 
-      props.onSelectionChange?.({
+      onSelectionChange?.({
         selected: nextSelected,
         data: meta?.data,
         unselected: nextUnselected,
@@ -1628,7 +619,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       controlledSelected,
       controlledUnselected,
       dataSource,
-      props,
+      // Depends on the one callback this reads, not the whole props object. A
+      // parent re-render always mints a new `props`, which rebuilt this while
+      // the row-height callbacks (keyed on `rowModel`) stayed cached — and the
+      // opposite happened on sort. Alternating the two left every render's
+      // scope holding a callback from a different render, so no generation was
+      // ever collectable.
+      onSelectionChange,
       selectionEnabled,
     ]
   );
@@ -2027,320 +1024,48 @@ function ReactDataGrid(props: TypeDataGridProps) {
     () => toTanStackRowSelectionState(selectedMap),
     [selectedMap]
   );
-  const [loadingStore] = React.useState(createLoadingStore);
-  const controlledLoadingRef = React.useRef(props.loading);
-  const loadMountedRef = React.useRef(false);
-  const loading = loadingStore.getEffective(props.loading);
-  React.useLayoutEffect(() => {
-    controlledLoadingRef.current = props.loading;
-  }, [props.loading]);
-  const setInternalLoading = React.useCallback(
-    (nextLoading: boolean) => {
-      loadingStore.setAutomatic(nextLoading);
-      if (apiRef.current) {
-        apiRef.current.computedLoading = loadingStore.getEffective(
-          controlledLoadingRef.current
-        );
-      }
-    },
-    [loadingStore]
-  );
-
-  const columnsForDs = React.useMemo(() => {
-    return checkboxEnabled
-      ? orderedColumns.filter((c) => getColumnId(c) !== checkboxColId)
-      : orderedColumns;
-  }, [checkboxColId, checkboxEnabled, orderedColumns]);
-  const computedFilterForFetch = React.useMemo(
-    () => resolveFilterValueForColumns(filterValue, columnsForDs),
-    [columnsForDs, filterValue]
-  );
-  const computedSortForFetch = sortInfo;
-
-  const columnOrderForDs = React.useMemo(() => {
-    return checkboxEnabled
-      ? stripFromOrder(effectiveColumnOrder, checkboxColId)
-      : effectiveColumnOrder;
-  }, [checkboxColId, checkboxEnabled, effectiveColumnOrder]);
-  const dataSourceColumnOrder = React.useMemo(
-    () => columnsForDs.map((column) => getColumnId(column)),
-    [columnsForDs]
-  );
-
-  const loadData = React.useCallback(async () => {
-    if (!loadMountedRef.current) return;
-
-    const requestId = ++loadRequestIdRef.current;
-    loadAbortControllerRef.current?.abort();
-    const requestAbortController =
-      remoteDataSource && typeof AbortController !== "undefined"
-        ? new AbortController()
-        : null;
-    loadAbortControllerRef.current = requestAbortController;
-
-    if (remoteDataSource) {
-      setInternalLoading(true);
-    } else {
-      setInternalLoading(false);
-    }
-
-    try {
-      if (Array.isArray(dataSource)) {
-        let data = dataSource;
-
-        if (searchActive && searchFilterRows) {
-          data = searchFilterRows(data, inputColumns);
-        }
-
-        if (activeLocalFilter) {
-          data = applyLocalFilter(data, localFilterValue, {
-            filterTypes,
-            columns: orderedColumns,
-          });
-        }
-        if (localSortInfo) {
-          data = applyLocalSort(
-            data,
-            localSortInfo,
-            orderedColumns,
-            sortFunctions
-          );
-        }
-
-        const totalCount = data.length;
-
-        const sliced = localPagination
-          ? data.slice(loadSkip, loadSkip + limit)
-          : data;
-
-        setRows(sliced);
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
-        return;
-      }
-
-      const ds = dataSource;
-
-      const dsIsFn = typeof ds === "function";
-      const dsArg: TypeDataSourceArgs = {
-        ...(remotePagination && dsIsFn ? { skip: loadSkip, limit } : {}),
-        sortInfo: computedSortForFetch,
-        filterValue: computedFilterForFetch,
-        columnOrder: dataSourceColumnOrder,
-        columns: columnsForDs,
-        idProperty,
-        theme: themeName,
-        ...(searchConnected ? { searchValue } : {}),
-      };
-      if (requestAbortController) {
-        // Preserve the long-standing enumerable request-key contract while
-        // exposing cancellation as an opt-in extension.
-        Object.defineProperty(dsArg, "signal", {
-          configurable: true,
-          enumerable: false,
-          value: requestAbortController.signal,
-        });
-      }
-
-      let result: any;
-
-      try {
-        result = dsIsFn ? ds(dsArg) : ds;
-
-        if (result && typeof result.then === "function") {
-          result = await result;
-        }
-      } catch {
-        // Remote data-source failures have no public error callback. Preserve
-        // the last committed rows and contain the rejected request here.
-        return;
-      }
-
-      if (!loadMountedRef.current || requestId !== loadRequestIdRef.current) {
-        return;
-      }
-
-      const transformStaticPromiseRows = <Row,>(snapshot: Row[]): Row[] => {
-        // A bare static Promise can still act as a locally composable snapshot
-        // when pagination is disabled or explicitly local. With
-        // pagination=true/"remote", all Promise/function results are
-        // authoritative remote pages and must not be transformed or sliced.
-        if (
-          dsIsFn ||
-          (paginationMode !== false && paginationMode !== "local")
-        ) {
-          return snapshot;
-        }
-
-        let data = snapshot;
-
-        if (searchActive && searchFilterRows) {
-          data = searchFilterRows(data, inputColumns);
-        }
-        if (activeLocalFilter) {
-          data = applyLocalFilter(data, localFilterValue, {
-            filterTypes,
-            columns: orderedColumns,
-          });
-        }
-        if (localSortInfo) {
-          data = applyLocalSort(
-            data,
-            localSortInfo,
-            orderedColumns,
-            sortFunctions
-          );
-        }
-
-        return data;
-      };
-
-      if (result && typeof result === "object" && Array.isArray(result.data)) {
-        // A count-bearing Promise payload represents an authoritative remote
-        // page unless pagination is explicitly local.
-        const resultData = dsIsFn
-          ? result.data
-          : localPagination
-            ? transformStaticPromiseRows(result.data)
-            : result.data;
-        const staticPromiseHasLocalPredicate =
-          !dsIsFn && localPagination && (searchActive || activeLocalFilter);
-        const reportedCount = Number(
-          staticPromiseHasLocalPredicate
-            ? resultData.length
-            : (result.count ?? resultData.length)
-        );
-        const totalCount = Number.isFinite(reportedCount)
-          ? reportedCount
-          : resultData.length;
-        const nextRows = localPagination
-          ? resultData.slice(loadSkip, loadSkip + limit)
-          : resultData;
-
-        setRows(nextRows);
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
-      } else if (Array.isArray(result)) {
-        const resultData = transformStaticPromiseRows(result);
-        const totalCount = resultData.length;
-        const nextRows = localPagination
-          ? resultData.slice(loadSkip, loadSkip + limit)
-          : resultData;
-
-        setRows(nextRows);
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
-      } else {
-        setRows([]);
-        setCount(0);
-        notifyFilteredRowsCount(0);
-      }
-    } finally {
-      if (
-        remoteDataSource &&
-        loadMountedRef.current &&
-        requestId === loadRequestIdRef.current
-      ) {
-        loadAbortControllerRef.current = null;
-        setInternalLoading(false);
-      }
-    }
-  }, [
-    dataSource,
+  const {
+    columnOrderForDs,
+    controlledLoadingRef,
+    loading,
+    loadingStore,
+    reload,
+  } = useGridDataLoader({
     activeLocalFilter,
-    computedFilterForFetch,
-    computedSortForFetch,
-    localSortInfo,
-    notifyFilteredRowsCount,
+    apiRef,
+    checkboxColId,
+    checkboxEnabled,
+    controlledLoading: props.loading,
+    dataSource,
+    draftFilterValue,
+    effectiveColumnOrder,
+    filterTypes,
+    filterValue,
     idProperty,
     inputColumns,
     limit,
-    localPagination,
+    loadAbortControllerRef,
+    loadRequestIdRef,
     loadSkip,
+    localFilterValue,
+    localPagination,
+    localSortInfo,
+    notifyFilteredRowsCount,
     orderedColumns,
     paginationMode,
     remoteDataSource,
     remotePagination,
-    themeName,
-    dataSourceColumnOrder,
-    columnsForDs,
-    filterTypes,
-    localFilterValue,
     searchActive,
     searchConnected,
     searchFilterRows,
     searchValue,
-    setInternalLoading,
+    setCount,
+    setFilterValue,
+    setRows,
     sortFunctions,
-  ]);
-
-  React.useLayoutEffect(() => {
-    loadMountedRef.current = true;
-
-    return () => {
-      loadMountedRef.current = false;
-      loadRequestIdRef.current += 1;
-      loadAbortControllerRef.current?.abort();
-      loadAbortControllerRef.current = null;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  const reload = React.useCallback(() => {
-    void loadData();
-  }, [loadData]);
-
-  const filterCommitDelay = React.useMemo(() => {
-    const committedEntries = new Map(
-      (filterValue ?? []).map((entry) => [entry.name, entry])
-    );
-    const changedEntry = (draftFilterValue ?? []).find((entry) => {
-      const committed = committedEntries.get(entry.name);
-      return (
-        !committed ||
-        committed.operator !== entry.operator ||
-        committed.type !== entry.type ||
-        committed.active !== entry.active ||
-        !Object.is(committed.value, entry.value)
-      );
-    });
-    const removedEntry = (filterValue ?? []).find(
-      (entry) =>
-        !(draftFilterValue ?? []).some(
-          (draftEntry) => draftEntry.name === entry.name
-        )
-    );
-    const changedName = changedEntry?.name ?? removedEntry?.name;
-    const changedColumn = changedName
-      ? orderedColumns.find((column) => {
-          const columnId = getColumnId(column);
-          return (
-            columnId === changedName ||
-            column.name === changedName ||
-            column.filterName === changedName
-          );
-        })
-      : undefined;
-    const delay = changedColumn?.filterDelay;
-
-    if (delay === false || delay === 0) return 0;
-    return typeof delay === "number" && Number.isFinite(delay)
-      ? Math.max(0, delay)
-      : 250;
-  }, [draftFilterValue, filterValue, orderedColumns]);
-
-  React.useEffect(() => {
-    if (Object.is(draftFilterValue, filterValue)) return;
-
-    const handle = window.setTimeout(() => {
-      setFilterValue(draftFilterValue);
-    }, filterCommitDelay);
-
-    return () => window.clearTimeout(handle);
-  }, [draftFilterValue, filterCommitDelay, filterValue, setFilterValue]);
+    sortInfo,
+    themeName,
+  });
 
   const autosizeSample = React.useMemo(() => {
     if (Array.isArray(dataSource)) {
@@ -2587,758 +1312,88 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- selection helpers ---------------- */
 
-  const selectableCellColumnIndexes = React.useMemo(
-    () =>
-      orderedColumns.flatMap((column, columnIndex) =>
-        getColumnId(column) !== checkboxColId && column.cellSelectable !== false
-          ? [columnIndex]
-          : []
-      ),
-    [checkboxColId, orderedColumns]
-  );
-  const normalizeActiveCell = React.useCallback(
-    (cell: TypeActiveCell): TypeActiveCell => {
-      if (
-        !cellSelectionEnabled ||
-        cell == null ||
-        rows.length === 0 ||
-        selectableCellColumnIndexes.length === 0
-      ) {
-        return null;
-      }
-
-      const rowIndex = clamp(Math.trunc(cell[0]), 0, rows.length - 1);
-      const requestedColumnIndex = clamp(
-        Math.trunc(cell[1]),
-        0,
-        orderedColumns.length - 1
-      );
-      const columnIndex = selectableCellColumnIndexes.reduce(
-        (best, candidate) =>
-          Math.abs(candidate - requestedColumnIndex) <
-          Math.abs(best - requestedColumnIndex)
-            ? candidate
-            : best,
-        selectableCellColumnIndexes[0]!
-      );
-      return [rowIndex, columnIndex];
-    },
-    [
-      cellSelectionEnabled,
-      orderedColumns.length,
-      rows.length,
-      selectableCellColumnIndexes,
-    ]
-  );
-  const normalizedActiveCell = React.useMemo(
-    () => normalizeActiveCell(activeCellState),
-    [activeCellState, normalizeActiveCell]
-  );
-  const previousActiveCellStateRef =
-    React.useRef<TypeActiveCell>(activeCellState);
-  const getCellSelectionKey = React.useCallback(
-    (rowIndex: number, columnIndex: number) => {
-      if (cellSelectionByIndex) return `${rowIndex},${columnIndex}`;
-      const row = rows[rowIndex];
-      const column = orderedColumns[columnIndex];
-      if (!row || !column) return "";
-      return `${getRowKey(row, rowIndex)},${getColumnId(column)}`;
-    },
-    [cellSelectionByIndex, getRowKey, orderedColumns, rows]
-  );
-  const isCellSelected = React.useCallback(
-    (rowIndex: number, columnIndex: number) => {
-      const key = getCellSelectionKey(rowIndex, columnIndex);
-      return Boolean(key && cellSelectionState?.[key]);
-    },
-    [cellSelectionState, getCellSelectionKey]
-  );
-  const activeCellIdentityRef = React.useRef<{
-    rowId: string;
-    columnId: string;
-  } | null>(null);
-  const setActiveCellCompat = React.useCallback(
-    (nextCell: TypeActiveCell) => {
-      const next = normalizeActiveCell(nextCell);
-      pendingActiveCellRef.current = next;
-      if (next) {
-        const row = rows[next[0]];
-        const column = orderedColumns[next[1]];
-        activeCellIdentityRef.current =
-          row && column
-            ? {
-                rowId: getRowKey(row, next[0]),
-                columnId: getColumnId(column),
-              }
-            : null;
-      } else {
-        activeCellIdentityRef.current = null;
-      }
-      if (
-        next?.[0] === normalizedActiveCell?.[0] &&
-        next?.[1] === normalizedActiveCell?.[1]
-      ) {
-        return;
-      }
-      setActiveCellState(next);
-    },
-    [
-      getRowKey,
-      normalizeActiveCell,
-      normalizedActiveCell,
-      orderedColumns,
-      rows,
-      setActiveCellState,
-    ]
-  );
-  const queueActiveCell = React.useCallback(
-    (nextCell: TypeActiveCell) => {
-      const next = normalizeActiveCell(nextCell);
-      pendingActiveCellRef.current = next;
-      const delay =
-        typeof activeCellThrottle === "number" &&
-        Number.isFinite(activeCellThrottle)
-          ? Math.max(0, activeCellThrottle)
-          : 0;
-      if (delay === 0) {
-        setActiveCellCompat(next);
-        return;
-      }
-      if (activeCellThrottleTimerRef.current != null) return;
-      activeCellThrottleTimerRef.current = window.setTimeout(() => {
-        activeCellThrottleTimerRef.current = null;
-        setActiveCellCompat(pendingActiveCellRef.current);
-      }, delay);
-    },
-    [activeCellThrottle, normalizeActiveCell, setActiveCellCompat]
-  );
-  const selectCellRange = React.useCallback(
-    (
-      start: Exclude<TypeActiveCell, null>,
-      end: Exclude<TypeActiveCell, null>,
-      preserveCurrent = false
-    ) => {
-      const next: Record<string, boolean> = preserveCurrent
-        ? { ...(cellSelectionState ?? {}) }
-        : {};
-      const fromRow = Math.min(start[0], end[0]);
-      const toRow = Math.max(start[0], end[0]);
-      const fromColumn = Math.min(start[1], end[1]);
-      const toColumn = Math.max(start[1], end[1]);
-
-      for (let rowIndex = fromRow; rowIndex <= toRow; rowIndex += 1) {
-        for (
-          let columnIndex = fromColumn;
-          columnIndex <= toColumn;
-          columnIndex += 1
-        ) {
-          if (!selectableCellColumnIndexes.includes(columnIndex)) continue;
-          const key = getCellSelectionKey(rowIndex, columnIndex);
-          if (key) next[key] = true;
-        }
-      }
-      setCellSelectionState(next);
-    },
-    [
-      cellSelectionState,
-      getCellSelectionKey,
-      selectableCellColumnIndexes,
-      setCellSelectionState,
-    ]
-  );
-  const getCellSelectionBetweenCompat = React.useCallback(
-    (
-      start: Exclude<TypeActiveCell, null> | null = normalizedActiveCell,
-      end: Exclude<TypeActiveCell, null> | null = normalizedActiveCell
-    ) => {
-      if (!start || !end) return {};
-
-      const selection: Record<string, boolean> = {};
-      const fromRow = Math.min(start[0], end[0]);
-      const toRow = Math.max(start[0], end[0]);
-      const fromColumn = Math.min(start[1], end[1]);
-      const toColumn = Math.max(start[1], end[1]);
-
-      for (let rowIndex = fromRow; rowIndex <= toRow; rowIndex += 1) {
-        for (
-          let columnIndex = fromColumn;
-          columnIndex <= toColumn;
-          columnIndex += 1
-        ) {
-          if (!selectableCellColumnIndexes.includes(columnIndex)) continue;
-          const key = getCellSelectionKey(rowIndex, columnIndex);
-          if (key) selection[key] = true;
-        }
-      }
-
-      return selection;
-    },
-    [getCellSelectionKey, normalizedActiveCell, selectableCellColumnIndexes]
-  );
-  const incrementActiveCellCompat = React.useCallback(
-    (direction: [number, number]) => {
-      const current =
-        normalizedActiveCell ??
-        (rows.length > 0 && selectableCellColumnIndexes.length > 0
-          ? ([0, selectableCellColumnIndexes[0]!] as const)
-          : null);
-      if (!current) return;
-      setActiveCellCompat([
-        current[0] + (direction[0] ?? 0),
-        current[1] + (direction[1] ?? 0),
-      ]);
-    },
-    [
-      normalizedActiveCell,
-      rows.length,
-      selectableCellColumnIndexes,
-      setActiveCellCompat,
-    ]
-  );
-  const toggleActiveCellSelectionCompat = React.useCallback(
-    (
-      event: {
-        shiftKey?: boolean;
-        ctrlKey?: boolean;
-        metaKey?: boolean;
-      } = {}
-    ) => {
-      if (!normalizedActiveCell) return;
-
-      const preserveCurrent =
-        cellMultiSelect && Boolean(event.ctrlKey || event.metaKey);
-      if (cellMultiSelect && event.shiftKey && cellSelectionAnchorRef.current) {
-        const range = getCellSelectionBetweenCompat(
-          cellSelectionAnchorRef.current,
-          normalizedActiveCell
-        );
-        setCellSelectionState(
-          preserveCurrent ? { ...(cellSelectionState ?? {}), ...range } : range
-        );
-        return;
-      }
-
-      const key = getCellSelectionKey(
-        normalizedActiveCell[0],
-        normalizedActiveCell[1]
-      );
-      if (!key) return;
-      const next = preserveCurrent ? { ...(cellSelectionState ?? {}) } : {};
-      if (cellSelectionState?.[key]) delete next[key];
-      else next[key] = true;
-      cellSelectionAnchorRef.current = normalizedActiveCell;
-      setCellSelectionState(next);
-    },
-    [
-      cellMultiSelect,
-      cellSelectionState,
-      getCellSelectionBetweenCompat,
-      getCellSelectionKey,
-      normalizedActiveCell,
-      setCellSelectionState,
-    ]
-  );
-  const handleCellSelectionPointer = React.useCallback(
-    (
-      rowIndex: number,
-      columnIndex: number,
-      event: Pick<
-        React.PointerEvent<HTMLTableCellElement>,
-        "button" | "ctrlKey" | "metaKey" | "shiftKey"
-      >
-    ) => {
-      if (!cellSelectionEnabled || event.button !== 0) return;
-      if (!selectableCellColumnIndexes.includes(columnIndex)) return;
-      const next = normalizeActiveCell([rowIndex, columnIndex]);
-      if (!next) return;
-
-      const additive = cellMultiSelect && (event.ctrlKey || event.metaKey);
-      if (cellMultiSelect && event.shiftKey && cellSelectionAnchorRef.current) {
-        selectCellRange(cellSelectionAnchorRef.current, next, additive);
-      } else {
-        const key = getCellSelectionKey(next[0], next[1]);
-        const currentSelected = Boolean(key && cellSelectionState?.[key]);
-        const selection = additive ? { ...(cellSelectionState ?? {}) } : {};
-        if (currentSelected && toggleCellSelectOnClick) {
-          delete selection[key];
-        } else {
-          selection[key] = true;
-        }
-        setCellSelectionState(selection);
-        cellSelectionAnchorRef.current = next;
-      }
-      queueActiveCell(next);
-    },
-    [
-      cellSelectionEnabled,
-      cellSelectionState,
-      cellMultiSelect,
-      getCellSelectionKey,
-      normalizeActiveCell,
-      queueActiveCell,
-      selectCellRange,
-      selectableCellColumnIndexes,
-      setCellSelectionState,
-      toggleCellSelectOnClick,
-    ]
-  );
-
-  React.useLayoutEffect(() => {
-    const previousState = previousActiveCellStateRef.current;
-    const stateCoordinatesChanged =
-      previousState?.[0] !== activeCellState?.[0] ||
-      previousState?.[1] !== activeCellState?.[1];
-    previousActiveCellStateRef.current = activeCellState;
-
-    if (!normalizedActiveCell) {
-      activeCellIdentityRef.current = null;
-      return;
-    }
-    const [rowIndex, columnIndex] = normalizedActiveCell;
-    const row = rows[rowIndex];
-    const column = orderedColumns[columnIndex];
-    if (!row || !column) return;
-    const currentIdentity = {
-      rowId: getRowKey(row, rowIndex),
-      columnId: getColumnId(column),
-    };
-    const stateNeedsNormalization =
-      activeCellState?.[0] !== normalizedActiveCell[0] ||
-      activeCellState?.[1] !== normalizedActiveCell[1];
-    // Controlled consumers can intentionally move the active cell. Treat an
-    // explicit coordinate change as authoritative; identity preservation below
-    // is reserved for data and column transformations.
-    if (stateCoordinatesChanged) {
-      activeCellIdentityRef.current = currentIdentity;
-      if (stateNeedsNormalization) {
-        setActiveCellState(normalizedActiveCell);
-      }
-      return;
-    }
-    const previousIdentity = activeCellIdentityRef.current;
-    if (!previousIdentity) {
-      activeCellIdentityRef.current = currentIdentity;
-      return;
-    }
-    if (
-      previousIdentity.rowId === currentIdentity.rowId &&
-      previousIdentity.columnId === currentIdentity.columnId
-    ) {
-      if (stateNeedsNormalization) {
-        setActiveCellState(normalizedActiveCell);
-      }
-      return;
-    }
-    const nextRowIndex = rows.findIndex(
-      (candidate, index) =>
-        getRowKey(candidate, index) === previousIdentity.rowId
-    );
-    const nextColumnIndex = orderedColumns.findIndex(
-      (candidate) => getColumnId(candidate) === previousIdentity.columnId
-    );
-    if (nextRowIndex >= 0 && nextColumnIndex >= 0) {
-      setActiveCellState([nextRowIndex, nextColumnIndex]);
-      return;
-    }
-    activeCellIdentityRef.current = currentIdentity;
-    if (stateNeedsNormalization) {
-      setActiveCellState(normalizedActiveCell);
-    }
-  }, [
-    activeCellState,
-    getRowKey,
+  const {
+    commitRowSelection,
+    deselectAllRows,
+    getCellSelectionBetweenCompat,
+    getCellSelectionKey,
+    handleCellSelectionPointer,
+    handleRowClick,
+    incrementActiveCellCompat,
+    incrementActiveIndex,
+    isCellSelected,
     normalizedActiveCell,
-    orderedColumns,
-    rows,
-    setActiveCellState,
-  ]);
-
-  const normalizedActiveIndex =
-    enableKeyboardNavigation && rows.length > 0
-      ? clamp(activeIndexState, -1, rows.length - 1)
-      : -1;
-
-  const setActiveIndexCompat = React.useCallback(
-    (nextActiveIndex: number) => {
-      if (!enableKeyboardNavigation || Number.isNaN(nextActiveIndex)) return;
-
-      const normalized =
-        rows.length === 0
-          ? -1
-          : nextActiveIndex < 0
-            ? -1
-            : clamp(Math.trunc(nextActiveIndex), 0, rows.length - 1);
-      pendingActiveIndexRef.current = normalized;
-      if (normalized === normalizedActiveIndex) return;
-      setActiveIndexState(normalized);
-    },
-    [
-      enableKeyboardNavigation,
-      normalizedActiveIndex,
-      rows.length,
-      setActiveIndexState,
-    ]
-  );
-
-  const incrementActiveIndex = React.useCallback(
-    (increment: number) => {
-      if (!enableKeyboardNavigation || rows.length === 0) return;
-
-      const base = pendingActiveIndexRef.current ?? normalizedActiveIndex;
-      const next = clamp(base + increment, 0, rows.length - 1);
-      const delay =
-        typeof activeIndexThrottle === "number" &&
-        Number.isFinite(activeIndexThrottle)
-          ? Math.max(0, activeIndexThrottle)
-          : 0;
-
-      pendingActiveIndexRef.current = next;
-      if (delay === 0) {
-        setActiveIndexCompat(next);
-        return;
-      }
-
-      if (activeIndexThrottleTimerRef.current != null) return;
-      activeIndexThrottleTimerRef.current = window.setTimeout(() => {
-        activeIndexThrottleTimerRef.current = null;
-        const pending = pendingActiveIndexRef.current;
-        if (pending != null) setActiveIndexCompat(pending);
-      }, delay);
-    },
-    [
-      activeIndexThrottle,
-      enableKeyboardNavigation,
-      normalizedActiveIndex,
-      rows.length,
-      setActiveIndexCompat,
-    ]
-  );
-
-  React.useEffect(() => {
-    pendingActiveIndexRef.current = normalizedActiveIndex;
-  }, [normalizedActiveIndex]);
-
-  const clearSelectionRange = React.useCallback(() => {
-    selectionRangeBaseRef.current = null;
-  }, []);
-
-  const commitRowSelection = React.useCallback(
-    (
-      rowIndex: number,
-      options: {
-        checked?: boolean;
-        ctrlKey?: boolean;
-        metaKey?: boolean;
-        shiftKey?: boolean;
-        fromCheckbox?: boolean;
-      } = {}
-    ) => {
-      if (!selectionEnabled) return;
-      const row = rows[rowIndex];
-      if (!row) return;
-
-      const rowId = getRowKey(row, rowIndex);
-      const isSelected = Boolean(selectedMap[rowId]);
-      const ctrlKey = Boolean(options.ctrlKey || options.metaKey);
-      const shiftKey = Boolean(options.shiftKey);
-
-      if (!multiSelect) {
-        const shouldSelect =
-          options.checked ??
-          (isSelected && (ctrlKey || toggleRowSelectOnClick) ? false : true);
-        emitSelectionChange(shouldSelect ? rowId : null, { data: row });
-        lastSelectedIndexRef.current = shouldSelect ? rowIndex : null;
-        clearSelectionRange();
-        return;
-      }
-
-      if (
-        shiftKey &&
-        lastSelectedIndexRef.current != null &&
-        (!options.fromCheckbox || checkboxSelectEnableShiftKey)
-      ) {
-        const base =
-          selectionRangeBaseRef.current ??
-          (normalizedSelected === true ? {} : { ...selectedMap });
-        selectionRangeBaseRef.current = { ...base };
-        const next = { ...base };
-        const from = Math.min(lastSelectedIndexRef.current, rowIndex);
-        const to = Math.max(lastSelectedIndexRef.current, rowIndex);
-        const checked = options.checked ?? true;
-
-        for (let index = from; index <= to; index += 1) {
-          const rangeRow = rows[index];
-          if (!rangeRow) continue;
-          const rangeId = getRowKey(rangeRow, index);
-          if (checked) next[rangeId] = rangeRow;
-          else delete next[rangeId];
-        }
-
-        emitSelectionChange(next, {
-          data: rows.slice(from, to + 1),
-        });
-        return;
-      }
-
-      clearSelectionRange();
-      lastSelectedIndexRef.current = rowIndex;
-
-      const shouldToggle =
-        options.checked === undefined &&
-        (ctrlKey ||
-          (toggleRowSelectOnClick &&
-            Object.keys(selectedMap).length === 1 &&
-            isSelected));
-      const shouldSelect =
-        options.checked ?? (shouldToggle ? !isSelected : true);
-
-      if (normalizedSelected === true && (ctrlKey || options.fromCheckbox)) {
-        const nextUnselected = { ...(unselected ?? {}) };
-        if (shouldSelect) delete nextUnselected[rowId];
-        else nextUnselected[rowId] = true;
-        emitSelectionChange(true, {
-          data: row,
-          unselected: nextUnselected,
-        });
-        return;
-      }
-
-      const next =
-        shouldToggle || options.fromCheckbox ? { ...selectedMap } : {};
-      if (shouldSelect) next[rowId] = row;
-      else delete next[rowId];
-      emitSelectionChange(next, { data: row });
-    },
-    [
-      checkboxSelectEnableShiftKey,
-      clearSelectionRange,
-      emitSelectionChange,
-      getRowKey,
-      multiSelect,
-      rows,
-      normalizedSelected,
-      selectedMap,
-      selectionEnabled,
-      toggleRowSelectOnClick,
-      unselected,
-    ]
-  );
-
-  const selectAllRows = React.useCallback(() => {
-    if (!selectionEnabled || rows.length === 0) return;
-
-    if (!multiSelect) {
-      emitSelectionChange(getRowKey(rows[0], 0), { data: rows[0] });
-      return;
-    }
-
-    clearSelectionRange();
-    if (paginationMode !== false || !Array.isArray(dataSource)) {
-      emitSelectionChange(true, { data: rows, unselected: null });
-      return;
-    }
-
-    const next: Record<string, any> = {};
-    rows.forEach((row, index) => {
-      next[getRowKey(row, index)] = row;
-    });
-    emitSelectionChange(next, { data: rows });
-  }, [
-    clearSelectionRange,
+    normalizedActiveIndex,
+    queueActiveCell,
+    selectAllRows,
+    selectCellRange,
+    selectableCellColumnIndexes,
+    setActiveCellCompat,
+    setActiveIndexCompat,
+    toggleActiveCellSelectionCompat,
+  } = useGridSelection({
+    activeCellState,
+    activeCellThrottle,
+    activeCellThrottleTimerRef,
+    activeIndexState,
+    activeIndexThrottle,
+    activeIndexThrottleTimerRef,
+    cellMultiSelect,
+    cellSelectionAnchorRef,
+    cellSelectionByIndex,
+    cellSelectionEnabled,
+    cellSelectionState,
+    checkboxColId,
+    checkboxOnlyRowSelect,
+    checkboxSelectEnableShiftKey,
     dataSource,
     emitSelectionChange,
+    enableKeyboardNavigation,
     getRowKey,
+    lastSelectedIndexRef,
     multiSelect,
+    normalizedSelected,
+    orderedColumns,
     paginationMode,
+    pendingActiveCellRef,
+    pendingActiveIndexRef,
     rows,
+    selectedMap,
     selectionEnabled,
-  ]);
-
-  const deselectAllRows = React.useCallback(() => {
-    if (!selectionEnabled) return;
-    clearSelectionRange();
-    lastSelectedIndexRef.current = null;
-    emitSelectionChange(multiSelect ? {} : null, {
-      data: rows,
-      unselected: null,
-    });
-  }, [
-    clearSelectionRange,
-    emitSelectionChange,
-    multiSelect,
-    rows,
-    selectionEnabled,
-  ]);
-
-  const handleRowClick = React.useCallback(
-    (
-      rowId: string,
-      rowData: any,
-      rowIndex: number,
-      event: React.MouseEvent
-    ) => {
-      void rowId;
-      void rowData;
-
-      const interactiveTarget = isInteractiveClickTarget(event.target as any);
-      if (!interactiveTarget) {
-        surfaceRef.current?.focus({ preventScroll: true });
-      }
-      setActiveIndexCompat(rowIndex);
-
-      if (!selectionEnabled || checkboxOnlyRowSelect || interactiveTarget) {
-        return;
-      }
-
-      commitRowSelection(rowIndex, {
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-      });
-    },
-    [
-      checkboxOnlyRowSelect,
-      commitRowSelection,
-      selectionEnabled,
-      setActiveIndexCompat,
-    ]
-  );
+    selectionRangeBaseRef,
+    setActiveCellState,
+    setActiveIndexState,
+    setCellSelectionState,
+    surfaceRef,
+    toggleCellSelectOnClick,
+    toggleRowSelectOnClick,
+    unselected,
+  });
 
   /** ---------------- filter operator menu state ---------------- */
 
-  const [openFilterMenuColId, setOpenFilterMenuColId] = React.useState<
-    string | null
-  >(null);
-  const filterContextMenuOnHideRef = React.useRef<(() => void) | null>(null);
-  const hideColumnFilterContextMenu = React.useCallback(() => {
-    setOpenFilterMenuColId(null);
-    const onHide = filterContextMenuOnHideRef.current;
-    filterContextMenuOnHideRef.current = null;
-    onHide?.();
-  }, []);
-  const setOpenFilterContextMenuColumn = React.useCallback(
-    (columnId: string | null) => {
-      if (columnId == null) {
-        hideColumnFilterContextMenu();
-      } else {
-        setOpenFilterMenuColId(columnId);
-      }
-    },
-    [hideColumnFilterContextMenu]
-  );
-  const [columnContextMenu, setColumnContextMenu] =
-    React.useState<OpenColumnContextMenu | null>(null);
-  const [rowContextMenu, setRowContextMenu] =
-    React.useState<OpenRowContextMenu | null>(null);
-  const [columnVisibilityMenuOpen, setColumnVisibilityMenuOpen] =
-    React.useState(false);
-  const columnContextMenuRef = React.useRef(columnContextMenu);
-  const rowContextMenuRef = React.useRef(rowContextMenu);
-  columnContextMenuRef.current = columnContextMenu;
-  rowContextMenuRef.current = rowContextMenu;
-
-  const hideColumnContextMenu = React.useCallback(() => {
-    const current = columnContextMenuRef.current;
-    if (!current) return;
-    columnContextMenuRef.current = null;
-    setColumnContextMenu(null);
-    setColumnVisibilityMenuOpen(false);
-    current.onHide?.();
-  }, []);
-
-  const hideRowContextMenu = React.useCallback(() => {
-    const current = rowContextMenuRef.current;
-    if (!current) return;
-    rowContextMenuRef.current = null;
-    setRowContextMenu(null);
-    current.onHide?.();
-  }, []);
-
-  const showColumnContextMenu = React.useCallback(
-    (
-      alignTo: HTMLElement | { left: number; top: number },
-      cellProps: TypeCellProps,
-      _config?: { computedVisibleIndex?: number },
-      onHide?: () => void,
-      restoreFocusTo?: HTMLElement | null
-    ) => {
-      hideColumnContextMenu();
-      hideRowContextMenu();
-      hideColumnFilterContextMenu();
-      setColumnVisibilityMenuOpen(false);
-      const next = {
-        alignTo,
-        cellProps,
-        restoreFocusTo:
-          restoreFocusTo ??
-          (alignTo instanceof HTMLElement ? alignTo : surfaceRef.current),
-        onHide,
-      };
-      columnContextMenuRef.current = next;
-      setColumnContextMenu(next);
-    },
-    [hideColumnContextMenu, hideColumnFilterContextMenu, hideRowContextMenu]
-  );
-
-  const showRowContextMenu = React.useCallback(
-    (
-      alignTo: HTMLElement | { left: number; top: number },
-      rowProps: TypeRowProps,
-      cellProps?: TypeCellProps,
-      onHide?: () => void,
-      restoreFocusTo?: HTMLElement | null
-    ) => {
-      hideColumnContextMenu();
-      hideRowContextMenu();
-      hideColumnFilterContextMenu();
-      const next = {
-        alignTo,
-        rowProps,
-        cellProps,
-        restoreFocusTo:
-          restoreFocusTo ??
-          (alignTo instanceof HTMLElement ? alignTo : surfaceRef.current),
-        onHide,
-      };
-      rowContextMenuRef.current = next;
-      setRowContextMenu(next);
-    },
-    [hideColumnContextMenu, hideColumnFilterContextMenu, hideRowContextMenu]
-  );
-
-  const handleUiRowContextMenu = React.useCallback(
-    (
-      rowProps: TypeRowProps,
-      cellProps: TypeCellProps | undefined,
-      event:
-        | React.MouseEvent<HTMLElement>
-        | React.KeyboardEvent<HTMLElement>
-        | React.PointerEvent<HTMLElement>,
-      alignTo: HTMLElement | { left: number; top: number }
-    ) => {
-      onRowContextMenu?.(rowProps, event);
-      if (!renderRowContextMenu) return;
-      event.preventDefault();
-      showRowContextMenu(
-        alignTo,
-        rowProps,
-        cellProps,
-        undefined,
-        document.activeElement instanceof HTMLElement &&
-          document.activeElement !== document.body
-          ? document.activeElement
-          : surfaceRef.current
-      );
-    },
-    [onRowContextMenu, renderRowContextMenu, showRowContextMenu]
-  );
-
-  React.useEffect(() => {
-    if (openFilterMenuColId) {
-      hideColumnContextMenu();
-      hideRowContextMenu();
-    }
-  }, [hideColumnContextMenu, hideRowContextMenu, openFilterMenuColId]);
+  const {
+    columnContextMenu,
+    columnVisibilityMenuOpen,
+    filterContextMenuOnHideRef,
+    setColumnContextMenu,
+    setOpenFilterMenuColId,
+    setRowContextMenu,
+    handleUiRowContextMenu,
+    hideColumnContextMenu,
+    hideColumnFilterContextMenu,
+    hideRowContextMenu,
+    openFilterMenuColId,
+    rowContextMenu,
+    setColumnVisibilityMenuOpen,
+    setOpenFilterContextMenuColumn,
+    showColumnContextMenu,
+    showRowContextMenu,
+  } = useGridContextMenus({
+    onRowContextMenu,
+    renderRowContextMenu,
+    surfaceRef,
+  });
 
   /** ---------------- columnDefs (TanStack) ---------------- */
 
@@ -3346,279 +1401,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
   // state, so renderers read it through a ref instead of forcing TanStack to
   // rebuild its complete column/header/cell memo graph for every selection or
   // data update.
-  const selectionRuntimeRef = React.useRef({
-    rows,
-    selectedMap,
-    selectionEnabled,
-    multiSelect,
-    getRowKey,
-    commitRowSelection,
-    selectAllRows,
-    deselectAllRows,
-    setActiveIndexCompat,
-  });
-  selectionRuntimeRef.current = {
-    rows,
-    selectedMap,
-    selectionEnabled,
-    multiSelect,
-    getRowKey,
-    commitRowSelection,
-    selectAllRows,
-    deselectAllRows,
-    setActiveIndexCompat,
-  };
-
-  const columnDefs = React.useMemo<ColumnDef<any, any>[]>(() => {
-    return allInputColumns.map((c) => {
-      const colId = getColumnId(c);
-      const { minWidth, maxWidth } = getColumnWidthBounds(
-        c,
-        computedColumnMinWidth,
-        computedColumnMaxWidth
-      );
-      const configuredSize =
-        typeof c.width === "number" && Number.isFinite(c.width)
-          ? c.width
-          : typeof c.defaultWidth === "number" &&
-              Number.isFinite(c.defaultWidth)
-            ? c.defaultWidth
-            : undefined;
-
-      if (checkboxEnabled && colId === checkboxColId) {
-        const cfg =
-          typeof checkboxColumnProp === "object"
-            ? checkboxColumnProp
-            : undefined;
-        const renderCheckbox = (cfg as any)?.renderCheckbox as
-          | ((props: TypeCheckboxProps, ctx: any) => React.ReactNode)
-          | undefined;
-
-        return {
-          id: colId,
-          accessorFn: () => null,
-          enableSorting: false,
-          enableColumnFilter: false,
-          enableHiding: false,
-          enableResizing: false,
-          size: configuredSize,
-          minSize: minWidth,
-          maxSize: maxWidth,
-
-          header: () => {
-            const runtime = selectionRuntimeRef.current;
-            const pageRowIds = runtime.rows.map((r, idx) =>
-              runtime.getRowKey(r, idx)
-            );
-            const selectedOnPage = pageRowIds.reduce(
-              (acc, id) => acc + (runtime.selectedMap[id] ? 1 : 0),
-              0
-            );
-            const allSelected =
-              pageRowIds.length > 0 && selectedOnPage === pageRowIds.length;
-            const someSelected = selectedOnPage > 0 && !allSelected;
-
-            const onChange = (checked: boolean) => {
-              const current = selectionRuntimeRef.current;
-              if (!current.selectionEnabled) return;
-
-              if (checked) current.selectAllRows();
-              else current.deselectAllRows();
-            };
-
-            const checkboxProps: TypeCheckboxProps = {
-              checked: allSelected,
-              indeterminate: someSelected,
-              disabled: !runtime.selectionEnabled || runtime.rows.length === 0,
-              onChange,
-            };
-
-            const node = renderCheckbox ? (
-              renderCheckbox(checkboxProps, {
-                headerCell: true,
-                data: runtime.rows,
-              })
-            ) : (
-              <Checkbox
-                checked={
-                  checkboxProps.indeterminate
-                    ? "indeterminate"
-                    : checkboxProps.checked
-                }
-                disabled={checkboxProps.disabled}
-                onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            );
-
-            return (
-              <div
-                className="tdg-checkbox-cell__content flex h-full w-full items-center justify-center"
-                onMouseDown={(e) => {
-                  lastPointerRef.current.shiftKey =
-                    (e as any).shiftKey === true;
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {node}
-              </div>
-            );
-          },
-
-          cell: (ctx) => {
-            const rowData = ctx.row.original;
-            const rowIndex = ctx.row.index;
-            const rowId = ctx.row.id;
-            const runtime = selectionRuntimeRef.current;
-            const disabledRow = disabledRowsRef.current
-              ? disabledRowsRef.current[rowIndex]
-              : null;
-
-            const isSelected = Boolean(runtime.selectedMap[rowId]);
-
-            const onChange = (checked: boolean) => {
-              const current = selectionRuntimeRef.current;
-              if (!current.selectionEnabled) return;
-              current.setActiveIndexCompat(rowIndex);
-              current.commitRowSelection(rowIndex, {
-                checked,
-                shiftKey: lastPointerRef.current.shiftKey,
-                fromCheckbox: true,
-              });
-            };
-
-            const checkboxProps: TypeCheckboxProps = {
-              checked: isSelected,
-              disabled: !runtime.selectionEnabled,
-              onChange,
-            };
-
-            const node = renderCheckbox ? (
-              renderCheckbox(checkboxProps, {
-                headerCell: false,
-                data: rowData,
-                rowIndex,
-                disabledRow,
-              })
-            ) : (
-              <Checkbox
-                checked={checkboxProps.checked}
-                disabled={checkboxProps.disabled}
-                tabIndex={disabledRow ? -1 : undefined}
-                onCheckedChange={(v) => checkboxProps.onChange(v === true, v)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            );
-
-            return (
-              <div
-                className="tdg-checkbox-cell__content flex h-full w-full items-center justify-center"
-                onMouseDown={(e) => {
-                  lastPointerRef.current.shiftKey =
-                    (e as any).shiftKey === true;
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {node}
-              </div>
-            );
-          },
-
-          meta: { __column: c },
-        } satisfies ColumnDef<any, any>;
-      }
-
-      return {
-        id: colId,
-        accessorFn: (row) => (row as any)?.[colId],
-        enableSorting: c.sortable ?? sortable,
-        enableColumnFilter: c.filterable ?? true,
-        enableHiding: c.hideable ?? true,
-        enableResizing: resizable && (c.resizable ?? true),
-        size: configuredSize,
-        minSize: minWidth,
-        maxSize: maxWidth,
-
-        header: () =>
-          (c as any).renderHeader?.({ column: c, columnId: colId }) ??
-          c.header ??
-          c.name ??
-          c.id ??
-          colId,
-
-        cell: (ctx) => {
-          const value = ctx.getValue();
-          const rowData = ctx.row.original;
-          const rowIndex = ctx.row.index;
-          const disabledRow = disabledRowsRef.current
-            ? disabledRowsRef.current[rowIndex]
-            : null;
-
-          if (c.render) {
-            const renderCell = c.render as (
-              valueOrCellProps: unknown,
-              args?: {
-                data: unknown;
-                rowIndex: number;
-                column: TypeColumn;
-                columnId: string;
-                disabledRow?: boolean | null;
-              }
-            ) => React.ReactNode;
-            const cellProps = {
-              column: c,
-              columnId: colId,
-              rowIndex,
-              disabledRow,
-              dateFormat: (c as any).dateFormat,
-              ...(typeof (c as any).cellProps === "object"
-                ? (c as any).cellProps
-                : {}),
-            };
-
-            if (c.render.length <= 1) {
-              return renderCell({
-                value,
-                data: rowData,
-                rowIndex,
-                column: c,
-                columnId: colId,
-                disabledRow,
-                cellProps,
-              } as any);
-            }
-
-            return renderCell(value, {
-              data: rowData,
-              rowIndex,
-              column: c,
-              columnId: colId,
-              disabledRow,
-            });
-          }
-
-          return value == null ? (
-            ""
-          ) : (
-            <span className="block min-w-0 max-w-full truncate">
-              {String(value)}
-            </span>
-          );
-        },
-
-        meta: { __column: c },
-      } satisfies ColumnDef<any, any>;
-    });
-  }, [
+  const columnDefs = useGridColumnDefs({
+    allInputColumns,
     checkboxColId,
     checkboxColumnProp,
     checkboxEnabled,
-    allInputColumns,
+    commitRowSelection,
     computedColumnMaxWidth,
     computedColumnMinWidth,
+    deselectAllRows,
+    disabledRowsRef,
+    getRowKey,
+    lastPointerRef,
+    multiSelect,
     resizable,
+    rows,
+    selectAllRows,
+    selectedMap,
+    selectionEnabled,
+    setActiveIndexCompat,
     sortable,
-  ]);
+  });
 
   const table = useReactTable({
     data: rows,
@@ -4281,905 +2084,51 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- cell editing ---------------- */
 
-  const editCellNodesRef = React.useRef(
-    new Map<string, HTMLTableCellElement>()
-  );
-  const [editingCell, setEditingCellState] =
-    React.useState<GridEditingCell | null>(null);
-  const editingCellRef = React.useRef<GridEditingCell | null>(null);
-  const editingRowsRef = React.useRef(rowModel);
-  const editingColumnsRef = React.useRef(orderedColumns);
-  editingRowsRef.current = rowModel;
-  editingColumnsRef.current = orderedColumns;
-
-  const editAttemptRef = React.useRef(0);
-  const editSessionIdRef = React.useRef(0);
-  const editEndingSessionRef = React.useRef<number | null>(null);
-  const isInEditRef = React.useRef(false);
-  const currentEditCompletePromiseRef = React.useRef<Promise<unknown>>(
-    Promise.resolve(true)
-  );
-
-  const setEditingCell = React.useCallback((next: GridEditingCell | null) => {
-    editingCellRef.current = next;
-    isInEditRef.current = next != null;
-    setEditingCellState(next);
-  }, []);
-
-  const toEditInfo = React.useCallback(
-    (
-      cell: GridEditingCell,
-      options: { includeValue: boolean; value?: unknown }
-    ): TypeEditInfo => ({
-      rowId: cell.rowId,
-      rowIndex: cell.rowIndex,
-      columnId: cell.columnId,
-      columnIndex: cell.columnIndex,
-      ...(options.includeValue
-        ? { value: options.value === undefined ? cell.value : options.value }
-        : {}),
-      data: cell.data,
-      column: cell.column,
-      cellProps: cell.cellProps,
-    }),
-    []
-  );
-
-  const tryStartCellEdit = React.useCallback(
-    async (
-      args: GridCellEditStartArgs,
-      options?: { replaceActive?: boolean }
-    ): Promise<boolean> => {
-      const attempt = ++editAttemptRef.current;
-      const replaceActive = options?.replaceActive === true;
-
-      const current = editingCellRef.current;
-      if (
-        !replaceActive &&
-        current &&
-        String(current.rowId) === String(args.rowId) &&
-        current.columnId === args.columnId
-      ) {
-        return true;
-      }
-      if (current && !replaceActive) return false;
-
-      let initialEditValue = args.value;
-      if (
-        args.useEditStartValue !== false &&
-        typeof args.column.getEditStartValue === "function"
-      ) {
-        try {
-          initialEditValue = await Promise.resolve(
-            args.column.getEditStartValue(args.value, args.cellProps)
-          );
-        } catch {
-          return false;
-        }
-
-        if (attempt !== editAttemptRef.current) return false;
-      }
-
-      const initialCellProps = args.cellProps;
-      const configuredEditable =
-        args.column.editable === undefined ? editable : args.column.editable;
-      if (!configuredEditable) return false;
-
-      if (typeof configuredEditable === "function") {
-        let allowed: boolean | void;
-        try {
-          allowed = await Promise.resolve(
-            configuredEditable(initialEditValue, initialCellProps)
-          );
-        } catch {
-          return false;
-        }
-
-        if (attempt !== editAttemptRef.current || !allowed) {
-          return false;
-        }
-      }
-
-      const latestRow = editingRowsRef.current[args.rowIndex];
-      const latestColumn = editingColumnsRef.current[args.columnIndex];
-      if (
-        attempt !== editAttemptRef.current ||
-        String(latestRow?.id) !== String(args.rowId) ||
-        !latestColumn ||
-        getColumnId(latestColumn) !== args.columnId
-      ) {
-        return false;
-      }
-
-      const next: GridEditingCell = {
-        sessionId: ++editSessionIdRef.current,
-        rowId: args.rowId,
-        rowIndex: args.rowIndex,
-        columnId: args.columnId,
-        columnIndex: args.columnIndex,
-        originalValue: initialEditValue,
-        value: initialEditValue,
-        data: args.data,
-        column: args.column,
-        initialCellHeight: args.initialCellHeight,
-        cellProps: {
-          ...initialCellProps,
-          editValue: initialEditValue,
-          inEdit: true,
-        },
-      };
-
-      editEndingSessionRef.current = null;
-      currentEditCompletePromiseRef.current = Promise.resolve(true);
-      setEditingCell(next);
-      onEditStart?.(
-        toEditInfo(
-          { ...next, cellProps: initialCellProps },
-          { includeValue: true, value: initialEditValue }
-        )
-      );
-      return true;
-    },
-    [editable, onEditStart, setEditingCell, toEditInfo]
-  );
-
-  // Inovua treats a UI activation on another cell as a direct coordinate
-  // replacement. The previous custom editor is not implicitly completed or
-  // cancelled; editors that want blur completion call their supplied
-  // `onComplete` handler. Keeping this path separate preserves the guarded
-  // behavior used by post-completion keyboard navigation.
-  const handleUiCellEditStart = React.useCallback(
-    (args: GridCellEditStartArgs) =>
-      tryStartCellEdit(args, { replaceActive: true }),
-    [tryStartCellEdit]
-  );
-
-  const getEditStartArgs = React.useCallback(
-    (
-      rowIndex: number,
-      columnIndex: number,
-      editValue?: unknown
-    ): GridCellEditStartArgs | null => {
-      const row = rowModel[rowIndex];
-      const column = orderedColumns[columnIndex];
-      const cell = row?.getVisibleCells()[columnIndex];
-      if (!row || !column || !cell) return null;
-
-      const columnId = getColumnId(column);
-      const value = cell.getValue();
-      const initialEditValue = editValue === undefined ? value : editValue;
-      const itemId = (row.original as any)?.[idProperty];
-      const rowId =
-        typeof itemId === "string" || typeof itemId === "number"
-          ? itemId
-          : row.id;
-      const cellProps = buildEditCellProps({
-        value,
-        data: row.original,
-        rowIndex,
-        remoteRowIndex: loadSkip + rowIndex,
-        rowId,
-        rowSelected: Boolean(selectedMap[String(row.id)]),
-        disabledRow: getDisabledRowState(rowIndex),
-        selection: selected,
-        multiSelect: Boolean(multiSelect),
-        naturalRowHeight: rowHeight == null,
-        resolvedRowHeight: resolveRowHeight(rowIndex),
-        minRowHeight: computedMinRowHeight,
-        column,
-        columnId,
-        columnIndex,
-        columnCount: orderedColumns.length,
-        computedWidth: columnWidths[columnId],
-        editable,
-        editStartEvent,
-        theme: themeName,
-        totalDataCount: rows.length,
-        virtualizeColumns: computedVirtualizeColumns,
-      });
-
-      return {
-        rowId,
-        rowIndex,
-        columnId,
-        columnIndex,
-        value: initialEditValue,
-        useEditStartValue: editValue === undefined,
-        data: row.original,
-        column,
-        cellProps,
-        initialCellHeight:
-          editCellNodesRef.current
-            .get(`${String(row.id)}\u0000${columnId}`)
-            ?.getBoundingClientRect().height ?? null,
-      };
-    },
-    [
-      columnWidths,
-      computedMinRowHeight,
-      computedVirtualizeColumns,
-      editStartEvent,
-      editable,
-      idProperty,
-      getDisabledRowState,
-      loadSkip,
-      multiSelect,
-      orderedColumns,
-      resolveRowHeight,
-      rowModel,
-      rowHeight,
-      rows.length,
-      selected,
-      selectedMap,
-      themeName,
-    ]
-  );
-  const getEditStartArgsRef = React.useRef(getEditStartArgs);
-  getEditStartArgsRef.current = getEditStartArgs;
-
-  // Inovua anchors an active edit session to its visible coordinates. If a
-  // controlled row or column model changes, preserve the session and draft
-  // while resolving identity and callback metadata from the new occupant.
-  // Model reconciliation itself must not emit edit lifecycle callbacks.
-  const reconcileEditingCellToCoordinate = React.useCallback(
-    (cell: GridEditingCell | null): GridEditingCell | null => {
-      if (!cell) return null;
-
-      const args = getEditStartArgsRef.current(cell.rowIndex, cell.columnIndex);
-      if (!args) return cell;
-
-      const targetChanged =
-        String(cell.rowId) !== String(args.rowId) ||
-        cell.columnId !== args.columnId;
-
-      return {
-        ...cell,
-        rowId: args.rowId,
-        rowIndex: args.rowIndex,
-        columnId: args.columnId,
-        columnIndex: args.columnIndex,
-        originalValue: targetChanged ? args.value : cell.originalValue,
-        data: args.data,
-        column: args.column,
-        initialCellHeight: targetChanged
-          ? args.initialCellHeight
-          : cell.initialCellHeight,
-        cellProps: {
-          ...args.cellProps,
-          editValue: cell.value,
-          inEdit: true,
-        },
-      };
-    },
-    []
-  );
-
-  const getEditingCellAtCurrentCoordinate = React.useCallback(() => {
-    const current = editingCellRef.current;
-    const reconciled = reconcileEditingCellToCoordinate(current);
-
-    if (current && reconciled && current.sessionId === reconciled.sessionId) {
-      editingCellRef.current = reconciled;
-    }
-
-    return reconciled;
-  }, [reconcileEditingCellToCoordinate]);
-
-  const coordinateEditingCell = reconcileEditingCellToCoordinate(editingCell);
-
-  React.useLayoutEffect(() => {
-    if (
-      coordinateEditingCell &&
-      editingCellRef.current?.sessionId === coordinateEditingCell.sessionId
-    ) {
-      editingCellRef.current = coordinateEditingCell;
-    }
-  }, [coordinateEditingCell]);
-
-  const resolveEditRowIndex = React.useCallback(
-    (rowIndex?: number, rowId?: string | number): number => {
-      if (rowIndex !== undefined) {
-        return typeof rowIndex === "number" &&
-          Number.isInteger(rowIndex) &&
-          rowIndex >= 0 &&
-          rowIndex < rowModel.length
-          ? rowIndex
-          : -1;
-      }
-
-      if (rowId === undefined) return -1;
-      return rowModel.findIndex((row) => {
-        const itemId = (row.original as any)?.[idProperty];
-        const parsedRowId = typeof itemId === "number" ? Number(rowId) : rowId;
-        return itemId === parsedRowId;
-      });
-    },
-    [idProperty, rowModel]
-  );
-
-  const resolveEditColumnIndex = React.useCallback(
-    (columnId: string | number | undefined): number => {
-      if (columnId === undefined) return -1;
-      if (typeof columnId === "number") {
-        return Number.isInteger(columnId) &&
-          columnId >= 0 &&
-          columnId < orderedColumns.length
-          ? columnId
-          : -1;
-      }
-      const normalizedColumnId = String(columnId);
-      return orderedColumns.findIndex(
-        (column) => getColumnId(column) === normalizedColumnId
-      );
-    },
-    [orderedColumns]
-  );
-
-  const getRenderedEditingTarget = React.useCallback(
-    (
-      rowIndex: number,
-      columnIndex: number,
-      sessionId: number
-    ): GridEditingCell | null => {
-      const row = editingRowsRef.current[rowIndex];
-      const column = editingColumnsRef.current[columnIndex];
-      if (!row || !column) return null;
-
-      const configuredEditable =
-        column.editable === undefined ? editable : column.editable;
-      if (!configuredEditable) return null;
-
-      const columnId = getColumnId(column);
-      const cellKey = `${String(row.id)}\u0000${columnId}`;
-      if (!editCellNodesRef.current.has(cellKey)) return null;
-
-      const args = getEditStartArgsRef.current(rowIndex, columnIndex);
-      if (!args) return null;
-
-      const liveEdit = getEditingCellAtCurrentCoordinate();
-      if (
-        liveEdit?.rowIndex === rowIndex &&
-        liveEdit.columnIndex === columnIndex
-      ) {
-        return {
-          ...liveEdit,
-          rowId: args.rowId,
-          rowIndex: args.rowIndex,
-          columnId: args.columnId,
-          columnIndex: args.columnIndex,
-          data: args.data,
-          column: args.column,
-          cellProps: {
-            ...args.cellProps,
-            editValue: liveEdit.value,
-            inEdit: true,
-          },
-        };
-      }
-
-      return {
-        sessionId,
-        rowId: args.rowId,
-        rowIndex: args.rowIndex,
-        columnId: args.columnId,
-        columnIndex: args.columnIndex,
-        originalValue: args.value,
-        value: undefined,
-        data: args.data,
-        column: args.column,
-        cellProps: args.cellProps,
-        initialCellHeight: args.initialCellHeight,
-      };
-    },
-    [editable, getEditingCellAtCurrentCoordinate]
-  );
-
-  const navigateAfterEdit = React.useCallback(
-    async (cell: GridEditingCell, navigation: GridEditNavigation) => {
-      const candidates: Array<{ rowIndex: number; columnIndex: number }> = [];
-
-      if (navigation.type === "enter") {
-        for (
-          let rowIndex = cell.rowIndex + navigation.direction;
-          rowIndex >= 0 && rowIndex < rowModel.length;
-          rowIndex += navigation.direction
-        ) {
-          for (
-            let columnIndex = cell.columnIndex;
-            columnIndex >= 0 && columnIndex < orderedColumns.length;
-            columnIndex += navigation.direction
-          ) {
-            const column = orderedColumns[columnIndex];
-            if (
-              column &&
-              (Boolean(column.editable) ||
-                (editable && column.editable !== false))
-            ) {
-              candidates.push({ rowIndex, columnIndex });
-              // Enter uses the first statically eligible column on each row.
-              // If its async predicate rejects, Inovua advances to the next
-              // row instead of trying another column on this row.
-              break;
-            }
-          }
-        }
-      } else {
-        const columnCount = orderedColumns.length;
-        const cellCount = rowModel.length * columnCount;
-        let linearIndex =
-          cell.rowIndex * columnCount + cell.columnIndex + navigation.direction;
-
-        while (linearIndex >= 0 && linearIndex < cellCount) {
-          candidates.push({
-            rowIndex: Math.floor(linearIndex / columnCount),
-            columnIndex: linearIndex % columnCount,
-          });
-          linearIndex += navigation.direction;
-        }
-      }
-
-      for (const candidate of candidates) {
-        const args = getEditStartArgs(
-          candidate.rowIndex,
-          candidate.columnIndex
-        );
-        if (!args) continue;
-
-        if (virtualized) {
-          rowVirtualizer.scrollToIndex(candidate.rowIndex, { align: "auto" });
-        }
-        if (await tryStartCellEdit(args)) return;
-      }
-
-      surfaceRef.current?.focus();
-    },
-    [
-      getEditStartArgs,
-      editable,
-      orderedColumns,
-      rowModel.length,
-      rowVirtualizer,
-      tryStartCellEdit,
-      virtualized,
-    ]
-  );
-
-  const handleEditValueChange = React.useCallback(
-    (value: unknown) => {
-      const current = getEditingCellAtCurrentCoordinate();
-      if (!current || editEndingSessionRef.current != null) return;
-
-      const next = {
-        ...current,
-        value,
-        cellProps: {
-          ...current.cellProps,
-          editValue: value,
-          inEdit: true,
-        },
-      };
-      setEditingCell(next);
-      onEditValueChange?.(toEditInfo(next, { includeValue: true, value }));
-    },
-    [
-      getEditingCellAtCurrentCoordinate,
-      onEditValueChange,
-      setEditingCell,
-      toEditInfo,
-    ]
-  );
-
-  const handleEditComplete = React.useCallback(
-    async (
-      navigation?: GridEditNavigation,
-      value?: unknown,
-      targetCell?: GridEditingCell
-    ) => {
-      const current = getEditingCellAtCurrentCoordinate();
-      if (
-        !current ||
-        editEndingSessionRef.current === current.sessionId ||
-        editEndingSessionRef.current != null
-      ) {
-        return;
-      }
-
-      editAttemptRef.current += 1;
-      const sessionId = current.sessionId;
-      editEndingSessionRef.current = sessionId;
-      const completedCell = {
-        ...(targetCell ?? current),
-        sessionId,
-        value: value === undefined ? (targetCell ?? current).value : value,
-      };
-      const info = toEditInfo(completedCell, { includeValue: true });
-      let resolveCompletion!: (value: unknown) => void;
-      let rejectCompletion!: (reason?: unknown) => void;
-      const completionPromise = new Promise<unknown>((resolve, reject) => {
-        resolveCompletion = resolve;
-        rejectCompletion = reject;
-      });
-      currentEditCompletePromiseRef.current = completionPromise;
-
-      let stopError: unknown;
-      try {
-        onEditStop?.(info);
-      } catch (error) {
-        stopError = error;
-      }
-
-      if (editingCellRef.current?.sessionId === sessionId) {
-        setEditingCell(null);
-      }
-      if (autoFocusOnEditComplete) {
-        surfaceRef.current?.focus();
-      }
-
-      if (stopError !== undefined) {
-        rejectCompletion(stopError);
-      } else {
-        try {
-          Promise.resolve(onEditComplete?.(info)).then(
-            resolveCompletion,
-            rejectCompletion
-          );
-        } catch (error) {
-          rejectCompletion(error);
-        }
-      }
-
-      let completed = false;
-      try {
-        await completionPromise;
-        completed = true;
-      } catch {
-        completed = false;
-      } finally {
-        if (editEndingSessionRef.current === sessionId) {
-          editEndingSessionRef.current = null;
-        }
-      }
-
-      if (
-        completed &&
-        navigation &&
-        editSessionIdRef.current === sessionId &&
-        editingCellRef.current == null
-      ) {
-        await navigateAfterEdit(completedCell, navigation);
-      }
-    },
-    [
-      getEditingCellAtCurrentCoordinate,
-      navigateAfterEdit,
-      onEditComplete,
-      onEditStop,
-      autoFocusOnEditComplete,
-      setEditingCell,
-      toEditInfo,
-    ]
-  );
-
-  const handleEditStop = React.useCallback(
-    async (navigation?: GridEditNavigation, value?: unknown) => {
-      const current = getEditingCellAtCurrentCoordinate();
-      editAttemptRef.current += 1;
-      if (!current || editEndingSessionRef.current != null) return;
-
-      const sessionId = current.sessionId;
-      editEndingSessionRef.current = sessionId;
-      const stoppedCell = {
-        ...current,
-        value: value === undefined ? current.value : value,
-      };
-
-      try {
-        onEditStop?.(toEditInfo(stoppedCell, { includeValue: true }));
-      } finally {
-        if (editingCellRef.current?.sessionId === sessionId) {
-          setEditingCell(null);
-        }
-        editEndingSessionRef.current = null;
-        currentEditCompletePromiseRef.current = Promise.resolve(true);
-      }
-
-      if (navigation) {
-        await navigateAfterEdit(stoppedCell, navigation);
-      } else {
-        surfaceRef.current?.focus();
-      }
-    },
-    [
-      getEditingCellAtCurrentCoordinate,
-      navigateAfterEdit,
-      onEditStop,
-      setEditingCell,
-      toEditInfo,
-    ]
-  );
-
-  const handleEditCancel = React.useCallback(
-    (targetCell?: GridEditingCell) => {
-      editAttemptRef.current += 1;
-      const current = getEditingCellAtCurrentCoordinate();
-      if (!current || editEndingSessionRef.current != null) return;
-
-      const sessionId = current.sessionId;
-      const cancelledCell = targetCell ?? current;
-      editEndingSessionRef.current = sessionId;
-      try {
-        onEditStop?.(toEditInfo(cancelledCell, { includeValue: true }));
-        onEditCancel?.(toEditInfo(cancelledCell, { includeValue: false }));
-      } finally {
-        if (editingCellRef.current?.sessionId === sessionId) {
-          setEditingCell(null);
-        }
-        editEndingSessionRef.current = null;
-        currentEditCompletePromiseRef.current = Promise.resolve(true);
-      }
-      if (autoFocusOnEditEscape) {
-        surfaceRef.current?.focus();
-      }
-    },
-    [
-      getEditingCellAtCurrentCoordinate,
-      onEditCancel,
-      onEditStop,
-      autoFocusOnEditEscape,
-      setEditingCell,
-      toEditInfo,
-    ]
-  );
-
-  const handleCrossTargetEditComplete = React.useCallback(
-    (targetCell: GridEditingCell, value?: unknown) => {
-      const completedCell = {
-        ...targetCell,
-        value: value === undefined ? targetCell.value : value,
-      };
-      isInEditRef.current = false;
-
-      try {
-        currentEditCompletePromiseRef.current = Promise.resolve(
-          onEditComplete?.(toEditInfo(completedCell, { includeValue: true }))
-        );
-      } catch (error) {
-        const rejectedPromise = Promise.reject(error);
-        currentEditCompletePromiseRef.current = rejectedPromise;
-        void rejectedPromise.catch(() => undefined);
-      }
-    },
-    [onEditComplete, toEditInfo]
-  );
-
-  const handleCrossTargetEditCancel = React.useCallback(
-    (targetCell: GridEditingCell) => {
-      onEditCancel?.(toEditInfo(targetCell, { includeValue: false }));
-      window.setTimeout(() => {
-        if (editingCellRef.current) isInEditRef.current = false;
-      }, 50);
-    },
-    [onEditCancel, toEditInfo]
-  );
-
-  const startEditCompat = React.useCallback(
-    async (args: TypeStartEditArgs): Promise<any> => {
-      const columnIndex = resolveEditColumnIndex(args?.columnId);
-      if (columnIndex < 0) {
-        throw new Error(
-          `No column found for columnId: ${String(args?.columnId)}`
-        );
-      }
-
-      const rowIndex = resolveEditRowIndex(args?.rowIndex, args?.rowId);
-      if (rowIndex < 0) throw null;
-
-      if (virtualized) {
-        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
-      }
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
-
-      const liveStartArgs = getEditStartArgsRef.current(
-        rowIndex,
-        columnIndex,
-        args?.value
-      );
-      if (!liveStartArgs) throw null;
-
-      return (await tryStartCellEdit(liveStartArgs, { replaceActive: true }))
-        ? liveStartArgs.value
-        : undefined;
-    },
-    [
-      resolveEditColumnIndex,
-      resolveEditRowIndex,
-      rowVirtualizer,
-      tryStartCellEdit,
-      virtualized,
-    ]
-  );
-
-  const tryStartEditCompat = React.useCallback(
-    async (args: TypeTryStartEditArgs): Promise<any> => {
-      const columnIndex = resolveEditColumnIndex(args?.columnId);
-      if (columnIndex < 0) {
-        throw new Error(
-          `No column found for columnId: ${String(args?.columnId)}`
-        );
-      }
-
-      const rowIndex = resolveEditRowIndex(args?.rowIndex, args?.rowId);
-      if (rowIndex < 0) throw null;
-
-      const direction = args?.dir === 1 || !args?.dir ? 1 : -1;
-      if (virtualized) {
-        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
-      }
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
-
-      const columnCount = editingColumnsRef.current.length;
-      const cellCount = editingRowsRef.current.length * columnCount;
-      let linearIndex = rowIndex * columnCount + columnIndex;
-
-      while (linearIndex >= 0 && linearIndex < cellCount) {
-        const candidateRowIndex = Math.floor(linearIndex / columnCount);
-        const candidateColumnIndex = linearIndex % columnCount;
-        const startArgs = getEditStartArgsRef.current(
-          candidateRowIndex,
-          candidateColumnIndex
-        );
-
-        if (startArgs) {
-          if (virtualized) {
-            rowVirtualizer.scrollToIndex(candidateRowIndex, { align: "auto" });
-          }
-          if (await tryStartCellEdit(startArgs, { replaceActive: true })) {
-            return startArgs.value;
-          }
-        }
-
-        linearIndex += direction;
-      }
-
-      throw null;
-    },
-    [
-      resolveEditColumnIndex,
-      resolveEditRowIndex,
-      rowVirtualizer,
-      tryStartCellEdit,
-      virtualized,
-    ]
-  );
-
-  const completeEditCompat = React.useCallback(
-    (args?: TypeCompleteEditArgs): void => {
-      const current = getEditingCellAtCurrentCoordinate();
-      if (!current) return;
-
-      let columnIndex = resolveEditColumnIndex(args?.columnId);
-      let rowIndex: number | undefined;
-      if (columnIndex < 0) {
-        columnIndex = current.columnIndex;
-        rowIndex = current.rowIndex;
-      } else if (args?.rowIndex !== undefined) {
-        rowIndex = args.rowIndex;
-      } else {
-        const resolvedRowIndex = resolveEditRowIndex(undefined, args?.rowId);
-        rowIndex = resolvedRowIndex < 0 ? undefined : resolvedRowIndex;
-      }
-
-      if (
-        rowIndex === undefined ||
-        rowIndex < 0 ||
-        rowIndex >= editingRowsRef.current.length
-      ) {
-        return;
-      }
-
-      // 5.10.2 accepts `dir` but does not use it. Calling with no object uses
-      // its historical empty-string completion value; omitting only `value`
-      // from an object preserves the current editor value.
-      const value = args === undefined ? "" : args.value;
-
-      if (virtualized) {
-        rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
-      }
-
-      window.setTimeout(() => {
-        const target = getRenderedEditingTarget(
-          rowIndex,
-          columnIndex,
-          current.sessionId
-        );
-        if (!target) return;
-
-        const liveEditBeforeFocus = getEditingCellAtCurrentCoordinate();
-        const targetsAnotherCell = Boolean(
-          liveEditBeforeFocus &&
-          (target.rowIndex !== liveEditBeforeFocus.rowIndex ||
-            target.columnIndex !== liveEditBeforeFocus.columnIndex)
-        );
-
-        // Inovua focuses the grid before dispatching a completion to another
-        // valid cell. Its default text editor completes itself on blur, so
-        // this focus produces the current cell's stop + complete lifecycle
-        // before the requested target completion. Custom editors without
-        // blur completion merely lose focus and remain mounted.
-        if (targetsAnotherCell) {
-          surfaceRef.current?.focus();
-        }
-
-        const liveEdit = getEditingCellAtCurrentCoordinate();
-        if (
-          !liveEdit ||
-          target.rowIndex !== liveEdit.rowIndex ||
-          target.columnIndex !== liveEdit.columnIndex
-        ) {
-          handleCrossTargetEditComplete(target, value);
-          return;
-        }
-        void handleEditComplete(undefined, value, target);
-      }, 50);
-    },
-    [
-      getRenderedEditingTarget,
-      getEditingCellAtCurrentCoordinate,
-      handleCrossTargetEditComplete,
-      handleEditComplete,
-      resolveEditColumnIndex,
-      resolveEditRowIndex,
-      rowVirtualizer,
-      virtualized,
-    ]
-  );
-
-  const cancelEditCompat = React.useCallback(
-    (args?: TypeCancelEditArgs): void => {
-      const current = getEditingCellAtCurrentCoordinate();
-      if (!current) return;
-
-      // Inovua's 5.10.2 truthy column check makes numeric index 0 use the
-      // current-edit fallback. Other numbers are visible-column indices.
-      let columnIndex = args?.columnId
-        ? resolveEditColumnIndex(args.columnId)
-        : -1;
-      let rowIndex = args?.rowIndex;
-      if (columnIndex < 0) {
-        columnIndex = current.columnIndex;
-        rowIndex = current.rowIndex;
-      }
-
-      if (rowIndex === undefined) return;
-      const target = getRenderedEditingTarget(
-        rowIndex,
-        columnIndex,
-        current.sessionId
-      );
-      if (!target) return;
-      if (
-        target.rowIndex !== current.rowIndex ||
-        target.columnIndex !== current.columnIndex
-      ) {
-        handleCrossTargetEditCancel(target);
-        return;
-      }
-      handleEditCancel(target);
-    },
-    [
-      getRenderedEditingTarget,
-      getEditingCellAtCurrentCoordinate,
-      handleCrossTargetEditCancel,
-      handleEditCancel,
-      resolveEditColumnIndex,
-    ]
-  );
-
-  const getCurrentEditInfoCompat =
-    React.useCallback((): TypeEditInfo | null => {
-      const current = getEditingCellAtCurrentCoordinate();
-      return current ? toEditInfo(current, { includeValue: true }) : null;
-    }, [getEditingCellAtCurrentCoordinate, toEditInfo]);
+  const {
+    cancelEditCompat,
+    completeEditCompat,
+    coordinateEditingCell,
+    currentEditCompletePromiseRef,
+    editCellNodesRef,
+    editingCell,
+    getCurrentEditInfoCompat,
+    handleEditCancel,
+    handleEditComplete,
+    handleEditStop,
+    handleEditValueChange,
+    handleUiCellEditStart,
+    isInEditRef,
+    startEditCompat,
+    tryStartEditCompat,
+  } = useGridEditing({
+    autoFocusOnEditComplete,
+    autoFocusOnEditEscape,
+    columnWidths,
+    computedMinRowHeight,
+    computedVirtualizeColumns,
+    editStartEvent,
+    editable,
+    getDisabledRowState,
+    idProperty,
+    loadSkip,
+    multiSelect,
+    onEditCancel,
+    onEditComplete,
+    onEditStart,
+    onEditStop,
+    onEditValueChange,
+    orderedColumns,
+    resolveRowHeight,
+    rowHeight,
+    rowModel,
+    rowVirtualizer,
+    rowsCount: rows.length,
+    selected,
+    selectedMap,
+    surfaceRef,
+    themeName,
+    virtualized,
+  });
 
   const virtualItems = rowVirtualizationEnabled
     ? rowVirtualizer.getVirtualItems()
@@ -5301,1395 +2250,69 @@ function ReactDataGrid(props: TypeDataGridProps) {
     });
   }, [columnLayout, columnRenderItems]);
 
-  const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(
-    null
-  );
-  const resizeProxyElementRef = React.useRef<HTMLDivElement | null>(null);
-  const resizeProxyFrameRef = React.useRef<number | null>(null);
-  const resizeProxyNextLeftRef = React.useRef<number | null>(null);
-  const liveColumnResizeFrameRef = React.useRef<number | null>(null);
-  const liveColumnResizeNextWidthRef = React.useRef<number | null>(null);
-  const [resizingColumnId, setResizingColumnId] = React.useState<string | null>(
-    null
-  );
-  const [resizingGroupKey, setResizingGroupKey] = React.useState<string | null>(
-    null
-  );
-  const resizeSessionRef = React.useRef<ColumnResizeSession | null>(null);
-  const resizeCleanupRef = React.useRef<(() => void) | null>(null);
-  const groupResizeSessionRef = React.useRef<GroupResizeSession | null>(null);
-  const groupResizeCleanupRef = React.useRef<(() => void) | null>(null);
-
-  const cancelResizeProxyFrame = React.useCallback(() => {
-    if (resizeProxyFrameRef.current != null) {
-      window.cancelAnimationFrame(resizeProxyFrameRef.current);
-      resizeProxyFrameRef.current = null;
-    }
-    resizeProxyNextLeftRef.current = null;
-  }, []);
-
-  const scheduleResizeProxyPosition = React.useCallback((nextLeft: number) => {
-    resizeProxyNextLeftRef.current = nextLeft;
-    if (resizeProxyFrameRef.current != null) return;
-
-    resizeProxyFrameRef.current = window.requestAnimationFrame(() => {
-      resizeProxyFrameRef.current = null;
-      const proxy = resizeProxyElementRef.current;
-      const left = resizeProxyNextLeftRef.current;
-      if (!proxy || left == null) return;
-
-      proxy.style.transform = `translate3d(${left}px, 0, 0)`;
-    });
-  }, []);
-
-  const cancelLiveColumnResizeFrame = React.useCallback(() => {
-    if (liveColumnResizeFrameRef.current != null) {
-      window.cancelAnimationFrame(liveColumnResizeFrameRef.current);
-      liveColumnResizeFrameRef.current = null;
-    }
-    liveColumnResizeNextWidthRef.current = null;
-  }, []);
-
-  const scheduleLiveColumnResizePreview = React.useCallback(
-    (nextWidth: number) => {
-      liveColumnResizeNextWidthRef.current = nextWidth;
-      if (liveColumnResizeFrameRef.current != null) return;
-
-      liveColumnResizeFrameRef.current = window.requestAnimationFrame(() => {
-        liveColumnResizeFrameRef.current = null;
-        const activeSession = resizeSessionRef.current;
-        const width = liveColumnResizeNextWidthRef.current;
-        liveColumnResizeNextWidthRef.current = null;
-        if (!activeSession?.liveColumnResize || width == null) return;
-
-        applyLiveColumnResizePreview(activeSession, width);
-      });
-    },
-    []
-  );
-
-  React.useLayoutEffect(() => {
-    const activeSession = resizeSessionRef.current;
-    const preview = activeSession?.preview;
-    if (!activeSession?.liveColumnResize || !preview) return;
-
-    const latestColumn = renderedColumnLayout.find(
-      (column) => column.id === activeSession.columnId
-    );
-    if (!latestColumn) return;
-
-    // React can receive a newer controlled width while a pointer gesture is
-    // still active. Keep that latest React-owned geometry as the cancellation
-    // baseline, then place the transient pointer preview back on top before
-    // paint. This prevents cleanup from restoring a stale drag-start width.
-    preview.baseColumnWidth = latestColumn.width;
-    for (const column of preview.columns) {
-      column.inlineWidth = `${latestColumn.width}px`;
-    }
-
-    const latestTableInlineWidth = tableMinWidth ? `${tableMinWidth}px` : "";
-    for (const table of preview.tables) {
-      table.inlineWidth = latestTableInlineWidth;
-      table.renderedWidth =
-        tableMinWidth ?? table.element.getBoundingClientRect().width;
-    }
-    for (const lockedColumn of preview.lockedColumns) {
-      for (const cell of lockedColumn.cells) {
-        cell.inlineOffset = cell.element.style.getPropertyValue(
-          "--tdg-locked-column-offset"
-        );
-        cell.inlineViewportOffset = cell.element.style.getPropertyValue(
-          "--tdg-locked-column-viewport-offset"
-        );
-      }
-    }
-
-    const appliedPreviewWidth = activeSession.appliedPreviewWidth;
-    if (appliedPreviewWidth == null) return;
-
-    activeSession.appliedPreviewWidth = null;
-    applyLiveColumnResizePreview(activeSession, appliedPreviewWidth);
-  }, [renderedColumnLayout, tableMinWidth]);
-
-  const captureRenderedColumnWidths = React.useCallback(() => {
-    const headerCells = Array.from(
-      headerScrollRef.current?.querySelectorAll<HTMLElement>(
-        ".tdg-header-cell"
-      ) ?? []
-    );
-    if (headerCells.length === 0) return null;
-
-    const next: Record<string, number> = {};
-
-    for (const headerCell of headerCells) {
-      const columnId = headerCell.dataset.columnId;
-      if (!columnId) continue;
-      const column = orderedColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      if (!column) continue;
-      const { minWidth, maxWidth } = getColumnWidthBounds(
-        column,
-        computedColumnMinWidth,
-        computedColumnMaxWidth
-      );
-      next[columnId] = clamp(
-        Math.round(headerCell.getBoundingClientRect().width),
-        minWidth,
-        maxWidth
-      );
-    }
-
-    return Object.keys(next).length > 0 ? next : null;
-  }, [computedColumnMaxWidth, computedColumnMinWidth, orderedColumns]);
-
-  const seedManualColumnWidthsFromDom = React.useCallback(() => {
-    if (hasManualColumnWidths) return null;
-
-    const measuredWidths = captureRenderedColumnWidths();
-    if (!measuredWidths) return null;
-
-    setManualColumnWidths((current) => {
-      if (Object.keys(current).length > 0) {
-        return current;
-      }
-
-      return measuredWidths;
-    });
-
-    return measuredWidths;
-  }, [captureRenderedColumnWidths, hasManualColumnWidths]);
-
-  const commitColumnResizeEntries = React.useCallback(
-    (
-      entries: {
-        column: TypeColumn;
-        width?: number;
-        flex?: number;
-      }[],
-      nextReservedViewportWidth = reservedViewportWidthRef.current
-    ) => {
-      const normalizedEntries = entries.flatMap((entry) => {
-        const width =
-          typeof entry.width === "number" &&
-          Number.isFinite(entry.width) &&
-          entry.width > 0
-            ? entry.width
-            : undefined;
-        const flex =
-          typeof entry.flex === "number" &&
-          Number.isFinite(entry.flex) &&
-          entry.flex > 0
-            ? entry.flex
-            : undefined;
-        if (width === undefined && flex === undefined) return [];
-
-        const { minWidth, maxWidth } = getColumnWidthBounds(
-          entry.column,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        return [
-          {
-            column: entry.column,
-            width:
-              width === undefined
-                ? undefined
-                : clamp(Math.round(width), minWidth, maxWidth),
-            // Flex entries are weights, not pixel widths. The rendered
-            // allocation applies the column bounds after resolving the weight.
-            flex,
-          },
-        ];
-      });
-      if (normalizedEntries.length === 0) return;
-
-      const normalizedReservedViewportWidth = Number.isFinite(
-        nextReservedViewportWidth
-      )
-        ? Math.round(nextReservedViewportWidth)
-        : reservedViewportWidthRef.current;
-
-      if (
-        normalizedReservedViewportWidth !== reservedViewportWidthRef.current
-      ) {
-        reservedViewportWidthRef.current = normalizedReservedViewportWidth;
-        setReservedViewportWidth(normalizedReservedViewportWidth);
-      }
-
-      setManualColumnWidths((current) => {
-        let changed = false;
-        const next = { ...current };
-
-        for (const entry of normalizedEntries) {
-          const columnId = getColumnId(entry.column);
-          const controlledWidth =
-            typeof entry.column.width === "number" &&
-            Number.isFinite(entry.column.width) &&
-            entry.column.width > 0;
-          const controlledFlex =
-            !controlledWidth &&
-            typeof entry.column.flex === "number" &&
-            Number.isFinite(entry.column.flex) &&
-            entry.column.flex > 0;
-
-          if (
-            typeof entry.flex === "number" &&
-            Number.isFinite(entry.flex) &&
-            entry.flex > 0
-          ) {
-            if (!controlledWidth && !controlledFlex && columnId in next) {
-              delete next[columnId];
-              changed = true;
-            }
-            continue;
-          }
-
-          if (
-            typeof entry.width === "number" &&
-            Number.isFinite(entry.width) &&
-            !controlledWidth &&
-            !controlledFlex &&
-            next[columnId] !== entry.width
-          ) {
-            next[columnId] = entry.width;
-            changed = true;
-          }
-        }
-
-        return changed ? next : current;
-      });
-
-      setManualColumnFlexes((current) => {
-        let changed = false;
-        const next = { ...current };
-
-        for (const entry of normalizedEntries) {
-          const columnId = getColumnId(entry.column);
-          const controlledWidth =
-            typeof entry.column.width === "number" &&
-            Number.isFinite(entry.column.width) &&
-            entry.column.width > 0;
-          const controlledFlex =
-            !controlledWidth && entry.column.flex !== undefined;
-
-          if (controlledWidth || controlledFlex) continue;
-
-          if (
-            typeof entry.flex === "number" &&
-            Number.isFinite(entry.flex) &&
-            entry.flex > 0
-          ) {
-            if (next[columnId] !== entry.flex) {
-              next[columnId] = entry.flex;
-              changed = true;
-            }
-          } else if (
-            typeof entry.width === "number" &&
-            Number.isFinite(entry.width) &&
-            next[columnId] !== null
-          ) {
-            // A width proposal explicitly turns off an uncontrolled
-            // defaultFlex value. keepFlex/share-space paths emit `flex`.
-            next[columnId] = null;
-            changed = true;
-          }
-        }
-
-        return changed ? next : current;
-      });
-
-      const context = {
-        reservedViewportWidth: normalizedReservedViewportWidth,
-      };
-      for (const entry of normalizedEntries) {
-        onColumnResize?.(entry, context);
-      }
-      onBatchColumnResize?.(normalizedEntries, context);
-    },
-    [
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      onBatchColumnResize,
-      onColumnResize,
-    ]
-  );
-
-  const commitColumnPixelResize = React.useCallback(
-    (column: TypeColumn, requestedWidth: number) => {
-      const columnId = getColumnId(column);
-      const columnBounds = getColumnWidthBounds(
-        column,
-        computedColumnMinWidth,
-        computedColumnMaxWidth
-      );
-      const nextWidth = clamp(
-        requestedWidth,
-        columnBounds.minWidth,
-        columnBounds.maxWidth
-      );
-      const currentWidth = columnWidths[columnId] ?? nextWidth;
-      const controlledWidth =
-        typeof column.width === "number" &&
-        Number.isFinite(column.width) &&
-        column.width > 0;
-      const controlledFlex =
-        !controlledWidth &&
-        typeof column.flex === "number" &&
-        Number.isFinite(column.flex) &&
-        column.flex > 0;
-      const effectiveFlex = Boolean(
-        columnWidthAllocation.flexWeights[columnId]
-      );
-      const resizeIsGridOwned = !controlledWidth && !controlledFlex;
-      const flexColumnCount = Object.keys(
-        columnWidthAllocation.flexWeights
-      ).length;
-      const diff = nextWidth - currentWidth;
-      if (diff === 0) return;
-
-      const makeResizeEntry = (
-        targetColumn: TypeColumn,
-        targetWidth: number,
-        keepTargetFlex: boolean
-      ) => {
-        const targetColumnId = getColumnId(targetColumn);
-        const targetIsFlex = Boolean(
-          columnWidthAllocation.flexWeights[targetColumnId]
-        );
-        return targetIsFlex && keepTargetFlex
-          ? {
-              column: targetColumn,
-              width: undefined,
-              flex: targetWidth,
-            }
-          : {
-              column: targetColumn,
-              width: targetWidth,
-              flex: undefined,
-            };
-      };
-
-      const columnIndex = orderedColumns.findIndex(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      const rightColumn = orderedColumns[columnIndex + 1];
-      if (shareSpaceOnResize && rightColumn?.resizable !== false) {
-        const rightColumnId = getColumnId(rightColumn);
-        const rightCurrentWidth =
-          columnWidths[rightColumnId] ??
-          rightColumn.width ??
-          rightColumn.defaultWidth ??
-          computedColumnDefaultWidth;
-        const rightBounds = getColumnWidthBounds(
-          rightColumn,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        let rightNextWidth = clamp(
-          rightCurrentWidth - diff,
-          rightBounds.minWidth,
-          rightBounds.maxWidth
-        );
-        let leftNextWidth = clamp(
-          currentWidth + (rightCurrentWidth - rightNextWidth),
-          columnBounds.minWidth,
-          columnBounds.maxWidth
-        );
-        rightNextWidth = clamp(
-          rightCurrentWidth - (leftNextWidth - currentWidth),
-          rightBounds.minWidth,
-          rightBounds.maxWidth
-        );
-        leftNextWidth = currentWidth + (rightCurrentWidth - rightNextWidth);
-
-        const resizeEntries = [
-          makeResizeEntry(column, leftNextWidth, true),
-          makeResizeEntry(rightColumn, rightNextWidth, true),
-        ];
-        const resizedPairHasFlex = Boolean(
-          columnWidthAllocation.flexWeights[columnId] ||
-          columnWidthAllocation.flexWeights[rightColumnId]
-        );
-        if (resizedPairHasFlex) {
-          const resizedIds = new Set([columnId, rightColumnId]);
-          for (const flexColumn of orderedColumns) {
-            const flexColumnId = getColumnId(flexColumn);
-            if (
-              resizedIds.has(flexColumnId) ||
-              !columnWidthAllocation.flexWeights[flexColumnId]
-            ) {
-              continue;
-            }
-
-            resizeEntries.push(
-              makeResizeEntry(
-                flexColumn,
-                columnWidths[flexColumnId] ??
-                  flexColumn.defaultWidth ??
-                  computedColumnDefaultWidth,
-                true
-              )
-            );
-          }
-        }
-
-        commitColumnResizeEntries(resizeEntries);
-        return;
-      }
-
-      const keepResizedColumnFlex =
-        effectiveFlex && resizeIsGridOwned && column.keepFlex !== false;
-      const adjustsAvailableWidth =
-        resizeIsGridOwned &&
-        ((!effectiveFlex && flexColumnCount > 0) ||
-          (effectiveFlex && (flexColumnCount > 1 || keepResizedColumnFlex)));
-      const nextReservedViewportWidth = adjustsAvailableWidth
-        ? reservedViewportWidthRef.current - diff
-        : reservedViewportWidthRef.current;
-      const resizeEntries: {
-        column: TypeColumn;
-        width?: number;
-        flex?: number;
-      }[] = [makeResizeEntry(column, nextWidth, keepResizedColumnFlex)];
-
-      if (
-        resizeIsGridOwned &&
-        flexColumnCount > 0 &&
-        (!effectiveFlex || flexColumnCount > 1)
-      ) {
-        for (const flexColumn of orderedColumns) {
-          const flexColumnId = getColumnId(flexColumn);
-          if (
-            flexColumnId === columnId ||
-            !columnWidthAllocation.flexWeights[flexColumnId]
-          ) {
-            continue;
-          }
-
-          const currentFlexWidth = columnWidths[flexColumnId];
-          if (
-            typeof currentFlexWidth === "number" &&
-            Number.isFinite(currentFlexWidth) &&
-            currentFlexWidth > 0
-          ) {
-            resizeEntries.push({
-              column: flexColumn,
-              width: undefined,
-              flex: currentFlexWidth,
-            });
-          }
-        }
-      }
-
-      // A no-share pixel resize keeps an uncontrolled flex by default;
-      // keepFlex=false converts it. Controlled width/flex remains prop-owned,
-      // so only the fixed-width proposal is emitted.
-      commitColumnResizeEntries(resizeEntries, nextReservedViewportWidth);
-    },
-    [
-      columnWidthAllocation.flexWeights,
-      columnWidths,
-      commitColumnResizeEntries,
-      computedColumnDefaultWidth,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      orderedColumns,
-      shareSpaceOnResize,
-    ]
-  );
-
-  const resizeColumnBy = React.useCallback(
-    (columnId: string, diff: number) => {
-      const column = orderedColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      if (!column || !Number.isFinite(diff) || diff === 0) return;
-
-      const currentWidth =
-        columnWidths[columnId] ??
-        column.width ??
-        column.defaultWidth ??
-        computedColumnDefaultWidth;
-      commitColumnPixelResize(column, currentWidth + diff);
-    },
-    [
-      columnWidths,
-      commitColumnPixelResize,
-      computedColumnDefaultWidth,
-      orderedColumns,
-    ]
-  );
-
-  const getResizableGroupColumns = React.useCallback(
-    (
-      item: GroupHeaderRenderItem,
-      widthOverrides?: Readonly<Record<string, number>>
-    ) =>
-      item.columnIds.flatMap((columnId) => {
-        const column = orderedColumns.find(
-          (candidate) => getColumnId(candidate) === columnId
-        );
-        if (!column || column.resizable === false) return [];
-
-        const { minWidth, maxWidth } = getColumnWidthBounds(
-          column,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        const width =
-          widthOverrides?.[columnId] ??
-          columnWidths[columnId] ??
-          column.width ??
-          column.defaultWidth ??
-          computedColumnDefaultWidth;
-        return [
-          {
-            column,
-            id: columnId,
-            width,
-            minWidth,
-            maxWidth,
-          },
-        ];
-      }),
-    [
-      columnWidths,
-      computedColumnDefaultWidth,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      orderedColumns,
-    ]
-  );
-
-  const resizeGroupBy = React.useCallback(
-    (item: GroupHeaderRenderItem, diff: number) => {
-      if (!Number.isFinite(diff) || diff === 0) return;
-      const columns = getResizableGroupColumns(item);
-      const startTotalWidth = columns.reduce(
-        (total, column) => total + column.width,
-        0
-      );
-      if (startTotalWidth <= 0) return;
-
-      const nextWidths = resizeColumnWidthsProportionally({
-        columns,
-        requestedTotalWidth: startTotalWidth + diff,
-      });
-      commitColumnResizeEntries(
-        columns.map(({ column, id }) => ({
-          column,
-          width: nextWidths[id],
-        }))
-      );
-    },
-    [commitColumnResizeEntries, getResizableGroupColumns]
-  );
-
-  const autosizeColumn = React.useCallback(
-    (columnId: string) => {
-      const column = orderedColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      if (!column || column.resizable === false) return;
-
-      const seededWidths = seedManualColumnWidthsFromDom();
-
-      const nextWidth = estimateColumnContentWidth({
-        column,
-        rows: autosizeSample,
-        skipHeaderOnAutoSize,
-        columnMinWidth: computedColumnMinWidth,
-        columnMaxWidth: computedColumnMaxWidth,
-      });
-      const bodyViewport = scrollRef.current;
-      const restoreTrailingEdge = Boolean(
-        getColumnId(orderedColumns[orderedColumns.length - 1]!) === columnId &&
-        bodyViewport &&
-        bodyViewport.scrollWidth -
-          bodyViewport.clientWidth -
-          getLogicalScrollLeft(bodyViewport, rtl) <=
-          1
-      );
-
-      if (seededWidths) {
-        setManualColumnWidths((current) =>
-          Object.keys(current).length > 0 ? current : seededWidths
-        );
-      }
-      commitColumnPixelResize(column, nextWidth);
-
-      if (restoreTrailingEdge && bodyViewport) {
-        window.requestAnimationFrame(() => {
-          setLogicalScrollLeft(bodyViewport, bodyViewport.scrollWidth, rtl);
-        });
-      }
-    },
-    [
-      autosizeSample,
-      commitColumnPixelResize,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      orderedColumns,
-      rtl,
-      seedManualColumnWidthsFromDom,
-      skipHeaderOnAutoSize,
-    ]
-  );
-
-  const stopColumnResize = React.useCallback(() => {
-    const session = resizeSessionRef.current;
-    const cleanup = resizeCleanupRef.current;
-    resizeCleanupRef.current = null;
-    resizeSessionRef.current = null;
-    cancelResizeProxyFrame();
-    cancelLiveColumnResizeFrame();
-    restoreLiveColumnResizePreview(session);
-    cleanup?.();
-    setResizeProxyLeft(null);
-    setResizingColumnId(null);
-  }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
-
-  const stopGroupResize = React.useCallback(() => {
-    const cleanup = groupResizeCleanupRef.current;
-    groupResizeCleanupRef.current = null;
-    groupResizeSessionRef.current = null;
-    cancelResizeProxyFrame();
-    cleanup?.();
-    setResizeProxyLeft(null);
-    setResizingGroupKey(null);
-  }, [cancelResizeProxyFrame]);
-
-  const startGroupResize = React.useCallback(
-    (
-      event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
-      item: GroupHeaderRenderItem
-    ) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const isPointerEvent = "pointerId" in event;
-      const resizeHandle = event.currentTarget;
-      const pointerId = isPointerEvent ? event.pointerId : null;
-      if (
-        event.button !== 0 ||
-        (isPointerEvent && !event.isPrimary) ||
-        resizeSessionRef.current ||
-        groupResizeSessionRef.current
-      ) {
-        return;
-      }
-
-      const surfaceElement = surfaceRef.current;
-      const headerCell = resizeHandle.closest("th");
-      if (!surfaceElement || !(headerCell instanceof HTMLTableCellElement)) {
-        return;
-      }
-
-      const seededWidths = seedManualColumnWidthsFromDom();
-      const columns = getResizableGroupColumns(item, seededWidths ?? undefined);
-      if (columns.length === 0) return;
-      const surfaceRect = surfaceElement.getBoundingClientRect();
-      const headerRect = headerCell.getBoundingClientRect();
-      const startTotalWidth = columns.reduce(
-        (total, column) => total + column.width,
-        0
-      );
-      const minTotalWidth = columns.reduce(
-        (total, column) => total + column.minWidth,
-        0
-      );
-      const maxTotalWidth = columns.reduce(
-        (total, column) => total + column.maxWidth,
-        0
-      );
-      const key = getColumnGroupSegmentKey(item);
-      const groupRight = headerRect.right - surfaceRect.left;
-      const previousDraggable = headerCell.draggable;
-
-      headerCell.draggable = false;
-      groupResizeSessionRef.current = {
-        key,
-        inputType: isPointerEvent ? "pointer" : "mouse",
-        pointerId,
-        startX: event.clientX,
-        startTotalWidth,
-        nextTotalWidth: startTotalWidth,
-        groupRight,
-        minTotalWidth,
-        maxTotalWidth,
-        columns,
-      };
-
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-
-      const updateResize = (clientX: number) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (!activeSession) return;
-
-        const nextTotalWidth = clamp(
-          activeSession.startTotalWidth +
-            (clientX - activeSession.startX) * (rtl ? -1 : 1),
-          activeSession.minTotalWidth,
-          activeSession.maxTotalWidth
-        );
-        activeSession.nextTotalWidth = nextTotalWidth;
-        scheduleResizeProxyPosition(
-          activeSession.groupRight +
-            (nextTotalWidth - activeSession.startTotalWidth)
-        );
-      };
-
-      const completeResize = () => {
-        const completedSession = groupResizeSessionRef.current;
-        if (
-          completedSession &&
-          completedSession.nextTotalWidth !== completedSession.startTotalWidth
-        ) {
-          const widths = resizeColumnWidthsProportionally({
-            columns: completedSession.columns,
-            requestedTotalWidth: completedSession.nextTotalWidth,
-          });
-          commitColumnResizeEntries(
-            completedSession.columns.map(({ column, id }) => ({
-              column,
-              width: widths[id],
-            }))
-          );
-        }
-        stopGroupResize();
-      };
-
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (!activeSession || activeSession.inputType !== "mouse") return;
-        updateResize(moveEvent.clientX);
-      };
-      const handleMouseUp = (upEvent: MouseEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "mouse" ||
-          upEvent.button !== 0
-        ) {
-          return;
-        }
-        completeResize();
-      };
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== moveEvent.pointerId
-        ) {
-          return;
-        }
-        moveEvent.preventDefault();
-        updateResize(moveEvent.clientX);
-      };
-      const handlePointerUp = (upEvent: PointerEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== upEvent.pointerId
-        ) {
-          return;
-        }
-        completeResize();
-      };
-      const handlePointerCancel = (cancelEvent: PointerEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== cancelEvent.pointerId
-        ) {
-          return;
-        }
-        stopGroupResize();
-      };
-      const handleLostPointerCapture = (lostEvent: PointerEvent) => {
-        const activeSession = groupResizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== lostEvent.pointerId
-        ) {
-          return;
-        }
-        stopGroupResize();
-      };
-      const handleWindowBlur = () => stopGroupResize();
-
-      groupResizeCleanupRef.current?.();
-      groupResizeCleanupRef.current = () => {
-        if (pointerId != null && resizeHandle.hasPointerCapture(pointerId)) {
-          resizeHandle.releasePointerCapture(pointerId);
-        }
-        headerCell.draggable = previousDraggable;
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-        window.removeEventListener("pointercancel", handlePointerCancel);
-        resizeHandle.removeEventListener(
-          "lostpointercapture",
-          handleLostPointerCapture
-        );
-        window.removeEventListener("blur", handleWindowBlur);
-      };
-
-      if (isPointerEvent) {
-        window.addEventListener("pointermove", handlePointerMove, {
-          passive: false,
-        });
-        window.addEventListener("pointerup", handlePointerUp);
-        window.addEventListener("pointercancel", handlePointerCancel);
-        resizeHandle.addEventListener(
-          "lostpointercapture",
-          handleLostPointerCapture
-        );
-        try {
-          resizeHandle.setPointerCapture(event.pointerId);
-        } catch {
-          // Window listeners keep the group gesture functional when pointer
-          // capture is unavailable.
-        }
-      } else {
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-      }
-      window.addEventListener("blur", handleWindowBlur);
-
-      setResizingGroupKey(key);
-      setResizingColumnId(null);
-      cancelResizeProxyFrame();
-      const initialProxyLeft = groupRight;
-      resizeProxyNextLeftRef.current = initialProxyLeft;
-      setResizeProxyLeft(initialProxyLeft);
-    },
-    [
-      cancelResizeProxyFrame,
-      commitColumnResizeEntries,
-      getResizableGroupColumns,
-      rtl,
-      scheduleResizeProxyPosition,
-      seedManualColumnWidthsFromDom,
-      stopGroupResize,
-    ]
-  );
-
-  const startColumnResize = React.useCallback(
-    (
-      event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>,
-      columnId: string
-    ) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const isPointerEvent = "pointerId" in event;
-      const resizeHandle = event.currentTarget;
-      const pointerId = isPointerEvent ? event.pointerId : null;
-      if (
-        event.button !== 0 ||
-        (isPointerEvent && !event.isPrimary) ||
-        // A real mouse interaction emits pointerdown followed by mousedown.
-        // The pointer session owns that gesture, so the compatibility
-        // mousedown must not register a second set of listeners or commit it
-        // twice.
-        resizeSessionRef.current ||
-        groupResizeSessionRef.current
-      ) {
-        return;
-      }
-
-      const column = orderedColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      const surfaceElement = surfaceRef.current;
-      const headerCell = event.currentTarget.closest("th");
-
-      if (
-        !column ||
-        !surfaceElement ||
-        !(headerCell instanceof HTMLTableCellElement)
-      ) {
-        return;
-      }
-
-      const surfaceRect = surfaceElement.getBoundingClientRect();
-      const headerRect = headerCell.getBoundingClientRect();
-      const seededWidths = seedManualColumnWidthsFromDom();
-      const startWidth =
-        seededWidths?.[columnId] ?? Math.round(headerRect.width);
-      const columnLeft = headerRect.left - surfaceRect.left;
-      const previousDraggable = headerCell.draggable;
-      const bodyViewport = scrollRef.current;
-      const isLastColumn =
-        getColumnId(orderedColumns[orderedColumns.length - 1]!) === columnId;
-      const columnWidthBounds = getColumnWidthBounds(
-        column,
-        computedColumnMinWidth,
-        computedColumnMaxWidth
-      );
-      const minWidth = isLastColumn
-        ? ensureLastColumnHeaderFits({
-            column,
-            baseWidth: columnWidthBounds.minWidth,
-            showColumnMenuTool,
-            columnMinWidth: computedColumnMinWidth,
-            columnMaxWidth: computedColumnMaxWidth,
-          })
-        : columnWidthBounds.minWidth;
-      const { maxWidth } = columnWidthBounds;
-      const restoreTrailingEdge = Boolean(
-        isLastColumn &&
-        bodyViewport &&
-        bodyViewport.scrollWidth -
-          bodyViewport.clientWidth -
-          getLogicalScrollLeft(bodyViewport, rtl) <=
-          1
-      );
-      const preview = liveColumnResize
-        ? captureLiveColumnResizePreview(surfaceElement, columnId, startWidth)
-        : null;
-
-      headerCell.draggable = false;
-
-      resizeSessionRef.current = {
-        columnId,
-        column,
-        inputType: isPointerEvent ? "pointer" : "mouse",
-        pointerId,
-        startX: event.clientX,
-        startWidth,
-        nextWidth: startWidth,
-        columnLeft,
-        minWidth,
-        maxWidth,
-        liveColumnResize,
-        appliedPreviewWidth: null,
-        preview,
-      };
-
-      resizeCleanupRef.current?.();
-
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-
-      const updateResize = (clientX: number) => {
-        const activeSession = resizeSessionRef.current;
-        if (!activeSession) return;
-
-        const nextWidth = clamp(
-          activeSession.startWidth +
-            (clientX - activeSession.startX) * (rtl ? -1 : 1),
-          activeSession.minWidth,
-          activeSession.maxWidth
-        );
-
-        activeSession.nextWidth = nextWidth;
-        if (activeSession.liveColumnResize) {
-          scheduleLiveColumnResizePreview(nextWidth);
-        } else {
-          scheduleResizeProxyPosition(activeSession.columnLeft + nextWidth);
-        }
-      };
-
-      const completeResize = () => {
-        const completedSession = resizeSessionRef.current;
-        const shouldCommit = Boolean(
-          completedSession &&
-          completedSession.nextWidth !== completedSession.startWidth
-        );
-        if (completedSession && shouldCommit) {
-          // Settle the imperative preview before entering the existing commit
-          // path. React applies the grid-owned result in the same event turn;
-          // controlled widths therefore return to their prop value unless the
-          // consumer supplies the proposal back from `onColumnResize`.
-          cancelLiveColumnResizeFrame();
-          restoreLiveColumnResizePreview(completedSession);
-          commitColumnPixelResize(
-            completedSession.column,
-            completedSession.nextWidth
-          );
-        }
-        stopColumnResize();
-
-        if (restoreTrailingEdge && bodyViewport) {
-          window.requestAnimationFrame(() => {
-            setLogicalScrollLeft(bodyViewport, bodyViewport.scrollWidth, rtl);
-          });
-        }
-      };
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (!activeSession || activeSession.inputType !== "mouse") return;
-        updateResize(moveEvent.clientX);
-      };
-      const handleMouseUp = (upEvent: MouseEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "mouse" ||
-          upEvent.button !== 0
-        ) {
-          return;
-        }
-        completeResize();
-      };
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== moveEvent.pointerId
-        ) {
-          return;
-        }
-        moveEvent.preventDefault();
-        updateResize(moveEvent.clientX);
-      };
-      const handlePointerUp = (upEvent: PointerEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== upEvent.pointerId
-        ) {
-          return;
-        }
-        completeResize();
-      };
-      const handlePointerCancel = (cancelEvent: PointerEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== cancelEvent.pointerId
-        ) {
-          return;
-        }
-        stopColumnResize();
-      };
-      const handleLostPointerCapture = (lostEvent: PointerEvent) => {
-        const activeSession = resizeSessionRef.current;
-        if (
-          !activeSession ||
-          activeSession.inputType !== "pointer" ||
-          activeSession.pointerId !== lostEvent.pointerId
-        ) {
-          return;
-        }
-        stopColumnResize();
-      };
-      const handleWindowBlur = () => {
-        stopColumnResize();
-      };
-
-      resizeCleanupRef.current = () => {
-        if (pointerId != null && resizeHandle.hasPointerCapture(pointerId)) {
-          resizeHandle.releasePointerCapture(pointerId);
-        }
-        headerCell.draggable = previousDraggable;
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-        window.removeEventListener("pointercancel", handlePointerCancel);
-        resizeHandle.removeEventListener(
-          "lostpointercapture",
-          handleLostPointerCapture
-        );
-        window.removeEventListener("blur", handleWindowBlur);
-      };
-
-      if (isPointerEvent) {
-        window.addEventListener("pointermove", handlePointerMove, {
-          passive: false,
-        });
-        window.addEventListener("pointerup", handlePointerUp);
-        window.addEventListener("pointercancel", handlePointerCancel);
-        resizeHandle.addEventListener(
-          "lostpointercapture",
-          handleLostPointerCapture
-        );
-        // Capturing keeps a touch/pen drag alive when the pointer leaves the
-        // narrow handle. Window listeners remain the fallback for browsers
-        // which reject capture for a synthetic pointer event.
-        try {
-          resizeHandle.setPointerCapture(event.pointerId);
-        } catch {
-          // The gesture can still be tracked by the window listeners.
-        }
-      } else {
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-      }
-      window.addEventListener("blur", handleWindowBlur);
-      setResizingColumnId(columnId);
-      cancelResizeProxyFrame();
-      cancelLiveColumnResizeFrame();
-      if (liveColumnResize) {
-        setResizeProxyLeft(null);
-      } else {
-        const initialProxyLeft = columnLeft + startWidth;
-        resizeProxyNextLeftRef.current = initialProxyLeft;
-        setResizeProxyLeft(initialProxyLeft);
-      }
-    },
-    [
-      cancelLiveColumnResizeFrame,
-      cancelResizeProxyFrame,
-      commitColumnPixelResize,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      liveColumnResize,
-      orderedColumns,
-      rtl,
-      scheduleLiveColumnResizePreview,
-      scheduleResizeProxyPosition,
-      seedManualColumnWidthsFromDom,
-      showColumnMenuTool,
-      stopColumnResize,
-    ]
-  );
-
-  React.useLayoutEffect(() => {
-    return () => {
-      const session = resizeSessionRef.current;
-      const cleanup = resizeCleanupRef.current;
-      const groupCleanup = groupResizeCleanupRef.current;
-      resizeCleanupRef.current = null;
-      groupResizeCleanupRef.current = null;
-      resizeSessionRef.current = null;
-      groupResizeSessionRef.current = null;
-      cancelResizeProxyFrame();
-      cancelLiveColumnResizeFrame();
-      restoreLiveColumnResizePreview(session);
-      cleanup?.();
-      groupCleanup?.();
-    };
-  }, [cancelLiveColumnResizeFrame, cancelResizeProxyFrame]);
-
-  React.useEffect(() => {
-    if (!resizingColumnId) return;
-
-    const activeSession = resizeSessionRef.current;
-    const resizingColumnExists = orderedColumns.some(
-      (column) => getColumnId(column) === resizingColumnId
-    );
-
-    if (
-      mobileTransformActive ||
-      !resizable ||
-      !showHeader ||
-      !resizingColumnExists ||
-      activeSession?.liveColumnResize !== liveColumnResize
-    ) {
-      stopColumnResize();
-    }
-  }, [
+  const {
+    autosizeColumn,
+    commitColumnPixelResize,
+    commitColumnResizeEntries,
+    resizeColumnBy,
+    resizeGroupBy,
+    resizeProxyElementRef,
+    resizeProxyLeft,
+    resizingColumnId,
+    resizingGroupKey,
+    startColumnResize,
+    startGroupResize,
+  } = useGridColumnResize({
+    autosizeSample,
+    columnGroupHeaderRows,
+    columnWidths,
+    computedColumnDefaultWidth,
+    computedColumnMaxWidth,
+    computedColumnMinWidth,
+    flexWeights: columnWidthAllocation.flexWeights,
+    hasManualColumnWidths,
+    headerScrollRef,
     liveColumnResize,
     mobileTransformActive,
+    onBatchColumnResize,
+    onColumnResize,
     orderedColumns,
+    renderedColumnLayout,
+    reservedViewportWidthRef,
     resizable,
-    resizingColumnId,
+    rtl,
+    scrollRef,
+    setManualColumnFlexes,
+    setManualColumnWidths,
+    setReservedViewportWidth,
+    shareSpaceOnResize,
+    showColumnMenuTool,
     showHeader,
-    stopColumnResize,
-  ]);
-
-  React.useEffect(() => {
-    if (!resizingGroupKey) return;
-
-    const activeSession = groupResizeSessionRef.current;
-    const segmentStillExists = columnGroupHeaderRows.some((row) =>
-      row.some(
-        (item) =>
-          item.type === "group" &&
-          getColumnGroupSegmentKey(item) === resizingGroupKey
-      )
-    );
-    const columnsStillExist = activeSession?.columns.every(({ id }) =>
-      orderedColumns.some((column) => getColumnId(column) === id)
-    );
-
-    if (
-      mobileTransformActive ||
-      !resizable ||
-      !showHeader ||
-      !segmentStillExists ||
-      !columnsStillExist
-    ) {
-      stopGroupResize();
-    }
-  }, [
-    columnGroupHeaderRows,
-    mobileTransformActive,
-    orderedColumns,
-    resizable,
-    resizingGroupKey,
-    showHeader,
-    stopGroupResize,
-  ]);
+    skipHeaderOnAutoSize,
+    surfaceRef,
+    tableMinWidth,
+  });
 
   /** ---------------- header drag/drop reorder ---------------- */
 
-  const headerDragRef = React.useRef<
-    | {
-        type: "column";
-        columnIds: string[];
-      }
-    | {
-        type: "group";
-        columnIds: string[];
-        depth: number;
-      }
-    | null
-  >(null);
-
   const allowColumnReorder = (props as any).reorderColumns ?? true;
 
-  function onHeaderDragStart(e: React.DragEvent, columnId: string) {
-    if (!allowColumnReorder) return;
-    if (checkboxEnabled && columnId === checkboxColId) return;
-
-    headerDragRef.current = {
-      type: "column",
-      columnIds: [columnId],
-    };
-    try {
-      e.dataTransfer.setData("text/plain", columnId);
-    } catch {
-      // Some environments reject custom drag payloads; column reordering still works.
-    }
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function onGroupHeaderDragStart(
-    e: React.DragEvent,
-    item: GroupHeaderRenderItem
-  ) {
-    if (!allowColumnReorder || item.group.draggable === false) return;
-
-    headerDragRef.current = {
-      type: "group",
-      columnIds: [...item.columnIds],
-      depth: item.depth,
-    };
-    try {
-      e.dataTransfer.setData(
-        "text/plain",
-        JSON.stringify({
-          type: "group",
-          group: item.groupName,
-          depth: item.depth,
-          columnIds: item.columnIds,
-        })
-      );
-    } catch {
-      // The in-memory drag state remains authoritative.
-    }
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function commitHeaderDrop(e: React.DragEvent, targetId: string) {
-    if (!allowColumnReorder) return;
-
-    e.preventDefault();
-    const drag = headerDragRef.current;
-    headerDragRef.current = null;
-    if (!drag || drag.columnIds.length === 0) return;
-    if (
-      checkboxEnabled &&
-      (targetId === checkboxColId || drag.columnIds.includes(checkboxColId))
-    ) {
-      return;
-    }
-
-    const targetColumn = orderedColumns.find(
-      (column) => getColumnId(column) === targetId
-    );
-    const sourceColumns = drag.columnIds.flatMap((columnId) => {
-      const column = orderedColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      return column ? [column] : [];
-    });
-    if (
-      sourceColumns.length !== drag.columnIds.length ||
-      !targetColumn ||
-      sourceColumns.some(
-        (column) =>
-          resolveColumnLock(column) !== resolveColumnLock(targetColumn)
-      )
-    ) {
-      return;
-    }
-
-    if (!allowGroupSplitOnReorder) {
-      const valid =
-        drag.type === "column"
-          ? haveSameColumnGroupPath(
-              columnGroupModel,
-              drag.columnIds[0]!,
-              targetId
-            )
-          : canMoveColumnGroupSegment({
-              model: columnGroupModel,
-              sourceDepth: drag.depth,
-              sourceColumnIds: drag.columnIds,
-              targetColumnId: targetId,
-            });
-      if (!valid) return;
-    }
-
-    const next = moveColumnIdsBefore(
-      renderColumnOrder,
-      drag.columnIds,
-      targetId
-    );
-    if (
-      next.length === renderColumnOrder.length &&
-      next.every((columnId, index) => columnId === renderColumnOrder[index])
-    ) {
-      return;
-    }
-    table.setColumnOrder(next);
-  }
-
-  function onHeaderDrop(e: React.DragEvent, targetId: string) {
-    commitHeaderDrop(e, targetId);
-  }
-
-  function onGroupHeaderDrop(e: React.DragEvent, item: GroupHeaderRenderItem) {
-    const drag = headerDragRef.current;
-    if (drag?.type === "group" && drag.depth !== item.depth) {
-      e.preventDefault();
-      headerDragRef.current = null;
-      return;
-    }
-    const targetId = item.columnIds[0];
-    if (!targetId) return;
-    commitHeaderDrop(e, targetId);
-  }
-
-  function onHeaderDragOver(e: React.DragEvent) {
-    if (!allowColumnReorder) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
+  const {
+    onGroupHeaderDragStart,
+    onGroupHeaderDrop,
+    onHeaderDragOver,
+    onHeaderDragStart,
+    onHeaderDrop,
+  } = useGridHeaderReorder({
+    allowColumnReorder,
+    allowGroupSplitOnReorder,
+    checkboxColId,
+    checkboxEnabled,
+    columnGroupModel,
+    orderedColumns,
+    renderColumnOrder,
+    table,
+  });
 
   /** ---------------- imperative API / compat surface ---------------- */
 
@@ -6870,2341 +2493,250 @@ function ReactDataGrid(props: TypeDataGridProps) {
         totalComputedWidth - totalLockedStartWidth - totalLockedEndWidth,
     };
   }, [columnWidthPrefixSums, visibleComputedColumns]);
-  const columnFlexes = React.useMemo<Record<string, number>>(() => {
-    return { ...columnWidthAllocation.flexWeights };
-  }, [columnWidthAllocation.flexWeights]);
-  const columnSizes = React.useMemo<Record<string, number>>(() => {
-    return Object.fromEntries(
-      columnLayout.map((column) => [column.id, Number(column.width)])
-    );
-  }, [columnLayout]);
-  const setColumnSizesCompat = React.useCallback<
-    React.Dispatch<React.SetStateAction<Record<string, number>>>
-  >(
-    (nextValue) => {
-      const requested = resolveStateAction(nextValue, columnSizes);
-      const normalized: Record<string, number> = {};
-
-      for (const column of orderedColumns) {
-        const columnId = getColumnId(column);
-        const nextWidth = requested[columnId];
-        if (
-          typeof nextWidth !== "number" ||
-          !Number.isFinite(nextWidth) ||
-          nextWidth <= 0
-        ) {
-          continue;
-        }
-        if (
-          (typeof column.width === "number" && Number.isFinite(column.width)) ||
-          column.flex !== undefined
-        ) {
-          continue;
-        }
-
-        const { minWidth, maxWidth } = getColumnWidthBounds(
-          column,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        normalized[columnId] = clamp(Math.round(nextWidth), minWidth, maxWidth);
-      }
-
-      setManualColumnWidths(normalized);
-    },
-    [
-      columnSizes,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      orderedColumns,
-    ]
-  );
-  const setColumnFlexesCompat = React.useCallback<
-    React.Dispatch<React.SetStateAction<Record<string, number | null>>>
-  >(
-    (nextValue) => {
-      const currentFlexes: Record<string, number | null> = {
-        ...columnFlexes,
-        ...manualColumnFlexes,
-      };
-      const requested = resolveStateAction(nextValue, currentFlexes);
-      const normalized: Record<string, number | null> = {};
-
-      for (const column of orderedColumns) {
-        const columnId = getColumnId(column);
-        if (!Object.prototype.hasOwnProperty.call(requested, columnId)) {
-          continue;
-        }
-        if (
-          (typeof column.width === "number" && Number.isFinite(column.width)) ||
-          column.flex !== undefined
-        ) {
-          continue;
-        }
-
-        const nextFlex = requested[columnId];
-        if (nextFlex === null) {
-          normalized[columnId] = null;
-        } else if (
-          typeof nextFlex === "number" &&
-          Number.isFinite(nextFlex) &&
-          nextFlex > 0
-        ) {
-          normalized[columnId] = nextFlex;
-        }
-      }
-
-      setManualColumnFlexes(normalized);
-    },
-    [columnFlexes, manualColumnFlexes, orderedColumns]
-  );
-  const setColumnsSizesAutoCompat = React.useCallback(
-    (config?: {
-      columnIds?: string[];
-      skipHeader?: boolean;
-      skipSortTool?: boolean;
-    }) => {
-      const requestedIds = config?.columnIds ? new Set(config.columnIds) : null;
-      const entries = orderedColumns.flatMap((column) => {
-        const columnId = getColumnId(column);
-        if (
-          column.resizable === false ||
-          (requestedIds && !requestedIds.has(columnId))
-        ) {
-          return [];
-        }
-
-        return [
-          {
-            column,
-            width: estimateColumnContentWidth({
-              column,
-              rows: autosizeSample,
-              skipHeaderOnAutoSize: config?.skipHeader ?? skipHeaderOnAutoSize,
-              columnMinWidth: computedColumnMinWidth,
-              columnMaxWidth: computedColumnMaxWidth,
-            }),
-          },
-        ];
-      });
-      commitColumnResizeEntries(entries);
-    },
-    [
-      autosizeSample,
-      commitColumnResizeEntries,
-      computedColumnMaxWidth,
-      computedColumnMinWidth,
-      orderedColumns,
-      skipHeaderOnAutoSize,
-    ]
-  );
-  const setColumnSizeAutoCompat = React.useCallback(
-    (columnId: string, skipHeader?: boolean) => {
-      setColumnsSizesAutoCompat({
-        columnIds: [columnId],
-        skipHeader,
-      });
-    },
-    [setColumnsSizesAutoCompat]
-  );
-  const setColumnSizesToFitCompat = React.useCallback(() => {
-    if (columnViewportWidth <= 0) return;
-
-    const remaining = orderedColumns.filter(
-      (column) => column.resizable !== false
-    );
-    if (remaining.length === 0) return;
-
-    const targetWidths: Record<string, number> = {};
-    let unavailableWidth = orderedColumns.reduce((sum, column) => {
-      if (column.resizable !== false) return sum;
-      return (
-        sum + (columnWidths[getColumnId(column)] ?? computedColumnDefaultWidth)
-      );
-    }, 0);
-    let pending = [...remaining];
-
-    while (pending.length > 0) {
-      const availableWidth = Math.max(
-        0,
-        columnViewportWidth - unavailableWidth
-      );
-      const currentWidth = pending.reduce(
-        (sum, column) =>
-          sum +
-          (columnWidths[getColumnId(column)] ?? computedColumnDefaultWidth),
-        0
-      );
-      const scale = currentWidth > 0 ? availableWidth / currentWidth : 1;
-      const constrained = pending.find((column) => {
-        const columnId = getColumnId(column);
-        const current = columnWidths[columnId] ?? computedColumnDefaultWidth;
-        const { minWidth, maxWidth } = getColumnWidthBounds(
-          column,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        const proposed = Math.round(current * scale);
-        if (proposed >= minWidth && proposed <= maxWidth) return false;
-
-        const width = clamp(proposed, minWidth, maxWidth);
-        targetWidths[columnId] = width;
-        unavailableWidth += width;
-        return true;
-      });
-
-      if (constrained) {
-        pending = pending.filter((column) => column !== constrained);
-        continue;
-      }
-
-      let spaceLeft = availableWidth;
-      pending.forEach((column, index) => {
-        const columnId = getColumnId(column);
-        const current = columnWidths[columnId] ?? computedColumnDefaultWidth;
-        const width =
-          index === pending.length - 1
-            ? spaceLeft
-            : Math.round(current * scale);
-        targetWidths[columnId] = width;
-        spaceLeft = Math.max(0, spaceLeft - width);
-      });
-      break;
-    }
-
-    commitColumnResizeEntries(
-      remaining.map((column) => {
-        const columnId = getColumnId(column);
-        const width =
-          targetWidths[columnId] ??
-          columnWidths[columnId] ??
-          computedColumnDefaultWidth;
-        return columnWidthAllocation.flexWeights[columnId]
-          ? { column, flex: width }
-          : { column, width };
-      }),
-      0
-    );
-  }, [
+  const {
+    columnFlexes,
+    columnSizes,
+    setColumnSizeAutoCompat,
+    setColumnSizesCompat,
+    setColumnFlexesCompat,
+    setColumnSizesToFitCompat,
+    setColumnsSizesAutoCompat,
+  } = useGridColumnSizingApi({
+    autosizeSample,
+    columnLayout,
     columnViewportWidth,
-    columnWidthAllocation.flexWeights,
     columnWidths,
     commitColumnResizeEntries,
     computedColumnDefaultWidth,
     computedColumnMaxWidth,
     computedColumnMinWidth,
+    flexWeights: columnWidthAllocation.flexWeights,
+    manualColumnFlexes,
     orderedColumns,
-  ]);
+    setManualColumnFlexes,
+    setManualColumnWidths,
+    skipHeaderOnAutoSize,
+  });
 
-  const setLimitAndResetPage = React.useCallback(
-    (next: number) => {
-      resetSkip();
-      setLimit(next);
-    },
-    [resetSkip, setLimit]
-  );
+  const {
+    gotoFirstPage,
+    gotoLastPage,
+    gotoNextPage,
+    gotoPrevPage,
+    hasNextPage,
+    hasPrevPage,
+    paginationProps,
+    setFilterValueAndResetPage,
+    setLimitAndResetPage,
+    setSortInfoAndResetPage,
+  } = useGridPaginationApi({
+    canNext,
+    canPrev,
+    count,
+    filterControlled,
+    i18n,
+    loadSkip,
+    localPagination,
+    pageCount,
+    pageIndex,
+    pageSizes,
+    paginationEnabled,
+    reload,
+    remotePagination,
+    resetSkip,
+    rowsCount: rows.length,
+    rtl,
+    safeLimit,
+    setDraftFilterValue,
+    setFilterValue,
+    setLimit,
+    setSkip,
+    setSortInfo,
+    themeName,
+  });
 
-  const setSortInfoAndResetPage = React.useCallback(
-    (next: TypeSortInfo) => {
-      resetSkip();
-      setSortInfo(next);
-    },
-    [resetSkip, setSortInfo]
-  );
-
-  const setFilterValueAndResetPage = React.useCallback(
-    (next: TypeFilterValue) => {
-      resetSkip();
-      if (!filterControlled) {
-        setDraftFilterValue(next);
-      }
-      setFilterValue(next);
-    },
-    [filterControlled, resetSkip, setDraftFilterValue, setFilterValue]
-  );
-
-  const gotoPage = React.useCallback(
-    (page: number, config?: { force: boolean }) => {
-      const nextPage = Math.min(
-        pageCount,
-        Math.max(1, Math.trunc(Number.isFinite(page) ? page : 1))
-      );
-      const nextSkip = (nextPage - 1) * safeLimit;
-
-      if (nextSkip === loadSkip) {
-        if (config?.force) reload();
-        return;
-      }
-      setSkip(nextSkip);
-    },
-    [loadSkip, pageCount, reload, safeLimit, setSkip]
-  );
-  const gotoFirstPage = React.useCallback(() => gotoPage(1), [gotoPage]);
-  const gotoLastPage = React.useCallback(
-    () => gotoPage(pageCount),
-    [gotoPage, pageCount]
-  );
-  const gotoNextPage = React.useCallback(
-    () => gotoPage(pageIndex + 2),
-    [gotoPage, pageIndex]
-  );
-  const gotoPrevPage = React.useCallback(
-    () => gotoPage(pageIndex),
-    [gotoPage, pageIndex]
-  );
-  const hasNextPage = React.useCallback(() => canNext, [canNext]);
-  const hasPrevPage = React.useCallback(() => canPrev, [canPrev]);
-  const paginationProps = React.useMemo<TypePaginationProps>(
-    () => ({
-      skip: loadSkip,
-      limit: safeLimit,
-      count: rows.length,
-      pagination: paginationEnabled,
-      livePagination: false,
-      remotePagination,
-      localPagination,
-      totalCount: count,
-      pageSizes,
-      gotoNextPage,
-      reload,
-      onRefresh: reload,
-      gotoFirstPage,
-      gotoLastPage,
-      gotoPrevPage,
-      hasNextPage,
-      hasPrevPage,
-      onSkipChange: setSkip,
-      onLimitChange: setLimit,
-      gotoPage,
-      onClick: (event: { stopPropagation?: () => void }) =>
-        event.stopPropagation?.(),
-      theme: themeName,
-      perPageText: t(i18n, "perPageText", "Rows"),
-      pageText: t(i18n, "pageText", "Page"),
-      ofText: t(i18n, "ofText", "of"),
-      showingText: t(i18n, "showingText", "Showing"),
-      rtl,
-      bordered: false,
-    }),
-    [
-      count,
-      gotoFirstPage,
-      gotoLastPage,
-      gotoNextPage,
-      gotoPage,
-      gotoPrevPage,
-      hasNextPage,
-      hasPrevPage,
-      i18n,
-      loadSkip,
-      localPagination,
-      pageSizes,
-      paginationEnabled,
-      reload,
-      remotePagination,
-      rtl,
-      rows.length,
-      safeLimit,
-      setLimit,
-      setSkip,
-      themeName,
-    ]
-  );
-
-  const computedOnColumnFilterValueChangeCompat = React.useCallback(
-    (event: TypeColumnFilterValueChangeArg) => {
-      onColumnFilterValueChange?.(event);
-      setFilterValueAndResetPage(
-        upsertFilterEntry(filterValue, event.filterValue, { filterTypes })
-      );
-    },
-    [
-      filterTypes,
-      filterValue,
-      onColumnFilterValueChange,
-      setFilterValueAndResetPage,
-    ]
-  );
-
-  const setColumnOrderCompat = React.useCallback(
-    (next: string[]) => {
-      const internalNext = checkboxEnabled
-        ? (injectIntoOrder(next, checkboxColId) ?? next)
-        : next;
-      table.setColumnOrder(internalNext);
-    },
-    [checkboxColId, checkboxEnabled, table]
-  );
-
-  const getColumnByCompat = React.useCallback(
-    (
-      column: TypeGetColumnByParam,
-      config?: { initial?: boolean }
-    ): TypeComputedColumn | TypeColumn | undefined => {
-      const source = config?.initial ? allInputColumns : allComputedColumns;
-
-      if (typeof column === "number") {
-        return source[column];
-      }
-
-      if (typeof column === "string") {
-        return source.find((candidate) => {
-          const candidateId = getColumnId(candidate);
-          return (
-            candidateId === column ||
-            candidate.id === column ||
-            candidate.name === column
-          );
-        });
-      }
-
-      const candidateId =
-        column && typeof column === "object"
-          ? "id" in column && column.id != null
-            ? String(column.id)
-            : "name" in column && column.name != null
-              ? String(column.name)
-              : null
-          : null;
-
-      if (!candidateId) return undefined;
-
-      return source.find((candidate) => {
-        const resolvedId = getColumnId(candidate);
-        return (
-          resolvedId === candidateId ||
-          candidate.id === candidateId ||
-          candidate.name === candidateId
-        );
-      });
-    },
-    [allComputedColumns, allInputColumns]
-  );
-
-  const getColumnIdCompat = React.useCallback(
-    (column: TypeGetColumnByParam): string | null => {
-      if (typeof column === "string") return column;
-      if (typeof column === "number") {
-        const resolved = getColumnByCompat(column);
-        return resolved ? getColumnId(resolved) : null;
-      }
-
-      const resolved =
-        getColumnByCompat(column, { initial: true }) ??
-        getColumnByCompat(column);
-
-      return resolved ? getColumnId(resolved) : null;
-    },
-    [getColumnByCompat]
-  );
-
-  const setColumnVisibleCompat = React.useCallback(
-    (column: TypeGetColumnByParam, visible: boolean) => {
-      const columnId = getColumnIdCompat(column);
-      if (!columnId) return;
-      const initialColumn = allInputColumns.find(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-      if (!initialColumn) return;
-      if ((columnVisibilityMap[columnId] !== false) === visible) return;
-
-      onColumnVisibleChange?.({
-        column: initialColumn,
-        visible,
-      });
-
-      // A declarative `visible` value is controlled ownership. The callback
-      // receives the proposal, but rendering remains prop-authoritative until
-      // the consumer supplies a new value.
-      if (initialColumn.visible !== undefined) return;
-
-      // `hideable` constrains UI affordances, not the Inovua imperative API.
-      // Writing the sparse internal override also avoids TanStack's
-      // `getCanHide()` gate for hideable:false columns.
-      setColumnVisibilityState((current) => {
-        if (current[columnId] === visible) return current;
-        return { ...current, [columnId]: visible };
-      });
-    },
-    [
-      allInputColumns,
-      columnVisibilityMap,
-      getColumnIdCompat,
-      onColumnVisibleChange,
-    ]
-  );
-
-  const setColumnVisibleById = React.useCallback(
-    (columnId: string, visible: boolean) => {
-      setColumnVisibleCompat(columnId, visible);
-    },
-    [setColumnVisibleCompat]
-  );
-
-  React.useLayoutEffect(() => {
-    if (!columnVisibilityController) return;
-
-    const consumerColumnVisibilityMap = Object.fromEntries(
-      inputColumns.map((column) => {
-        const columnId = getColumnId(column);
-        return [columnId, columnVisibilityMap[columnId] !== false];
-      })
-    );
-
-    columnVisibilityController.publish({
-      columns: inputColumns,
-      columnOrder: columnOrderForDs,
-      columnVisibilityMap: consumerColumnVisibilityMap,
-      theme: String(theme),
-      setColumnVisible: setColumnVisibleById,
-    });
-  }, [
+  const {
+    clearColumnFilterCompat,
+    computedOnColumnFilterValueChangeCompat,
+    getColumnByCompat,
+    getColumnFilterValueCompat,
+    getColumnIdCompat,
+    setColumnFilterValueCompat,
+    setColumnOrderCompat,
+    setColumnSortInfoCompat,
+    setColumnVisibleById,
+    setColumnVisibleCompat,
+    toggleColumnSortCompat,
+  } = useGridColumnApi({
+    allComputedColumns,
+    allInputColumns,
+    allowUnsort,
+    checkboxColId,
+    checkboxEnabled,
     columnOrderForDs,
     columnVisibilityController,
     columnVisibilityMap,
+    defaultSortDir,
+    filterTypes,
+    filterValue,
     inputColumns,
-    setColumnVisibleById,
+    onColumnFilterValueChange,
+    onColumnVisibleChange,
+    orderedColumns,
+    setColumnVisibilityState,
+    setFilterValueAndResetPage,
+    setSortInfoAndResetPage,
+    sortFunctions,
+    sortInfo,
+    table,
     theme,
-  ]);
-
-  const setColumnSortInfoCompat = React.useCallback(
-    (column: TypeGetColumnByParam, dir: 1 | 0 | -1) => {
-      const resolved = getColumnByCompat(column, { initial: true });
-      if (!resolved) return;
-
-      setSortInfoAndResetPage(
-        setColumnSortInfo({
-          sortInfo,
-          col: resolved,
-          dir,
-          sortFunctions,
-        })
-      );
-    },
-    [getColumnByCompat, setSortInfoAndResetPage, sortFunctions, sortInfo]
-  );
-
-  const toggleColumnSortCompat = React.useCallback(
-    (column: TypeGetColumnByParam) => {
-      const resolved = getColumnByCompat(column, { initial: true });
-      if (!resolved) return;
-
-      const next = toggleSortInfo({
-        sortInfo,
-        col: resolved,
-        allowUnsort,
-        defaultDir: defaultSortDir,
-        sortFunctions,
-      });
-
-      setSortInfoAndResetPage(next);
-    },
-    [
-      allowUnsort,
-      defaultSortDir,
-      getColumnByCompat,
-      setSortInfoAndResetPage,
-      sortFunctions,
-      sortInfo,
-    ]
-  );
-
-  const getColumnFilterValueCompat = React.useCallback(
-    (column: TypeGetColumnByParam) => {
-      const columnId = getColumnIdCompat(column);
-      return columnId ? getFilterEntry(filterValue, columnId) : undefined;
-    },
-    [filterValue, getColumnIdCompat]
-  );
-
-  const setColumnFilterValueCompat = React.useCallback(
-    (column: TypeGetColumnByParam, value: unknown, operator?: string) => {
-      const resolved = getColumnByCompat(column, { initial: true });
-      const columnId = resolved
-        ? getColumnId(resolved)
-        : getColumnIdCompat(column);
-      if (!columnId) return;
-
-      const existing = getFilterEntry(filterValue, columnId);
-      const filterType = resolveFilterTypeName(
-        resolved as TypeColumn | undefined,
-        existing
-      );
-      const nextOperator =
-        operator ?? resolveDefaultFilterOperator(filterType, existing);
-      const columnIndex = orderedColumns.findIndex(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-
-      computedOnColumnFilterValueChangeCompat({
-        columnId,
-        columnIndex,
-        filterValue: {
-          ...(existing ?? {}),
-          name: columnId,
-          type: filterType,
-          operator: nextOperator,
-          value,
-        },
-      });
-    },
-    [
-      computedOnColumnFilterValueChangeCompat,
-      filterValue,
-      getColumnByCompat,
-      getColumnIdCompat,
-      orderedColumns,
-    ]
-  );
-
-  const clearColumnFilterCompat = React.useCallback(
-    (column: TypeGetColumnByParam) => {
-      const columnId = getColumnIdCompat(column);
-      if (!columnId) return;
-
-      const existing = getFilterEntry(filterValue, columnId);
-      if (!existing) {
-        setFilterValueAndResetPage(
-          clearFilter(filterValue, columnId, { filterTypes })
-        );
-        return;
-      }
-
-      const next = clearFilter(filterValue, columnId, { filterTypes });
-      const clearedEntry = getFilterEntry(next, columnId);
-      if (!clearedEntry) return;
-
-      const columnIndex = orderedColumns.findIndex(
-        (candidate) => getColumnId(candidate) === columnId
-      );
-
-      computedOnColumnFilterValueChangeCompat({
-        columnId,
-        columnIndex,
-        filterValue: clearedEntry,
-      });
-    },
-    [
-      computedOnColumnFilterValueChangeCompat,
-      filterTypes,
-      filterValue,
-      getColumnIdCompat,
-      orderedColumns,
-      setFilterValueAndResetPage,
-    ]
-  );
-
-  const setSelectedCompat = React.useCallback(
-    (nextSelected: TypeRowSelection) => {
-      const normalized = unwrapSelectionState(nextSelected);
-      emitSelectionChange(normalized, {
-        unselected: normalized === true ? unselected : null,
-      });
-    },
-    [emitSelectionChange, unselected]
-  );
-
-  const selectAllCompat = selectAllRows;
-  const deselectAllCompat = deselectAllRows;
-
-  const setSelectedByIdCompat = React.useCallback(
-    (id: string, nextSelected: boolean) => {
-      const rowIndex = rows.findIndex(
-        (candidate, index) => getRowKey(candidate, index) === id
-      );
-      if (rowIndex < 0) return;
-      commitRowSelection(rowIndex, {
-        checked: nextSelected,
-        fromCheckbox: true,
-      });
-    },
-    [commitRowSelection, getRowKey, rows]
-  );
-
-  const setSelectedAtCompat = React.useCallback(
-    (index: number, nextSelected: boolean) => {
-      if (!rows[index]) return;
-      commitRowSelection(index, {
-        checked: nextSelected,
-        fromCheckbox: true,
-      });
-    },
-    [commitRowSelection, rows]
-  );
-
-  const getItemIndexByIdCompat = React.useCallback(
-    (rowId: string | number, data?: unknown[]) => {
-      const source = Array.isArray(data) ? data : rows;
-      const idAsString = String(rowId);
-
-      return source.findIndex((candidate, index) => {
-        const value = (candidate as any)?.[idProperty];
-        return String(value == null ? index : value) === idAsString;
-      });
-    },
-    [idProperty, rows]
-  );
-  const setItemAtCompat = React.useCallback(
-    (
-      index: number,
-      item: unknown,
-      config?: {
-        replace?: boolean;
-        property?: string;
-        value?: unknown;
-      }
-    ) => {
-      if (!Number.isInteger(index) || index < 0) return;
-      setRows((current) => {
-        if (index >= current.length) return current;
-        const existing = current[index];
-        let nextItem = item;
-        if (config?.property) {
-          nextItem = {
-            ...(existing && typeof existing === "object" ? existing : {}),
-            [config.property]: config.value,
-          };
-        } else if (
-          config?.replace === false &&
-          existing &&
-          typeof existing === "object" &&
-          item &&
-          typeof item === "object"
-        ) {
-          nextItem = { ...existing, ...item };
-        }
-        if (Object.is(existing, nextItem)) return current;
-        const next = [...current];
-        next[index] = nextItem;
-        return next;
-      });
-    },
-    []
-  );
-  const setItemPropertyAtCompat = React.useCallback(
-    (index: number, property: string, value: unknown) => {
-      setItemAtCompat(index, undefined, { property, value });
-    },
-    [setItemAtCompat]
-  );
-  const setItemPropertyForIdCompat = React.useCallback(
-    (id: string | number, property: string, value: unknown) => {
-      const index = getItemIndexByIdCompat(id);
-      if (index >= 0) setItemPropertyAtCompat(index, property, value);
-    },
-    [getItemIndexByIdCompat, setItemPropertyAtCompat]
-  );
-  const setItemsAtCompat = React.useCallback(
-    (
-      items: unknown[] | Record<number, unknown>,
-      config?: { replace?: boolean }
-    ) => {
-      const entries = Array.isArray(items)
-        ? items.map((item, index) => [index, item] as const)
-        : Object.entries(items).flatMap(([index, item]) => {
-            const numericIndex = Number(index);
-            return Number.isInteger(numericIndex)
-              ? ([[numericIndex, item]] as const)
-              : [];
-          });
-      setRows((current) => {
-        let changed = false;
-        const next = [...current];
-        for (const [index, item] of entries) {
-          if (index < 0 || index >= next.length) continue;
-          const existing = next[index];
-          const nextItem =
-            config?.replace === false &&
-            existing &&
-            typeof existing === "object" &&
-            item &&
-            typeof item === "object"
-              ? { ...existing, ...item }
-              : item;
-          if (Object.is(existing, nextItem)) continue;
-          next[index] = nextItem;
-          changed = true;
-        }
-        return changed ? next : current;
-      });
-    },
-    []
-  );
-
-  const getScrollingElement = React.useCallback(() => scrollRef.current, []);
-
-  const getScrollLeftCompat = React.useCallback(() => {
-    const viewport = scrollRef.current;
-    return viewport ? getLogicalScrollLeft(viewport, rtl) : 0;
-  }, [rtl]);
-
-  const setScrollLeftCompat = React.useCallback(
-    (nextScrollLeft: number) => {
-      if (!scrollRef.current) return;
-      lastImperativeScrollAtRef.current = window.performance.now();
-      setLogicalScrollLeft(scrollRef.current, nextScrollLeft, rtl);
-    },
-    [rtl]
-  );
-
-  const incrementScrollLeftCompat = React.useCallback(
-    (delta: number) => {
-      if (!scrollRef.current) return;
-      lastImperativeScrollAtRef.current = window.performance.now();
-      setLogicalScrollLeft(
-        scrollRef.current,
-        getLogicalScrollLeft(scrollRef.current, rtl) + delta,
-        rtl
-      );
-    },
-    [rtl]
-  );
-
-  const setScrollTopCompat = React.useCallback((nextScrollTop: number) => {
-    if (!scrollRef.current) return;
-    lastImperativeScrollAtRef.current = window.performance.now();
-    scrollRef.current.scrollTop = nextScrollTop;
-  }, []);
-
-  const incrementScrollTopCompat = React.useCallback((delta: number) => {
-    if (!scrollRef.current) return;
-    lastImperativeScrollAtRef.current = window.performance.now();
-    scrollRef.current.scrollTop += delta;
-  }, []);
-
-  const scrollToIndexCompat = React.useCallback(
-    (
-      index: number,
-      config?: {
-        top?: boolean;
-        direction?: "top" | "bottom";
-        force?: boolean;
-        duration?: number;
-        offset?: number;
-      },
-      callback?: (...args: unknown[]) => void
-    ) => {
-      if (index < 0) return;
-      lastImperativeScrollAtRef.current = window.performance.now();
-
-      if (virtualized) {
-        const viewport = scrollRef.current;
-        if (
-          viewport &&
-          typeof rowHeight === "number" &&
-          Number.isFinite(rowHeight)
-        ) {
-          let rowStart = 0;
-          for (
-            let rowIndex = 0;
-            rowIndex < Math.min(index, rowModel.length);
-            rowIndex += 1
-          ) {
-            rowStart += resolveRowHeight(rowIndex);
-          }
-          const resolvedHeight = resolveRowHeight(index);
-          viewport.scrollTop =
-            config?.direction === "bottom"
-              ? stickyHeaderOffset +
-                rowStart +
-                resolvedHeight -
-                viewport.clientHeight
-              : rowStart;
-        } else {
-          rowVirtualizer.scrollToIndex(index, {
-            align: config?.direction === "bottom" ? "end" : "start",
-          });
-        }
-      } else {
-        const rowNode = surfaceRef.current?.querySelector<HTMLElement>(
-          `[data-slot="grid-row"][data-row-index="${index}"]`
-        );
-        rowNode?.scrollIntoView({
-          block: config?.direction === "bottom" ? "end" : "start",
-        });
-      }
-
-      if (config?.offset && scrollRef.current) {
-        scrollRef.current.scrollTop += config.offset;
-      }
-
-      callback?.();
-    },
-    [
-      resolveRowHeight,
-      rowHeight,
-      rowModel.length,
-      rowVirtualizer,
-      stickyHeaderOffset,
-      virtualized,
-    ]
-  );
-
-  const scrollToColumnCompat = React.useCallback(
-    (
-      index: number,
-      config?: {
-        offset?: number;
-        duration?: number;
-        force?: boolean;
-        direction?: "left" | "right" | null;
-      },
-      callback?: (...args: unknown[]) => void
-    ) => {
-      const viewport = scrollRef.current;
-      const column = visibleComputedColumns[index];
-      if (!viewport || !column) return;
-      if (column.computedLocked) {
-        callback?.();
-        return;
-      }
-      const columnStart =
-        index === 0 ? 0 : (columnWidthPrefixSums[index - 1] ?? 0);
-      const columnEnd = columnWidthPrefixSums[index] ?? columnStart;
-      const offset = config?.offset ?? 0;
-      const lockedStartWidth = lockedColumnMetrics.totalLockedStartWidth;
-      const lockedEndWidth = lockedColumnMetrics.totalLockedEndWidth;
-      const logicalScrollLeft = getLogicalScrollLeft(viewport, rtl);
-      const visibleStart = logicalScrollLeft + lockedStartWidth + offset;
-      const visibleEnd =
-        logicalScrollLeft + viewport.clientWidth - lockedEndWidth - offset;
-      let nextScrollLeft = logicalScrollLeft;
-
-      if (config?.direction === "left" || columnStart < visibleStart) {
-        nextScrollLeft = columnStart - lockedStartWidth - offset;
-      } else if (config?.direction === "right" || columnEnd > visibleEnd) {
-        nextScrollLeft =
-          columnEnd - viewport.clientWidth + lockedEndWidth + offset;
-      }
-
-      setLogicalScrollLeft(
-        viewport,
-        Math.min(
-          Math.max(0, viewport.scrollWidth - viewport.clientWidth),
-          Math.max(0, nextScrollLeft)
-        ),
-        rtl
-      );
-
-      callback?.();
-    },
-    [columnWidthPrefixSums, lockedColumnMetrics, rtl, visibleComputedColumns]
-  );
-
-  const scrollToCellCompat = React.useCallback(
-    (
-      cell: { rowIndex: number; columnIndex: number },
-      config?: {
-        offset?: number;
-        left?: boolean;
-        right?: boolean;
-        top?: boolean;
-      }
-    ) => {
-      scrollToIndexCompat(cell.rowIndex, {
-        direction: config?.top === false ? "bottom" : "top",
-        offset: config?.offset,
-      });
-
-      window.requestAnimationFrame(() => {
-        scrollToColumnCompat(cell.columnIndex, {
-          offset: config?.offset,
-          direction: config?.left ? "left" : config?.right ? "right" : null,
-        });
-      });
-    },
-    [scrollToColumnCompat, scrollToIndexCompat]
-  );
-
-  const getRenderRangeCompat = React.useCallback(() => {
-    if (!virtualized) {
-      return {
-        from: 0,
-        to: Math.max(0, rowModel.length - 1),
-      };
-    }
-
-    if (virtualItems.length === 0) {
-      return { from: 0, to: 0 };
-    }
-
-    return {
-      from: virtualItems[0]!.index,
-      to: virtualItems[virtualItems.length - 1]!.index,
-    };
-  }, [rowModel.length, virtualItems, virtualized]);
-
-  const isRowRenderedCompat = React.useCallback((rowIndex: number) => {
-    return Boolean(
-      surfaceRef.current?.querySelector(
-        `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
-      )
-    );
-  }, []);
-
-  const isRowFullyVisibleCompat = React.useCallback((rowIndex: number) => {
-    const viewport = scrollRef.current;
-    const rowNode = surfaceRef.current?.querySelector<HTMLElement>(
-      `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
-    );
-    if (!viewport || !rowNode) return false;
-
-    const viewportRect = viewport.getBoundingClientRect();
-    const rowRect = rowNode.getBoundingClientRect();
-
-    return (
-      rowRect.top >= viewportRect.top && rowRect.bottom <= viewportRect.bottom
-    );
-  }, []);
-
-  /**
-   * Pressing a row focuses the surface on pointerdown, before the row's own
-   * click handler runs, so activateRowOnFocus would light up the first visible
-   * row and the click would immediately move it — a flash on the wrong row.
-   * Scoped to the press in flight: a press while already focused fires no focus
-   * event to consume it, and a stale flag would swallow the next focus restore.
-   */
-  const pointerActivatesRowRef = React.useRef(false);
-
-  const handleGridPointerDownCapture = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const target = event.target;
-      pointerActivatesRowRef.current =
-        target instanceof Element &&
-        Boolean(target.closest('[data-slot="grid-row"]'));
-    },
-    []
-  );
-
-  const clearPointerActivatesRow = React.useCallback(() => {
-    pointerActivatesRowRef.current = false;
-  }, []);
-
-  const handleGridFocus = React.useCallback(
-    (event: React.FocusEvent<HTMLDivElement>) => {
-      onFocusProp?.(event);
-      if (event.defaultPrevented) return;
-
-      const relatedTarget = event.relatedTarget;
-      if (
-        relatedTarget instanceof Node &&
-        rootRef.current?.contains(relatedTarget)
-      ) {
-        return;
-      }
-
-      const pressedRow = pointerActivatesRowRef.current;
-      pointerActivatesRowRef.current = false;
-
-      setGridFocused(true);
-      if (
-        !pressedRow &&
-        enableKeyboardNavigation &&
-        activateRowOnFocus &&
-        normalizedActiveIndex < 0 &&
-        rows.length > 0
-      ) {
-        const visibleIndex = getRenderRangeCompat().from;
-        const restoredIndex = lastActiveIndexRef.current;
-        setActiveIndexCompat(
-          restoredIndex != null &&
-            restoredIndex >= 0 &&
-            restoredIndex < rows.length
-            ? restoredIndex
-            : clamp(visibleIndex, 0, rows.length - 1)
-        );
-      }
-    },
-    [
-      activateRowOnFocus,
-      enableKeyboardNavigation,
-      getRenderRangeCompat,
-      normalizedActiveIndex,
-      onFocusProp,
-      rows.length,
-      setActiveIndexCompat,
-    ]
-  );
-
-  const handleGridBlur = React.useCallback(
-    (event: React.FocusEvent<HTMLDivElement>) => {
-      const relatedTarget = event.relatedTarget;
-      if (
-        relatedTarget instanceof Node &&
-        rootRef.current?.contains(relatedTarget)
-      ) {
-        return;
-      }
-
-      // A press that released outside the grid never reached the pointer-up.
-      pointerActivatesRowRef.current = false;
-
-      onBlurProp?.(event);
-      if (event.defaultPrevented) return;
-
-      if (normalizedActiveIndex >= 0) {
-        lastActiveIndexRef.current = normalizedActiveIndex;
-      }
-      setGridFocused(false);
-      setActiveIndexCompat(-1);
-    },
-    [normalizedActiveIndex, onBlurProp, setActiveIndexCompat]
-  );
-
-  const moveActiveCell = React.useCallback(
-    (
-      event: Pick<
-        React.KeyboardEvent<HTMLDivElement>,
-        "key" | "shiftKey" | "ctrlKey" | "metaKey"
-      >
-    ): boolean => {
-      if (
-        !cellSelectionEnabled ||
-        rows.length === 0 ||
-        selectableCellColumnIndexes.length === 0
-      ) {
-        return false;
-      }
-      const current =
-        pendingActiveCellRef.current ??
-        normalizedActiveCell ??
-        ([0, selectableCellColumnIndexes[0]!] as const);
-      let rowIndex = current[0];
-      let selectableIndex = Math.max(
-        0,
-        selectableCellColumnIndexes.indexOf(current[1])
-      );
-      const pageStep =
-        typeof keyPageStep === "number" && Number.isFinite(keyPageStep)
-          ? Math.max(1, Math.trunc(keyPageStep))
-          : REACT_DATA_GRID_DEFAULT_PROPS.keyPageStep;
-
-      switch (event.key) {
-        case "ArrowUp":
-          rowIndex -= 1;
-          break;
-        case "ArrowDown":
-          rowIndex += 1;
-          break;
-        case "ArrowLeft":
-          selectableIndex -= 1;
-          break;
-        case "ArrowRight":
-          selectableIndex += 1;
-          break;
-        case "Home":
-          if (event.ctrlKey || event.metaKey) rowIndex = 0;
-          selectableIndex = 0;
-          break;
-        case "End":
-          if (event.ctrlKey || event.metaKey) rowIndex = rows.length - 1;
-          selectableIndex = selectableCellColumnIndexes.length - 1;
-          break;
-        case "PageUp":
-          rowIndex -= pageStep;
-          break;
-        case "PageDown":
-          rowIndex += pageStep;
-          break;
-        case "Tab":
-          selectableIndex += event.shiftKey ? -1 : 1;
-          if (selectableIndex < 0) {
-            if (rowIndex === 0) return false;
-            rowIndex -= 1;
-            selectableIndex = selectableCellColumnIndexes.length - 1;
-          } else if (selectableIndex >= selectableCellColumnIndexes.length) {
-            if (rowIndex === rows.length - 1) return false;
-            rowIndex += 1;
-            selectableIndex = 0;
-          }
-          break;
-        case "Enter": {
-          const key = getCellSelectionKey(current[0], current[1]);
-          const next = cellMultiSelect ? { ...(cellSelectionState ?? {}) } : {};
-          if (next[key] && toggleCellSelectOnClick) delete next[key];
-          else next[key] = true;
-          setCellSelectionState(next);
-          return true;
-        }
-        default:
-          return false;
-      }
-
-      rowIndex = clamp(rowIndex, 0, rows.length - 1);
-      selectableIndex = clamp(
-        selectableIndex,
-        0,
-        selectableCellColumnIndexes.length - 1
-      );
-      const next: Exclude<TypeActiveCell, null> = [
-        rowIndex,
-        selectableCellColumnIndexes[selectableIndex]!,
-      ];
-      if (cellMultiSelect && event.shiftKey && event.key !== "Tab") {
-        const anchor = cellSelectionAnchorRef.current ?? current;
-        selectCellRange(anchor, next);
-      } else {
-        cellSelectionAnchorRef.current = next;
-      }
-      queueActiveCell(next);
-      return true;
-    },
-    [
-      cellSelectionEnabled,
-      cellSelectionState,
-      cellMultiSelect,
-      getCellSelectionKey,
-      keyPageStep,
-      normalizedActiveCell,
-      queueActiveCell,
-      rows.length,
-      selectCellRange,
-      selectableCellColumnIndexes,
-      setCellSelectionState,
-      toggleCellSelectOnClick,
-    ]
-  );
-
-  const scrollViewportFromKeyboard = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const viewport = scrollRef.current;
-      if (!viewport) return false;
-
-      const verticalStep = Math.max(24, resolveRowHeight(0));
-      const horizontalStep = Math.max(24, Math.round(viewport.clientWidth / 8));
-      switch (event.key) {
-        case "ArrowUp":
-          viewport.scrollTop -= verticalStep;
-          return true;
-        case "ArrowDown":
-          viewport.scrollTop += verticalStep;
-          return true;
-        case "ArrowLeft":
-          incrementScrollLeftCompat(rtl ? horizontalStep : -horizontalStep);
-          return true;
-        case "ArrowRight":
-          incrementScrollLeftCompat(rtl ? -horizontalStep : horizontalStep);
-          return true;
-        case "PageUp":
-          viewport.scrollTop -= Math.max(verticalStep, viewport.clientHeight);
-          return true;
-        case "PageDown":
-          viewport.scrollTop += Math.max(verticalStep, viewport.clientHeight);
-          return true;
-        case "Home":
-          viewport.scrollTop = 0;
-          return true;
-        case "End":
-          viewport.scrollTop = viewport.scrollHeight;
-          return true;
-        default:
-          return false;
-      }
-    },
-    [incrementScrollLeftCompat, resolveRowHeight, rtl]
-  );
-
-  const handleGridKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      onKeyDownProp?.(event);
-      const eventTarget = event.target as HTMLElement | null;
-      if (
-        !event.defaultPrevented &&
-        eventTarget === surfaceRef.current &&
-        rowModel.length > 0 &&
-        orderedColumns.length > 0
-      ) {
-        const rowIndex =
-          normalizedActiveCell?.[0] ??
-          (normalizedActiveIndex < 0 ? 0 : normalizedActiveIndex);
-        const columnIndex = normalizedActiveCell?.[1] ?? 0;
-        const activeItem = rowModel[rowIndex]?.original;
-        let requestsEdit = false;
-        try {
-          requestsEdit = Boolean(
-            isStartEditKeyPressed({
-              event,
-              data: activeItem,
-              index: rowIndex,
-              activeItem,
-              activeIndex: rowIndex,
-              handle: apiRef,
-              rowSelectionEnabled: selectionEnabled,
-            })
-          );
-        } catch {
-          requestsEdit = false;
-        }
-
-        if (requestsEdit) {
-          const column = orderedColumns[columnIndex] ?? orderedColumns[0];
-          if (column) {
-            event.preventDefault();
-            void tryStartEditCompat({
-              rowIndex,
-              columnId: getColumnId(column),
-              dir: 1,
-            }).catch(() => undefined);
-            return;
-          }
-        }
-      }
-      const requestsContextMenu =
-        event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
-      if (
-        !event.defaultPrevented &&
-        requestsContextMenu &&
-        (renderRowContextMenu || onRowContextMenu) &&
-        rows.length > 0 &&
-        !isInteractiveClickTarget(event.target as HTMLElement | null)
-      ) {
-        const rowIndex = normalizedActiveIndex < 0 ? 0 : normalizedActiveIndex;
-        const rowNode = rootRef.current?.querySelector<HTMLElement>(
-          `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
-        );
-        if (rowNode) {
-          const rect = rowNode.getBoundingClientRect();
-          event.preventDefault();
-          rowNode.dispatchEvent(
-            new MouseEvent("contextmenu", {
-              bubbles: true,
-              cancelable: true,
-              clientX: rect.left + Math.min(24, rect.width / 2),
-              clientY: rect.top + Math.min(24, rect.height / 2),
-            })
-          );
-          return;
-        }
-      }
-      if (
-        event.defaultPrevented ||
-        rows.length === 0 ||
-        isInteractiveClickTarget(event.target as HTMLElement | null)
-      ) {
-        return;
-      }
-
-      if (moveActiveCell(event)) {
-        event.preventDefault();
-        return;
-      }
-
-      if (!enableKeyboardNavigation) {
-        if (scrollViewportFromKeyboard(event)) event.preventDefault();
-        return;
-      }
-
-      const currentIndex =
-        normalizedActiveIndex < 0 ? 0 : normalizedActiveIndex;
-      const pageStep =
-        typeof keyPageStep === "number" && Number.isFinite(keyPageStep)
-          ? Math.max(1, Math.trunc(keyPageStep))
-          : REACT_DATA_GRID_DEFAULT_PROPS.keyPageStep;
-      let handled = true;
-
-      switch (event.key) {
-        case "ArrowUp":
-          incrementActiveIndex(-1);
-          break;
-        case "ArrowDown":
-          incrementActiveIndex(1);
-          break;
-        case "Home":
-          setActiveIndexCompat(0);
-          break;
-        case "End":
-          setActiveIndexCompat(rows.length - 1);
-          break;
-        case "PageUp":
-          incrementActiveIndex(-pageStep);
-          break;
-        case "PageDown":
-          incrementActiveIndex(pageStep);
-          break;
-        case "Enter":
-          commitRowSelection(currentIndex, {
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
-            shiftKey: event.shiftKey,
-          });
-          break;
-        case "Tab": {
-          if (!allowRowTabNavigation) {
-            handled = false;
-            break;
-          }
-
-          const nextIndex = currentIndex + (event.shiftKey ? -1 : 1);
-          if (nextIndex < 0 || nextIndex >= rows.length) {
-            handled = false;
-            break;
-          }
-          setActiveIndexCompat(nextIndex);
-          break;
-        }
-        default:
-          handled = false;
-      }
-
-      if (handled) event.preventDefault();
-    },
-    [
-      allowRowTabNavigation,
-      commitRowSelection,
-      enableKeyboardNavigation,
-      incrementActiveIndex,
-      keyPageStep,
-      isStartEditKeyPressed,
-      moveActiveCell,
-      normalizedActiveCell,
-      normalizedActiveIndex,
-      onKeyDownProp,
-      onRowContextMenu,
-      orderedColumns,
-      renderRowContextMenu,
-      rowModel,
-      rows.length,
-      selectionEnabled,
-      setActiveIndexCompat,
-      scrollViewportFromKeyboard,
-      tryStartEditCompat,
-    ]
-  );
-
-  const previousScrolledActiveIndexRef = React.useRef(-1);
-  React.useLayoutEffect(() => {
-    if (!gridFocused || normalizedActiveIndex < 0) return;
-
-    const previousIndex = previousScrolledActiveIndexRef.current;
-    previousScrolledActiveIndexRef.current = normalizedActiveIndex;
-    if (isRowFullyVisibleCompat(normalizedActiveIndex)) return;
-
-    scrollToIndexCompat(normalizedActiveIndex, {
-      direction:
-        previousIndex >= 0 && normalizedActiveIndex < previousIndex
-          ? "top"
-          : "bottom",
-    });
-  }, [
-    gridFocused,
+  });
+
+  const {
+    deselectAllCompat,
+    getItemIndexByIdCompat,
+    selectAllCompat,
+    setItemAtCompat,
+    setItemPropertyAtCompat,
+    setItemPropertyForIdCompat,
+    setItemsAtCompat,
+    setSelectedAtCompat,
+    setSelectedByIdCompat,
+    setSelectedCompat,
+  } = useGridRowApi({
+    commitRowSelection,
+    deselectAllRows,
+    emitSelectionChange,
+    getRowKey,
+    idProperty,
+    rows,
+    selectAllRows,
+    setRows,
+    unselected,
+  });
+
+  const {
+    getRenderRangeCompat,
+    getScrollLeftCompat,
+    getScrollingElement,
+    incrementScrollLeftCompat,
+    incrementScrollTopCompat,
     isRowFullyVisibleCompat,
-    normalizedActiveIndex,
+    isRowRenderedCompat,
+    scrollToCellCompat,
+    scrollToColumnCompat,
     scrollToIndexCompat,
-  ]);
+    setScrollLeftCompat,
+    setScrollTopCompat,
+  } = useGridScrollApi({
+    columnWidthPrefixSums,
+    lastImperativeScrollAtRef,
+    lockedColumnMetrics,
+    resolveRowHeight,
+    rowHeight,
+    rowModel,
+    rowVirtualizer,
+    rtl,
+    scrollRef,
+    stickyHeaderOffset,
+    surfaceRef,
+    virtualItems,
+    virtualized,
+    visibleComputedColumns,
+  });
 
-  const previousScrolledActiveCellRef = React.useRef<TypeActiveCell>(null);
-  React.useLayoutEffect(() => {
-    if (!gridFocused || !normalizedActiveCell) return;
-    const previous = previousScrolledActiveCellRef.current;
-    previousScrolledActiveCellRef.current = normalizedActiveCell;
-    scrollToCellCompat(
-      {
-        rowIndex: normalizedActiveCell[0],
-        columnIndex: normalizedActiveCell[1],
-      },
-      {
-        top: previous == null || normalizedActiveCell[0] <= previous[0],
-        left: previous == null || normalizedActiveCell[1] <= previous[1],
-        right: previous != null && normalizedActiveCell[1] > previous[1],
-      }
-    );
-  }, [gridFocused, normalizedActiveCell, scrollToCellCompat]);
+  const {
+    clearPointerActivatesRow,
+    handleGridBlur,
+    handleGridFocus,
+    handleGridKeyDown,
+    handleGridPointerDownCapture,
+  } = useGridKeyboardNavigation({
+    activateRowOnFocus,
+    allowRowTabNavigation,
+    apiRef,
+    cellMultiSelect,
+    cellSelectionAnchorRef,
+    cellSelectionEnabled,
+    cellSelectionState,
+    commitRowSelection,
+    enableKeyboardNavigation,
+    getCellSelectionKey,
+    getRenderRangeCompat,
+    gridFocused,
+    incrementActiveIndex,
+    incrementScrollLeftCompat,
+    isRowFullyVisibleCompat,
+    isStartEditKeyPressed,
+    keyPageStep,
+    lastActiveIndexRef,
+    moveActiveCellQueue: queueActiveCell,
+    normalizedActiveCell,
+    normalizedActiveIndex,
+    onBlurProp,
+    onFocusProp,
+    onKeyDownProp,
+    onRowContextMenu,
+    orderedColumns,
+    pendingActiveCellRef,
+    renderRowContextMenu,
+    resolveRowHeight,
+    rootRef,
+    rowModel,
+    rows,
+    rtl,
+    scrollRef,
+    scrollToCellCompat,
+    scrollToIndexCompat,
+    selectCellRange,
+    selectableCellColumnIndexes,
+    selectionEnabled,
+    setActiveIndexCompat,
+    setCellSelectionState,
+    setGridFocused,
+    surfaceRef,
+    toggleCellSelectOnClick,
+    tryStartEditCompat,
+  });
 
-  // Non-virtual rows still participate in Inovua's virtual-list compatibility
-  // API. Keep their explicit DOM measurements outside React state: the table
-  // already lays those rows out naturally, while the imperative getters need
-  // to report the same measured sizes immediately after `adjustHeights()`.
-  const nonVirtualRowHeightOverridesRef = React.useRef(
-    new Map<string, number>()
-  );
-  React.useEffect(() => {
-    const overrides = nonVirtualRowHeightOverridesRef.current;
-    if (typeof rowHeight === "number" || virtualized) {
-      overrides.clear();
-      return;
-    }
-    if (overrides.size === 0) return;
+  const { virtualListCompat } = useGridVirtualListApi({
+    columnWidthPrefixSums,
+    getScrollLeftCompat,
+    getScrollingElement,
+    isRowRenderedCompat,
+    lastImperativeScrollAtRef,
+    publicProps,
+    resolveRowHeight,
+    rowHeight,
+    rowModel,
+    rowVirtualizer,
+    rtl,
+    scrollRef,
+    scrollToIndexCompat,
+    smoothScrollFrameIdsRef,
+    stickyHeaderOffset,
+    surfaceRef,
+    virtualized,
+  });
 
-    const currentRowIds = new Set(rowModel.map((row) => row.id));
-    for (const rowId of overrides.keys()) {
-      if (!currentRowIds.has(rowId)) overrides.delete(rowId);
-    }
-  }, [rowHeight, rowModel, virtualized]);
-  const getResolvedRowHeightLayout = React.useCallback(() => {
-    let start = 0;
-    return rowModel.map((row, index) => {
-      const size =
-        (typeof rowHeight !== "number"
-          ? nonVirtualRowHeightOverridesRef.current.get(row.id)
-          : undefined) ?? resolveRowHeight(index);
-      const item = { index, start, end: start + size, size };
-      start += size;
-      return item;
-    });
-  }, [resolveRowHeight, rowHeight, rowModel]);
-
-  const getVirtualListRowsCompat =
-    React.useCallback((): TypeComputedVirtualListRow[] => {
-      const virtualRows = virtualized
-        ? rowVirtualizer.getVirtualItems()
-        : getResolvedRowHeightLayout();
-
-      return virtualRows.map((virtualRow) => {
-        const row = rowModel[virtualRow.index];
-        const start = Math.max(
-          0,
-          virtualRow.start - (virtualized ? stickyHeaderOffset : 0)
-        );
-        const end = start + virtualRow.size;
-
-        return {
-          id: row?.id ?? virtualRow.index,
-          index: virtualRow.index,
-          rowIndex: virtualRow.index,
-          data: row?.original,
-          top: start,
-          height: virtualRow.size,
-          start,
-          end,
-        };
-      });
-    }, [
-      getResolvedRowHeightLayout,
-      rowModel,
-      rowVirtualizer,
-      stickyHeaderOffset,
-      virtualized,
-    ]);
-
-  const getTotalRowHeightCompat = React.useCallback(() => {
-    if (virtualized) return rowVirtualizer.getTotalSize();
-
-    const resolvedRowHeightLayout = getResolvedRowHeightLayout();
-    return (
-      resolvedRowHeightLayout[resolvedRowHeightLayout.length - 1]?.end ?? 0
-    );
-  }, [getResolvedRowHeightLayout, rowVirtualizer, virtualized]);
-
-  const getScrollHeightCompat = React.useCallback(() => {
-    return Math.max(
-      scrollRef.current?.scrollHeight ?? 0,
-      getTotalRowHeightCompat()
-    );
-  }, [getTotalRowHeightCompat]);
-
-  const getScrollSizeCompat = React.useCallback(() => {
-    return {
-      width:
-        scrollRef.current?.scrollWidth ??
-        columnWidthPrefixSums[columnWidthPrefixSums.length - 1] ??
-        0,
-      height: getScrollHeightCompat(),
-    };
-  }, [columnWidthPrefixSums, getScrollHeightCompat]);
-
-  const getClientSizeCompat = React.useCallback(() => {
-    return {
-      width:
-        scrollRef.current?.clientWidth ?? surfaceRef.current?.clientWidth ?? 0,
-      height:
-        scrollRef.current?.clientHeight ??
-        surfaceRef.current?.clientHeight ??
-        0,
-    };
-  }, []);
-
-  const getVirtualListRangeCompat = React.useCallback(() => {
-    const virtualRows = getVirtualListRowsCompat();
-    if (virtualRows.length === 0) return { from: 0, to: 0 };
-
-    return {
-      from: virtualRows[0]!.index,
-      to: virtualRows[virtualRows.length - 1]!.index,
-    };
-  }, [getVirtualListRowsCompat]);
-
-  const getVirtualListVisibleCountCompat = React.useCallback(() => {
-    return getVirtualListRowsCompat().length;
-  }, [getVirtualListRowsCompat]);
-
-  const getVirtualListRenderedIndexesCompat = React.useCallback(() => {
-    return getVirtualListRowsCompat().map((row) => row.index);
-  }, [getVirtualListRowsCompat]);
-
-  const smoothScrollToCompat = React.useCallback<
-    TypeComputedVirtualList["smoothScrollTo"]
-  >(
-    (value, configOrCallback, callback) => {
-      const viewport = scrollRef.current;
-      if (!viewport || !Number.isFinite(value)) return;
-
-      const config =
-        typeof configOrCallback === "function"
-          ? undefined
-          : (configOrCallback ?? undefined);
-      const resolvedCallback =
-        typeof configOrCallback === "function" ? configOrCallback : callback;
-      const horizontal = config?.orientation === "horizontal";
-      const duration = config?.duration ?? 100;
-      const initialValue = horizontal
-        ? getLogicalScrollLeft(viewport, rtl)
-        : viewport.scrollTop;
-      const writeValue = (nextValue: number) => {
-        lastImperativeScrollAtRef.current = window.performance.now();
-        if (horizontal) {
-          setLogicalScrollLeft(viewport, nextValue, rtl);
-        } else {
-          viewport.scrollTop = nextValue;
-        }
-      };
-
-      if (
-        !Number.isFinite(duration) ||
-        duration <= 0 ||
-        initialValue === value
-      ) {
-        writeValue(value);
-        resolvedCallback?.(value);
-        return;
-      }
-
-      const scheduleFrame = (frameCallback: FrameRequestCallback) => {
-        let frameId = 0;
-        frameId = window.requestAnimationFrame((now) => {
-          smoothScrollFrameIdsRef.current.delete(frameId);
-          frameCallback(now);
-        });
-        smoothScrollFrameIdsRef.current.add(frameId);
-      };
-      const startedAt = window.performance.now();
-      const difference = value - initialValue;
-      const animate = (now: number) => {
-        const progress = Math.min(1, (now - startedAt) / duration);
-        writeValue(initialValue + difference * progress);
-
-        if (progress < 1) {
-          scheduleFrame(animate);
-          return;
-        }
-
-        writeValue(value);
-        resolvedCallback?.(value);
-      };
-
-      scheduleFrame(animate);
-    },
-    [rtl]
-  );
-
-  const refreshVirtualListLayoutCompat = React.useCallback(() => {
-    if (virtualized) {
-      rowVirtualizer.measure();
-    }
-  }, [rowVirtualizer, virtualized]);
-
-  const adjustVirtualListHeightsCompat = React.useCallback((): void => {
-    // Inovua only performs manual measurement when row height is variable.
-    // A numeric value, including a non-finite one, selects fixed-height mode.
-    if (typeof rowHeight === "number") return;
-
-    const rowContainer = scrollRef.current ?? surfaceRef.current;
-    rowContainer
-      ?.querySelectorAll<HTMLElement>('[data-slot="grid-row"][data-row-index]')
-      .forEach((element) => {
-        const rowIndex = Number(element.dataset.rowIndex);
-        const measuredHeight = element.scrollHeight;
-        if (
-          !Number.isInteger(rowIndex) ||
-          rowIndex < 0 ||
-          rowIndex >= rowModel.length ||
-          !Number.isFinite(measuredHeight) ||
-          measuredHeight <= 0
-        ) {
-          return;
-        }
-
-        if (virtualized) {
-          // `measureElement()` also registers the node with TanStack's
-          // ResizeObserver/cache. Calling it imperatively for function-height
-          // rows (which have no ref cleanup) can retain disconnected DOM nodes
-          // after scrolling. Inovua reads `scrollHeight`; `resizeItem()` gives
-          // us the same explicit measurement without creating an observer.
-          rowVirtualizer.resizeItem(rowIndex, measuredHeight);
-          return;
-        }
-
-        const row = rowModel[rowIndex];
-        if (row) {
-          nonVirtualRowHeightOverridesRef.current.set(row.id, measuredHeight);
-        }
-      });
-  }, [rowHeight, rowModel, rowVirtualizer, virtualized]);
-
-  const virtualListCompat = React.useMemo<TypeComputedVirtualList>(
-    () => ({
-      props: publicProps as unknown as Record<string, unknown>,
-      context: {
-        rowHeight,
-        virtualized,
-      },
-      refs: {
-        container: surfaceRef as React.MutableRefObject<HTMLElement | null>,
-        scroller: scrollRef as React.MutableRefObject<HTMLElement | null>,
-      },
-      get size() {
-        return getClientSizeCompat();
-      },
-      get rows() {
-        return getVirtualListRowsCompat();
-      },
-      get row() {
-        return getVirtualListRowsCompat()[0] ?? null;
-      },
-      get scrollTopPos() {
-        return scrollRef.current?.scrollTop ?? 0;
-      },
-      get scrollLeftPos() {
-        return getScrollLeftCompat();
-      },
-      get prevScrollTopPos() {
-        return scrollRef.current?.scrollTop ?? 0;
-      },
-      get prevScrollLeftPos() {
-        return getScrollLeftCompat();
-      },
-      get visibleCount() {
-        return getVirtualListVisibleCountCompat();
-      },
-      getContainerNode: () => surfaceRef.current,
-      getScrollerNode: () => scrollRef.current,
-      getScrollingElement,
-      getTotalRowHeight: getTotalRowHeightCompat,
-      getScrollHeight: getScrollHeightCompat,
-      getScrollSize: getScrollSizeCompat,
-      getClientSize: getClientSizeCompat,
-      getRows: getVirtualListRowsCompat,
-      forEachRow: (callback) => {
-        getVirtualListRowsCompat().forEach(callback);
-      },
-      getRowAt: (index) => {
-        const virtualRows = getVirtualListRowsCompat();
-        return virtualRows.find((row) => row.index === index);
-      },
-      getVisibleCount: getVirtualListVisibleCountCompat,
-      getVisibleRange: getVirtualListRangeCompat,
-      setRowIndex: (index) => scrollToIndexCompat(index),
-      scrollToIndex: scrollToIndexCompat,
-      smoothScrollTo: smoothScrollToCompat,
-      adjustHeights: adjustVirtualListHeightsCompat,
-      refreshLayout: refreshVirtualListLayoutCompat,
-      updateVisibleCount: getVirtualListVisibleCountCompat,
-      isRowRendered: isRowRenderedCompat,
-      isRowVisible: (rowIndex) => {
-        const range = getVirtualListRangeCompat();
-        return rowIndex >= range.from && rowIndex <= range.to;
-      },
-      getRenderedIndexes: getVirtualListRenderedIndexesCompat,
-      getMaxRenderCount: getVirtualListVisibleCountCompat,
-    }),
-    [
-      adjustVirtualListHeightsCompat,
-      getClientSizeCompat,
-      getScrollLeftCompat,
-      getScrollingElement,
-      getScrollHeightCompat,
-      getScrollSizeCompat,
-      getTotalRowHeightCompat,
-      getVirtualListRangeCompat,
-      getVirtualListRenderedIndexesCompat,
-      getVirtualListRowsCompat,
-      getVirtualListVisibleCountCompat,
-      isRowRenderedCompat,
-      publicProps,
-      refreshVirtualListLayoutCompat,
-      rowHeight,
-      scrollToIndexCompat,
-      smoothScrollToCompat,
-      virtualized,
-    ]
-  );
-
-  React.useEffect(() => {
-    const viewport = scrollRef.current;
-    const rootNode = rootRef.current;
-    const surfaceNode = surfaceRef.current;
-    const viewportWidth =
-      viewport?.clientWidth ?? surfaceNode?.clientWidth ?? 0;
-    const viewportHeight =
-      viewport?.clientHeight ?? surfaceNode?.clientHeight ?? 0;
-    const totalComputedWidth =
-      columnWidthPrefixSums[columnWidthPrefixSums.length - 1] ?? 0;
-
-    const applyColumnResizeBatch = (
-      info: {
-        column: TypeColumn;
-        width?: number;
-        flex?: number;
-      }[],
-      context?: { reservedViewportWidth: number }
-    ) => {
-      commitColumnResizeEntries(
-        info,
-        context?.reservedViewportWidth ?? reservedViewportWidthRef.current
-      );
-    };
-
-    const baseApi: TypeComputedProps = {
-      ...publicProps,
-      reload,
-      initialProps: publicProps,
-      data: rows,
-      originalData,
-      count,
-      dataCountAfterFilter: count,
-      filteredRowsCount: notifyFilteredRowsCount,
-      computedSkip: loadSkip,
-      computedLimit: limit,
-      getData: () => rows,
-      getCount: () => count,
-      getSkip: () => loadSkip,
-      getLimit: () => limit,
-      setSkip: (next) => setSkip(next),
-      setLimit: setLimitAndResetPage,
-      computedSortInfo: sortInfo,
-      computedIsMultiSort: Array.isArray(sortInfo),
-      getSortInfo: () => sortInfo,
-      setSortInfo: setSortInfoAndResetPage,
-      toggleColumnSort: toggleColumnSortCompat,
-      setColumnSortInfo: setColumnSortInfoCompat,
-      unsortColumn: (column) => setColumnSortInfoCompat(column, 0),
-      computedFilterValue: filterValue,
-      computedFiltered: Boolean(
-        filterValue?.some(
-          (entry) => !isFilterEntryEmptyValue(entry, filterTypes)
-        )
-      ),
-      computedFilterValueMap,
-      getFilterValue: () => filterValue,
-      setFilterValue: setFilterValueAndResetPage,
-      clearAllFilters: () =>
-        setFilterValueAndResetPage(
-          clearAllFilters(filterValue, { filterTypes })
-        ),
-      clearColumnFilter: clearColumnFilterCompat,
-      getColumnFilterValue: getColumnFilterValueCompat,
-      setColumnFilterValue: setColumnFilterValueCompat,
-      computedOnColumnFilterValueChange:
-        computedOnColumnFilterValueChangeCompat,
-      isColumnFiltered: (column) => {
-        const entry = getColumnFilterValueCompat(column);
-        return Boolean(entry && !isFilterEntryEmptyValue(entry, filterTypes));
-      },
-      computedColumnOrder: columnOrderForDs,
-      getColumnOrder: () => columnOrderForDs,
-      setColumnOrder: setColumnOrderCompat,
-      columnsMap,
-      visibleColumnsMap,
-      allColumns: allComputedColumns,
-      visibleColumns: visibleComputedColumns,
-      getColumnsInOrder: () => visibleComputedColumns,
-      getColumnBy: getColumnByCompat,
-      columnVisibilityMap,
-      isColumnVisible: (column) => {
-        const columnId = getColumnIdCompat(column);
-        return columnId ? columnVisibilityMap[columnId] !== false : false;
-      },
-      setColumnVisible: setColumnVisibleCompat,
-      gridId: gridIdRef.current,
-      size: {
-        width: viewportWidth,
-        height: viewportHeight,
-      },
-      viewportSize: {
-        width: viewportWidth,
-        height: viewportHeight,
-      },
-      availableWidthForColumns: viewportWidth,
-      maxAvailableWidthForColumns: viewportWidth,
-      viewportAvailableWidth: viewportWidth,
-      totalColumnCount: allComputedColumns.length,
-      totalComputedWidth,
-      columnWidthPrefixSums,
-      minColumnsSize: totalComputedWidth,
-      maxVisibleRows: virtualized ? virtualItems.length : rowModel.length,
-      domRef: surfaceRef as React.MutableRefObject<HTMLElement | null>,
-      bodyRef: scrollRef as React.MutableRefObject<HTMLElement | null>,
-      getDOMNode: () => rootNode,
-      getMenuPortalContainer: () => rootNode,
-      getScrollingElement,
-      getDOMNodeForRowIndex: (index) =>
-        surfaceNode?.querySelector(
-          `[data-slot="grid-row"][data-row-index="${index}"]`
-        ) ?? null,
-      getRows: () =>
-        surfaceNode?.querySelector(".tdg-body-table tbody") ?? null,
-      getHeader: () =>
-        surfaceNode?.querySelector(".tdg-header-table thead") ?? null,
-      focus: () => {
-        surfaceNode?.focus();
-      },
-      blur: () => {
-        surfaceNode?.blur();
-      },
-      computedLoading: loading,
-      isLoading: () => loadingStore.getEffective(controlledLoadingRef.current),
-      setLoading: (nextLoading) => {
-        loadingStore.setOverride(
-          resolveStateAction(nextLoading, loadingStore.getOverride() ?? false)
-        );
-        if (apiRef.current) {
-          apiRef.current.computedLoading = loadingStore.getEffective(
-            controlledLoadingRef.current
-          );
-        }
-      },
-      computedFilterable: effectiveEnableFiltering,
-      computedIsFilterable: effectiveEnableFiltering,
-      setEnableFiltering: setEnableFilteringCompat,
-      computedShowHeader: showHeader,
-      setShowHeader: (nextValue) => {
-        setShowHeader((current) => resolveStateAction(nextValue, current));
-      },
-      showHorizontalCellBorders,
-      showVerticalCellBorders,
-      computedShowCellBorders: showCellBorders,
-      setShowCellBorders,
-      computedRemoteData: !Array.isArray(dataSource),
-      computedRemotePagination: remotePagination,
-      computedRemoteFilter:
-        !Array.isArray(dataSource) && effectiveEnableFiltering,
-      computedLocalPagination: localPagination,
-      computedPagination: paginationMode !== false,
-      computedLivePagination: false,
-      remoteSort: !Array.isArray(dataSource),
-      paginationProps,
-      hasNextPage,
-      hasPrevPage,
-      gotoNextPage,
-      gotoPrevPage,
-      gotoFirstPage,
-      gotoLastPage,
-      getItemId,
-      getItemAt: (index) => rows[index],
-      getItemIdAt: (index) => {
-        const row = rows[index];
-        return row ? (row as any)?.[idProperty] : undefined;
-      },
-      getItemIndex: (id) => getItemIndexByIdCompat(id),
-      getRowIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
-      getItemIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
-      setItemPropertyAt: setItemPropertyAtCompat,
-      setItemPropertyForId: setItemPropertyForIdCompat,
-      setItemAt: setItemAtCompat,
-      setItemsAt: setItemsAtCompat,
-      computedSelected: selected,
-      computedUnselected: unselected,
-      computedRowSelectionEnabled: selectionEnabled,
-      computedRowMultiSelectionEnabled: Boolean(multiSelect),
-      getSelectedMap: () => ({ ...selectedMap }),
-      setSelected: setSelectedCompat,
-      setUnselected: (nextUnselected) => {
-        const resolved = resolveStateAction(nextUnselected, unselected);
-        emitSelectionChange(true, {
-          data: rows,
-          unselected: resolved,
-        });
-      },
-      selectAll: selectAllCompat,
-      deselectAll: deselectAllCompat,
-      isRowSelected: (value) => {
-        if (typeof value === "number" || typeof value === "string") {
-          return Boolean(selectedMap[String(value)]);
-        }
-
-        const rowId = (value as any)?.[idProperty];
-        return rowId == null ? false : Boolean(selectedMap[String(rowId)]);
-      },
-      getSelectedCount: (selectionArg, unselectedArg) => {
-        if (!selectionEnabled) return 0;
-        const normalized = unwrapSelectionState(selectionArg ?? selected);
-        if (normalized === true) {
-          return Math.max(
-            0,
-            count -
-              Object.keys(toSelectionMap(unselectedArg ?? unselected)).length
-          );
-        }
-        return Object.keys(toSelectionMap(normalized)).length;
-      },
-      computedSelectedCount:
-        unwrapSelectionState(selected) === true
-          ? Math.max(0, count - Object.keys(unselected ?? {}).length)
-          : Object.keys(selectedMap).length,
-      computedUnselectedCount: Object.keys(unselected ?? {}).length,
-      getUnselectedCount: (value = unselected) =>
-        Object.keys(value ?? {}).length,
-      isSelectionEmpty: () =>
-        unwrapSelectionState(selected) !== true &&
-        Object.keys(selectedMap).length === 0,
-      setSelectedById: setSelectedByIdCompat,
-      setSelectedAt: setSelectedAtCompat,
-      setRowSelected: setSelectedAtCompat,
-      setScrollLeft: setScrollLeftCompat,
-      incrementScrollLeft: incrementScrollLeftCompat,
-      getScrollLeft: getScrollLeftCompat,
-      getScrollLeftMax: () =>
-        Math.max(
-          0,
-          (scrollRef.current?.scrollWidth ?? 0) -
-            (scrollRef.current?.clientWidth ?? 0)
-        ),
-      setScrollTop: setScrollTopCompat,
-      incrementScrollTop: incrementScrollTopCompat,
-      getScrollTop: () => scrollRef.current?.scrollTop ?? 0,
-      scrollToIndex: scrollToIndexCompat,
-      scrollToId: (id, config, callback) => {
-        const index = getItemIndexByIdCompat(id);
-        if (index < 0) return;
-        scrollToIndexCompat(index, config, callback);
-      },
-      scrollToCell: scrollToCellCompat,
-      scrollToColumn: scrollToColumnCompat,
-      scrollToIndexIfNeeded: (index, config, callback) => {
-        if (isRowFullyVisibleCompat(index)) {
-          return false;
-        }
-
-        scrollToIndexCompat(index, config, callback);
-        return true;
-      },
-      getFirstVisibleIndex: () => getRenderRangeCompat().from,
-      isRowFullyVisible: isRowFullyVisibleCompat,
-      isRowRendered: isRowRenderedCompat,
-      getRenderRange: getRenderRangeCompat,
-      scrollbars: {
-        vertical: (viewport?.scrollHeight ?? 0) > (viewport?.clientHeight ?? 0),
-        horizontal: (viewport?.scrollWidth ?? 0) > (viewport?.clientWidth ?? 0),
-      },
-      i18n: (key, defaultValue) =>
-        t(i18n, key, defaultValue ?? key) as string | React.ReactNode,
-      getMenuAvailableHeight: () => {
-        const rect = rootNode?.getBoundingClientRect();
-        return Math.max(0, window.innerHeight - (rect?.top ?? 0));
-      },
-      isFilterable: () => effectiveEnableFiltering,
-      shouldShowFilteringMenuItems: () => effectiveEnableFiltering,
-      updateMenuPositions: () => {
-        setColumnContextMenu((current) => (current ? { ...current } : current));
-        setRowContextMenu((current) => (current ? { ...current } : current));
-      },
-      onScroll: handleScroll,
-      rtlOffset: getScrollLeftCompat(),
-      columnFilterContextMenuProps: openFilterMenuColId
-        ? { columnId: openFilterMenuColId }
-        : null,
-      columnContextMenuProps: columnContextMenu
-        ? {
-            alignTo: columnContextMenu.alignTo,
-            alignPositions: columnContextMenuAlignPositions,
-            cellProps: columnContextMenu.cellProps,
-            constrainTo: columnContextMenuConstrainTo,
-            position: columnContextMenuPosition,
-            updatePositionOnScroll: updateMenuPositionOnScroll,
-          }
-        : null,
-      rowContextMenuProps: rowContextMenu
-        ? {
-            alignTo: rowContextMenu.alignTo,
-            alignPositions: rowContextMenuAlignPositions,
-            cellProps: rowContextMenu.cellProps,
-            constrainTo: rowContextMenuConstrainTo,
-            position: rowContextMenuPosition,
-            rowProps: rowContextMenu.rowProps,
-            updatePositionOnScroll: updateMenuPositionOnScroll,
-          }
-        : null,
-      showColumnFilterContextMenu: (...args) => {
-        const alignTo = args[0];
-        const suppliedCellProps = args[1] as TypeCellProps | undefined;
-        const elementColumnId =
-          alignTo instanceof HTMLElement
-            ? alignTo.closest<HTMLElement>("[data-column-id]")?.dataset.columnId
-            : undefined;
-        const target =
-          suppliedCellProps?.columnId ??
-          suppliedCellProps?.name ??
-          elementColumnId ??
-          (alignTo as TypeGetColumnByParam | undefined);
-        if (target === undefined) return;
-
-        const columnId =
-          typeof target === "string" && columnsMap[target]
-            ? target
-            : getColumnIdCompat(target);
-        if (columnId) {
-          const onHide = [...args]
-            .reverse()
-            .find((arg) => typeof arg === "function") as
-            | (() => void)
-            | undefined;
-          filterContextMenuOnHideRef.current = onHide ?? null;
-          setOpenFilterMenuColId(columnId);
-        }
-      },
-      hideColumnFilterContextMenu,
-      showColumnContextMenu,
-      hideColumnContextMenu,
-      showRowContextMenu,
-      hideRowContextMenu,
-      loadNextPage: () => {
-        if (canNext) {
-          setSkip(loadSkip + safeLimit);
-        }
-      },
-      paginationCount: count,
-      computedActiveIndex: normalizedActiveIndex,
-      computedLastActiveIndex: lastActiveIndexRef.current,
-      doSetLastActiveIndex: (index: number | null) => {
-        lastActiveIndexRef.current = index;
-      },
-      computedActiveItem:
-        normalizedActiveIndex >= 0 ? rows[normalizedActiveIndex] : null,
-      getActiveItem: () =>
-        normalizedActiveIndex >= 0 ? rows[normalizedActiveIndex] : null,
-      computedHasRowNavigation: enableKeyboardNavigation && rows.length > 0,
-      computedFocused: gridFocused,
-      computedSetFocused: setGridFocused,
-      computedOnKeyDown: handleGridKeyDown,
-      computedOnFocus: handleGridFocus,
-      toggleActiveRowSelection: (event = {}) => {
-        if (normalizedActiveIndex < 0) return;
-        commitRowSelection(normalizedActiveIndex, event);
-      },
-      computedOnRowClick: (event, rowProps) => {
-        onRowClick?.(rowProps, event);
-      },
-      computedRowDoubleClick: onRowDoubleClick,
-      computedCellDoubleClick: onCellDoubleClick,
-      setActiveIndex: setActiveIndexCompat,
-      incrementActiveIndex,
-      computedActiveCell: normalizedActiveCell,
-      computedCellSelection: cellSelectionState,
-      computedCellSelectionEnabled: cellSelectionEnabled,
-      computedCellMultiSelectionEnabled: cellMultiSelect,
-      computedCellNavigationEnabled: cellSelectionEnabled,
-      computedCellSelectionByIndex: cellSelectionByIndex,
-      getActiveCell: () => normalizedActiveCell,
-      setActiveCell: setActiveCellCompat,
-      getCellSelection: () => cellSelectionState,
-      setCellSelection: setCellSelectionState,
-      getCellSelectionIdKey: getCellSelectionKey,
-      getCellSelectionKey: (cell, column) => {
-        if (typeof cell === "object" && cell !== null) {
-          return typeof cell.rowIndex === "number" &&
-            typeof cell.columnIndex === "number"
-            ? getCellSelectionKey(cell.rowIndex, cell.columnIndex)
-            : "";
-        }
-
-        const rowIndex = getItemIndexByIdCompat(cell);
-        const columnId =
-          column === undefined ? undefined : getColumnIdCompat(column);
-        const columnIndex =
-          columnId === undefined
-            ? -1
-            : orderedColumns.findIndex(
-                (candidate) => getColumnId(candidate) === columnId
-              );
-        return rowIndex < 0 || columnIndex < 0
-          ? ""
-          : getCellSelectionKey(rowIndex, columnIndex);
-      },
-      incrementActiveCell: incrementActiveCellCompat,
-      toggleActiveCellSelection: toggleActiveCellSelectionCompat,
-      getCellSelectionBetween: getCellSelectionBetweenCompat,
-      isCellSelected: (
-        cell: TypeActiveCell | { rowIndex: number; columnIndex: number }
-      ) =>
-        cell != null &&
-        isCellSelected(
-          Array.isArray(cell) ? cell[0] : cell.rowIndex,
-          Array.isArray(cell) ? cell[1] : cell.columnIndex
-        ),
-      isCellVisible: ({ rowIndex, columnIndex }) => {
-        const rowNode = surfaceNode?.querySelector<HTMLElement>(
-          `[data-slot="grid-row"][data-row-index="${rowIndex}"]`
-        );
-        const column = orderedColumns[columnIndex];
-        const viewportNode = scrollRef.current;
-        if (!rowNode || !column || !viewportNode) return false;
-        const columnId = getColumnId(column);
-        const cellNode = Array.from(
-          rowNode.querySelectorAll<HTMLElement>("[data-column-id]")
-        ).find((node) => node.dataset.columnId === columnId);
-        if (!cellNode) return false;
-
-        const viewportRect = viewportNode.getBoundingClientRect();
-        const cellRect = cellNode.getBoundingClientRect();
-        const differences = {
-          topDiff: Math.max(0, viewportRect.top - cellRect.top),
-          bottomDiff: Math.max(0, cellRect.bottom - viewportRect.bottom),
-          leftDiff: Math.max(0, viewportRect.left - cellRect.left),
-          rightDiff: Math.max(0, cellRect.right - viewportRect.right),
-        };
-        return Object.values(differences).every((value) => value === 0)
-          ? true
-          : differences;
-      },
-      computedShowHoverRows: showHoverRows,
-      setShowHoverRows,
-      computedShowZebraRows: showZebraRows,
-      setShowZebraRows,
-      computedEditable: editable,
-      computedEditStartEvent: editStartEvent,
-      computedIsEditing: editingCell != null,
-      isInEdit: isInEditRef,
-      getCurrentEditInfo: getCurrentEditInfoCompat,
-      startEdit: startEditCompat,
-      tryStartEdit: tryStartEditCompat,
-      cancelEdit: cancelEditCompat,
-      completeEdit: completeEditCompat,
-      currentEditCompletePromise: currentEditCompletePromiseRef,
-      computedRowHeights,
-      setRowHeights: setRowHeightsCompat,
-      setRowHeightById: setRowHeightByIdCompat,
-      getRowHeightById: getRowHeightByIdCompat,
-      getRowHeight: resolveRowHeight,
-      computedShowEmptyRows: showEmptyRows,
-      setShowEmptyRows,
-      lockedStartColumns,
-      unlockedColumns,
-      lockedEndColumns,
-      ...lockedColumnMetrics,
-      computedOnColumnResize: ({
-        index,
-        diff,
-      }: {
-        index: number;
-        diff: number;
-      }) => {
-        const column = orderedColumns[index];
-        if (!column) return;
-
-        const columnId = getColumnId(column);
-        const { minWidth, maxWidth } = getColumnWidthBounds(
-          column,
-          computedColumnMinWidth,
-          computedColumnMaxWidth
-        );
-        const nextWidth = clamp(
-          (columnWidths[columnId] ??
-            column.width ??
-            column.defaultWidth ??
-            computedColumnDefaultWidth) + diff,
-          minWidth,
-          maxWidth
-        );
-
-        commitColumnPixelResize(column, nextWidth);
-      },
-      onBatchColumnResize: (
-        info: {
-          column: TypeColumn;
-          width?: number;
-          flex?: number;
-        }[],
-        context?: { reservedViewportWidth: number }
-      ) => {
-        applyColumnResizeBatch(info, context);
-      },
-      columnFlexes,
-      columnSizes,
-      setColumnFlexes: setColumnFlexesCompat,
-      setColumnSizes: setColumnSizesCompat,
-      setColumnsSizesAuto: setColumnsSizesAutoCompat,
-      setColumnSizeAuto: setColumnSizeAutoCompat,
-      setColumnSizesToFit: setColumnSizesToFitCompat,
-      setReservedViewportWidth: (nextValue: React.SetStateAction<number>) => {
-        const nextReservedViewportWidth = resolveStateAction(
-          nextValue,
-          reservedViewportWidthRef.current
-        );
-        if (!Number.isFinite(nextReservedViewportWidth)) return;
-
-        reservedViewportWidthRef.current = Math.round(
-          nextReservedViewportWidth
-        );
-        setReservedViewportWidth(reservedViewportWidthRef.current);
-      },
-      reservedViewportWidth,
-      virtualizeColumns: computedVirtualizeColumns,
-      computedEnableRowspan: orderedColumns.some(
-        (column) => column.rowspan != null
-      ),
-      computedHasColSpan: orderedColumns.some(
-        (column) => column.colspan != null
-      ),
-      computedEnableColumnHover: showHoverRows,
-      availableWidth: viewportWidth,
-      edition: "community",
-      computedLicenseValid: true,
-      getColumnLayout: () => columnLayout,
-      computedShowHeaderBorderRight: showVerticalCellBorders,
-      silentSetData: setRows,
-      setOriginalData: setRows,
-      getVirtualList: () => virtualListCompat,
-      getState: () => ({
-        data: rows,
-        count,
-        skip: loadSkip,
-        limit,
-        sortInfo,
-        filterValue,
-        selected,
-        unselected,
-        activeIndex: normalizedActiveIndex,
-        activeCell: normalizedActiveCell,
-        cellSelection: cellSelectionState,
-        columnOrder: columnOrderForDs,
-        rowHeights: computedRowHeights,
-      }),
-    };
-
-    baseApi.publicAPI = stableApi;
-
-    for (const property of Reflect.ownKeys(stableApiTarget)) {
-      Reflect.deleteProperty(stableApiTarget, property);
-    }
-    Object.assign(stableApiTarget, baseApi);
-    Object.defineProperties(stableApiTarget, {
-      scrollLeft: {
-        configurable: true,
-        enumerable: true,
-        get: getScrollLeftCompat,
-        set: setScrollLeftCompat,
-      },
-      scrollTop: {
-        configurable: true,
-        enumerable: true,
-        get: () => scrollRef.current?.scrollTop ?? 0,
-        set: setScrollTopCompat,
-      },
-    });
-    apiRef.current = stableApi;
-  }, [
+  useGridImperativeApi({
     allComputedColumns,
+    allInputColumns,
+    apiRef,
     canNext,
+    cancelEditCompat,
     cellMultiSelect,
     cellSelectionByIndex,
     cellSelectionEnabled,
     cellSelectionState,
     checkboxColId,
     checkboxEnabled,
-    columnFlexes,
+    clearColumnFilterCompat,
     columnContextMenu,
     columnContextMenuAlignPositions,
     columnContextMenuConstrainTo,
     columnContextMenuPosition,
+    columnFlexes,
     columnLayout,
     columnOrderForDs,
     columnSizes,
@@ -9212,78 +2744,87 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnWidthPrefixSums,
     columnWidths,
     columnsMap,
+    computedOnColumnFilterValueChangeCompat,
     commitColumnPixelResize,
     commitColumnResizeEntries,
     commitRowSelection,
+    completeEditCompat,
     computedColumnDefaultWidth,
     computedColumnMaxWidth,
     computedColumnMinWidth,
-    computedVirtualizeColumns,
     computedFilterValueMap,
-    computedOnColumnFilterValueChangeCompat,
     computedRowHeights,
+    computedVirtualizeColumns,
+    controlledLoadingRef,
     count,
+    currentEditCompletePromiseRef,
     dataSource,
-    editable,
+    deselectAllCompat,
     editStartEvent,
+    editable,
     editingCell,
-    enableKeyboardNavigation,
-    enableFiltering,
     effectiveEnableFiltering,
     emitSelectionChange,
+    enableFiltering,
+    enableKeyboardNavigation,
+    filterContextMenuOnHideRef,
     filterControlled,
     filterTypes,
     filterValue,
+    getCellSelectionBetweenCompat,
+    getCellSelectionKey,
     getColumnByCompat,
     getColumnFilterValueCompat,
     getColumnIdCompat,
-    getCellSelectionBetweenCompat,
-    getCellSelectionKey,
-    getItemIndexByIdCompat,
+    getCurrentEditInfoCompat,
     getItemId,
-    getScrollLeftCompat,
+    getItemIndexByIdCompat,
     getRenderRangeCompat,
-    getRowKey,
     getRowHeightByIdCompat,
+    getRowKey,
+    getScrollLeftCompat,
     getScrollingElement,
-    gridFocused,
     gotoFirstPage,
     gotoLastPage,
     gotoNextPage,
     gotoPrevPage,
+    gridFocused,
+    gridIdRef,
     handleGridFocus,
     handleGridKeyDown,
+    handleScroll,
     hasNextPage,
     hasPrevPage,
-    incrementActiveCellCompat,
-    cancelEditCompat,
-    completeEditCompat,
-    getCurrentEditInfoCompat,
+    hideColumnContextMenu,
+    hideColumnFilterContextMenu,
+    hideRowContextMenu,
     i18n,
     idProperty,
+    incrementActiveCellCompat,
     incrementActiveIndex,
     incrementScrollLeftCompat,
     incrementScrollTopCompat,
+    isCellSelected,
+    isInEditRef,
     isRowFullyVisibleCompat,
     isRowRenderedCompat,
-    isCellSelected,
+    lastActiveIndexRef,
     limit,
-    localPagination,
+    loadSkip,
     loading,
     loadingStore,
-    loadSkip,
+    localPagination,
     lockedColumnMetrics,
     lockedEndColumns,
     lockedStartColumns,
     multiSelect,
-    normalizedActiveIndex,
     normalizedActiveCell,
+    normalizedActiveIndex,
     notifyFilteredRowsCount,
     onCellDoubleClick,
     onRowClick,
     onRowDoubleClick,
     openFilterMenuColId,
-    handleScroll,
     orderedColumns,
     originalData,
     paginationMode,
@@ -9292,83 +2833,91 @@ function ReactDataGrid(props: TypeDataGridProps) {
     reload,
     remotePagination,
     reservedViewportWidth,
-    rowModel.length,
-    rows,
+    reservedViewportWidthRef,
+    resolveRowHeight,
+    rootRef,
     rowContextMenu,
     rowContextMenuAlignPositions,
     rowContextMenuConstrainTo,
     rowContextMenuPosition,
+    rowModel,
+    rows,
     safeLimit,
+    scrollRef,
+    scrollToCellCompat,
+    scrollToColumnCompat,
+    scrollToIndexCompat,
+    selectAllCompat,
     selected,
     selectedMap,
     selectionEnabled,
-    unselected,
-    showZebraRows,
+    setActiveCellCompat,
+    setActiveIndexCompat,
+    setCellSelectionState,
+    setColumnContextMenu,
     setColumnFilterValueCompat,
     setColumnFlexesCompat,
     setColumnOrderCompat,
     setColumnSizeAutoCompat,
     setColumnSizesCompat,
     setColumnSizesToFitCompat,
-    setColumnVisibleCompat,
-    setEnableFilteringCompat,
-    setColumnsSizesAutoCompat,
     setColumnSortInfoCompat,
+    setColumnVisibleCompat,
+    setColumnsSizesAutoCompat,
+    setEnableFilteringCompat,
+    setShowCellBorders,
+    setShowEmptyRows,
+    setShowHoverRows,
     setFilterValueAndResetPage,
+    setGridFocused,
     setItemAtCompat,
     setItemPropertyAtCompat,
     setItemPropertyForIdCompat,
     setItemsAtCompat,
     setLimitAndResetPage,
+    setOpenFilterMenuColId,
+    setReservedViewportWidth,
+    setRowContextMenu,
     setRowHeightByIdCompat,
     setRowHeightsCompat,
+    setRows,
+    setScrollLeftCompat,
+    setScrollTopCompat,
     setSelectedAtCompat,
     setSelectedByIdCompat,
     setSelectedCompat,
-    setActiveIndexCompat,
-    setActiveCellCompat,
-    setCellSelectionState,
+    setShowHeader,
     setShowZebraRows,
     setSkip,
     setSortInfoAndResetPage,
-    setScrollLeftCompat,
-    setScrollTopCompat,
-    showHeader,
-    showEmptyRows,
-    showHoverRows,
-    showColumnContextMenu,
-    hideColumnContextMenu,
-    hideColumnFilterContextMenu,
-    showRowContextMenu,
-    hideRowContextMenu,
-    showHorizontalCellBorders,
-    showVerticalCellBorders,
     showCellBorders,
+    showColumnContextMenu,
+    showEmptyRows,
+    showHeader,
+    showHorizontalCellBorders,
+    showHoverRows,
+    showRowContextMenu,
+    showVerticalCellBorders,
+    showZebraRows,
     skip,
     sortInfo,
     stableApi,
     stableApiTarget,
-    table,
     startEditCompat,
-    toggleColumnSortCompat,
+    surfaceRef,
+    table,
     toggleActiveCellSelectionCompat,
+    toggleColumnSortCompat,
     tryStartEditCompat,
     unlockedColumns,
-    scrollToCellCompat,
-    scrollToColumnCompat,
-    scrollToIndexCompat,
-    resolveRowHeight,
-    clearColumnFilterCompat,
-    selectAllCompat,
-    deselectAllCompat,
-    allInputColumns,
+    unselected,
+    updateMenuPositionOnScroll,
+    virtualItems,
+    virtualListCompat,
+    virtualized,
     visibleColumnsMap,
     visibleComputedColumns,
-    virtualListCompat,
-    virtualItems.length,
-    virtualized,
-    updateMenuPositionOnScroll,
-  ]);
+  });
 
   // Preserve Inovua's mount lifecycle: the API is hydrated by the preceding
   // passive effect, then onDidMount observes that live ref before the other
@@ -9432,7 +2981,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [onReady]);
 
   /** ---------------- render ---------------- */
-
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
   const loadingText = props.loadingText ?? "Loading";
   const customPaginationToolbar =
@@ -9457,197 +3005,52 @@ function ReactDataGrid(props: TypeDataGridProps) {
     ) : (
       customPaginationToolbar
     );
-  const contextMenuColumn = columnContextMenu?.cellProps.column as
-    | TypeColumn
-    | undefined;
-  const contextMenuColumnId =
-    columnContextMenu?.cellProps.columnId ??
-    columnContextMenu?.cellProps.name ??
-    (contextMenuColumn ? getColumnId(contextMenuColumn) : undefined);
-  const contextMenuCanSort = Boolean(
-    contextMenuColumnId &&
-    (contextMenuColumn?.sortable ?? sortable) &&
-    (!checkboxEnabled || contextMenuColumnId !== checkboxColId)
-  );
-  const contextMenuSortEntries = Array.isArray(sortInfo)
-    ? sortInfo
-    : sortInfo
-      ? [sortInfo]
-      : [];
-  const contextMenuIsSorted = Boolean(
-    contextMenuColumnId &&
-    contextMenuSortEntries.some(
-      (entry) =>
-        entry.name === contextMenuColumnId ||
-        entry.id === contextMenuColumnId ||
-        entry.columnName === contextMenuColumnId
-    )
-  );
-  const contextMenuCanUnsort =
-    contextMenuCanSort &&
-    contextMenuIsSorted &&
-    (allowUnsort || Array.isArray(sortInfo));
-  const visibleColumnCount = groupedColumns.reduce(
-    (total, column) =>
-      total + (columnVisibilityMap[getColumnId(column)] !== false ? 1 : 0),
-    0
-  );
-  const columnContextMenuItems: NonNullable<
-    TypeColumnContextMenuProps["items"]
-  > = contextMenuColumnId
-    ? [
-        {
-          name: "sortAsc",
-          label: t(i18n, "sortAsc", "Sort A→Z"),
-          disabled: !contextMenuCanSort,
-          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, 1),
-        },
-        {
-          name: "sortDesc",
-          label: t(i18n, "sortDesc", "Sort Z→A"),
-          disabled: !contextMenuCanSort,
-          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, -1),
-        },
-        {
-          name: "unsort",
-          label: t(i18n, "unsort", "Unsort"),
-          disabled: !contextMenuCanUnsort,
-          onClick: () => setColumnSortInfoCompat(contextMenuColumnId, 0),
-        },
-        "-",
-        {
-          name: effectiveEnableFiltering ? "hideFiltering" : "showFiltering",
-          label: effectiveEnableFiltering
-            ? t(i18n, "hideFiltering", "Hide filtering")
-            : t(i18n, "showFiltering", "Show filtering"),
-          disabled: enableFiltering !== undefined,
-          onClick: () => setEnableFilteringCompat(!effectiveEnableFiltering),
-        },
-        {
-          name: "columns",
-          label: t(i18n, "columns", "Columns"),
-          items: groupedColumns.map((column) => {
-            const columnId = getColumnId(column);
-            const visible = columnVisibilityMap[columnId] !== false;
-            return {
-              name: columnId,
-              label:
-                typeof column.header === "string"
-                  ? column.header
-                  : (column.name ?? column.id ?? columnId),
-              checked: visible,
-              disabled:
-                column.hideable === false ||
-                (visible && visibleColumnCount <= 1),
-              onClick: () => setColumnVisibleById(columnId, !visible),
-            };
-          }),
-        },
-        ...(enableColumnAutosize
-          ? ([
-              "-",
-              {
-                name: "autoSizeColumn",
-                label: t(i18n, "autoSizeColumn", "Auto size this column"),
-                onClick: () => autosizeColumn(contextMenuColumnId),
-              },
-              {
-                name: "autoSizeAllColumns",
-                label: t(i18n, "autoSizeAllColumns", "Auto size all columns"),
-                onClick: () => setColumnsSizesAutoCompat(),
-              },
-              {
-                name: "sizeColumnsToFit",
-                label: t(i18n, "sizeColumnsToFit", "Size columns to fit"),
-                onClick: setColumnSizesToFitCompat,
-              },
-            ] as const)
-          : []),
-      ]
-    : [];
-  const columnMenuProps: TypeColumnContextMenuProps | null = columnContextMenu
-    ? {
-        autoFocus: true,
-        alignTo: columnContextMenu.alignTo,
-        alignPositions: columnContextMenuAlignPositions,
-        cellProps: columnContextMenu.cellProps,
-        constrainTo: columnContextMenuConstrainTo,
-        items: columnContextMenuItems,
-        nativeScroll,
-        onDismiss: hideColumnContextMenu,
-        position: columnContextMenuPosition,
-        style: {
-          position:
-            columnContextMenuPosition as React.CSSProperties["position"],
-        },
-        theme: themeName,
-        rtl,
-        updatePositionOnScroll: updateMenuPositionOnScroll,
-      }
-    : null;
-  const rowMenuProps: TypeRowContextMenuProps | null = rowContextMenu
-    ? {
-        autoFocus: true,
-        alignTo: rowContextMenu.alignTo,
-        alignPositions: rowContextMenuAlignPositions,
-        cellProps: rowContextMenu.cellProps,
-        constrainTo: rowContextMenuConstrainTo,
-        items: [],
-        nativeScroll,
-        onDismiss: hideRowContextMenu,
-        position: rowContextMenuPosition,
-        rowProps: rowContextMenu.rowProps,
-        style: {
-          position: rowContextMenuPosition as React.CSSProperties["position"],
-        },
-        theme: themeName,
-        rtl,
-        updatePositionOnScroll: updateMenuPositionOnScroll,
-      }
-    : null;
-  const renderedColumnContextMenu =
-    columnContextMenu && columnMenuProps && renderColumnContextMenu
-      ? renderColumnContextMenu(columnMenuProps, {
-          cellProps: columnContextMenu.cellProps,
-          grid: stableApi,
-          computedProps: stableApi,
-          computedPropsRef: apiRef,
-        })
-      : undefined;
-  const renderedRowContextMenu =
-    rowContextMenu && rowMenuProps && renderRowContextMenu
-      ? renderRowContextMenu(rowMenuProps, {
-          rowProps: rowContextMenu.rowProps,
-          cellProps: rowContextMenu.cellProps,
-          grid: stableApi,
-          computedProps: stableApi,
-          computedPropsRef: apiRef,
-        })
-      : undefined;
-  const showColumnMenuLayer =
-    Boolean(columnContextMenu && columnMenuProps) &&
-    renderedColumnContextMenu !== null &&
-    renderedColumnContextMenu !== false;
-  const showRowMenuLayer =
-    Boolean(rowContextMenu && rowMenuProps) &&
-    renderedRowContextMenu !== null &&
-    renderedRowContextMenu !== false;
-  const columnContextMenuSuppressed = Boolean(
-    columnContextMenu &&
-    renderColumnContextMenu &&
-    (renderedColumnContextMenu === null || renderedColumnContextMenu === false)
-  );
-  const rowContextMenuSuppressed = Boolean(
-    rowContextMenu &&
-    renderRowContextMenu &&
-    (renderedRowContextMenu === null || renderedRowContextMenu === false)
-  );
-  React.useEffect(() => {
-    if (columnContextMenuSuppressed) hideColumnContextMenu();
-  }, [columnContextMenuSuppressed, hideColumnContextMenu]);
-  React.useEffect(() => {
-    if (rowContextMenuSuppressed) hideRowContextMenu();
-  }, [hideRowContextMenu, rowContextMenuSuppressed]);
+  const {
+    contextMenuCanSort,
+    contextMenuCanUnsort,
+    contextMenuColumnId,
+    renderedColumnContextMenu,
+    renderedRowContextMenu,
+    showColumnMenuLayer,
+    showRowMenuLayer,
+    visibleColumnCount,
+  } = useGridContextMenuLayers({
+    allowUnsort,
+    apiRef,
+    autosizeColumn,
+    checkboxColId,
+    checkboxEnabled,
+    columnContextMenu,
+    columnContextMenuAlignPositions,
+    columnContextMenuConstrainTo,
+    columnContextMenuPosition,
+    columnVisibilityMap,
+    effectiveEnableFiltering,
+    enableColumnAutosize,
+    enableFiltering,
+    groupedColumns,
+    hideColumnContextMenu,
+    hideRowContextMenu,
+    i18n,
+    nativeScroll,
+    renderColumnContextMenu,
+    renderRowContextMenu,
+    rowContextMenu,
+    rowContextMenuAlignPositions,
+    rowContextMenuConstrainTo,
+    rowContextMenuPosition,
+    rtl,
+    setColumnSizesToFitCompat,
+    setColumnSortInfoCompat,
+    setColumnVisibleById,
+    setColumnsSizesAutoCompat,
+    setEnableFilteringCompat,
+    sortInfo,
+    sortable,
+    stableApi,
+    themeName,
+    updateMenuPositionOnScroll,
+  });
 
   return (
     <div

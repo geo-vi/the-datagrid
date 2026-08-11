@@ -54,6 +54,12 @@ export type TypeColumnGroupHeaderRenderItem =
       resizableBoundary: boolean;
     };
 
+/** The `group` variant of a header render item, used by drag and resize code. */
+export type GroupHeaderRenderItem = Extract<
+  TypeColumnGroupHeaderRenderItem,
+  { type: "group" }
+>;
+
 export function getColumnGroupSegmentKey(
   item: Extract<TypeColumnGroupHeaderRenderItem, { type: "group" }>
 ): string {

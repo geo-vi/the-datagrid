@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import ReactDataGrid, {
+  type SortDirection,
   type TypeColumns,
   type TypeComputedProps,
   type TypeDataSource,
@@ -28,6 +29,20 @@ const smallRows = [
 const virtualRows = Array.from({ length: 2_000 }, (_, index) => ({
   id: index + 1,
   name: `Memory row ${index + 1}`,
+  team: ["Analytics", "Platform", "Research"][index % 3],
+}));
+
+// Retention scenario. The dataSource identity must stay stable across the whole
+// run: the point is to prove the grid releases the render generations that
+// sorting legitimately mints, not to measure the cost of new data arriving.
+const retentionColumns: TypeColumns = [
+  { name: "id", header: "ID", defaultWidth: 80, sortable: true },
+  { name: "name", header: "Name", defaultWidth: 220, sortable: true },
+  { name: "team", header: "Team", defaultWidth: 160, sortable: true },
+];
+const retentionRows = Array.from({ length: 10_000 }, (_, index) => ({
+  id: index + 1,
+  name: `Retention row ${index + 1}`,
   team: ["Analytics", "Platform", "Research"][index % 3],
 }));
 
@@ -521,9 +536,76 @@ function LifecycleScenario() {
   );
 }
 
+function GenerationRetentionScenario() {
+  const gridApiRef = React.useRef<React.MutableRefObject<TypeComputedProps | null> | null>(
+    null
+  );
+  const directionRef = React.useRef<SortDirection>(1);
+  const [sorts, setSorts] = React.useState(0);
+
+  const captureApi = React.useCallback(
+    (ref: React.MutableRefObject<TypeComputedProps | null>) => {
+      gridApiRef.current = ref;
+    },
+    []
+  );
+
+  // Two deliberately separate controls so a test can tell apart "sorting through
+  // the imperative API" and "the parent re-rendering", which otherwise travel
+  // together and make a retention measurement impossible to attribute.
+  const toggleSort = React.useCallback(() => {
+    directionRef.current = directionRef.current === 1 ? -1 : 1;
+    gridApiRef.current?.current?.setSortInfo({
+      name: "name",
+      dir: directionRef.current,
+    });
+  }, []);
+  const rerenderParent = React.useCallback(() => {
+    setSorts((current) => current + 1);
+  }, []);
+
+  return (
+    <ScenarioShell
+      controls={
+        <>
+          <Button
+            type="button"
+            data-testid="generations-sort"
+            onClick={toggleSort}
+          >
+            Toggle sort
+          </Button>
+          <Button
+            type="button"
+            data-testid="generations-rerender"
+            onClick={rerenderParent}
+          >
+            Re-render parent
+          </Button>
+        </>
+      }
+      metrics={
+        <Metric label="Parent renders" testId="generations-sorts">
+          {sorts}
+        </Metric>
+      }
+    >
+      <ReactDataGrid
+        idProperty="id"
+        columns={retentionColumns}
+        dataSource={retentionRows}
+        columnOrder={columnOrder}
+        onReady={captureApi}
+        virtualized
+      />
+    </ScenarioShell>
+  );
+}
+
 export default function MemorySafetyCompatPage() {
   const scenario = new URLSearchParams(window.location.search).get("scenario");
 
+  if (scenario === "generations") return <GenerationRetentionScenario />;
   if (scenario === "filter") return <FilterScenario />;
   if (scenario === "volatile-count") return <VolatileCountScenario />;
   if (scenario === "remote") return <RemoteScenario />;

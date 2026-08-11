@@ -520,11 +520,102 @@ function ControlledScenario(): React.ReactElement {
   );
 }
 
+function ReloadContractsScenario(): React.ReactElement {
+  const localApiRef = React.useRef<TypeComputedProps | null>(null);
+  const [localRows] = React.useState<Row[]>(() => [
+    { id: "local-1", name: "Local original" },
+    { id: "local-2", name: "Local second" },
+  ]);
+  const [theme, setTheme] = React.useState("default-light");
+  const [remoteCalls, setRemoteCalls] = React.useState(0);
+
+  const remoteDataSource = React.useCallback(
+    (args: TypeDataSourceArgs): Row[] => {
+      setRemoteCalls((current) => current + 1);
+      return [
+        {
+          id: "remote-theme",
+          name: `Remote theme ${args.theme}`,
+        },
+      ];
+    },
+    []
+  );
+  const captureLocalApi = React.useCallback(
+    (ref: React.MutableRefObject<TypeComputedProps | null>) => {
+      localApiRef.current = ref.current;
+    },
+    []
+  );
+  const mutateAndReloadLocalRows = React.useCallback(() => {
+    // Deliberately model an imperative consumer that mutates stable row
+    // objects and then asks the grid to publish the newly evaluated page.
+    // eslint-disable-next-line react-hooks/immutability
+    localRows[0]!.name = "Local mutated";
+    localApiRef.current?.reload();
+  }, [localRows]);
+
+  return (
+    <main
+      className="grid gap-4 p-6 lg:grid-cols-2"
+      data-testid="issue-32-reload-contracts"
+    >
+      <GridShell testId="reload-remote-theme">
+        <div className="flex h-full min-h-0 flex-col gap-2">
+          <Button
+            data-testid="reload-toggle-theme"
+            onClick={() =>
+              setTheme((current) =>
+                current === "default-light" ? "default-dark" : "default-light"
+              )
+            }
+          >
+            Toggle theme
+          </Button>
+          <output data-testid="reload-remote-calls">{remoteCalls}</output>
+          <div className="min-h-0 flex-1">
+            <ReactDataGrid
+              idProperty="id"
+              columns={columns}
+              dataSource={remoteDataSource}
+              theme={theme}
+              virtualized={false}
+            />
+          </div>
+        </div>
+      </GridShell>
+
+      <GridShell testId="reload-local-mutation">
+        <div className="flex h-full min-h-0 flex-col gap-2">
+          <Button
+            data-testid="reload-mutate-local"
+            onClick={mutateAndReloadLocalRows}
+          >
+            Mutate and reload
+          </Button>
+          <div className="min-h-0 flex-1">
+            <ReactDataGrid
+              idProperty="id"
+              columns={columns}
+              dataSource={localRows}
+              pagination="local"
+              defaultLimit={1}
+              onReady={captureLocalApi}
+              virtualized={false}
+            />
+          </div>
+        </div>
+      </GridShell>
+    </main>
+  );
+}
+
 export default function Issue32DataSourceCompatPage(): React.ReactElement {
   const scenario =
     new URLSearchParams(window.location.search).get("scenario") ?? "ownership";
 
   if (scenario === "lifecycle") return <LifecycleScenario />;
   if (scenario === "controlled") return <ControlledScenario />;
+  if (scenario === "reload-contracts") return <ReloadContractsScenario />;
   return <OwnershipScenario />;
 }
