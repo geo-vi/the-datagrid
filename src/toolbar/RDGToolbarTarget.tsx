@@ -5,26 +5,26 @@ import * as React from "react";
 import {
   findTargetGridElement,
   markOptionalTargetType,
-  RDG_COLUMN_VISIBILITY_TARGET_COMPONENT_MARKER,
+  RDG_TOOLBAR_TARGET_COMPONENT_MARKER,
 } from "../optional-target";
 import type { TypeDataGridProps } from "../types";
 import { isMarkedGridType } from "./runtime";
-import { useRDGColumnVisibilityStore } from "./store";
+import { useRDGToolbarStore } from "./store";
 
-export type RDGColumnVisibilityTargetProps = {
+export type RDGToolbarTargetProps = {
   children: React.ReactElement<TypeDataGridProps>;
 };
 
-export function RDGColumnVisibilityTarget(
-  props: RDGColumnVisibilityTargetProps
+export function RDGToolbarTarget(
+  props: RDGToolbarTargetProps
 ): React.ReactElement {
   const { children } = props;
   const forwardedSearchController = (
-    props as RDGColumnVisibilityTargetProps & {
+    props as RDGToolbarTargetProps & {
       __rdgSearchController?: unknown;
     }
   ).__rdgSearchController;
-  const store = useRDGColumnVisibilityStore();
+  const store = useRDGToolbarStore();
   const registration = React.useMemo(
     () => store.createTargetRegistration(),
     [store]
@@ -34,16 +34,16 @@ export function RDGColumnVisibilityTarget(
 
   if (!React.isValidElement(children)) {
     throw new Error(
-      "RDGColumnVisibilityTarget expects exactly one ReactDataGrid child."
+      "RDGToolbarTarget expects exactly one ReactDataGrid child."
     );
   }
 
   if (!findTargetGridElement(children, isMarkedGridType)) {
-    throw new Error("RDGColumnVisibilityTarget expects a ReactDataGrid child.");
+    throw new Error("RDGToolbarTarget expects a ReactDataGrid child.");
   }
 
   const injectedProps: Record<string, unknown> = {
-    __rdgColumnVisibilityController: registration.controller,
+    __rdgToolbarController: registration.controller,
   };
   if (forwardedSearchController !== undefined) {
     injectedProps.__rdgSearchController = forwardedSearchController;
@@ -55,7 +55,4 @@ export function RDGColumnVisibilityTarget(
   );
 }
 
-markOptionalTargetType(
-  RDGColumnVisibilityTarget,
-  RDG_COLUMN_VISIBILITY_TARGET_COMPONENT_MARKER
-);
+markOptionalTargetType(RDGToolbarTarget, RDG_TOOLBAR_TARGET_COMPONENT_MARKER);

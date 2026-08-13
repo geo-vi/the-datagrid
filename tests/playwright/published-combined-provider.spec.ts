@@ -8,7 +8,7 @@ test("published combined provider shares legacy search and visibility contexts",
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  const columnVisibilityUrl = viteFsUrl("dist/column-visibility.js");
+  const toolbarUrl = viteFsUrl("dist/toolbar.js");
   const componentsUrl = viteFsUrl("dist/components.js");
   const coreUrl = viteFsUrl("dist/index.js");
   const reactDomUrl = viteFsUrl("node_modules/.vite/deps/react-dom_client.js");
@@ -25,7 +25,7 @@ test("published combined provider shares legacy search and visibility contexts",
       import ReactDataGrid from ${JSON.stringify(coreUrl)};
       import { RDGProvider, RDGTarget } from ${JSON.stringify(componentsUrl)};
       import { RDGSearchBar } from ${JSON.stringify(searchUrl)};
-      import { RDGColumnVisibilityToolbar } from ${JSON.stringify(columnVisibilityUrl)};
+      import { RDGToolbar } from ${JSON.stringify(toolbarUrl)};
 
       const columns = [
         { name: "name", header: "Name" },
@@ -44,7 +44,7 @@ test("published combined provider shares legacy search and visibility contexts",
             ariaLabel: "Search published combined grid",
             debounceMs: 0,
           }),
-          React.createElement(RDGColumnVisibilityToolbar, {
+          React.createElement(RDGToolbar, {
             title: "Published combined columns",
           }),
           React.createElement(

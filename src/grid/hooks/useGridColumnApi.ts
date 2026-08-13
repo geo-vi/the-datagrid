@@ -22,7 +22,6 @@ import { injectIntoOrder } from "../utils/gridUtils";
 import {
   resolveDefaultFilterOperator,
   resolveFilterTypeName,
-  type InternalColumnVisibilityController,
 } from "../internalProps";
 
 export type UseGridColumnApiParams = {
@@ -31,13 +30,10 @@ export type UseGridColumnApiParams = {
   allowUnsort: boolean;
   checkboxColId: string;
   checkboxEnabled: boolean;
-  columnOrderForDs: string[];
-  columnVisibilityController: InternalColumnVisibilityController | undefined;
   columnVisibilityMap: Record<string, boolean>;
   defaultSortDir: 1 | -1;
   filterTypes: TypeFilterTypes;
   filterValue: TypeFilterValue;
-  inputColumns: TypeColumn[];
   onColumnFilterValueChange: TypeDataGridProps["onColumnFilterValueChange"];
   onColumnVisibleChange: TypeDataGridProps["onColumnVisibleChange"];
   orderedColumns: TypeColumn[];
@@ -49,7 +45,6 @@ export type UseGridColumnApiParams = {
   sortFunctions: TypeSortFunctions | null;
   sortInfo: TypeSortInfo;
   table: { setColumnOrder: (order: string[]) => void };
-  theme: TypeDataGridProps["theme"];
 };
 
 /**
@@ -64,13 +59,10 @@ export function useGridColumnApi(params: UseGridColumnApiParams) {
     allowUnsort,
     checkboxColId,
     checkboxEnabled,
-    columnOrderForDs,
-    columnVisibilityController,
     columnVisibilityMap,
     defaultSortDir,
     filterTypes,
     filterValue,
-    inputColumns,
     onColumnFilterValueChange,
     onColumnVisibleChange,
     orderedColumns,
@@ -80,7 +72,6 @@ export function useGridColumnApi(params: UseGridColumnApiParams) {
     sortFunctions,
     sortInfo,
     table,
-    theme,
   } = params;
 
   const computedOnColumnFilterValueChangeCompat = React.useCallback(
@@ -213,32 +204,6 @@ export function useGridColumnApi(params: UseGridColumnApiParams) {
     },
     [setColumnVisibleCompat]
   );
-
-  React.useLayoutEffect(() => {
-    if (!columnVisibilityController) return;
-
-    const consumerColumnVisibilityMap = Object.fromEntries(
-      inputColumns.map((column) => {
-        const columnId = getColumnId(column);
-        return [columnId, columnVisibilityMap[columnId] !== false];
-      })
-    );
-
-    columnVisibilityController.publish({
-      columns: inputColumns,
-      columnOrder: columnOrderForDs,
-      columnVisibilityMap: consumerColumnVisibilityMap,
-      theme: String(theme),
-      setColumnVisible: setColumnVisibleById,
-    });
-  }, [
-    columnOrderForDs,
-    columnVisibilityController,
-    columnVisibilityMap,
-    inputColumns,
-    setColumnVisibleById,
-    theme,
-  ]);
 
   const setColumnSortInfoCompat = React.useCallback(
     (column: TypeGetColumnByParam, dir: 1 | 0 | -1) => {

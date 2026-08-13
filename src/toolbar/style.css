@@ -1,0 +1,442 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@source "./**/*.{ts,tsx}";
+
+/*
+ * Presentation contract
+ * =====================
+ *
+ * Everything below the palette block is expressed through `--tdg-toolbar-*`
+ * custom properties, so a consumer restyles the toolbar by redeclaring tokens
+ * on `.tdg-toolbar-root` (or any ancestor) instead of fighting selectors.
+ *
+ * The rules that consume them are wrapped in `:where()` so the scope adds no
+ * specificity: an override as ordinary as `.tdg-toolbar-root button { ... }`
+ * outranks them, and `!important` is never required.
+ *
+ * Palette tokens (`--tdg-toolbar-card`, `--tdg-toolbar-accent`, ...) keep
+ * reading `--tdg-color-*`, then the shadcn variable of the same name, so an
+ * existing themed app inherits sensible values without setting anything.
+ */
+
+.tdg-toolbar-root,
+.tdg-toolbar-root::before,
+.tdg-toolbar-root::after,
+.tdg-toolbar-root *,
+.tdg-toolbar-root *::before,
+.tdg-toolbar-root *::after {
+  box-sizing: border-box;
+}
+
+.tdg-toolbar-root {
+  /* Palette: resolved from the host theme. */
+  --tdg-toolbar-background: var(
+    --tdg-color-background,
+    var(--background, oklch(1 0 0))
+  );
+  --tdg-toolbar-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.145 0 0))
+  );
+  --tdg-toolbar-card: var(--tdg-color-card, var(--card, oklch(1 0 0)));
+  --tdg-toolbar-secondary: var(
+    --tdg-color-secondary,
+    var(--secondary, oklch(0.97 0 0))
+  );
+  --tdg-toolbar-secondary-foreground: var(
+    --tdg-color-secondary-foreground,
+    var(--secondary-foreground, oklch(0.205 0 0))
+  );
+  --tdg-toolbar-accent: var(--tdg-color-accent, var(--accent, oklch(0.97 0 0)));
+  --tdg-toolbar-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.205 0 0))
+  );
+  --tdg-toolbar-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.556 0 0))
+  );
+  --tdg-toolbar-border: var(
+    --tdg-color-border,
+    var(--border, oklch(0.922 0 0))
+  );
+  --tdg-toolbar-ring: var(--tdg-color-ring, var(--ring, oklch(0.708 0 0)));
+  --tdg-toolbar-input: var(--tdg-color-input, var(--input, oklch(0.922 0 0)));
+  --tdg-toolbar-popover: var(--tdg-color-popover, var(--popover, oklch(1 0 0)));
+  --tdg-toolbar-popover-foreground: var(
+    --tdg-color-popover-foreground,
+    var(--popover-foreground, oklch(0.145 0 0))
+  );
+
+  /* Surface */
+  --tdg-toolbar-surface: color-mix(
+    in oklab,
+    var(--tdg-toolbar-card) 60%,
+    transparent
+  );
+  --tdg-toolbar-color: var(--tdg-toolbar-foreground);
+  --tdg-toolbar-padding: 0.75rem;
+  --tdg-toolbar-gap: 0.75rem;
+  --tdg-toolbar-radius: var(
+    --tdg-radius-xl,
+    var(--radius-xl, calc(var(--radius, 0.5rem) + 4px))
+  );
+  --tdg-toolbar-border-width: 1px;
+  --tdg-toolbar-border-color: var(--tdg-toolbar-border);
+  --tdg-toolbar-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+  /* Heading */
+  --tdg-toolbar-title-font-size: 0.875rem;
+  --tdg-toolbar-title-font-weight: 500;
+  --tdg-toolbar-title-color: inherit;
+  --tdg-toolbar-description-font-size: 0.75rem;
+  --tdg-toolbar-description-color: var(--tdg-toolbar-muted-foreground);
+
+  /* Groups */
+  --tdg-toolbar-toggle-gap: 0.5rem;
+  --tdg-toolbar-actions-gap: 0.5rem;
+
+  /* Controls: every button in the toolbar */
+  --tdg-toolbar-control-height: 2rem;
+  --tdg-toolbar-control-padding: 0 0.75rem;
+  --tdg-toolbar-control-radius: var(
+    --tdg-radius-md,
+    var(--radius-md, calc(var(--radius, 0.5rem) - 2px))
+  );
+  --tdg-toolbar-control-font-weight: 500;
+  --tdg-toolbar-control-gap: 0.5rem;
+  --tdg-toolbar-control-cursor: default;
+  --tdg-toolbar-control-border-width: 1px;
+  --tdg-toolbar-control-transition: 150ms;
+  --tdg-toolbar-control-disabled-opacity: 0.5;
+  --tdg-toolbar-icon-size: 1rem;
+
+  /* Controls, resting ("off") state */
+  --tdg-toolbar-control-fill: transparent;
+  --tdg-toolbar-control-color: inherit;
+  --tdg-toolbar-control-border-color: var(--tdg-toolbar-input);
+  --tdg-toolbar-control-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-control-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  /* Controls, pressed ("on") state: toggled-on columns, visible filter row */
+  --tdg-toolbar-control-on-fill: var(--tdg-toolbar-secondary);
+  --tdg-toolbar-control-on-color: var(--tdg-toolbar-secondary-foreground);
+  --tdg-toolbar-control-on-border-color: transparent;
+  --tdg-toolbar-control-on-hover-fill: color-mix(
+    in oklab,
+    var(--tdg-toolbar-secondary) 80%,
+    transparent
+  );
+  --tdg-toolbar-control-on-hover-color: var(--tdg-toolbar-control-on-color);
+
+  /* Font size is per family so the two keep their distinct scale by default. */
+  --tdg-toolbar-toggle-font-size: 0.875rem;
+  --tdg-toolbar-action-font-size: 0.75rem;
+
+  --tdg-toolbar-focus-ring-width: 1px;
+  --tdg-toolbar-focus-ring-color: var(--tdg-toolbar-ring);
+
+  /* Export format menu */
+  --tdg-toolbar-menu-fill: var(--tdg-toolbar-popover);
+  --tdg-toolbar-menu-color: var(--tdg-toolbar-popover-foreground);
+  --tdg-toolbar-menu-border-width: 1px;
+  --tdg-toolbar-menu-border-color: var(--tdg-toolbar-border);
+  --tdg-toolbar-menu-radius: var(--tdg-toolbar-control-radius);
+  --tdg-toolbar-menu-padding: 0.25rem;
+  --tdg-toolbar-menu-min-width: 8rem;
+  --tdg-toolbar-menu-offset: 0.25rem;
+  --tdg-toolbar-menu-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --tdg-toolbar-menu-item-font-size: 0.875rem;
+  --tdg-toolbar-menu-item-padding: 0.375rem 0.5rem;
+  --tdg-toolbar-menu-item-radius: var(
+    --tdg-radius-sm,
+    var(--radius-sm, calc(var(--radius, 0.5rem) - 4px))
+  );
+  --tdg-toolbar-menu-item-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-menu-item-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  color-scheme: light;
+}
+
+.dark .tdg-toolbar-root[data-theme="default"][data-theme-base="default"],
+.tdg-toolbar-root[data-theme-base="dark"] {
+  --tdg-toolbar-background: var(
+    --tdg-color-background,
+    var(--background, oklch(0.145 0 0))
+  );
+  --tdg-toolbar-foreground: var(
+    --tdg-color-foreground,
+    var(--foreground, oklch(0.985 0 0))
+  );
+  --tdg-toolbar-card: var(--tdg-color-card, var(--card, oklch(0.205 0 0)));
+  --tdg-toolbar-secondary: var(
+    --tdg-color-secondary,
+    var(--secondary, oklch(0.269 0 0))
+  );
+  --tdg-toolbar-secondary-foreground: var(
+    --tdg-color-secondary-foreground,
+    var(--secondary-foreground, oklch(0.985 0 0))
+  );
+  --tdg-toolbar-accent: var(
+    --tdg-color-accent,
+    var(--accent, oklch(0.269 0 0))
+  );
+  --tdg-toolbar-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(--accent-foreground, oklch(0.985 0 0))
+  );
+  --tdg-toolbar-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(--muted-foreground, oklch(0.708 0 0))
+  );
+  --tdg-toolbar-border: var(
+    --tdg-color-border,
+    var(--border, oklch(1 0 0 / 10%))
+  );
+  --tdg-toolbar-ring: var(--tdg-color-ring, var(--ring, oklch(0.556 0 0)));
+  --tdg-toolbar-input: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%)));
+  --tdg-toolbar-popover: var(
+    --tdg-color-popover,
+    var(--popover, oklch(0.205 0 0))
+  );
+  --tdg-toolbar-popover-foreground: var(
+    --tdg-color-popover-foreground,
+    var(--popover-foreground, oklch(0.985 0 0))
+  );
+
+  color-scheme: dark;
+}
+
+:where(.tdg-toolbar-root) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tdg-toolbar-gap);
+  padding: var(--tdg-toolbar-padding);
+  border: var(--tdg-toolbar-border-width) solid var(--tdg-toolbar-border-color);
+  border-radius: var(--tdg-toolbar-radius);
+  background: var(--tdg-toolbar-surface);
+  box-shadow: var(--tdg-toolbar-shadow);
+  color: var(--tdg-toolbar-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-heading"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-title"] {
+  font-size: var(--tdg-toolbar-title-font-size);
+  font-weight: var(--tdg-toolbar-title-font-weight);
+  line-height: 1.25rem;
+  color: var(--tdg-toolbar-title-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-description"] {
+  font-size: var(--tdg-toolbar-description-font-size);
+  line-height: 1rem;
+  color: var(--tdg-toolbar-description-color);
+}
+
+/*
+ * Stacked, the actions come first: the toggle list wraps to several rows on a
+ * phone and would otherwise push export and the filter controls far down the
+ * card. Reversing here rather than in the markup keeps the wide layout's visual
+ * order (toggles leading, actions trailing) identical to DOM and focus order.
+ */
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-body"] {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--tdg-toolbar-gap);
+}
+
+@media (width >= 80rem) {
+  :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-body"] {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-list"] {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: var(--tdg-toolbar-toggle-gap);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-actions"] {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tdg-toolbar-actions-gap);
+}
+
+/*
+ * Every control rule below carries exactly one unit of specificity: the part
+ * that names the state (`[data-slot]`, `[data-state]`, `:hover`, `:disabled`,
+ * `:focus-visible`), with everything else inside `:where()`. Later rules win
+ * over earlier ones by order, and any consumer selector that adds a second
+ * part - `.tdg-toolbar-root button`, `button:hover`, a class of your own -
+ * outranks all of them. `!important` is never needed.
+ */
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+  display: inline-flex;
+  height: var(--tdg-toolbar-control-height);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tdg-toolbar-control-gap);
+  padding: var(--tdg-toolbar-control-padding);
+  border: var(--tdg-toolbar-control-border-width) solid
+    var(--tdg-toolbar-control-border-color);
+  border-radius: var(--tdg-toolbar-control-radius);
+  background: var(--tdg-toolbar-control-fill);
+  color: var(--tdg-toolbar-control-color);
+  font: inherit;
+  font-weight: var(--tdg-toolbar-control-font-weight);
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  appearance: none;
+  cursor: var(--tdg-toolbar-control-cursor);
+  user-select: none;
+  outline: none;
+  transition:
+    color var(--tdg-toolbar-control-transition),
+    background-color var(--tdg-toolbar-control-transition),
+    border-color var(--tdg-toolbar-control-transition);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"] {
+  font-size: var(--tdg-toolbar-toggle-font-size);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+  font-size: var(--tdg-toolbar-action-font-size);
+}
+
+:where(.tdg-toolbar-root)
+  [data-state="on"]:where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ) {
+  border-color: var(--tdg-toolbar-control-on-border-color);
+  background: var(--tdg-toolbar-control-on-fill);
+  color: var(--tdg-toolbar-control-on-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"],
+    [data-slot="rdg-toolbar-clear-filters"]
+  ):where(:enabled):hover {
+  background: var(--tdg-toolbar-control-hover-fill);
+  color: var(--tdg-toolbar-control-hover-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where([data-state="on"]):where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ):where(:enabled):hover {
+  background: var(--tdg-toolbar-control-on-hover-fill);
+  color: var(--tdg-toolbar-control-on-hover-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot^="rdg-toolbar"],
+    [data-slot="rdg-column-toggle"]
+  ):focus-visible {
+  box-shadow: 0 0 0 var(--tdg-toolbar-focus-ring-width)
+    var(--tdg-toolbar-focus-ring-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"],
+    [data-slot="rdg-toolbar-clear-filters"]
+  ):disabled {
+  pointer-events: none;
+  opacity: var(--tdg-toolbar-control-disabled-opacity);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-wrapper"] {
+  position: relative;
+  display: inline-flex;
+}
+
+:where(.tdg-toolbar-root) svg {
+  width: var(--tdg-toolbar-icon-size);
+  height: var(--tdg-toolbar-icon-size);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-menu"] {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 100%;
+  z-index: 50;
+  display: flex;
+  min-width: var(--tdg-toolbar-menu-min-width);
+  flex-direction: column;
+  margin-top: var(--tdg-toolbar-menu-offset);
+  padding: var(--tdg-toolbar-menu-padding);
+  overflow: hidden;
+  border: var(--tdg-toolbar-menu-border-width) solid
+    var(--tdg-toolbar-menu-border-color);
+  border-radius: var(--tdg-toolbar-menu-radius);
+  background: var(--tdg-toolbar-menu-fill);
+  box-shadow: var(--tdg-toolbar-menu-shadow);
+  color: var(--tdg-toolbar-menu-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-format"] {
+  display: flex;
+  align-items: center;
+  gap: var(--tdg-toolbar-control-gap);
+  padding: var(--tdg-toolbar-menu-item-padding);
+  border: 0;
+  border-radius: var(--tdg-toolbar-menu-item-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--tdg-toolbar-menu-item-font-size);
+  white-space: nowrap;
+  text-align: start;
+  cursor: var(--tdg-toolbar-control-cursor);
+  user-select: none;
+  outline: none;
+}
+
+:where(.tdg-toolbar-root)
+  :where([data-slot="rdg-toolbar-export-format"]):is(:hover, :focus-visible) {
+  background: var(--tdg-toolbar-menu-item-hover-fill);
+  color: var(--tdg-toolbar-menu-item-hover-color);
+}
+
+/*
+ * Tailwind's default radius scale is withheld so this stylesheet cannot shadow
+ * the host's own `--radius-*` tokens inside the toolbar; the radius defaults
+ * above read the host value and fall back to the shadcn formula.
+ */
+@theme {
+  --radius-*: initial;
+}

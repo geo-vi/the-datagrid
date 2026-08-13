@@ -104,10 +104,10 @@ if (
     "NumericEditor.js",
     "SelectFilter.js",
     "StringFilter.js",
-    "column-visibility.js",
     "components.js",
     "index.js",
     "search.js",
+    "toolbar.js",
   ])
 ) {
   console.error(

@@ -53,8 +53,8 @@ test("documents provider requirements and conditional grid targets", async ({
     "RDGTarget",
     "RDGSearchProvider",
     "RDGSearchTarget",
-    "RDGColumnVisibilityProvider",
-    "RDGColumnVisibilityTarget",
+    "RDGToolbarProvider",
+    "RDGToolbarTarget",
   ]) {
     await expect(
       stableApiSection.getByRole("cell", { name: publicApi, exact: true })
@@ -64,9 +64,7 @@ test("documents provider requirements and conditional grid targets", async ({
   const pageContent = page.locator("main");
   await expect(pageContent).toContainText("@geovi/the-datagrid/components");
   await expect(pageContent).toContainText("@geovi/the-datagrid/search");
-  await expect(pageContent).toContainText(
-    "@geovi/the-datagrid/column-visibility"
-  );
+  await expect(pageContent).toContainText("@geovi/the-datagrid/toolbar");
   await expect(pageContent).toContainText(
     "The four feature-specific APIs above remain available"
   );
@@ -77,19 +75,19 @@ test("documents provider requirements and conditional grid targets", async ({
   ).toHaveAttribute("href", "/docs/guides/table-search");
   await expect(
     page.getByRole("link", {
-      name: "column visibility toolbar reference",
+      name: "toolbar reference",
       exact: true,
     })
-  ).toHaveAttribute("href", "/docs/reference/column-visibility-toolbar");
+  ).toHaveAttribute("href", "/docs/reference/toolbar");
 });
 
-test("documents column visibility initialization, remount, and semantics", async ({
+test("documents toolbar initialization, remount, and semantics", async ({
   page,
 }) => {
-  await page.goto("/docs/reference/column-visibility-toolbar");
+  await page.goto("/docs/reference/toolbar");
 
   await expect(
-    page.getByRole("heading", { level: 1, name: "Column visibility toolbar" })
+    page.getByRole("heading", { level: 1, name: "Grid toolbar" })
   ).toBeVisible();
 
   const content = page.locator("main");

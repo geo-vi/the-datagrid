@@ -9,10 +9,10 @@ export {
   RDGSearchTarget,
 } from "../search/index";
 export {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-} from "../column-visibility/index";
+  RDGToolbar,
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+} from "../toolbar/index";
 
 export type { RDGProviderProps } from "./RDGProvider";
 export type { RDGTargetProps } from "./RDGTarget";
@@ -22,7 +22,10 @@ export type {
   RDGSearchTargetProps,
 } from "../search/index";
 export type {
-  RDGColumnVisibilityProviderProps,
-  RDGColumnVisibilityTargetProps,
-  RDGColumnVisibilityToolbarProps,
-} from "../column-visibility/index";
+  RDGToolbarExportFormat,
+  RDGToolbarExportScope,
+  RDGToolbarLabels,
+  RDGToolbarProps,
+  RDGToolbarProviderProps,
+  RDGToolbarTargetProps,
+} from "../toolbar/index";

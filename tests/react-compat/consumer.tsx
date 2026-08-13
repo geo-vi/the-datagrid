@@ -10,14 +10,14 @@ import {
   RDGSearchTarget,
 } from "@geovi/the-datagrid/search";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+  RDGToolbar,
+} from "@geovi/the-datagrid/toolbar";
 import {
   RDGProvider,
   RDGSearchBar as CombinedSearchBar,
-  RDGColumnVisibilityToolbar as CombinedColumnVisibilityToolbar,
+  RDGToolbar as CombinedToolbar,
   RDGTarget,
 } from "@geovi/the-datagrid/components";
 
@@ -70,17 +70,17 @@ export const searchComposition = (
   </RDGSearchProvider>
 );
 
-export const columnVisibilityComposition = (
-  <RDGColumnVisibilityProvider>
-    <RDGColumnVisibilityToolbar />
-    <RDGColumnVisibilityTarget>{grid}</RDGColumnVisibilityTarget>
-  </RDGColumnVisibilityProvider>
+export const toolbarComposition = (
+  <RDGToolbarProvider>
+    <RDGToolbar showClearFilters showExport showFilterToggle />
+    <RDGToolbarTarget>{grid}</RDGToolbarTarget>
+  </RDGToolbarProvider>
 );
 
 export const combinedComposition = (
   <RDGProvider>
     <CombinedSearchBar />
-    <CombinedColumnVisibilityToolbar />
+    <CombinedToolbar />
     <RDGTarget>{grid}</RDGTarget>
   </RDGProvider>
 );

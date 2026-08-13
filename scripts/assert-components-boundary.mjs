@@ -7,16 +7,13 @@ const unexpectedStylesheetPath = path.join(distDirectory, "components.css");
 const declarationPath = path.join(distDirectory, "providers", "index.d.ts");
 const coreRuntimePath = path.join(distDirectory, "index.js");
 const searchRuntimePath = path.join(distDirectory, "search.js");
-const columnVisibilityRuntimePath = path.join(
-  distDirectory,
-  "column-visibility.js"
-);
+const toolbarRuntimePath = path.join(distDirectory, "toolbar.js");
 const requiredFiles = [
   runtimePath,
   declarationPath,
   coreRuntimePath,
   searchRuntimePath,
-  columnVisibilityRuntimePath,
+  toolbarRuntimePath,
 ];
 const missingFiles = requiredFiles.filter(
   (filePath) => !fs.existsSync(filePath)
@@ -34,10 +31,7 @@ if (missingFiles.length > 0) {
 const runtime = fs.readFileSync(runtimePath, "utf8");
 const coreRuntime = fs.readFileSync(coreRuntimePath, "utf8");
 const searchRuntime = fs.readFileSync(searchRuntimePath, "utf8");
-const columnVisibilityRuntime = fs.readFileSync(
-  columnVisibilityRuntimePath,
-  "utf8"
-);
+const toolbarRuntime = fs.readFileSync(toolbarRuntimePath, "utf8");
 const expectedPrefix = '"use client";\n';
 
 if (!runtime.startsWith(expectedPrefix)) {
@@ -49,7 +43,7 @@ if (!runtime.startsWith(expectedPrefix)) {
 
 if (fs.existsSync(unexpectedStylesheetPath)) {
   console.error(
-    "The components entry must reuse search.css and column-visibility.css through their existing JavaScript entries, not emit duplicate components.css rules."
+    "The components entry must reuse search.css and toolbar.css through their existing JavaScript entries, not emit duplicate components.css rules."
   );
   process.exit(1);
 }
@@ -67,10 +61,7 @@ for (const pattern of relativeJavaScriptImportPatterns) {
   }
 }
 
-const expectedRuntimeImports = new Set([
-  "./column-visibility.js",
-  "./search.js",
-]);
+const expectedRuntimeImports = new Set(["./toolbar.js", "./search.js"]);
 if (
   relativeJavaScriptImports.size !== expectedRuntimeImports.size ||
   Array.from(expectedRuntimeImports).some(
@@ -78,7 +69,7 @@ if (
   )
 ) {
   console.error(
-    `The optional components entry must compose only the existing search and column-visibility entries; found:\n${Array.from(
+    `The optional components entry must compose only the existing search and toolbar entries; found:\n${Array.from(
       relativeJavaScriptImports
     )
       .map((specifier) => `- ${specifier}`)
@@ -93,9 +84,9 @@ const publicRuntimeExports = [
   "RDGSearchBar",
   "RDGSearchProvider",
   "RDGSearchTarget",
-  "RDGColumnVisibilityProvider",
-  "RDGColumnVisibilityTarget",
-  "RDGColumnVisibilityToolbar",
+  "RDGToolbar",
+  "RDGToolbarProvider",
+  "RDGToolbarTarget",
 ];
 const missingRuntimeExports = publicRuntimeExports.filter(
   (name) => !runtime.includes(name)
@@ -112,7 +103,7 @@ if (missingRuntimeExports.length > 0) {
 for (const [entryName, entryRuntime] of [
   ["core", coreRuntime],
   ["search", searchRuntime],
-  ["column visibility", columnVisibilityRuntime],
+  ["toolbar", toolbarRuntime],
 ]) {
   const leakedUnifiedExports = ["RDGProvider", "RDGTarget"].filter((name) =>
     entryRuntime.includes(name)

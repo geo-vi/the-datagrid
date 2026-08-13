@@ -676,6 +676,25 @@ export interface IColumn {
   filterDelay?: boolean | number;
   filterCellPadding?: React.CSSProperties["padding"];
 
+  /** Excludes this column from the optional toolbar export when false. */
+  exportable?: boolean;
+  /**
+   * Exports this column even while it is hidden in the grid. Ignored when
+   * `exportable` is false.
+   */
+  exportWhenHidden?: boolean;
+  /**
+   * Supplies the exported cell value for this column.
+   *
+   * The toolbar export cannot use `render`, which returns React nodes. This is
+   * the transform hook for the exported representation instead.
+   */
+  exportValue?: (args: {
+    value: unknown;
+    data: TypeColumnRenderArgs["data"];
+    column: IColumn;
+  }) => unknown;
+
   /** Excludes this column from optional global search when false. */
   searchable?: boolean;
   /** Additional exact aliases accepted by column-scoped search queries. */

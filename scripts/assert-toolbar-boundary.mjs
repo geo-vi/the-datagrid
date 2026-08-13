@@ -4,13 +4,9 @@ import path from "node:path";
 const distDirectory = path.resolve(process.cwd(), "dist");
 const coreRuntimePath = path.join(distDirectory, "index.js");
 const coreStylesheetPath = path.join(distDirectory, "index.css");
-const runtimePath = path.join(distDirectory, "column-visibility.js");
-const stylesheetPath = path.join(distDirectory, "column-visibility.css");
-const declarationPath = path.join(
-  distDirectory,
-  "column-visibility",
-  "index.d.ts"
-);
+const runtimePath = path.join(distDirectory, "toolbar.js");
+const stylesheetPath = path.join(distDirectory, "toolbar.css");
+const declarationPath = path.join(distDirectory, "toolbar", "index.d.ts");
 const requiredFiles = [
   coreRuntimePath,
   coreStylesheetPath,
@@ -24,7 +20,7 @@ const missingFiles = requiredFiles.filter(
 
 if (missingFiles.length > 0) {
   console.error(
-    `Missing column-visibility build output:\n${missingFiles
+    `Missing toolbar build output:\n${missingFiles
       .map((filePath) => `- ${path.relative(process.cwd(), filePath)}`)
       .join("\n")}`
   );
@@ -35,11 +31,11 @@ const coreRuntime = fs.readFileSync(coreRuntimePath, "utf8");
 const coreStylesheet = fs.readFileSync(coreStylesheetPath, "utf8");
 const runtime = fs.readFileSync(runtimePath, "utf8");
 const stylesheet = fs.readFileSync(stylesheetPath, "utf8");
-const expectedPrefix = '"use client";\nimport "./column-visibility.css";';
+const expectedPrefix = '"use client";\nimport "./toolbar.css";';
 
 if (!runtime.startsWith(expectedPrefix)) {
   console.error(
-    'The optional column-visibility entry must preserve "use client" before importing ./column-visibility.css.'
+    'The optional toolbar entry must preserve "use client" before importing ./toolbar.css.'
   );
   process.exit(1);
 }
@@ -62,7 +58,7 @@ if (
   !relativeJavaScriptImports.has("./index.js")
 ) {
   console.error(
-    `The optional column-visibility entry must depend only on ./index.js; found:\n${Array.from(
+    `The optional toolbar entry must depend only on ./index.js; found:\n${Array.from(
       relativeJavaScriptImports
     )
       .map((specifier) => `- ${specifier}`)
@@ -71,17 +67,55 @@ if (
   process.exit(1);
 }
 
+// XLSX support is an optional peer dependency an order of magnitude larger
+// than this entry. It must stay external and dynamically imported, so consumers
+// who never export a spreadsheet never download SheetJS.
+const staticXlsxImport = /\bimport\s+(?:[^"']+?\s+from\s+)?["']xlsx["']/.test(
+  runtime
+);
+const dynamicXlsxImport = /\bimport\(\s*["']xlsx["']\s*\)/.test(runtime);
+
+if (staticXlsxImport) {
+  console.error(
+    'The optional toolbar entry must not import "xlsx" statically; the peer dependency has to stay lazy.'
+  );
+  process.exit(1);
+}
+
+if (!dynamicXlsxImport) {
+  console.error(
+    'The optional toolbar entry lost its dynamic import("xlsx"); XLSX export would no longer load its writer.'
+  );
+  process.exit(1);
+}
+
+// Markers that only occur inside SheetJS's own source, never in a call site
+// here: its banner string and its codepage table. `book_append_sheet` and
+// friends are deliberately absent from this list, since this entry calls them.
+const bundledSheetJsMarkers = ["SheetJS", "cptable"];
+const inlinedSheetJs = bundledSheetJsMarkers.filter((marker) =>
+  runtime.includes(marker)
+);
+if (inlinedSheetJs.length > 0) {
+  console.error(
+    `SheetJS appears to be bundled into dist/toolbar.js: ${inlinedSheetJs.join(
+      ", "
+    )}`
+  );
+  process.exit(1);
+}
+
 const publicRuntimeExports = [
-  "RDGColumnVisibilityProvider",
-  "RDGColumnVisibilityToolbar",
-  "RDGColumnVisibilityTarget",
+  "RDGToolbarProvider",
+  "RDGToolbar",
+  "RDGToolbarTarget",
 ];
 const missingRuntimeExports = publicRuntimeExports.filter(
   (name) => !runtime.includes(name)
 );
 if (missingRuntimeExports.length > 0) {
   console.error(
-    `The optional column-visibility entry is missing runtime exports: ${missingRuntimeExports.join(
+    `The optional toolbar entry is missing runtime exports: ${missingRuntimeExports.join(
       ", "
     )}`
   );
@@ -93,27 +127,27 @@ const leakedCoreExports = publicRuntimeExports.filter((name) =>
 );
 if (leakedCoreExports.length > 0) {
   console.error(
-    `Optional column-visibility exports leaked into dist/index.js: ${leakedCoreExports.join(
+    `Optional toolbar exports leaked into dist/index.js: ${leakedCoreExports.join(
       ", "
     )}`
   );
   process.exit(1);
 }
 
-if (coreStylesheet.includes(".tdg-column-visibility-root")) {
+if (coreStylesheet.includes(".tdg-toolbar-root")) {
   console.error(
-    "Optional column-visibility styles leaked into dist/index.css."
+    "Optional toolbar styles leaked into dist/index.css."
   );
   process.exit(1);
 }
 
 if (
-  !stylesheet.includes(".tdg-column-visibility-root") ||
+  !stylesheet.includes(".tdg-toolbar-root") ||
   stylesheet.includes(".tdg-root") ||
   stylesheet.includes(".tdg-search-root")
 ) {
   console.error(
-    "The column-visibility stylesheet is missing its scope or contains another entry's root selector."
+    "The toolbar stylesheet is missing its scope or contains another entry's root selector."
   );
   process.exit(1);
 }
@@ -122,11 +156,11 @@ const runtimeBytes = Buffer.byteLength(runtime);
 const stylesheetBytes = Buffer.byteLength(stylesheet);
 if (runtimeBytes > 96 * 1024 || stylesheetBytes > 48 * 1024) {
   console.error(
-    `Column-visibility optional bundle exceeded its boundary: ${runtimeBytes} B JS, ${stylesheetBytes} B CSS.`
+    `Toolbar optional bundle exceeded its boundary: ${runtimeBytes} B JS, ${stylesheetBytes} B CSS.`
   );
   process.exit(1);
 }
 
 console.log(
-  `Optional column-visibility boundary verified: ${runtimeBytes} B JS, ${stylesheetBytes} B CSS.`
+  `Optional toolbar boundary verified: ${runtimeBytes} B JS, ${stylesheetBytes} B CSS.`
 );
