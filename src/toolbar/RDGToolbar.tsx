@@ -18,11 +18,38 @@ import {
 import { DEFAULT_XLSX_DATE_FORMAT } from "./xlsx";
 import { useRDGToolbarSnapshot } from "./store";
 
+/**
+ * Every string the toolbar renders itself. Values are `ReactNode`, so a
+ * translation helper that returns an element works as well as one that returns
+ * a string; `filteringControlledHint` is the exception and is noted below.
+ *
+ * The four button labels are required, because a toolbar that renders a button
+ * needs a word for it. The rest refine text that already reads correctly on its
+ * own, so translating the buttons does not oblige you to name a format map you
+ * have no opinion about.
+ */
 export type RDGToolbarLabels = {
-  export: string;
-  showFilters: string;
-  hideFilters: string;
-  clearFilters: string;
+  export: React.ReactNode;
+  showFilters: React.ReactNode;
+  hideFilters: React.ReactNode;
+  clearFilters: React.ReactNode;
+  /**
+   * Export menu entry per format, defaulting to the format's own name. Naming
+   * one format leaves the rest untouched: `{ xlsx: t("excel") }`.
+   */
+  exportFormats?: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
+  /**
+   * Whole text of the export button when `exportFormats` offers exactly one
+   * format. The default joins `export` and the format name in that fixed order
+   * ("Export CSV"), which no translation file can reorder - set this where the
+   * verb trails the noun, as in "CSV exportieren".
+   */
+  exportSingle?: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
+  /**
+   * Tooltip on a filter toggle the grid owns through its own `enableFiltering`
+   * prop. Stays a `string`: it renders as a `title` attribute.
+   */
+  filteringControlledHint?: string;
 };
 
 /** Describes one export, for `exportFileName` callbacks. */
@@ -79,15 +106,18 @@ export type RDGToolbarProps = {
   className?: string;
 };
 
-const DEFAULT_LABELS: RDGToolbarLabels = {
+// Required, so a label added to the type above must be given a default here
+// rather than silently resolving to undefined at the point it is rendered.
+const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
   export: "Export",
   showFilters: "Show filters",
   hideFilters: "Hide filters",
   clearFilters: "Clear filters",
+  exportFormats: {},
+  exportSingle: {},
+  filteringControlledHint:
+    "The grid owns its filter row through the enableFiltering prop.",
 };
-
-const CONTROLLED_FILTERING_HINT =
-  "The grid owns its filter row through the enableFiltering prop.";
 
 function getColumnId(column: TypeColumn): string {
   return String(column.id ?? column.name ?? "");
@@ -150,8 +180,18 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const snapshot = useRDGToolbarSnapshot();
   const theme = normalizeThemeName(snapshot.theme);
   const themeBase = resolveThemeBase(theme);
-  const resolvedLabels = React.useMemo(
-    () => ({ ...DEFAULT_LABELS, ...labels }),
+  const resolvedLabels = React.useMemo<Required<RDGToolbarLabels>>(
+    () => ({
+      ...DEFAULT_LABELS,
+      ...labels,
+      // A caller passing `exportFormats: undefined` out of a conditional would
+      // otherwise defeat the spread and leave the lookups below without a map.
+      exportFormats: labels?.exportFormats ?? DEFAULT_LABELS.exportFormats,
+      exportSingle: labels?.exportSingle ?? DEFAULT_LABELS.exportSingle,
+      filteringControlledHint:
+        labels?.filteringControlledHint ??
+        DEFAULT_LABELS.filteringControlledHint,
+    }),
     [labels]
   );
   const orderedColumns = React.useMemo(
@@ -312,6 +352,8 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
                 disabled={exportDisabled || exporting}
                 formats={availableFormats}
                 label={resolvedLabels.export}
+                formatLabels={resolvedLabels.exportFormats}
+                singleLabels={resolvedLabels.exportSingle}
                 onExport={runExport}
               />
             ) : null}
@@ -326,7 +368,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
                 title={
                   snapshot.canToggleFiltering
                     ? undefined
-                    : CONTROLLED_FILTERING_HINT
+                    : resolvedLabels.filteringControlledHint
                 }
                 onClick={() =>
                   snapshot.setFilteringEnabled(!snapshot.filteringEnabled)
@@ -362,7 +404,9 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
 type ExportControlProps = {
   disabled: boolean;
   formats: readonly RDGToolbarExportFormat[];
-  label: string;
+  label: React.ReactNode;
+  formatLabels: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
+  singleLabels: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
   onExport: (format: RDGToolbarExportFormat) => void | Promise<void>;
 };
 
@@ -371,12 +415,16 @@ type ExportControlProps = {
  * boundary, so this deliberately does not reach for a popover library.
  */
 function ExportControl(props: ExportControlProps): React.ReactElement {
-  const { disabled, formats, label, onExport } = props;
+  const { disabled, formats, label, formatLabels, singleLabels, onExport } =
+    props;
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
   const menuId = useStableId("tdg-toolbar-export-menu");
+  const triggerId = useStableId("tdg-toolbar-export-trigger");
   const singleFormat = formats.length === 1 ? formats[0] : null;
+  const formatLabel = (format: RDGToolbarExportFormat): React.ReactNode =>
+    formatLabels[format] ?? RDG_TOOLBAR_EXPORT_FORMATS[format].label;
 
   React.useEffect(() => {
     if (!open) return;
@@ -425,7 +473,11 @@ function ExportControl(props: ExportControlProps): React.ReactElement {
         }}
       >
         <ExportIcon />
-        {`${label} ${RDG_TOOLBAR_EXPORT_FORMATS[singleFormat].label}`}
+        {singleLabels[singleFormat] ?? (
+          <>
+            {label} {formatLabel(singleFormat)}
+          </>
+        )}
       </button>
     );
   }
@@ -435,6 +487,7 @@ function ExportControl(props: ExportControlProps): React.ReactElement {
       <button
         type="button"
         ref={triggerRef}
+        id={triggerId}
         data-slot="rdg-toolbar-export"
         data-state={open ? "on" : "off"}
         aria-haspopup="menu"
@@ -457,7 +510,9 @@ function ExportControl(props: ExportControlProps): React.ReactElement {
         <div
           id={menuId}
           role="menu"
-          aria-label={label}
+          // Names the menu after the trigger's own text rather than a second
+          // copy of it, so a translated (or element) label needs no string form.
+          aria-labelledby={triggerId}
           data-slot="rdg-toolbar-export-menu"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -489,7 +544,7 @@ function ExportControl(props: ExportControlProps): React.ReactElement {
                 void onExport(format);
               }}
             >
-              {RDG_TOOLBAR_EXPORT_FORMATS[format].label}
+              {formatLabel(format)}
             </button>
           ))}
         </div>

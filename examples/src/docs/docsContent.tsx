@@ -7777,7 +7777,7 @@ const columns: TypeColumns = [
                   type: "Partial<RDGToolbarLabels>",
                   defaultValue: "English defaults",
                   description:
-                    "Overrides the built-in button labels: export, showFilters, hideFilters, clearFilters.",
+                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
                 },
                 {
                   name: "RDGToolbar.children",

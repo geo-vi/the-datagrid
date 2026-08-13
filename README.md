@@ -667,6 +667,35 @@ the grid holds a single page, so `"view"` exports that page. `exportFormats`,
 `exportFileName` and `labels` cover the rest; with exactly one format the button
 exports on click instead of opening a menu.
 
+Every string the toolbar renders itself comes from `labels`, as a string or an
+element, so a translation helper can supply all of them:
+
+```tsx
+<RDGToolbar
+  showExport
+  showFilterToggle
+  showClearFilters
+  labels={{
+    export: t("export"),
+    showFilters: t("show_filters"),
+    hideFilters: t("hide_filters"),
+    clearFilters: t("clear_filters"),
+
+    // Menu entry per format; an unnamed format keeps its own name.
+    exportFormats: { csv: t("csv"), xlsx: t("excel") },
+
+    // Whole button text when one format is offered. The default joins
+    // `export` and the format name in that order ("Export CSV"), which a
+    // translation file cannot reorder - set this for "CSV exportieren".
+    exportSingle: { csv: t("export_csv") },
+  }}
+/>
+```
+
+`title`, `description` and `ariaLabel` are separate props and take the same
+treatment; column toggles read each column's `header`. The export menu is named
+after its own trigger, so a translated label needs no second string.
+
 Export reads row values, never `render`, which returns React nodes. Columns
 describe their own exported shape:
 
