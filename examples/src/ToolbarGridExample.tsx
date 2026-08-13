@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Pencil, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import ReactDataGrid, {
   DateFilter,
@@ -188,6 +188,36 @@ ${toolbarProps.join("\n")}
     defaultFilterValue={defaultFilterValue}${gridFilteringProp}
   />
 </RDGToolbarProvider>`;
+}
+
+/**
+ * One captioned card of playground controls. The panel configures three
+ * unrelated things - which parts render, what the export writes, and who owns
+ * the filter row - and a single flat row of buttons gave no clue where one
+ * concern ended and the next began.
+ */
+function ControlGroup({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="flex min-w-0 flex-col gap-2 rounded-xl border bg-muted/20 p-3"
+      role="group"
+      aria-label={label}
+    >
+      <span className="flex flex-wrap items-baseline gap-x-2 text-xs font-medium text-muted-foreground">
+        {label}
+        {hint ? <span className="font-normal opacity-70">{hint}</span> : null}
+      </span>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
+  );
 }
 
 export default function ToolbarGridExample({
@@ -404,134 +434,144 @@ export default function ToolbarGridExample({
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/20 p-3"
+        className="flex flex-wrap items-start gap-3"
         role="group"
         aria-label="Toolbar playground controls"
         data-testid="toolbar-playground-controls"
       >
-        <Button
-          type="button"
-          variant={showColumnToggles ? "secondary" : "outline"}
-          size="sm"
-          aria-pressed={showColumnToggles}
-          onClick={() => setShowColumnToggles((current) => !current)}
-        >
-          Column toggles {showColumnToggles ? "on" : "off"}
-        </Button>
-        <Button
-          type="button"
-          variant={showExport ? "secondary" : "outline"}
-          size="sm"
-          aria-pressed={showExport}
-          onClick={() => setShowExport((current) => !current)}
-        >
-          Export {showExport ? "on" : "off"}
-        </Button>
-        <Button
-          type="button"
-          variant={showFilterToggle ? "secondary" : "outline"}
-          size="sm"
-          aria-pressed={showFilterToggle}
-          onClick={() => setShowFilterToggle((current) => !current)}
-        >
-          Filter toggle {showFilterToggle ? "on" : "off"}
-        </Button>
-        <Button
-          type="button"
-          variant={showClearFilters ? "secondary" : "outline"}
-          size="sm"
-          aria-pressed={showClearFilters}
-          onClick={() => setShowClearFilters((current) => !current)}
-        >
-          Clear filters {showClearFilters ? "on" : "off"}
-        </Button>
-        <Button
-          type="button"
-          variant={heading ? "secondary" : "outline"}
-          size="sm"
-          aria-pressed={heading}
-          onClick={() => setHeading((current) => !current)}
-        >
-          Heading {heading ? "on" : "off"}
-        </Button>
+        {/* Ordered to match the toolbar top to bottom. */}
+        <ControlGroup label="Parts">
+          <Button
+            type="button"
+            variant={heading ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={heading}
+            onClick={() => setHeading((current) => !current)}
+          >
+            Heading {heading ? "on" : "off"}
+          </Button>
+          <Button
+            type="button"
+            variant={showColumnToggles ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={showColumnToggles}
+            onClick={() => setShowColumnToggles((current) => !current)}
+          >
+            Column toggles {showColumnToggles ? "on" : "off"}
+          </Button>
+          <Button
+            type="button"
+            variant={showExport ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={showExport}
+            onClick={() => setShowExport((current) => !current)}
+          >
+            Export {showExport ? "on" : "off"}
+          </Button>
+          <Button
+            type="button"
+            variant={showFilterToggle ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={showFilterToggle}
+            onClick={() => setShowFilterToggle((current) => !current)}
+          >
+            Filter toggle {showFilterToggle ? "on" : "off"}
+          </Button>
+          <Button
+            type="button"
+            variant={showClearFilters ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={showClearFilters}
+            onClick={() => setShowClearFilters((current) => !current)}
+          >
+            Clear filters {showClearFilters ? "on" : "off"}
+          </Button>
+        </ControlGroup>
 
-        <ButtonGroup
-          aria-label="Export scope buttons"
-          className="max-w-full flex-wrap"
+        <ControlGroup
+          label="Export writes"
+          hint={showExport ? undefined : "needs Export on"}
         >
-          {(["view", "all"] as const).map((scope) => (
-            <Button
-              key={scope}
-              type="button"
-              variant={exportScope === scope ? "secondary" : "outline"}
-              size="sm"
-              className="rounded-none font-medium normal-case"
-              aria-pressed={exportScope === scope}
-              disabled={!showExport}
-              onClick={() => setExportScope(scope)}
-            >
-              {scope === "view" ? "Scope: view" : "Scope: all rows"}
-            </Button>
-          ))}
-        </ButtonGroup>
-
-        <ButtonGroup
-          aria-label="Export format buttons"
-          className="max-w-full flex-wrap"
-        >
-          {FORMAT_ORDER.map((format) => {
-            const selected = formats.includes(format);
-
-            return (
+          <ButtonGroup
+            aria-label="Export scope buttons"
+            className="max-w-full flex-wrap"
+          >
+            {(["view", "all"] as const).map((scope) => (
               <Button
-                key={format}
+                key={scope}
                 type="button"
-                variant={selected ? "secondary" : "outline"}
+                variant={exportScope === scope ? "secondary" : "outline"}
                 size="sm"
                 className="rounded-none font-medium normal-case"
-                aria-pressed={selected}
-                // One format has to stay selected for the control to do anything.
-                disabled={!showExport || (selected && formats.length === 1)}
-                onClick={() =>
-                  setFormats((current) =>
-                    FORMAT_ORDER.filter((candidate) =>
-                      candidate === format
-                        ? !current.includes(format)
-                        : current.includes(candidate)
-                    )
-                  )
-                }
+                aria-pressed={exportScope === scope}
+                disabled={!showExport}
+                onClick={() => setExportScope(scope)}
               >
-                {FORMAT_LABELS[format]}
+                {scope === "view" ? "Scope: view" : "Scope: all rows"}
               </Button>
-            );
-          })}
-        </ButtonGroup>
+            ))}
+          </ButtonGroup>
 
-        <ButtonGroup
-          aria-label="Filter row ownership buttons"
-          className="max-w-full flex-wrap"
-        >
-          {(
-            [
-              ["toolbar", "Filters: toolbar-owned"],
-              ["always", "Filters: enableFiltering={true}"],
-              ["never", "Filters: enableFiltering={false}"],
-            ] as const
-          ).map(([owner, label]) => (
-            <Button
-              key={owner}
-              type="button"
-              variant={filteringOwner === owner ? "secondary" : "outline"}
-              size="sm"
-              className="rounded-none font-medium normal-case"
-              aria-pressed={filteringOwner === owner}
-              onClick={() => setFilteringOwner(owner)}
-            >
-              {label}
-            </Button>
-          ))}
-        </ButtonGroup>
+          <ButtonGroup
+            aria-label="Export format buttons"
+            className="max-w-full flex-wrap"
+          >
+            {FORMAT_ORDER.map((format) => {
+              const selected = formats.includes(format);
+
+              return (
+                <Button
+                  key={format}
+                  type="button"
+                  variant={selected ? "secondary" : "outline"}
+                  size="sm"
+                  className="rounded-none font-medium normal-case"
+                  aria-pressed={selected}
+                  // One format has to stay selected for the control to do anything.
+                  disabled={!showExport || (selected && formats.length === 1)}
+                  onClick={() =>
+                    setFormats((current) =>
+                      FORMAT_ORDER.filter((candidate) =>
+                        candidate === format
+                          ? !current.includes(format)
+                          : current.includes(candidate)
+                      )
+                    )
+                  }
+                >
+                  {FORMAT_LABELS[format]}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+        </ControlGroup>
+
+        <ControlGroup label="Filter row owner">
+          <ButtonGroup
+            aria-label="Filter row ownership buttons"
+            className="max-w-full flex-wrap"
+          >
+            {(
+              [
+                ["toolbar", "Filters: toolbar-owned"],
+                ["always", "Filters: enableFiltering={true}"],
+                ["never", "Filters: enableFiltering={false}"],
+              ] as const
+            ).map(([owner, label]) => (
+              <Button
+                key={owner}
+                type="button"
+                variant={filteringOwner === owner ? "secondary" : "outline"}
+                size="sm"
+                className="rounded-none font-medium normal-case"
+                aria-pressed={filteringOwner === owner}
+                onClick={() => setFilteringOwner(owner)}
+              >
+                {label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </ControlGroup>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
