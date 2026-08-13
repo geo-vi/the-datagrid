@@ -224,7 +224,18 @@
     "community-api-manifest.json"
   ],
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "**/*.scss",
+    "./src/search/index.ts",
+    "./src/toolbar/index.ts",
+    "./src/packages/TextInput/index.tsx",
+    "./dist/index.js",
+    "./dist/index.cjs",
+    "./dist/search.js",
+    "./dist/search.cjs",
+    "./dist/toolbar.js",
+    "./dist/toolbar.cjs",
+    "./dist/packages/TextInput/index.js"
   ],
   "keywords": [
     "react",
