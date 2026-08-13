@@ -656,8 +656,10 @@ workbook, so numbers stay summable, `Date` values become date cells carrying
 `exportDateFormat`, and booleans become `TRUE`/`FALSE`; text formats stringify
 the same values and write dates as ISO-8601. `exportDateFormat` is an Excel
 number format code rather than a date-library pattern, `exportSheetName` names
-the worksheet, and `onExportError` reports a failure such as a missing peer
-dependency.
+the worksheet, and the two callbacks report the outcome: `onExportSuccess`
+receives the format, scope, row and column counts, file name and byte size,
+which is enough for a confirmation toast, while `onExportError` reports a
+failure such as a missing peer dependency.
 
 `exportScope` selects the rows: `"view"` (default) exports the filtered,
 searched and sorted rows, `"all"` the entire data source. Under local pagination

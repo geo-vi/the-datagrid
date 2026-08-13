@@ -8,6 +8,7 @@ export { RDGToolbarTarget } from "./RDGToolbarTarget";
 
 export type {
   RDGToolbarExportInfo,
+  RDGToolbarExportResult,
   RDGToolbarLabels,
   RDGToolbarProps,
 } from "./RDGToolbar";

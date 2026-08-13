@@ -93,6 +93,12 @@ function extractRowData(valueOrCellProps: unknown): ExampleOrder | null {
   return null;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function formatDate(value: unknown): string {
   if (value == null || value === "") return "";
 
@@ -204,7 +210,10 @@ export default function ToolbarGridExample({
   const [filteringOwner, setFilteringOwner] =
     useState<FilteringOwner>("toolbar");
   const [filteredRows, setFilteredRows] = useState(orders.length);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<{
+    kind: "ok" | "error";
+    text: string;
+  } | null>(null);
 
   const defaultFilterValue = useMemo<TypeFilterValue>(
     () => [
@@ -537,13 +546,17 @@ export default function ToolbarGridExample({
         </span>
       </div>
 
-      {exportError ? (
+      {exportNotice ? (
         <p
-          className="rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+          className={
+            exportNotice.kind === "ok"
+              ? "rounded-lg border bg-muted/30 p-2 text-xs text-muted-foreground"
+              : "rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+          }
           role="status"
-          data-testid="toolbar-playground-export-error"
+          data-testid={`toolbar-playground-export-${exportNotice.kind}`}
         >
-          {exportError}
+          {exportNotice.text}
         </p>
       ) : null}
 
@@ -563,11 +576,20 @@ export default function ToolbarGridExample({
           exportFormats={formats}
           exportFileName="orders"
           exportSheetName="Orders"
+          onExportSuccess={({ fileName, rowCount, byteLength }) => {
+            setExportNotice({
+              kind: "ok",
+              text: `Wrote ${rowCount} rows to ${fileName} (${formatBytes(
+                byteLength
+              )}).`,
+            });
+          }}
           onExportError={(error) => {
             // A failed export is worth surfacing; the toolbar stays usable.
-            setExportError(
-              error instanceof Error ? error.message : String(error)
-            );
+            setExportNotice({
+              kind: "error",
+              text: error instanceof Error ? error.message : String(error),
+            });
           }}
         />
 

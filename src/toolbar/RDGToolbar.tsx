@@ -33,6 +33,14 @@ export type RDGToolbarExportInfo = {
   columnCount: number;
 };
 
+/** Describes a finished export, for `onExportSuccess`. */
+export type RDGToolbarExportResult = RDGToolbarExportInfo & {
+  /** File name the browser was given, including the extension. */
+  fileName: string;
+  /** Size of the written file in bytes. */
+  byteLength: number;
+};
+
 export type RDGToolbarProps = {
   children?: React.ReactNode;
   ariaLabel?: string;
@@ -62,6 +70,8 @@ export type RDGToolbarProps = {
   exportDateFormat?: string;
   /** Worksheet name for spreadsheet exports. Defaults to the file name. */
   exportSheetName?: string;
+  /** Called after an export has been handed to the browser. */
+  onExportSuccess?: (result: RDGToolbarExportResult) => void;
   /** Called when an export fails, e.g. when the xlsx peer is missing. */
   onExportError?: (error: unknown) => void;
   labels?: Partial<RDGToolbarLabels>;
@@ -129,6 +139,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     exportFileName = "grid-export",
     exportDateFormat = DEFAULT_XLSX_DATE_FORMAT,
     exportSheetName,
+    onExportSuccess,
     onExportError,
     labels,
     className,
@@ -183,14 +194,15 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       const rows =
         exportScope === "all" ? snapshot.getAllRows() : snapshot.getViewRows();
       const table = buildExportTable(columns, rows);
+      const info: RDGToolbarExportInfo = {
+        format,
+        scope: exportScope,
+        rowCount: table.rows.length,
+        columnCount: table.headers.length,
+      };
       const name =
         typeof exportFileName === "function"
-          ? exportFileName({
-              format,
-              scope: exportScope,
-              rowCount: table.rows.length,
-              columnCount: table.headers.length,
-            })
+          ? exportFileName(info)
           : exportFileName;
 
       setExporting(true);
@@ -201,11 +213,14 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
           sheetName: exportSheetName ?? name,
         });
 
-        downloadExportFile(
-          `${name}.${definition.extension}`,
+        const fileName = `${name}.${definition.extension}`;
+        const byteLength = downloadExportFile(
+          fileName,
           content,
           definition.mimeType
         );
+
+        onExportSuccess?.({ ...info, fileName, byteLength });
       } catch (error) {
         onExportError?.(error);
         if (!onExportError) console.error(error);
@@ -219,6 +234,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       exportScope,
       exportSheetName,
       onExportError,
+      onExportSuccess,
       snapshot,
     ]
   );

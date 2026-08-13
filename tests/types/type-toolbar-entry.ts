@@ -8,6 +8,7 @@ import {
   RDGToolbarTarget,
   RDGToolbar,
   type RDGToolbarExportFormat,
+  type RDGToolbarExportResult,
   type RDGToolbarExportScope,
   type RDGToolbarLabels,
   type RDGToolbarProviderProps,
@@ -74,6 +75,12 @@ export const toolbarProps = {
   exportFormats,
   exportScope,
   labels: toolbarLabels,
+  onExportSuccess: (result: RDGToolbarExportResult) => {
+    void `${result.fileName}:${result.rowCount}:${result.byteLength}`;
+  },
+  onExportError: (error: unknown) => {
+    void error;
+  },
   showClearFilters: true,
   showColumnToggles: true,
   showExport: true,

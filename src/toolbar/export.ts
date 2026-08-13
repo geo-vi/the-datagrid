@@ -206,12 +206,13 @@ export const RDG_TOOLBAR_EXPORT_FORMATS: Record<
 export const DEFAULT_TOOLBAR_EXPORT_FORMATS: readonly RDGToolbarExportFormat[] =
   ["csv", "json"];
 
+/** Returns the written size in bytes, or 0 when there is no document. */
 export function downloadExportFile(
   filename: string,
   content: BlobPart,
   mimeType: string
-): void {
-  if (typeof document === "undefined" || typeof URL === "undefined") return;
+): number {
+  if (typeof document === "undefined" || typeof URL === "undefined") return 0;
 
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -223,4 +224,6 @@ export function downloadExportFile(
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+
+  return blob.size;
 }

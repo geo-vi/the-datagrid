@@ -366,6 +366,9 @@ const toolbarSpreadsheetSnippet = `npm install xlsx   // optional peer dependenc
   exportFileName={({ format }) => \`orders-\${format}-\${today()}\`}
   exportSheetName="Orders"
   exportDateFormat="dd/mm/yyyy hh:mm"
+  onExportSuccess={({ fileName, rowCount }) =>
+    toast.success(\`Wrote \${rowCount} rows to \${fileName}\`)
+  }
   onExportError={(error) => toast.error(String(error))}
 />;
 
@@ -7111,6 +7114,14 @@ const columns: TypeColumns = [
               matters more than the cell type.
             </p>
             <p>
+              <code>onExportSuccess</code> reports a finished export - the
+              format and scope, the row and column counts, the file name and its
+              size - which is enough for a confirmation toast without
+              recomputing anything. <code>onExportError</code> reports a
+              failure, such as a missing peer dependency, and replaces the
+              console message when set.
+            </p>
+            <p>
               Date cells are written with the writer&apos;s own local-time
               convention, so a value of <code>09:30Z</code> displays as{" "}
               <code>11:30</code> for a reader two hours ahead of UTC. Export a
@@ -7739,6 +7750,13 @@ const columns: TypeColumns = [
                   defaultValue: "the file name",
                   description:
                     "Worksheet name for spreadsheet exports, sanitised to Excel's rules.",
+                },
+                {
+                  name: "RDGToolbar.onExportSuccess",
+                  type: "(result) => void",
+                  defaultValue: "none",
+                  description:
+                    "Called once the file has been handed to the browser, with the format, scope, row and column counts, file name and byte size.",
                 },
                 {
                   name: "RDGToolbar.onExportError",
