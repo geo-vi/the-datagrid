@@ -7341,6 +7341,13 @@ const columns: TypeColumns = [
                   description: "Description colour.",
                 },
                 {
+                  name: "--tdg-toolbar-body-gap",
+                  type: "<length>",
+                  defaultValue: "1.5rem",
+                  description:
+                    "Spacing between the column toggles and the actions.",
+                },
+                {
                   name: "--tdg-toolbar-toggle-gap",
                   type: "<length>",
                   defaultValue: "0.5rem",

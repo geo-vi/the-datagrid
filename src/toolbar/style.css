@@ -95,6 +95,7 @@
   --tdg-toolbar-description-color: var(--tdg-toolbar-muted-foreground);
 
   /* Groups */
+  --tdg-toolbar-body-gap: 1.5rem;
   --tdg-toolbar-toggle-gap: 0.5rem;
   --tdg-toolbar-actions-gap: 0.5rem;
 
@@ -250,7 +251,7 @@
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-body"] {
   display: flex;
   flex-direction: column-reverse;
-  gap: var(--tdg-toolbar-gap);
+  gap: var(--tdg-toolbar-body-gap);
 }
 
 @media (width >= 80rem) {
