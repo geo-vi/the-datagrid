@@ -5,6 +5,7 @@ const examplesWithSharedGridControls = [
   "actions",
   "columns",
   "selection",
+  "toolbar",
   "users",
   "mobile-transform",
 ] as const;

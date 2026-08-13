@@ -1,32 +1,21 @@
-import { Download, Filter, FilterX, Pencil, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import ReactDataGrid, {
   DateFilter,
   NumberFilter,
   SelectFilter,
-  type TypeColumn,
   type TypeColumns,
-  type TypeComputedProps,
   type TypeFilterValue,
   type TypeI18n,
   type TypeShowCellBorders,
 } from "../../src/main";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-} from "../../src/column-visibility";
+  RDGToolbar,
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+} from "../../src/toolbar";
 import { Button } from "../../src/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../../src/components/ui/dropdown-menu";
 
 const roleOptions = [
   "Administrator",
@@ -43,8 +32,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-type ExportFormat = "csv" | "json";
 
 type ExampleUser = {
   csuserid: string;
@@ -64,16 +51,6 @@ type UsersGridExampleProps = {
   resizable: boolean;
   showCellBorders: TypeShowCellBorders;
 };
-
-function getColumnId(column: TypeColumn): string {
-  return String(column.id ?? column.name ?? "");
-}
-
-function getColumnLabel(column: TypeColumn): string {
-  return typeof column.header === "string"
-    ? column.header
-    : getColumnId(column);
-}
 
 function extractCellValue(valueOrCellProps: unknown): unknown {
   if (
@@ -122,13 +99,6 @@ function formatBooleanPill(value: boolean) {
   );
 }
 
-function getUserFieldValue(
-  row: ExampleUser,
-  columnId: keyof ExampleUser
-): ExampleUser[keyof ExampleUser] {
-  return row[columnId];
-}
-
 function createUsers(): ExampleUser[] {
   return Array.from({ length: 48 }, (_, index) => {
     const id = 1000 + index;
@@ -153,39 +123,6 @@ function createUsers(): ExampleUser[] {
       tfa_enabled: tfaEnabled,
     };
   });
-}
-
-function escapeCsv(value: unknown): string {
-  const normalized = value == null ? "" : String(value);
-  if (!/[",\n]/.test(normalized)) return normalized;
-  return `"${normalized.replace(/"/g, '""')}"`;
-}
-
-function downloadTextFile(filename: string, content: string, mimeType: string) {
-  if (typeof document === "undefined" || typeof URL === "undefined") return;
-
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function orderColumns(columns: TypeColumns, order: string[]) {
-  const indexed = new Map(
-    columns.map((column) => [getColumnId(column), column])
-  );
-  const ordered = order
-    .map((columnId) => indexed.get(columnId))
-    .filter((column): column is TypeColumn => Boolean(column));
-  const remaining = columns.filter(
-    (column) => !order.includes(getColumnId(column))
-  );
-  return [...ordered, ...remaining];
 }
 
 export default function UsersGridExample({
@@ -258,6 +195,8 @@ export default function UsersGridExample({
         header: "Failed logins",
         defaultWidth: 152,
         defaultHidden: true,
+        // Hidden in the grid, but still interesting in an export.
+        exportWhenHidden: true,
         type: "number",
         filterType: "number",
         filterEditor: NumberFilter,
@@ -274,6 +213,7 @@ export default function UsersGridExample({
         },
         render: (valueOrCellProps: unknown) =>
           formatDateTime(extractCellValue(valueOrCellProps)),
+        exportValue: ({ value }) => formatDateTime(value),
       },
       {
         name: "date_pwdchanged",
@@ -287,6 +227,7 @@ export default function UsersGridExample({
         },
         render: (valueOrCellProps: unknown) =>
           formatDateTime(extractCellValue(valueOrCellProps)),
+        exportValue: ({ value }) => formatDateTime(value),
       },
       {
         name: "lang",
@@ -304,6 +245,7 @@ export default function UsersGridExample({
         },
         render: (valueOrCellProps: unknown) =>
           String(extractCellValue(valueOrCellProps) ?? "").toUpperCase(),
+        exportValue: ({ value }) => String(value ?? "").toUpperCase(),
       },
       {
         name: "disabled",
@@ -320,6 +262,7 @@ export default function UsersGridExample({
         },
         render: (valueOrCellProps: unknown) =>
           formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
+        exportValue: ({ value }) => (value ? "Yes" : "No"),
       },
       {
         name: "tfa_enabled",
@@ -336,6 +279,7 @@ export default function UsersGridExample({
         },
         render: (valueOrCellProps: unknown) =>
           formatBooleanPill(Boolean(extractCellValue(valueOrCellProps))),
+        exportValue: ({ value }) => (value ? "Enabled" : "Disabled"),
       },
       {
         name: "actions",
@@ -343,6 +287,8 @@ export default function UsersGridExample({
         defaultWidth: 120,
         sortable: false,
         filterable: false,
+        // Row buttons have no exportable representation.
+        exportable: false,
         render: (valueOrCellProps: unknown) => {
           const row = extractRowData(valueOrCellProps);
           if (!row) return null;
@@ -382,91 +328,9 @@ export default function UsersGridExample({
   );
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() =>
-    baseColumns.map(getColumnId)
+    baseColumns.map((column) => String(column.id ?? column.name ?? ""))
   );
-  const [filtersActive, setFiltersActive] = useState(true);
   const [filteredRows, setFilteredRows] = useState(rows.length);
-  const gridApiRef = useRef<TypeComputedProps | null>(null);
-
-  const captureGridApi = useCallback(
-    (ref: { current: TypeComputedProps | null } | null) => {
-      if (!ref) return;
-      gridApiRef.current = ref.current;
-    },
-    []
-  );
-
-  function handleToggleFilters() {
-    setFiltersActive((current) => !current);
-    setFilteredRows(rows.length);
-  }
-
-  function handleExport(format: ExportFormat) {
-    const exportColumns = orderColumns(baseColumns, columnOrder).filter(
-      (column) => {
-        const columnId = getColumnId(column);
-        return (
-          columnId !== "actions" &&
-          (gridApiRef.current?.isColumnVisible?.(columnId) ??
-            column.visible !== false)
-        );
-      }
-    );
-
-    const exportedRows = rows.map((row) =>
-      Object.fromEntries(
-        exportColumns.map((column) => {
-          const columnId = getColumnId(column);
-          const value =
-            columnId === "disabled" || columnId === "tfa_enabled"
-              ? row[columnId as "disabled" | "tfa_enabled"]
-                ? "Yes"
-                : "No"
-              : columnId === "date_last_successful_login" ||
-                  columnId === "date_pwdchanged"
-                ? formatDateTime(
-                    row[
-                      columnId as
-                        | "date_last_successful_login"
-                        | "date_pwdchanged"
-                    ]
-                  )
-                : getUserFieldValue(row, columnId as keyof ExampleUser);
-
-          return [getColumnLabel(column), value];
-        })
-      )
-    );
-
-    if (format === "json") {
-      downloadTextFile(
-        "users-grid.json",
-        JSON.stringify(exportedRows, null, 2),
-        "application/json;charset=utf-8"
-      );
-      return;
-    }
-
-    const header = exportColumns
-      .map((column) => escapeCsv(getColumnLabel(column)))
-      .join(",");
-    const body = exportedRows
-      .map((row) =>
-        exportColumns
-          .map((column) => {
-            const key = getColumnLabel(column);
-            return escapeCsv(row[key]);
-          })
-          .join(",")
-      )
-      .join("\n");
-
-    downloadTextFile(
-      "users-grid.csv",
-      `${header}\n${body}`,
-      "text/csv;charset=utf-8"
-    );
-  }
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border bg-background/95 p-4 shadow-sm">
@@ -488,49 +352,18 @@ export default function UsersGridExample({
         </span>
       </div>
 
-      <RDGColumnVisibilityProvider>
-        <RDGColumnVisibilityToolbar
+      <RDGToolbarProvider>
+        <RDGToolbar
           title="Visible columns"
-          description="Toggle columns, export the current dataset shape, and show or hide the filter row."
-        >
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                <Download className="size-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Download example data</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={() => handleExport("csv")}>
-                  Export CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleExport("json")}>
-                  Export JSON
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            type="button"
-            variant={filtersActive ? "secondary" : "outline"}
-            size="sm"
-            onClick={handleToggleFilters}
-          >
-            {filtersActive ? (
-              <FilterX className="size-4" />
-            ) : (
-              <Filter className="size-4" />
-            )}
-            {filtersActive ? "Hide filters" : "Show filters"}
-          </Button>
-        </RDGColumnVisibilityToolbar>
+          description="Toggle columns, export the current view, and show or hide the filter row."
+          showExport
+          showFilterToggle
+          showClearFilters
+          exportFileName="users-grid"
+        />
 
         <div className="h-[32rem] min-h-0" data-testid="users-grid-viewport">
-          <RDGColumnVisibilityTarget>
+          <RDGToolbarTarget>
             <ReactDataGrid
               theme={theme}
               idProperty="csuserid"
@@ -541,7 +374,6 @@ export default function UsersGridExample({
               enableColumnAutosize
               skipHeaderOnAutoSize={false}
               resizable={resizable}
-              enableFiltering={filtersActive}
               defaultFilterValue={defaultFilterValue}
               filteredRowsCount={setFilteredRows}
               onColumnOrderChange={setColumnOrder}
@@ -550,11 +382,10 @@ export default function UsersGridExample({
               showCellBorders={showCellBorders}
               i18n={i18n}
               showColumnMenuTool={false}
-              handle={captureGridApi}
             />
-          </RDGColumnVisibilityTarget>
+          </RDGToolbarTarget>
         </div>
-      </RDGColumnVisibilityProvider>
+      </RDGToolbarProvider>
     </section>
   );
 }

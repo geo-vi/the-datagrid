@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-} from "../../src/column-visibility";
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+  RDGToolbar,
+} from "../../src/toolbar";
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
 import {
-  RDGColumnVisibilityToolbar as CombinedColumnVisibilityToolbar,
+  RDGToolbar as CombinedToolbar,
   RDGProvider,
   RDGSearchBar as CombinedSearchBar,
   RDGTarget,
@@ -63,7 +63,7 @@ const combinedColumns: TypeColumns = [
   { name: "role", header: "Role", defaultWidth: 220 },
 ];
 
-export default function ColumnVisibilityCompatPage() {
+export default function ToolbarCompatPage() {
   const columns = useMemo<TypeColumns>(
     () => [
       { name: "id", header: "ID", width: 100 },
@@ -83,31 +83,31 @@ export default function ColumnVisibilityCompatPage() {
   return (
     <main
       className="flex min-h-screen flex-col gap-4 bg-background p-6 text-foreground"
-      data-testid="column-visibility-compat"
+      data-testid="toolbar-compat"
     >
       <div className="flex gap-2">
         <button
           type="button"
-          data-testid="column-visibility-reverse-order"
+          data-testid="toolbar-reverse-order"
           onClick={() => setColumnOrder((current) => [...current].reverse())}
         >
           Reverse order
         </button>
         <button
           type="button"
-          data-testid="column-visibility-remount-grid"
+          data-testid="toolbar-remount-grid"
           onClick={() => setGridKey((current) => current + 1)}
         >
           Remount grid
         </button>
       </div>
 
-      <section data-testid="column-visibility-nested-target">
-        <RDGColumnVisibilityProvider>
-          <RDGColumnVisibilityToolbar title="Fixture columns" />
+      <section data-testid="toolbar-nested-target">
+        <RDGToolbarProvider>
+          <RDGToolbar title="Fixture columns" />
 
           <div className="h-80 min-h-0">
-            <RDGColumnVisibilityTarget>
+            <RDGToolbarTarget>
               <ReactDataGrid
                 key={gridKey}
                 idProperty="id"
@@ -118,14 +118,14 @@ export default function ColumnVisibilityCompatPage() {
                 virtualized={false}
                 showColumnMenuTool={false}
               />
-            </RDGColumnVisibilityTarget>
+            </RDGToolbarTarget>
           </div>
-        </RDGColumnVisibilityProvider>
+        </RDGToolbarProvider>
       </section>
 
-      <section data-testid="column-visibility-direct-target">
-        <RDGColumnVisibilityProvider>
-          <RDGColumnVisibilityToolbar title="Direct target columns" />
+      <section data-testid="toolbar-direct-target">
+        <RDGToolbarProvider>
+          <RDGToolbar title="Direct target columns" />
           <ReactDataGrid
             idProperty="id"
             columns={directColumns}
@@ -134,7 +134,7 @@ export default function ColumnVisibilityCompatPage() {
             showColumnMenuTool={false}
             style={{ height: 240 }}
           />
-        </RDGColumnVisibilityProvider>
+        </RDGToolbarProvider>
       </section>
 
       <section
@@ -146,7 +146,7 @@ export default function ColumnVisibilityCompatPage() {
             ariaLabel="Search direct combined grid"
             debounceMs={0}
           />
-          <CombinedColumnVisibilityToolbar title="Direct combined columns" />
+          <CombinedToolbar title="Direct combined columns" />
           <ReactDataGrid
             idProperty="id"
             columns={combinedColumns}
@@ -168,7 +168,7 @@ export default function ColumnVisibilityCompatPage() {
             ariaLabel="Search nested combined grid"
             debounceMs={0}
           />
-          <RDGColumnVisibilityToolbar title="Nested mixed-import columns" />
+          <RDGToolbar title="Nested mixed-import columns" />
           <div className="h-80 min-h-0">
             <RDGTarget>
               <ReactDataGrid
