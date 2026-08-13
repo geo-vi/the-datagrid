@@ -219,19 +219,19 @@ const searchColumnsSnippet = `const columns: TypeColumns = [
   { name: "internalNote", searchable: false },
 ];`;
 
-const columnVisibilityToolbarSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
+const toolbarSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGToolbarProvider,
+  RDGToolbar,
+} from "@geovi/the-datagrid/toolbar";
 
 export function AccountsGrid() {
   return (
-    <RDGColumnVisibilityProvider>
-      <RDGColumnVisibilityToolbar>
-        <button type="button" onClick={exportRows}>Export CSV</button>
-        <button type="button" onClick={toggleFilters}>Show filters</button>
-      </RDGColumnVisibilityToolbar>
+    <RDGToolbarProvider>
+      <RDGToolbar showExport showFilterToggle showClearFilters>
+        {/* Children stay application-owned, next to the built-in actions. */}
+        <button type="button" onClick={reload}>Reload</button>
+      </RDGToolbar>
 
       <ReactDataGrid
         idProperty="id"
@@ -239,28 +239,28 @@ export function AccountsGrid() {
         dataSource={rows}
         columnOrder={columnOrder}
       />
-    </RDGColumnVisibilityProvider>
+    </RDGToolbarProvider>
   );
 }`;
 
-const nestedColumnVisibilityToolbarSnippet = `import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+const nestedToolbarSnippet = `import {
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+  RDGToolbar,
+} from "@geovi/the-datagrid/toolbar";
 
-<RDGColumnVisibilityProvider>
-  <RDGColumnVisibilityToolbar />
+<RDGToolbarProvider>
+  <RDGToolbar />
   <section className="min-h-0 flex-1">
-    <RDGColumnVisibilityTarget>
+    <RDGToolbarTarget>
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-    </RDGColumnVisibilityTarget>
+    </RDGToolbarTarget>
   </section>
-</RDGColumnVisibilityProvider>;`;
+</RDGToolbarProvider>;`;
 
 const directProviderChildrenSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGColumnVisibilityToolbar,
+  RDGToolbar,
   RDGProvider,
   RDGSearchBar,
 } from "@geovi/the-datagrid/components";
@@ -269,9 +269,9 @@ export function SearchableConfigurableAccountsGrid() {
   return (
     <RDGProvider>
       <RDGSearchBar />
-      <RDGColumnVisibilityToolbar>
+      <RDGToolbar>
         <button type="button" onClick={exportRows}>Export CSV</button>
-      </RDGColumnVisibilityToolbar>
+      </RDGToolbar>
 
       {/* Direct provider child: RDGTarget is not required. */}
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
@@ -281,7 +281,7 @@ export function SearchableConfigurableAccountsGrid() {
 
 const requiredCombinedTargetSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGColumnVisibilityToolbar,
+  RDGToolbar,
   RDGProvider,
   RDGSearchBar,
   RDGTarget,
@@ -289,7 +289,7 @@ import {
 
 <RDGProvider>
   <RDGSearchBar />
-  <RDGColumnVisibilityToolbar />
+  <RDGToolbar />
 
   {/* The section is an intervening child, so RDGTarget is required. */}
   <section className="min-h-0 flex-1">
@@ -303,13 +303,13 @@ const mixedProviderImportsSnippet = `import ReactDataGrid from "@geovi/the-datag
 import { RDGProvider, RDGTarget } from "@geovi/the-datagrid/components";
 import { RDGSearchBar } from "@geovi/the-datagrid/search";
 import {
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGToolbar,
+} from "@geovi/the-datagrid/toolbar";
 
 <RDGProvider>
   {/* Existing feature-entry controls consume the combined provider. */}
   <RDGSearchBar />
-  <RDGColumnVisibilityToolbar />
+  <RDGToolbar />
   <div className="min-h-0 flex-1">
     <RDGTarget>
       <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
@@ -319,43 +319,143 @@ import {
 
 const independentProviderScopesSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGToolbarProvider,
+  RDGToolbar,
+} from "@geovi/the-datagrid/toolbar";
 
 function AccountsAndInvoices() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Providers add no DOM, so each scope gets a real layout wrapper. */}
       <section className="flex min-h-0 flex-col gap-3">
-        <RDGColumnVisibilityProvider>
-          <RDGColumnVisibilityToolbar title="Account columns" />
+        <RDGToolbarProvider>
+          <RDGToolbar title="Account columns" />
           <ReactDataGrid
             idProperty="id"
             columns={accountColumns}
             dataSource={accounts}
           />
-        </RDGColumnVisibilityProvider>
+        </RDGToolbarProvider>
       </section>
 
       <section className="flex min-h-0 flex-col gap-3">
-        <RDGColumnVisibilityProvider>
-          <RDGColumnVisibilityToolbar title="Invoice columns" />
+        <RDGToolbarProvider>
+          <RDGToolbar title="Invoice columns" />
           <ReactDataGrid
             idProperty="id"
             columns={invoiceColumns}
             dataSource={invoices}
           />
-        </RDGColumnVisibilityProvider>
+        </RDGToolbarProvider>
       </section>
     </div>
   );
 }`;
 
-const columnVisibilityColumnsSnippet = `const columns: TypeColumns = [
+const toolbarColumnsSnippet = `const columns: TypeColumns = [
   { name: "id", header: "ID", hideable: false },
   { name: "name", header: "Name" },
   { name: "city", header: "City", defaultVisible: false },
+];`;
+
+const toolbarSpreadsheetSnippet = `npm install xlsx   // optional peer dependency, only for "xlsx"
+
+<RDGToolbar
+  showExport
+  exportFormats={["csv", "json", "xlsx"]}
+  exportFileName={({ format }) => \`orders-\${format}-\${today()}\`}
+  exportSheetName="Orders"
+  exportDateFormat="dd/mm/yyyy hh:mm"
+  onExportError={(error) => toast.error(String(error))}
+/>;
+
+const columns: TypeColumns = [
+  // Numbers stay numeric, so the column can be summed in a spreadsheet.
+  { name: "total", header: "Total", exportValue: ({ value }) => Number(value) },
+
+  // A Date becomes a real date cell carrying exportDateFormat.
+  { name: "placedAt", header: "Placed", exportValue: ({ value }) => new Date(value) },
+
+  // A boolean becomes TRUE/FALSE rather than the rendered pill.
+  { name: "fulfilled", header: "Done", exportValue: ({ value }) => Boolean(value) },
+
+  // Anything else is text: format it yourself.
+  { name: "size", header: "Size", exportValue: ({ value }) => filesize(value) },
+];`;
+
+const toolbarTokenSnippet = `/* Any ancestor works; the toolbar root is the narrowest scope. */
+.tdg-toolbar-root {
+  --tdg-toolbar-padding: 0;
+  --tdg-toolbar-radius: 0;
+  --tdg-toolbar-border-width: 0;
+  --tdg-toolbar-shadow: none;
+
+  --tdg-toolbar-toggle-gap: 3px;
+  --tdg-toolbar-control-padding: 6px 8px;
+  --tdg-toolbar-control-radius: 4px;
+  --tdg-toolbar-control-height: auto;
+  --tdg-toolbar-control-border-width: 0;
+  --tdg-toolbar-control-cursor: pointer;
+  --tdg-toolbar-toggle-font-size: 12px;
+  --tdg-toolbar-action-font-size: 12px;
+
+  --tdg-toolbar-control-fill: #eef1f5;
+  --tdg-toolbar-control-color: #12263f;
+  --tdg-toolbar-control-hover-fill: #dfe4ea;
+  --tdg-toolbar-control-on-fill: #1a73e8;
+  --tdg-toolbar-control-on-color: #ffffff;
+  --tdg-toolbar-control-on-hover-fill: #1666cf;
+}`;
+
+const toolbarThemeBridgeSnippet = `// Any theming library can drive the tokens; nothing here is React-specific.
+const Themed = styled.div\`
+  --tdg-toolbar-control-on-fill: \${({ theme }) => theme.baseui.buttonPrimaryFill};
+  --tdg-toolbar-control-on-color: \${({ theme }) => theme.baseui.buttonPrimaryText};
+  --tdg-toolbar-control-on-hover-fill: \${({ theme }) => theme.baseui.buttonPrimaryHover};
+  --tdg-toolbar-control-fill: \${({ theme }) => theme.baseui.buttonSecondaryFill};
+  --tdg-toolbar-control-color: \${({ theme }) => theme.baseui.buttonSecondaryText};
+  --tdg-toolbar-control-hover-fill: \${({ theme }) => theme.baseui.buttonSecondaryHover};
+\`;
+
+<Themed>
+  <RDGToolbarProvider>
+    <RDGToolbar showExport showFilterToggle />
+    <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+  </RDGToolbarProvider>
+</Themed>;`;
+
+const toolbarOverrideSnippet = `/* Plain CSS wins too: every default rule carries a single unit of
+   specificity, so one class plus one element outranks it. */
+.tdg-toolbar-root button {
+  background-color: var(--button-primary-fill);
+  color: var(--button-primary-color);
+}
+
+.tdg-toolbar-root button:hover {
+  background-color: var(--button-primary-hover);
+}
+
+.tdg-toolbar-root button[data-state="off"] {
+  background-color: var(--button-secondary-fill);
+  color: var(--button-secondary-color);
+}`;
+
+const toolbarExportColumnsSnippet = `const columns: TypeColumns = [
+  { name: "id", header: "ID" },
+
+  // render returns a React node, so export needs its own value.
+  {
+    name: "active",
+    header: "Active",
+    render: ({ value }) => <StatusPill active={value} />,
+    exportValue: ({ value }) => (value ? "Yes" : "No"),
+  },
+
+  // Hidden in the grid, still written to the file.
+  { name: "auditId", header: "Audit ID", defaultVisible: false, exportWhenHidden: true },
+
+  // Row buttons have no exportable representation.
+  { name: "actions", header: "Actions", exportable: false },
 ];`;
 
 const remoteSearchSnippet = `import type { TypeDataSourceArgs } from "@geovi/the-datagrid";
@@ -3385,9 +3485,9 @@ const inovuaCompatibilityRows: CompatibilityRow[] = [
     currentBehavior: (
       <>
         The peer range covers 16.8, 17, 18, and 19. A packed-tarball matrix
-        compiles declarations and mounts core, search, column visibility,
-        combined providers, mobile layout, and menu behavior against one exact
-        release from each major.
+        compiles declarations and mounts core, search, toolbar, combined
+        providers, mobile layout, and menu behavior against one exact release
+        from each major.
       </>
     ),
     requiredOutcome: (
@@ -4068,7 +4168,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "optional combined entry",
         defaultValue: "recommended for mixed controls",
         description:
-          "RDGProvider, RDGTarget, RDGSearchBar, RDGColumnVisibilityToolbar, the four stable feature-specific provider/target APIs, and all corresponding prop types.",
+          "RDGProvider, RDGTarget, RDGSearchBar, RDGToolbar, the four stable feature-specific provider/target APIs, and all corresponding prop types.",
       },
       {
         name: "@geovi/the-datagrid/search",
@@ -4078,18 +4178,18 @@ const implementedSurfaceSections: ReferenceSection[] = [
           "RDGSearchProvider, RDGSearchBar, RDGSearchTarget, and their three prop types. Importing this entry also loads its isolated search stylesheet.",
       },
       {
-        name: "@geovi/the-datagrid/column-visibility",
+        name: "@geovi/the-datagrid/toolbar",
         type: "optional entry",
         defaultValue: "opt in",
         description:
-          "RDGColumnVisibilityProvider, RDGColumnVisibilityToolbar, RDGColumnVisibilityTarget, and their three prop types. Toolbar children form the independent right-side action area.",
+          "RDGToolbarProvider, RDGToolbar, RDGToolbarTarget, and their prop types. Built-in export, filter-row and clear-filter actions are opt-in props; toolbar children stay the independent right-side action area.",
       },
       {
         name: "CSS subpaths",
-        type: "core / search / column visibility",
+        type: "core / search / toolbar",
         defaultValue: "public",
         description:
-          "Every JavaScript entry imports its required compiled CSS automatically; the combined components entry reuses search and column-visibility CSS without duplicating it. Explicit ./style.css, ./search/style.css, and ./column-visibility/style.css subpaths remain available for build systems that require manual CSS imports.",
+          "Every JavaScript entry imports its required compiled CSS automatically; the combined components entry reuses search and toolbar CSS without duplicating it. Explicit ./style.css, ./search/style.css, and ./toolbar/style.css subpaths remain available for build systems that require manual CSS imports.",
       },
     ],
   },
@@ -4555,7 +4655,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
         type: "--tdg-* tokens under data-theme",
         defaultValue: "CSS variables",
         description:
-          "Author a custom theme by assigning --tdg-* tokens under .tdg-root[data-theme=\"your-theme\"] in your own CSS. The grid reads the variables directly, so no Inovua stylesheet or runtime bridge is required.",
+          'Author a custom theme by assigning --tdg-* tokens under .tdg-root[data-theme="your-theme"] in your own CSS. The grid reads the variables directly, so no Inovua stylesheet or runtime bridge is required.',
       },
       {
         name: "Theme switching",
@@ -4867,22 +4967,22 @@ pnpm add @geovi/the-datagrid`}
               Importing <code>@geovi/the-datagrid</code> loads the compiled core
               stylesheet. Importing <code>@geovi/the-datagrid/search</code>
               loads the isolated optional-search stylesheet, and importing{" "}
-              <code>@geovi/the-datagrid/column-visibility</code> loads the
-              isolated toolbar stylesheet. The combined{" "}
+              <code>@geovi/the-datagrid/toolbar</code> loads the isolated
+              toolbar stylesheet. The combined{" "}
               <code>@geovi/the-datagrid/components</code> entry reuses both
               optional entries and their singleton contexts, so it loads both
               isolated styles without duplicating their rules. The public{" "}
               <code>@geovi/the-datagrid/style.css</code> and{" "}
               <code>@geovi/the-datagrid/search/style.css</code> and{" "}
-              <code>@geovi/the-datagrid/column-visibility/style.css</code>
+              <code>@geovi/the-datagrid/toolbar/style.css</code>
               subpaths are available when a bundler requires explicit CSS
               imports.
             </p>
             <p>
               Main grid styling is scoped to grid-owned roots, and search styles
-              and column-visibility styles are scoped to their respective
-              component roots. This avoids leaking generic shadcn token aliases
-              into the host application.
+              and toolbar styles are scoped to their respective component roots.
+              This avoids leaking generic shadcn token aliases into the host
+              application.
             </p>
           </div>
         ),
@@ -4963,9 +5063,7 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
 }`}
               language="css"
             />
-            <p>
-              The commonly used Inovua theme variables map to these tokens:
-            </p>
+            <p>The commonly used Inovua theme variables map to these tokens:</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[34rem] border-collapse text-left text-xs">
                 <thead>
@@ -5007,7 +5105,10 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
                         "--tdg-cell-border-color",
                       ],
                       ["$INOVUA_DATAGRID_ROW_ODD_BG_COLOR", "--tdg-row-odd-bg"],
-                      ["$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR", "--tdg-row-even-bg"],
+                      [
+                        "$INOVUA_DATAGRID_ROW_EVEN_BG_COLOR",
+                        "--tdg-row-even-bg",
+                      ],
                       [
                         "$INOVUA_DATAGRID_ROW_ODD_HOVER_BG_COLOR",
                         "--tdg-row-odd-hover-bg",
@@ -5083,12 +5184,12 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
               </table>
             </div>
             <p>
-              <code>$DATAGRID_THEME_NAME</code> and one-off helper variables such
-              as <code>$HEADER</code> have no token &mdash; the theme name is now
-              simply the value passed to the <code>theme</code> prop (exposed as{" "}
-              <code>data-theme</code>). Any color the table does not list can be
-              set through the corresponding <code>--tdg-*</code> token from the
-              styling reference.
+              <code>$DATAGRID_THEME_NAME</code> and one-off helper variables
+              such as <code>$HEADER</code> have no token &mdash; the theme name
+              is now simply the value passed to the <code>theme</code> prop
+              (exposed as <code>data-theme</code>). Any color the table does not
+              list can be set through the corresponding <code>--tdg-*</code>{" "}
+              token from the styling reference.
             </p>
             <p className="font-medium text-foreground">
               Four things that surprise people when migrating
@@ -5110,11 +5211,14 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
                 Inovua painted item and row hover as the accent color at{" "}
                 <code>15%</code> opacity and selection at <code>25%</code>, over
                 whatever surface sat beneath. The grid&apos;s tokens are opaque,
-                so use the composited result (or a pre-tinted pale accent) &mdash;
-                assigning the full-strength accent makes hovers far too heavy.
+                so use the composited result (or a pre-tinted pale accent)
+                &mdash; assigning the full-strength accent makes hovers far too
+                heavy.
               </li>
               <li>
-                <strong>Gridlines and the grid frame are separate tokens.</strong>{" "}
+                <strong>
+                  Gridlines and the grid frame are separate tokens.
+                </strong>{" "}
                 <code>--tdg-cell-border-color</code> draws the cell gridlines on
                 both axes, while <code>--tdg-grid-border-color</code> draws the
                 outer frame, locked-column separators, footer, and pagination.
@@ -6371,9 +6475,9 @@ const columns: TypeColumns = [
     slug: "providers-and-targets",
     title: "Providers and targets",
     summary:
-      "Use one RDGProvider for search and column visibility, understand direct-grid auto-connection, and add RDGTarget only across a React layout boundary.",
+      "Use one RDGProvider for search and the toolbar, understand direct-grid auto-connection, and add RDGTarget only across a React layout boundary.",
     description:
-      "The optional components entry coordinates search and column visibility through one provider and one grid target. The original feature-specific providers and targets remain supported for granular imports and existing applications.",
+      "The optional components entry coordinates search and the toolbar through one provider and one grid target. The original feature-specific providers and targets remain supported for granular imports and existing applications.",
     tags: ["Reference", "Providers", "Targets", "Composition"],
     sections: [
       {
@@ -6417,8 +6521,7 @@ const columns: TypeColumns = [
             <Callout title="Provider required; target conditional">
               <p>
                 A provider is required whenever you render{" "}
-                <code>RDGSearchBar</code> or{" "}
-                <code>RDGColumnVisibilityToolbar</code>. Prefer one{" "}
+                <code>RDGSearchBar</code> or <code>RDGToolbar</code>. Prefer one{" "}
                 <code>RDGProvider</code> for mixed controls. A target is
                 required only when an element, Fragment, Suspense or error
                 boundary, or custom component sits between that provider and the
@@ -6447,10 +6550,10 @@ const columns: TypeColumns = [
             <p>
               In the common layout, the grid element itself appears directly in
               <code>RDGProvider</code>&apos;s <code>children</code> list.
-              Search, column visibility, and application actions may be
-              siblings. The provider recognizes the marked grid and installs
-              both feature connections automatically, so adding{" "}
-              <code>RDGTarget</code> would be redundant.
+              Search, the toolbar, and application actions may be siblings. The
+              provider recognizes the marked grid and installs both feature
+              connections automatically, so adding <code>RDGTarget</code> would
+              be redundant.
             </p>
             <CodeBlock code={directProviderChildrenSnippet} language="tsx" />
             <Callout title="What direct means">
@@ -6520,9 +6623,9 @@ const columns: TypeColumns = [
               <p>
                 In application code, pass exactly one concrete{" "}
                 <code>ReactDataGrid</code> to <code>RDGTarget</code>,{" "}
-                <code>RDGSearchTarget</code>, or{" "}
-                <code>RDGColumnVisibilityTarget</code>. Put the target inside a
-                card or Fragment rather than wrapping that layout element.
+                <code>RDGSearchTarget</code>, or <code>RDGToolbarTarget</code>.
+                Put the target inside a card or Fragment rather than wrapping
+                that layout element.
               </p>
             </Callout>
           </div>
@@ -6550,9 +6653,9 @@ const columns: TypeColumns = [
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               Controls imported from the original <code>/search</code> and{" "}
-              <code>/column-visibility</code> entries consume the same singleton
-              contexts as <code>RDGProvider</code>. This lets applications adopt
-              the combined provider without rewriting every control import.
+              <code>/toolbar</code> entries consume the same singleton contexts
+              as <code>RDGProvider</code>. This lets applications adopt the
+              combined provider without rewriting every control import.
             </p>
             <CodeBlock code={mixedProviderImportsSnippet} language="tsx" />
           </div>
@@ -6608,9 +6711,8 @@ const columns: TypeColumns = [
                 The legacy search-only <code>RDGSearchProvider</code> may
                 connect multiple search targets when all grids should receive
                 the same query. Use separate <code>RDGProvider</code> scopes for
-                mixed controls, and a separate{" "}
-                <code>RDGColumnVisibilityProvider</code> for every visibility
-                grid.
+                mixed controls, and a separate <code>RDGToolbarProvider</code>{" "}
+                for every visibility grid.
               </p>
             </Callout>
           </div>
@@ -6649,7 +6751,7 @@ const columns: TypeColumns = [
                   type: "scope error",
                   defaultValue: "split providers",
                   description:
-                    "Give each grid its own RDGProvider, or its own RDGColumnVisibilityProvider when only visibility is needed.",
+                    "Give each grid its own RDGProvider, or its own RDGToolbarProvider when only visibility is needed.",
                 },
                 {
                   name: "Remote search receives a query but rows do not change",
@@ -6663,11 +6765,10 @@ const columns: TypeColumns = [
             <Callout title="Use the combined target for mixed controls">
               <p>
                 Do not assemble your own nested stack of{" "}
-                <code>RDGSearchTarget</code> and{" "}
-                <code>RDGColumnVisibilityTarget</code>. That bridge composition
-                is an implementation detail of <code>RDGTarget</code>. Use one{" "}
-                <code>RDGProvider</code> and one <code>RDGTarget</code> when
-                both controls share a grid.
+                <code>RDGSearchTarget</code> and <code>RDGToolbarTarget</code>.
+                That bridge composition is an implementation detail of{" "}
+                <code>RDGTarget</code>. Use one <code>RDGProvider</code> and one{" "}
+                <code>RDGTarget</code> when both controls share a grid.
               </p>
             </Callout>
           </div>
@@ -6690,7 +6791,7 @@ const columns: TypeColumns = [
                   type: "@geovi/the-datagrid/components",
                   defaultValue: "recommended",
                   description:
-                    "Owns one grid scope shared by RDGSearchBar and RDGColumnVisibilityToolbar.",
+                    "Owns one grid scope shared by RDGSearchBar and RDGToolbar.",
                 },
                 {
                   name: "RDGTarget",
@@ -6714,15 +6815,14 @@ const columns: TypeColumns = [
                     "Explicitly connects one nested ReactDataGrid to the nearest search provider.",
                 },
                 {
-                  name: "RDGColumnVisibilityProvider",
-                  type: "@geovi/the-datagrid/column-visibility",
+                  name: "RDGToolbarProvider",
+                  type: "@geovi/the-datagrid/toolbar",
                   defaultValue: "supported",
-                  description:
-                    "Owns the one-grid column visibility toolbar scope.",
+                  description: "Owns the one-grid toolbar scope.",
                 },
                 {
-                  name: "RDGColumnVisibilityTarget",
-                  type: "@geovi/the-datagrid/column-visibility",
+                  name: "RDGToolbarTarget",
+                  type: "@geovi/the-datagrid/toolbar",
                   defaultValue: "supported",
                   description:
                     "Explicitly connects one nested ReactDataGrid to the nearest visibility provider.",
@@ -6754,10 +6854,10 @@ const columns: TypeColumns = [
               or the{" "}
               <DocsRouteLink
                 group="reference"
-                slug="column-visibility-toolbar"
+                slug="toolbar"
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                column visibility toolbar reference
+                toolbar reference
               </DocsRouteLink>{" "}
               for feature-specific behavior and props.
             </p>
@@ -6872,16 +6972,16 @@ const columns: TypeColumns = [
   },
   {
     group: "reference",
-    slug: "column-visibility-toolbar",
-    title: "Column visibility toolbar",
+    slug: "toolbar",
+    title: "Grid toolbar",
     summary:
-      "Optional contextual controls for showing and hiding grid columns, with a right-side slot for application actions.",
+      "Optional contextual controls for grid columns, export, and the filter row, with a right-side slot for application actions.",
     description:
-      "Import the provider, toolbar, and optional nested target from @geovi/the-datagrid/column-visibility without adding visibility-control props to ReactDataGrid.",
-    tags: ["Reference", "Component", "Columns", "Visibility"],
+      "Import the provider, toolbar, and optional nested target from @geovi/the-datagrid/toolbar without adding toolbar props to ReactDataGrid. Column toggles are always present; export, filter-row and clear-filter actions are opt-in.",
+    tags: ["Reference", "Component", "Columns", "Visibility", "Export"],
     sections: [
       {
-        id: "column-visibility-composition",
+        id: "toolbar-composition",
         title: "Compose the toolbar with a grid",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
@@ -6891,7 +6991,7 @@ const columns: TypeColumns = [
               its children render separately on the right, so export, filter,
               and other application controls remain application-owned.
             </p>
-            <CodeBlock code={columnVisibilityToolbarSnippet} language="tsx" />
+            <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
               <p>
                 Prefer <code>RDGProvider</code> from{" "}
@@ -6918,19 +7018,16 @@ const columns: TypeColumns = [
         ),
       },
       {
-        id: "column-visibility-nested-target",
+        id: "toolbar-nested-target",
         title: "Target a nested grid",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
-              Wrap a grid in <code>RDGColumnVisibilityTarget</code> when layout
-              markup sits between it and the provider. Keep one grid per
-              provider so one toolbar always has an unambiguous column model.
+              Wrap a grid in <code>RDGToolbarTarget</code> when layout markup
+              sits between it and the provider. Keep one grid per provider so
+              one toolbar always has an unambiguous column model.
             </p>
-            <CodeBlock
-              code={nestedColumnVisibilityToolbarSnippet}
-              language="tsx"
-            />
+            <CodeBlock code={nestedToolbarSnippet} language="tsx" />
             <p>
               The dedicated{" "}
               <DocsRouteLink
@@ -6947,7 +7044,559 @@ const columns: TypeColumns = [
         ),
       },
       {
-        id: "column-visibility-behavior",
+        id: "toolbar-actions",
+        title: "Built-in actions",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <code>showExport</code>, <code>showFilterToggle</code> and{" "}
+              <code>showClearFilters</code> each add one built-in button to the
+              actions region. All three default to <code>false</code>, so a
+              toolbar renders column toggles only until you opt in.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                Export writes the columns currently in the grid, in grid order,
+                as CSV or JSON. With more than one format the button opens a
+                small format menu; with exactly one it exports directly.
+              </li>
+              <li>
+                <code>exportScope</code> chooses the rows:{" "}
+                <code>&quot;view&quot;</code> (default) writes the filtered,
+                searched and sorted rows, <code>&quot;all&quot;</code> the whole
+                data source. Under local pagination the grid holds one page, so{" "}
+                <code>&quot;view&quot;</code> writes that page.
+              </li>
+              <li>
+                The filter toggle drives the grid&apos;s own filter-row state.
+                Passing <code>enableFiltering</code> as a prop makes the grid
+                authoritative, and the button renders disabled.
+              </li>
+              <li>
+                Clear filters calls the grid&apos;s <code>clearAllFilters</code>{" "}
+                and stays disabled while no column holds a filter value.
+              </li>
+            </ul>
+            <p>
+              Export reads row values, never <code>render</code>, which returns
+              React nodes. <code>exportValue</code> is the per-column transform
+              for the exported representation; a throwing transform falls back
+              to the raw value.
+            </p>
+            <CodeBlock code={toolbarExportColumnsSnippet} language="tsx" />
+            <Callout title="Spreadsheet export needs one optional dependency">
+              <p>
+                <code>&quot;xlsx&quot;</code> is not offered by default because
+                its writer, SheetJS, is many times the size of this entry.
+                Install <code>xlsx</code> and list the format; the writer is
+                then imported the first time somebody exports a workbook, so
+                nobody else pays for it.
+              </p>
+              <p>
+                Values keep their JavaScript type on the way into a workbook:
+                numbers stay summable, <code>Date</code> values become date
+                cells carrying <code>exportDateFormat</code>, and booleans
+                become <code>TRUE</code>/<code>FALSE</code>. Text formats
+                stringify the same values, writing dates as ISO-8601.
+              </p>
+            </Callout>
+            <CodeBlock code={toolbarSpreadsheetSnippet} language="tsx" />
+            <p>
+              <code>exportDateFormat</code> is an Excel number format code, not
+              a date-library pattern. SheetJS rejects dot separators that Excel
+              itself accepts, so prefer <code>yyyy-mm-dd hh:mm</code> or{" "}
+              <code>dd/mm/yyyy hh:mm</code>; a rejected format raises a
+              descriptive error through <code>onExportError</code>. Return a
+              formatted string from <code>exportValue</code> when the exact text
+              matters more than the cell type.
+            </p>
+            <p>
+              Date cells are written with the writer&apos;s own local-time
+              convention, so a value of <code>09:30Z</code> displays as{" "}
+              <code>11:30</code> for a reader two hours ahead of UTC. Export a
+              preformatted string when a fixed timezone matters.
+            </p>
+            <p>
+              Migrating from a hand-rolled SheetJS export: a per-column
+              serializer enum maps onto <code>exportValue</code> one to one.
+            </p>
+            <ReferenceTable
+              sectionId="toolbar-actions-migration"
+              rows={[
+                {
+                  name: "BOOLEAN",
+                  type: "exportValue",
+                  defaultValue: "({ value }) => Boolean(value)",
+                  description:
+                    "Writes a boolean cell, which Excel shows as TRUE or FALSE.",
+                },
+                {
+                  name: "TIME",
+                  type: "exportValue",
+                  defaultValue: "({ value }) => new Date(value)",
+                  description:
+                    "Writes a date cell. Guard invalid input by returning the raw value when the parsed date is NaN.",
+                },
+                {
+                  name: "FILESIZE",
+                  type: "exportValue",
+                  defaultValue: "({ value }) => filesize(value)",
+                  description:
+                    "Any text transform stays application-owned, including the formatting library it needs.",
+                },
+                {
+                  name: "actions column",
+                  type: "exportable",
+                  defaultValue: "false",
+                  description:
+                    "Replaces excluding a column by name inside the export routine.",
+                },
+                {
+                  name: "header row",
+                  type: "column.header",
+                  defaultValue: "automatic",
+                  description:
+                    "Headers come from the columns in grid order. Columns sharing a header stay separate columns rather than overwriting each other.",
+                },
+                {
+                  name: "file name",
+                  type: "exportFileName",
+                  defaultValue: "string | (info) => string",
+                  description:
+                    "A callback runs per export, so a name built from branding, an id and the date stays accurate.",
+                },
+                {
+                  name: "sheet name",
+                  type: "exportSheetName",
+                  defaultValue: "file name",
+                  description:
+                    "Sanitised to what Excel accepts: no [ ] : * ? / \\ and at most 31 characters.",
+                },
+              ]}
+            />
+            <ReferenceTable
+              sectionId="toolbar-actions"
+              rows={[
+                {
+                  name: "column.exportable",
+                  type: "boolean",
+                  defaultValue: "true",
+                  description:
+                    "False excludes the column from every export, visible or not. Always wins over exportWhenHidden.",
+                },
+                {
+                  name: "column.exportWhenHidden",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Exports the column even while it is hidden in the grid. Ignored when exportable is false.",
+                },
+                {
+                  name: "column.exportValue",
+                  type: "({ value, data, column }) => unknown",
+                  defaultValue: "none",
+                  description:
+                    "Transforms the exported cell value. Receives the raw row value, the row, and the column.",
+                },
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "toolbar-styling",
+        title: "Styling and theme tokens",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The toolbar carries no utility classes. Every visual decision is a{" "}
+              <code>--tdg-toolbar-*</code> custom property, so restyling means
+              redeclaring tokens on <code>.tdg-toolbar-root</code> (or any
+              ancestor) rather than out-specifying a stylesheet.
+            </p>
+            <CodeBlock code={toolbarTokenSnippet} language="css" />
+            <Callout title="Overrides never need !important">
+              <p>
+                Each default rule is written with exactly one unit of
+                specificity: the part naming the state stays outside{" "}
+                <code>:where()</code>, everything else goes inside. A selector
+                of yours that adds a second part - a class plus an element, or a
+                class of your own - outranks every default.
+              </p>
+            </Callout>
+            <CodeBlock code={toolbarOverrideSnippet} language="css" />
+            <p>
+              Colour tokens fall back through <code>--tdg-color-*</code> and
+              then the shadcn variable of the same name, so a themed application
+              inherits sensible values without setting anything. Bridging
+              another design system means assigning its values to the tokens
+              once:
+            </p>
+            <CodeBlock code={toolbarThemeBridgeSnippet} language="tsx" />
+            <p>
+              Stacked layouts place the actions above the column toggles, since
+              a wrapping toggle list would otherwise push export and the filter
+              controls far down the card. From <code>80rem</code> the toolbar
+              becomes a row with toggles leading and actions trailing. Override{" "}
+              <code>
+                {
+                  '.tdg-toolbar-root [data-slot="rdg-toolbar-body"] { flex-direction: column }'
+                }
+              </code>{" "}
+              to restore a single order at every width.
+            </p>
+            <ReferenceTable
+              sectionId="toolbar-styling"
+              rows={[
+                {
+                  name: "--tdg-toolbar-surface",
+                  type: "<color>",
+                  defaultValue: "card at 60%",
+                  description: "Background of the toolbar card.",
+                },
+                {
+                  name: "--tdg-toolbar-color",
+                  type: "<color>",
+                  defaultValue: "foreground",
+                  description:
+                    "Text colour the toolbar establishes for its contents.",
+                },
+                {
+                  name: "--tdg-toolbar-padding",
+                  type: "<length>",
+                  defaultValue: "0.75rem",
+                  description: "Inner padding of the card.",
+                },
+                {
+                  name: "--tdg-toolbar-gap",
+                  type: "<length>",
+                  defaultValue: "0.75rem",
+                  description:
+                    "Vertical rhythm between heading, toggles and actions.",
+                },
+                {
+                  name: "--tdg-toolbar-radius",
+                  type: "<length>",
+                  defaultValue: "--radius-xl",
+                  description:
+                    "Card corner radius; reads the host radius scale first.",
+                },
+                {
+                  name: "--tdg-toolbar-border-width",
+                  type: "<length>",
+                  defaultValue: "1px",
+                  description: "Card border width; 0 removes the border.",
+                },
+                {
+                  name: "--tdg-toolbar-border-color",
+                  type: "<color>",
+                  defaultValue: "border",
+                  description: "Card border colour.",
+                },
+                {
+                  name: "--tdg-toolbar-shadow",
+                  type: "<shadow>",
+                  defaultValue: "shadow-sm",
+                  description: "Card elevation; none flattens the card.",
+                },
+                {
+                  name: "--tdg-toolbar-title-font-size",
+                  type: "<length>",
+                  defaultValue: "0.875rem",
+                  description: "Heading size.",
+                },
+                {
+                  name: "--tdg-toolbar-title-font-weight",
+                  type: "<number>",
+                  defaultValue: "500",
+                  description: "Heading weight.",
+                },
+                {
+                  name: "--tdg-toolbar-title-color",
+                  type: "<color>",
+                  defaultValue: "inherit",
+                  description: "Heading colour.",
+                },
+                {
+                  name: "--tdg-toolbar-description-font-size",
+                  type: "<length>",
+                  defaultValue: "0.75rem",
+                  description: "Description size.",
+                },
+                {
+                  name: "--tdg-toolbar-description-color",
+                  type: "<color>",
+                  defaultValue: "muted-foreground",
+                  description: "Description colour.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-gap",
+                  type: "<length>",
+                  defaultValue: "0.5rem",
+                  description: "Spacing between column toggles.",
+                },
+                {
+                  name: "--tdg-toolbar-actions-gap",
+                  type: "<length>",
+                  defaultValue: "0.5rem",
+                  description:
+                    "Spacing between action buttons, including your children.",
+                },
+                {
+                  name: "--tdg-toolbar-control-height",
+                  type: "<length>",
+                  defaultValue: "2rem",
+                  description:
+                    "Height of every button; auto lets padding size them.",
+                },
+                {
+                  name: "--tdg-toolbar-control-padding",
+                  type: "<length>{1,4}",
+                  defaultValue: "0 0.75rem",
+                  description: "Button padding shorthand.",
+                },
+                {
+                  name: "--tdg-toolbar-control-radius",
+                  type: "<length>",
+                  defaultValue: "--radius-md",
+                  description: "Button corner radius.",
+                },
+                {
+                  name: "--tdg-toolbar-control-gap",
+                  type: "<length>",
+                  defaultValue: "0.5rem",
+                  description: "Space between a button's icon and its label.",
+                },
+                {
+                  name: "--tdg-toolbar-control-font-weight",
+                  type: "<number>",
+                  defaultValue: "500",
+                  description: "Button label weight.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-font-size",
+                  type: "<length>",
+                  defaultValue: "0.875rem",
+                  description: "Column toggle label size.",
+                },
+                {
+                  name: "--tdg-toolbar-action-font-size",
+                  type: "<length>",
+                  defaultValue: "0.75rem",
+                  description:
+                    "Export, filter-toggle and clear-filter label size.",
+                },
+                {
+                  name: "--tdg-toolbar-control-border-width",
+                  type: "<length>",
+                  defaultValue: "1px",
+                  description: "Button border width.",
+                },
+                {
+                  name: "--tdg-toolbar-control-cursor",
+                  type: "<cursor>",
+                  defaultValue: "default",
+                  description:
+                    "Cursor over buttons; pointer if that matches your app.",
+                },
+                {
+                  name: "--tdg-toolbar-control-transition",
+                  type: "<time>",
+                  defaultValue: "150ms",
+                  description:
+                    "Colour transition duration; 0s disables the animation.",
+                },
+                {
+                  name: "--tdg-toolbar-control-disabled-opacity",
+                  type: "<number>",
+                  defaultValue: "0.5",
+                  description: "Opacity of a disabled button.",
+                },
+                {
+                  name: "--tdg-toolbar-icon-size",
+                  type: "<length>",
+                  defaultValue: "1rem",
+                  description: "Size of the built-in action icons.",
+                },
+                {
+                  name: "--tdg-toolbar-control-fill",
+                  type: "<color>",
+                  defaultValue: "transparent",
+                  description: "Background of a resting button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-color",
+                  type: "<color>",
+                  defaultValue: "inherit",
+                  description: "Label colour of a resting button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-border-color",
+                  type: "<color>",
+                  defaultValue: "input",
+                  description: "Border colour of a resting button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-hover-fill",
+                  type: "<color>",
+                  defaultValue: "accent",
+                  description: "Hover background of a resting button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-hover-color",
+                  type: "<color>",
+                  defaultValue: "accent-foreground",
+                  description: "Hover label colour of a resting button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-on-fill",
+                  type: "<color>",
+                  defaultValue: "secondary",
+                  description:
+                    "Background of a pressed button: a visible column, or a visible filter row.",
+                },
+                {
+                  name: "--tdg-toolbar-control-on-color",
+                  type: "<color>",
+                  defaultValue: "secondary-foreground",
+                  description: "Label colour of a pressed button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-on-border-color",
+                  type: "<color>",
+                  defaultValue: "transparent",
+                  description: "Border colour of a pressed button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-on-hover-fill",
+                  type: "<color>",
+                  defaultValue: "secondary at 80%",
+                  description: "Hover background of a pressed button.",
+                },
+                {
+                  name: "--tdg-toolbar-control-on-hover-color",
+                  type: "<color>",
+                  defaultValue: "on label colour",
+                  description: "Hover label colour of a pressed button.",
+                },
+                {
+                  name: "--tdg-toolbar-focus-ring-width",
+                  type: "<length>",
+                  defaultValue: "1px",
+                  description: "Focus ring thickness on every control.",
+                },
+                {
+                  name: "--tdg-toolbar-focus-ring-color",
+                  type: "<color>",
+                  defaultValue: "ring",
+                  description: "Focus ring colour.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-fill",
+                  type: "<color>",
+                  defaultValue: "popover",
+                  description: "Export format menu background.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-color",
+                  type: "<color>",
+                  defaultValue: "popover-foreground",
+                  description: "Export format menu text colour.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-border-width",
+                  type: "<length>",
+                  defaultValue: "1px",
+                  description: "Menu border width.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-border-color",
+                  type: "<color>",
+                  defaultValue: "border",
+                  description: "Menu border colour.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-radius",
+                  type: "<length>",
+                  defaultValue: "control radius",
+                  description: "Menu corner radius.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-padding",
+                  type: "<length>",
+                  defaultValue: "0.25rem",
+                  description: "Padding around the menu items.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-min-width",
+                  type: "<length>",
+                  defaultValue: "8rem",
+                  description: "Minimum menu width.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-offset",
+                  type: "<length>",
+                  defaultValue: "0.25rem",
+                  description: "Gap between the export button and the menu.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-shadow",
+                  type: "<shadow>",
+                  defaultValue: "shadow-md",
+                  description: "Menu elevation.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-item-font-size",
+                  type: "<length>",
+                  defaultValue: "0.875rem",
+                  description: "Menu item label size.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-item-padding",
+                  type: "<length>{1,4}",
+                  defaultValue: "0.375rem 0.5rem",
+                  description: "Menu item padding shorthand.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-item-radius",
+                  type: "<length>",
+                  defaultValue: "--radius-sm",
+                  description: "Menu item corner radius.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-item-hover-fill",
+                  type: "<color>",
+                  defaultValue: "accent",
+                  description: "Menu item hover background.",
+                },
+                {
+                  name: "--tdg-toolbar-menu-item-hover-color",
+                  type: "<color>",
+                  defaultValue: "accent-foreground",
+                  description: "Menu item hover label colour.",
+                },
+              ]}
+            />
+            <p>
+              The elements carry stable <code>data-slot</code> names for
+              targeting: <code>rdg-toolbar</code>,{" "}
+              <code>rdg-toolbar-heading</code>, <code>rdg-toolbar-title</code>,{" "}
+              <code>rdg-toolbar-description</code>,{" "}
+              <code>rdg-toolbar-body</code>, <code>rdg-column-toggle-list</code>
+              , <code>rdg-column-toggle</code>, <code>rdg-toolbar-actions</code>
+              , <code>rdg-toolbar-export</code>,{" "}
+              <code>rdg-toolbar-export-menu</code>,{" "}
+              <code>rdg-toolbar-export-format</code>,{" "}
+              <code>rdg-toolbar-filter-toggle</code> and{" "}
+              <code>rdg-toolbar-clear-filters</code>. Toggle buttons and the
+              filter toggle also expose <code>data-state</code> as{" "}
+              <code>on</code> or <code>off</code>.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "toolbar-behavior",
         title: "Behavior and public props",
         body: (
           <div className="space-y-4 text-sm text-muted-foreground">
@@ -6970,7 +7619,7 @@ const columns: TypeColumns = [
                 its scoped toolbar stylesheet.
               </li>
             </ul>
-            <CodeBlock code={columnVisibilityColumnsSnippet} language="tsx" />
+            <CodeBlock code={toolbarColumnsSnippet} language="tsx" />
             <Callout title="Initialization and remounts">
               <p>
                 Set <code>{"defaultVisible: false"}</code> or{" "}
@@ -6997,30 +7646,31 @@ const columns: TypeColumns = [
               </p>
             </Callout>
             <ReferenceTable
+              sectionId="toolbar-behavior"
               rows={[
                 {
-                  name: "RDGColumnVisibilityProvider.children",
+                  name: "RDGToolbarProvider.children",
                   type: "ReactNode",
                   defaultValue: "required",
                   description:
                     "Contains the toolbar and one direct grid or explicit target.",
                 },
                 {
-                  name: "RDGColumnVisibilityToolbar.ariaLabel",
+                  name: "RDGToolbar.ariaLabel",
                   type: "string",
                   defaultValue: '"Visible column toggles"',
                   description:
                     "Accessible name for the group of visibility buttons.",
                 },
                 {
-                  name: "RDGColumnVisibilityToolbar.title",
+                  name: "RDGToolbar.title",
                   type: "ReactNode",
                   defaultValue: '"Visible columns"',
                   description:
                     "Level-two heading that labels the toolbar region; null suppresses the heading while the toggle group keeps ariaLabel.",
                 },
                 {
-                  name: "RDGColumnVisibilityToolbar.description",
+                  name: "RDGToolbar.description",
                   type: "ReactNode",
                   defaultValue:
                     '"Choose which columns are visible in the grid."',
@@ -7028,14 +7678,98 @@ const columns: TypeColumns = [
                     "Supporting copy associated with the toolbar region and toggle group through aria-describedby; null suppresses it.",
                 },
                 {
-                  name: "RDGColumnVisibilityToolbar.children",
+                  name: "RDGToolbar.showColumnToggles",
+                  type: "boolean",
+                  defaultValue: "true",
+                  description:
+                    "Renders the column visibility toggle group. False leaves an actions-only toolbar.",
+                },
+                {
+                  name: "RDGToolbar.showExport",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Adds the built-in export control for the formats in exportFormats.",
+                },
+                {
+                  name: "RDGToolbar.showFilterToggle",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Adds a button that shows or hides the grid filter row; disabled while enableFiltering is a controlled prop.",
+                },
+                {
+                  name: "RDGToolbar.showClearFilters",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Adds a button that clears every column filter; disabled while nothing is filtered.",
+                },
+                {
+                  name: "RDGToolbar.exportScope",
+                  type: '"view" | "all"',
+                  defaultValue: '"view"',
+                  description:
+                    "Rows written by the export: the current grid view, or the entire data source.",
+                },
+                {
+                  name: "RDGToolbar.exportFormats",
+                  type: 'readonly ("csv" | "json" | "xlsx")[]',
+                  defaultValue: '["csv", "json"]',
+                  description:
+                    'Offered export formats, in menu order. A single entry exports on click instead of opening a menu. "xlsx" needs the optional xlsx peer dependency.',
+                },
+                {
+                  name: "RDGToolbar.exportFileName",
+                  type: "string | ((info) => string)",
+                  defaultValue: '"grid-export"',
+                  description:
+                    "Downloaded file name without extension; the format supplies that. A callback receives the format, scope and row/column counts, and runs per export.",
+                },
+                {
+                  name: "RDGToolbar.exportDateFormat",
+                  type: "string",
+                  defaultValue: '"yyyy-mm-dd hh:mm"',
+                  description:
+                    "Excel number format for date cells in spreadsheet exports. Must be a format the writer accepts; dot separators are rejected.",
+                },
+                {
+                  name: "RDGToolbar.exportSheetName",
+                  type: "string",
+                  defaultValue: "the file name",
+                  description:
+                    "Worksheet name for spreadsheet exports, sanitised to Excel's rules.",
+                },
+                {
+                  name: "RDGToolbar.onExportError",
+                  type: "(error: unknown) => void",
+                  defaultValue: "console.error",
+                  description:
+                    "Called when an export fails, e.g. when the optional xlsx peer dependency is missing.",
+                },
+                {
+                  name: "RDGToolbar.labels",
+                  type: "Partial<RDGToolbarLabels>",
+                  defaultValue: "English defaults",
+                  description:
+                    "Overrides the built-in button labels: export, showFilters, hideFilters, clearFilters.",
+                },
+                {
+                  name: "RDGToolbar.children",
                   type: "ReactNode",
                   defaultValue: "none",
                   description:
-                    "Application controls rendered in the right-side actions region.",
+                    "Application controls rendered in the right-side actions region, after the built-in ones.",
                 },
                 {
-                  name: "RDGColumnVisibilityTarget.children",
+                  name: "RDGToolbar.className",
+                  type: "string",
+                  defaultValue: "none",
+                  description:
+                    "Appended to the toolbar root's class list, for scoping style overrides to your own class.",
+                },
+                {
+                  name: "RDGToolbarTarget.children",
                   type: "ReactElement<TypeDataGridProps>",
                   defaultValue: "required",
                   description:
