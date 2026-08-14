@@ -22,6 +22,40 @@ function grid(scope: Locator) {
   return scope.locator(".InovuaReactDataGrid.tdg-root");
 }
 
+type ControlPaint = { fill: string; border: string; text: string };
+
+/**
+ * The three painted colours of one control, normalised through a canvas so that
+ * `transparent` and `rgba(0, 0, 0, 0)` compare equal.
+ */
+function paint(node: Locator): Promise<ControlPaint> {
+  return node.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const context = document.createElement("canvas").getContext("2d");
+    const normalize = (value: string): string => {
+      if (!context) return value;
+      context.fillStyle = "#000";
+      context.fillStyle = value;
+      return String(context.fillStyle);
+    };
+
+    return {
+      fill: normalize(style.backgroundColor),
+      border: normalize(style.borderTopColor),
+      text: normalize(style.color),
+    };
+  });
+}
+
+function isTransparent(color: string): boolean {
+  return color === "rgba(0, 0, 0, 0)" || /\/\s*0\s*\)$/.test(color);
+}
+
+/** True for any colour carrying an alpha below 1, however it is notated. */
+function isTranslucent(color: string): boolean {
+  return /\/\s*(0|0?\.\d+|\d+(\.\d+)?%)\s*\)$/.test(color);
+}
+
 async function readDownload(download: Download): Promise<string> {
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -125,6 +159,171 @@ test("hands filter-row ownership back to the grid", async ({ page }) => {
   await panel.getByRole("button", { name: "Filters: toolbar-owned" }).click();
 
   await expect(filterToggle).toBeEnabled();
+});
+
+function paletteOf(bar: Locator): Promise<Record<string, string>> {
+  return bar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const entries = [
+      "card",
+      "foreground",
+      "input",
+      "muted-foreground",
+      "popover",
+    ].map((name) => [
+      name,
+      style.getPropertyValue(`--tdg-toolbar-${name}`).trim(),
+    ]);
+
+    return Object.fromEntries(entries) as Record<string, string>;
+  });
+}
+
+/*
+ * The site theme owns `.dark` on the document, the grid theme owns
+ * `data-theme-base` on the toolbar, and the toolbar must follow the second. A
+ * dark grid theme inside a light page used to keep the page's light palette: the
+ * declarations led with `var(--card, ...)`, so a host defining that variable at
+ * all made the dark literal behind it unreachable.
+ */
+test("follows a named grid theme's mode, not the site's", async ({ page }) => {
+  const bar = toolbar(preview(page));
+  const gridTheme = (name: string) =>
+    page.getByLabel("Grid theme buttons").getByRole("button", { name }).first();
+  // The button names the mode it switches *to*, so "Light mode" means the site
+  // is currently dark.
+  const siteThemeToggle = page.getByLabel("Switch site theme").first();
+  const goToSiteMode = async (mode: "light" | "dark") => {
+    const target = mode === "light" ? "Light mode" : "Dark mode";
+    if ((await siteThemeToggle.textContent())?.trim() === target) {
+      await siteThemeToggle.click();
+    }
+    await expect(siteThemeToggle).not.toHaveText(target);
+  };
+
+  const surfaceOf = (node: Locator) =>
+    node.evaluate((element) => getComputedStyle(element).backgroundColor);
+
+  await expect(bar).toBeVisible();
+
+  await goToSiteMode("light");
+  await gridTheme("Default").click();
+  await expect(bar).toHaveAttribute("data-theme-base", "default");
+  const sitePaletteLight = await paletteOf(bar);
+
+  // Following the page, the card stays translucent so the page tints it.
+  expect(isTranslucent(await surfaceOf(bar))).toBe(true);
+
+  // The reported case: a dark grid theme while the page stays light.
+  await gridTheme("Ikarus Dark").click();
+  await expect(bar).toHaveAttribute("data-theme-base", "dark");
+  const namedDark = await paletteOf(bar);
+
+  expect(namedDark).not.toEqual(sitePaletteLight);
+
+  // Naming a mode makes the card opaque; translucent it would blend in 40% of
+  // the light page and land on a mid grey.
+  expect(isTranslucent(await surfaceOf(bar))).toBe(false);
+
+  // And it is the same dark palette the site's own dark mode resolves, not just
+  // something different from the light one.
+  await goToSiteMode("dark");
+  await gridTheme("Default").click();
+  await expect(bar).toHaveAttribute("data-theme-base", "default");
+
+  expect(await paletteOf(bar)).toEqual(namedDark);
+
+  // The mirror holds too: a light grid theme inside a dark page stays light.
+  await gridTheme("Ikarus Light").click();
+  await expect(bar).toHaveAttribute("data-theme-base", "light");
+
+  expect(await paletteOf(bar)).toEqual(sitePaletteLight);
+  expect(isTranslucent(await surfaceOf(bar))).toBe(false);
+
+  // Those rules use attribute selectors, which outrank a plain
+  // `.tdg-toolbar-root` rule, so they may only move private plumbing.
+  await page.addStyleTag({
+    content:
+      ".tdg-toolbar-root { --tdg-toolbar-surface: rgb(1, 2, 3); --tdg-toolbar-card: rgb(4, 5, 6); }",
+  });
+  await gridTheme("Ikarus Dark").click();
+  await expect(bar).toHaveAttribute("data-theme-base", "dark");
+
+  expect(await surfaceOf(bar)).toBe("rgb(1, 2, 3)");
+  expect((await paletteOf(bar)).card).toBe("rgb(4, 5, 6)");
+});
+
+/*
+ * The toggles used to read inverted: only a released one had a border, while a
+ * pressed one dropped its border for a fill three percent off the surface. These
+ * assertions name the signals rather than the colours, so they hold in either
+ * theme and under a consumer's own tokens.
+ */
+test("tells a pressed toggle from a released one by its border", async ({
+  page,
+}) => {
+  const scope = preview(page);
+  const bar = toolbar(scope);
+  const filterToggle = bar.locator('[data-slot="rdg-toolbar-filter-toggle"]');
+  const pressedColumn = bar.locator(
+    '[data-slot="rdg-column-toggle"][data-state="on"]'
+  );
+  const releasedColumn = bar.locator(
+    '[data-slot="rdg-column-toggle"][data-state="off"]'
+  );
+
+  // Colours are read straight after a click, and the 150ms cross-fade would
+  // otherwise hand back an interpolated value.
+  await page.addStyleTag({
+    content: '[data-slot="rdg-toolbar"] * { transition: none !important; }',
+  });
+
+  await expect(grid(scope)).toHaveCount(1);
+  await expect(pressedColumn.first()).toBeVisible();
+  await expect(releasedColumn.first()).toBeVisible();
+
+  const pressed = await paint(pressedColumn.first());
+  const released = await paint(releasedColumn.first());
+
+  // A pressed toggle owns an edge and an opaque fill at full label contrast.
+  expect(isTransparent(pressed.border)).toBe(false);
+  expect(isTransparent(pressed.fill)).toBe(false);
+
+  // A released one gives up both and dims its label.
+  expect(isTransparent(released.border)).toBe(true);
+  expect(isTransparent(released.fill)).toBe(true);
+  expect(released.text).not.toBe(pressed.text);
+
+  // The filter toggle is a toggle too, and follows the same pair.
+  await expect(filterToggle).toHaveText("Hide filters");
+  expect(await paint(filterToggle)).toEqual(pressed);
+
+  await filterToggle.click();
+  await expect(filterToggle).toHaveText("Show filters");
+  // Parked away from the button, so this reads the resting state and not hover.
+  await page.mouse.move(0, 0);
+  expect(await paint(filterToggle)).toEqual(released);
+
+  // Export and clear-filters command rather than report: they keep a border even
+  // though export reports `data-state="off"` while its menu is closed.
+  const exportControl = bar.locator('[data-slot="rdg-toolbar-export"]');
+  await expect(exportControl).toHaveAttribute("data-state", "off");
+  const exportPaint = await paint(exportControl);
+  const clearPaint = await paint(
+    bar.locator('[data-slot="rdg-toolbar-clear-filters"]')
+  );
+
+  expect(isTransparent(exportPaint.border)).toBe(false);
+  expect(isTransparent(clearPaint.border)).toBe(false);
+  expect(exportPaint.text).toBe(pressed.text);
+
+  // Hover moves the fill only, so it can never impersonate the state it covers.
+  await releasedColumn.first().hover();
+  const hovered = await paint(releasedColumn.first());
+
+  expect(isTransparent(hovered.border)).toBe(true);
+  expect(isTransparent(hovered.fill)).toBe(false);
+  expect(hovered.fill).not.toBe(pressed.fill);
 });
 
 test("collapses a single export format into a direct download button", async ({

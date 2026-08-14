@@ -768,17 +768,41 @@ The toolbar carries no utility classes: every visual decision is a
   --tdg-toolbar-control-height: auto;
   --tdg-toolbar-control-cursor: pointer;
 
-  --tdg-toolbar-control-fill: #eef1f5;
-  --tdg-toolbar-control-color: #12263f;
-  --tdg-toolbar-control-on-fill: #1a73e8;
-  --tdg-toolbar-control-on-color: #ffffff;
+  /* Export and clear-filters. */
+  --tdg-toolbar-action-fill: #eef1f5;
+  --tdg-toolbar-action-color: #12263f;
+
+  /* A released toggle, filled here rather than recessed. */
+  --tdg-toolbar-toggle-off-fill: #eef1f5;
+  --tdg-toolbar-toggle-off-color: #5b6b7f;
+
+  /* A pressed toggle, and export while its menu is open. */
+  --tdg-toolbar-toggle-on-fill: #1a73e8;
+  --tdg-toolbar-toggle-on-color: #ffffff;
 }
 ```
+
+The three appearances differ by one signal each: an action keeps its border, a
+released toggle drops it and dims the label, a pressed toggle keeps it over an
+opaque `card` fill. Hover only changes the fill, so it never reads as a state.
 
 Colour tokens fall back through `--tdg-color-*` and then the shadcn variable of
 the same name, so a themed application inherits sensible values without setting
 anything. Bridging another design system - BaseUI, MUI, a styled-components
 theme - means assigning its values to these tokens once, on a wrapper element.
+
+A grid theme named `*-dark` or `*-light` is the exception: it states a mode, so
+the toolbar skips the shadcn step, which tracks the page's mode rather than the
+grid's. Reading it would paint a dark toolbar with the page's white `--card`. A
+theme named `default` states no mode and keeps following the page.
+
+Two caveats when you theme a toolbar that sits outside the grid. Theme
+stylesheets scope their variables to the grid root, so a sibling toolbar never
+sees them - declare `--tdg-color-*` on a common ancestor to share one palette.
+And the mode rules above are selected by attribute, so they only ever move
+private plumbing (`--tdg-toolbar-host-*`, `--tdg-toolbar-*-fallback`,
+`--tdg-toolbar-surface-backdrop`); every token in the reference is declared once
+at plain `.tdg-toolbar-root` specificity, so your override always wins.
 
 Plain CSS overrides work too, and never need `!important`: every default rule is
 written with exactly one unit of specificity, so any selector of yours that adds

@@ -402,22 +402,33 @@ const toolbarTokenSnippet = `/* Any ancestor works; the toolbar root is the narr
   --tdg-toolbar-toggle-font-size: 12px;
   --tdg-toolbar-action-font-size: 12px;
 
-  --tdg-toolbar-control-fill: #eef1f5;
-  --tdg-toolbar-control-color: #12263f;
-  --tdg-toolbar-control-hover-fill: #dfe4ea;
-  --tdg-toolbar-control-on-fill: #1a73e8;
-  --tdg-toolbar-control-on-color: #ffffff;
-  --tdg-toolbar-control-on-hover-fill: #1666cf;
+  /* Export and clear-filters. */
+  --tdg-toolbar-action-fill: #eef1f5;
+  --tdg-toolbar-action-color: #12263f;
+  --tdg-toolbar-action-hover-fill: #dfe4ea;
+
+  /* A released toggle, filled here rather than recessed. */
+  --tdg-toolbar-toggle-off-fill: #eef1f5;
+  --tdg-toolbar-toggle-off-color: #5b6b7f;
+  --tdg-toolbar-toggle-off-hover-fill: #dfe4ea;
+
+  /* A pressed toggle, and export while its menu is open. */
+  --tdg-toolbar-toggle-on-fill: #1a73e8;
+  --tdg-toolbar-toggle-on-color: #ffffff;
+  --tdg-toolbar-toggle-on-hover-fill: #1666cf;
 }`;
 
 const toolbarThemeBridgeSnippet = `// Any theming library can drive the tokens; nothing here is React-specific.
 const Themed = styled.div\`
-  --tdg-toolbar-control-on-fill: \${({ theme }) => theme.baseui.buttonPrimaryFill};
-  --tdg-toolbar-control-on-color: \${({ theme }) => theme.baseui.buttonPrimaryText};
-  --tdg-toolbar-control-on-hover-fill: \${({ theme }) => theme.baseui.buttonPrimaryHover};
-  --tdg-toolbar-control-fill: \${({ theme }) => theme.baseui.buttonSecondaryFill};
-  --tdg-toolbar-control-color: \${({ theme }) => theme.baseui.buttonSecondaryText};
-  --tdg-toolbar-control-hover-fill: \${({ theme }) => theme.baseui.buttonSecondaryHover};
+  --tdg-toolbar-toggle-on-fill: \${({ theme }) => theme.baseui.buttonPrimaryFill};
+  --tdg-toolbar-toggle-on-color: \${({ theme }) => theme.baseui.buttonPrimaryText};
+  --tdg-toolbar-toggle-on-hover-fill: \${({ theme }) => theme.baseui.buttonPrimaryHover};
+  --tdg-toolbar-action-fill: \${({ theme }) => theme.baseui.buttonSecondaryFill};
+  --tdg-toolbar-action-color: \${({ theme }) => theme.baseui.buttonSecondaryText};
+  --tdg-toolbar-action-hover-fill: \${({ theme }) => theme.baseui.buttonSecondaryHover};
+  /* A released toggle reads as tertiary: no fill until hovered. */
+  --tdg-toolbar-toggle-off-color: \${({ theme }) => theme.baseui.buttonTertiaryText};
+  --tdg-toolbar-toggle-off-hover-fill: \${({ theme }) => theme.baseui.buttonTertiaryHover};
 \`;
 
 <Themed>
@@ -7244,6 +7255,21 @@ const columns: TypeColumns = [
               once:
             </p>
             <CodeBlock code={toolbarThemeBridgeSnippet} language="tsx" />
+            <Callout title="A named theme sets the toolbar's mode">
+              <p>
+                A grid theme named <code>*-dark</code> or <code>*-light</code>{" "}
+                states a mode, so the toolbar skips the shadcn step - that
+                tracks the page's mode, not the grid's, and reading it would
+                paint a dark toolbar with the page's white <code>--card</code>.
+                A theme named <code>default</code> keeps following the page.
+              </p>
+              <p>
+                Theme stylesheets scope their variables to the grid root, so a
+                toolbar rendered outside the grid never sees them. Declare{" "}
+                <code>--tdg-color-*</code> on a common ancestor to share one
+                palette between the two.
+              </p>
+            </Callout>
             <p>
               Stacked layouts place the actions above the column toggles, since
               a wrapping toggle list would otherwise push export and the filter
@@ -7263,7 +7289,8 @@ const columns: TypeColumns = [
                   name: "--tdg-toolbar-surface",
                   type: "<color>",
                   defaultValue: "card at 60%",
-                  description: "Background of the toolbar card.",
+                  description:
+                    "Background of the toolbar card. Translucent, so the page tints it; a theme that names its own mode makes it opaque instead.",
                 },
                 {
                   name: "--tdg-toolbar-color",
@@ -7437,65 +7464,99 @@ const columns: TypeColumns = [
                   description: "Size of the built-in action icons.",
                 },
                 {
-                  name: "--tdg-toolbar-control-fill",
+                  name: "--tdg-toolbar-action-fill",
                   type: "<color>",
                   defaultValue: "transparent",
-                  description: "Background of a resting button.",
+                  description: "Background of export and clear-filters.",
                 },
                 {
-                  name: "--tdg-toolbar-control-color",
+                  name: "--tdg-toolbar-action-color",
                   type: "<color>",
                   defaultValue: "inherit",
-                  description: "Label colour of a resting button.",
+                  description: "Label colour of export and clear-filters.",
                 },
                 {
-                  name: "--tdg-toolbar-control-border-color",
+                  name: "--tdg-toolbar-action-border-color",
                   type: "<color>",
                   defaultValue: "input",
-                  description: "Border colour of a resting button.",
+                  description: "Border colour of export and clear-filters.",
                 },
                 {
-                  name: "--tdg-toolbar-control-hover-fill",
+                  name: "--tdg-toolbar-action-hover-fill",
                   type: "<color>",
                   defaultValue: "accent",
-                  description: "Hover background of a resting button.",
+                  description: "Hover background of export and clear-filters.",
                 },
                 {
-                  name: "--tdg-toolbar-control-hover-color",
+                  name: "--tdg-toolbar-action-hover-color",
                   type: "<color>",
                   defaultValue: "accent-foreground",
-                  description: "Hover label colour of a resting button.",
-                },
-                {
-                  name: "--tdg-toolbar-control-on-fill",
-                  type: "<color>",
-                  defaultValue: "secondary",
                   description:
-                    "Background of a pressed button: a visible column, or a visible filter row.",
+                    "Hover label colour of export and clear-filters.",
                 },
                 {
-                  name: "--tdg-toolbar-control-on-color",
-                  type: "<color>",
-                  defaultValue: "secondary-foreground",
-                  description: "Label colour of a pressed button.",
-                },
-                {
-                  name: "--tdg-toolbar-control-on-border-color",
+                  name: "--tdg-toolbar-toggle-off-fill",
                   type: "<color>",
                   defaultValue: "transparent",
-                  description: "Border colour of a pressed button.",
+                  description:
+                    "Background of a released toggle: a hidden column, or a hidden filter row.",
                 },
                 {
-                  name: "--tdg-toolbar-control-on-hover-fill",
+                  name: "--tdg-toolbar-toggle-off-color",
                   type: "<color>",
-                  defaultValue: "secondary at 80%",
-                  description: "Hover background of a pressed button.",
+                  defaultValue: "muted-foreground",
+                  description: "Label colour of a released toggle.",
                 },
                 {
-                  name: "--tdg-toolbar-control-on-hover-color",
+                  name: "--tdg-toolbar-toggle-off-border-color",
                   type: "<color>",
-                  defaultValue: "on label colour",
-                  description: "Hover label colour of a pressed button.",
+                  defaultValue: "transparent",
+                  description:
+                    "Border colour of a released toggle. Transparent rather than absent, so pressing it does not resize the button.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-off-hover-fill",
+                  type: "<color>",
+                  defaultValue: "accent",
+                  description: "Hover background of a released toggle.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-off-hover-color",
+                  type: "<color>",
+                  defaultValue: "accent-foreground",
+                  description: "Hover label colour of a released toggle.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-on-fill",
+                  type: "<color>",
+                  defaultValue: "card",
+                  description:
+                    "Background of a pressed toggle. The export trigger borrows it while its menu is open.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-on-color",
+                  type: "<color>",
+                  defaultValue: "foreground",
+                  description: "Label colour of a pressed toggle.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-on-border-color",
+                  type: "<color>",
+                  defaultValue: "input",
+                  description:
+                    "Border colour of a pressed toggle. This edge is what separates pressed from released; hide it and the fills must carry the state alone.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-on-hover-fill",
+                  type: "<color>",
+                  defaultValue: "accent",
+                  description: "Hover background of a pressed toggle.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-on-hover-color",
+                  type: "<color>",
+                  defaultValue: "accent-foreground",
+                  description: "Hover label colour of a pressed toggle.",
                 },
                 {
                   name: "--tdg-toolbar-focus-ring-width",
