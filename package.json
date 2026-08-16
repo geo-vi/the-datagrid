@@ -1,6 +1,6 @@
 {
   "name": "@geovi/the-datagrid",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A modern, feature-rich React data grid component built with shadcn/ui and TanStack Table",
   "type": "module",
   "main": "./dist/index.cjs",
