@@ -9,7 +9,7 @@ import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ColumnsGridExample from "./ColumnsGridExample";
-import ColumnVisibilityCompatPage from "./ColumnVisibilityCompatPage";
+import ToolbarCompatPage from "./ToolbarCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
 import DisabledRowsCompatPage from "./DisabledRowsCompatPage";
@@ -33,6 +33,7 @@ import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
 import SelectionGridExample from "./SelectionGridExample";
 import StackedColumnsExample from "./StackedColumnsExample";
 import StackedColumnsExamplePage from "./StackedColumnsExamplePage";
+import ToolbarGridExample from "./ToolbarGridExample";
 import UsersGridExample from "./UsersGridExample";
 import DocsHomePage from "./docs/DocsHomePage";
 import DocsIndexPage from "./docs/DocsIndexPage";
@@ -155,6 +156,33 @@ function UsersExamplePage() {
   );
 }
 
+function ToolbarExamplePage() {
+  const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
+  const example = getExampleMeta("toolbar");
+
+  if (!example) {
+    throw new Error("Missing example metadata for toolbar");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <ToolbarGridExample
+        theme={gridTheme}
+        i18n={i18n}
+        resizable={resizable}
+        showCellBorders={showCellBorders}
+      />
+    </ExampleDetailPage>
+  );
+}
+
 function MobileTransformExamplePage() {
   const example = getExampleMeta("mobile-transform");
   if (!example) throw new Error("Missing mobile transform metadata");
@@ -229,6 +257,12 @@ const exampleSelectionRoute = createRoute({
   component: SelectionExamplePage,
 });
 
+const exampleToolbarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/toolbar",
+  component: ToolbarExamplePage,
+});
+
 const exampleUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "examples/users",
@@ -277,6 +311,12 @@ const legacySelectionRoute = createRoute({
   component: SelectionExamplePage,
 });
 
+const legacyToolbarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "toolbar",
+  component: ToolbarExamplePage,
+});
+
 const legacyUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "users",
@@ -316,10 +356,10 @@ const compatComputedPropsRoute = createRoute({
   component: ComputedPropsCompatPage,
 });
 
-const compatColumnVisibilityRoute = createRoute({
+const compatToolbarRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "compat/column-visibility",
-  component: ColumnVisibilityCompatPage,
+  path: "compat/toolbar",
+  component: ToolbarCompatPage,
 });
 
 const compatDefaultPropsRoute = createRoute({
@@ -421,7 +461,7 @@ const compatSearchDataSourceRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
-  compatColumnVisibilityRoute,
+  compatToolbarRoute,
   compatComputedPropsRoute,
   compatDefaultPropsRoute,
   compatDisabledRowsRoute,
@@ -445,6 +485,7 @@ const routeTree = rootRoute.addChildren([
   exampleColumnsRoute,
   exampleInovuaParityRoute,
   exampleSelectionRoute,
+  exampleToolbarRoute,
   exampleUsersRoute,
   exampleMobileTransformRoute,
   exampleStackedColumnsRoute,
@@ -454,6 +495,7 @@ const routeTree = rootRoute.addChildren([
   legacyInovuaParityRoute,
   legacySelectionRoute,
   legacyStackedColumnsRoute,
+  legacyToolbarRoute,
   legacyUsersRoute,
   ...removedIssueExampleRedirectRoutes,
 ]);

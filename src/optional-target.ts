@@ -6,8 +6,8 @@ export const RDG_SEARCH_TARGET_COMPONENT_MARKER = Symbol.for(
   "@geovi/the-datagrid/search-target-component"
 );
 
-export const RDG_COLUMN_VISIBILITY_TARGET_COMPONENT_MARKER = Symbol.for(
-  "@geovi/the-datagrid/column-visibility-target-component"
+export const RDG_TOOLBAR_TARGET_COMPONENT_MARKER = Symbol.for(
+  "@geovi/the-datagrid/toolbar-target-component"
 );
 
 function hasMarker(type: unknown, marker: symbol): boolean {
@@ -21,7 +21,7 @@ function hasMarker(type: unknown, marker: symbol): boolean {
 export function isOptionalTargetType(type: unknown): boolean {
   return (
     hasMarker(type, RDG_SEARCH_TARGET_COMPONENT_MARKER) ||
-    hasMarker(type, RDG_COLUMN_VISIBILITY_TARGET_COMPONENT_MARKER)
+    hasMarker(type, RDG_TOOLBAR_TARGET_COMPONENT_MARKER)
   );
 }
 

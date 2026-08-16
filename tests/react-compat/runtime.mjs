@@ -128,7 +128,7 @@ const ReactDOM = require("react-dom");
 const ReactDOMServer = require("react-dom/server");
 const core = await import("@geovi/the-datagrid");
 const search = await import("@geovi/the-datagrid/search");
-const columnVisibility = await import("@geovi/the-datagrid/column-visibility");
+const toolbarEntry = await import("@geovi/the-datagrid/toolbar");
 const components = await import("@geovi/the-datagrid/components");
 
 assert.ok(
@@ -178,13 +178,15 @@ function createSearchComposition() {
   });
 }
 
-function createColumnVisibilityComposition() {
-  return React.createElement(columnVisibility.RDGColumnVisibilityProvider, {
+function createToolbarComposition() {
+  return React.createElement(toolbarEntry.RDGToolbarProvider, {
     children: [
-      React.createElement(columnVisibility.RDGColumnVisibilityToolbar, {
+      React.createElement(toolbarEntry.RDGToolbar, {
         key: "toolbar",
+        showExport: true,
+        showFilterToggle: true,
       }),
-      React.createElement(columnVisibility.RDGColumnVisibilityTarget, {
+      React.createElement(toolbarEntry.RDGToolbarTarget, {
         key: "target",
         children: createGrid({ enableFiltering: false }),
       }),
@@ -196,7 +198,7 @@ function createCombinedComposition() {
   return React.createElement(components.RDGProvider, {
     children: [
       React.createElement(components.RDGSearchBar, { key: "search" }),
-      React.createElement(components.RDGColumnVisibilityToolbar, {
+      React.createElement(components.RDGToolbar, {
         key: "toolbar",
       }),
       React.createElement(components.RDGTarget, {
@@ -342,17 +344,25 @@ await assertComposition("search", createSearchComposition(), (container) => {
 });
 
 await assertComposition(
-  "column visibility",
-  createColumnVisibilityComposition(),
+  "toolbar",
+  createToolbarComposition(),
   async (container) => {
     await settle();
     assert.ok(
-      container.querySelector('[data-slot="rdg-column-visibility"]'),
-      "the column-visibility provider/toolbar/target composition must render"
+      container.querySelector('[data-slot="rdg-toolbar"]'),
+      "the toolbar provider/toolbar/target composition must render"
     );
     assert.ok(
       container.querySelector('[data-slot="rdg-column-toggle"]'),
-      "the column-visibility toolbar must receive its target columns"
+      "the toolbar must receive its target columns"
+    );
+    assert.ok(
+      container.querySelector('[data-slot="rdg-toolbar-export"]'),
+      "the built-in export control must render when showExport is set"
+    );
+    assert.ok(
+      container.querySelector('[data-slot="rdg-toolbar-filter-toggle"]'),
+      "the built-in filter toggle must render when showFilterToggle is set"
     );
 
     const nameToggle = container.querySelector(
@@ -379,7 +389,7 @@ await assertComposition(
   "combined",
   createCombinedComposition(),
   (container) => {
-    assert.ok(container.querySelector('[data-slot="rdg-column-visibility"]'));
+    assert.ok(container.querySelector('[data-slot="rdg-toolbar"]'));
     assert.ok(container.querySelector('input[aria-label="Search all fields"]'));
   }
 );

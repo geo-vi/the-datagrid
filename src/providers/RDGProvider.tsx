@@ -2,9 +2,9 @@
 
 import * as React from "react";
 
-import { RDGColumnVisibilityProvider } from "../column-visibility/index";
 import { RDGSearchProvider } from "../search/index";
 import { isMarkedGridType } from "../search/marker";
+import { RDGToolbarProvider } from "../toolbar/index";
 import type { TypeDataGridProps } from "../types";
 import { RDGTarget } from "./RDGTarget";
 
@@ -31,7 +31,7 @@ export function RDGProvider(props: RDGProviderProps): React.ReactElement {
 
   return (
     <RDGSearchProvider defaultValue={defaultSearchValue}>
-      <RDGColumnVisibilityProvider>{targets}</RDGColumnVisibilityProvider>
+      <RDGToolbarProvider>{targets}</RDGToolbarProvider>
     </RDGSearchProvider>
   );
 }

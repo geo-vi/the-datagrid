@@ -8,8 +8,8 @@
   "types": "./dist/main.d.ts",
   "typesVersions": {
     "*": {
-      "column-visibility": [
-        "./dist/column-visibility/index.d.ts"
+      "toolbar": [
+        "./dist/toolbar/index.d.ts"
       ],
       "BoolEditor": [
         "./dist/editors/BoolEditor.d.ts"
@@ -186,9 +186,9 @@
       "types": "./dist/search/index.d.ts",
       "import": "./dist/search.js"
     },
-    "./column-visibility": {
-      "types": "./dist/column-visibility/index.d.ts",
-      "import": "./dist/column-visibility.js"
+    "./toolbar": {
+      "types": "./dist/toolbar/index.d.ts",
+      "import": "./dist/toolbar.js"
     },
     "./components": {
       "types": "./dist/providers/index.d.ts",
@@ -198,7 +198,7 @@
       "types": "./dist/packages/TextInput/index.d.ts",
       "import": "./dist/packages/TextInput/index.js"
     },
-    "./column-visibility/style.css": "./dist/column-visibility.css",
+    "./toolbar/style.css": "./dist/toolbar.css",
     "./search/style.css": "./dist/search.css",
     "./style.css": "./dist/index.css",
     "./index.css": "./dist/index.css",
@@ -224,7 +224,18 @@
     "community-api-manifest.json"
   ],
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "**/*.scss",
+    "./src/search/index.ts",
+    "./src/toolbar/index.ts",
+    "./src/packages/TextInput/index.tsx",
+    "./dist/index.js",
+    "./dist/index.cjs",
+    "./dist/search.js",
+    "./dist/search.cjs",
+    "./dist/toolbar.js",
+    "./dist/toolbar.cjs",
+    "./dist/packages/TextInput/index.js"
   ],
   "keywords": [
     "react",
@@ -246,7 +257,7 @@
   "scripts": {
     "build:search-index": "tsx scripts/build-docfind-index.ts",
     "dev": "yarn build:search-index && vite",
-    "build": "yarn test:community-audit && yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-column-visibility && vite build --mode library-components && vite build --mode library-text-input && vite build --mode library-bool-editor && vite build --mode library-date-editor && vite build --mode library-numeric-editor && vite build --mode library-string-filter && vite build --mode library-bool-filter && vite build --mode library-date-filter && vite build --mode library-number-filter && vite build --mode library-select-filter && vite build --mode library-community-types && node scripts/prepare-community-artifacts.mjs && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-column-visibility-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
+    "build": "yarn test:community-audit && yarn test:types && tsc -p ./tsconfig-build.json && vite build --mode library-core && vite build --mode library-search && vite build --mode library-toolbar && vite build --mode library-components && vite build --mode library-text-input && vite build --mode library-bool-editor && vite build --mode library-date-editor && vite build --mode library-numeric-editor && vite build --mode library-string-filter && vite build --mode library-bool-filter && vite build --mode library-date-filter && vite build --mode library-number-filter && vite build --mode library-select-filter && vite build --mode library-community-types && node scripts/prepare-community-artifacts.mjs && node scripts/fix-dts-specifiers.mjs && node scripts/test-published-types.mjs && node scripts/assert-css-scope.mjs && node scripts/assert-search-boundary.mjs && node scripts/assert-toolbar-boundary.mjs && node scripts/assert-components-boundary.mjs && node scripts/assert-text-input-boundary.mjs",
     "build:site": "yarn build:search-index && vite build --mode site",
     "build:site:e2e": "yarn build:search-index && vite build --mode site --base /",
     "lint": "eslint .",
@@ -322,11 +333,18 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.51.0",
     "vite": "^7.3.0",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "xlsx": "^0.18.5"
   },
   "peerDependencies": {
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
-    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+    "xlsx": ">=0.18"
+  },
+  "peerDependenciesMeta": {
+    "xlsx": {
+      "optional": true
+    }
   },
   "packageManager": "yarn@4.12.0"
 }

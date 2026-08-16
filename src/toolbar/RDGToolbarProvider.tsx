@@ -4,21 +4,18 @@ import * as React from "react";
 
 import type { TypeDataGridProps } from "../types";
 import { isMarkedGridType } from "./runtime";
-import { RDGColumnVisibilityTarget } from "./RDGColumnVisibilityTarget";
-import {
-  createRDGColumnVisibilityStore,
-  RDGColumnVisibilityContext,
-} from "./store";
+import { RDGToolbarTarget } from "./RDGToolbarTarget";
+import { createRDGToolbarStore, RDGToolbarContext } from "./store";
 
-export type RDGColumnVisibilityProviderProps = {
+export type RDGToolbarProviderProps = {
   children: React.ReactNode;
 };
 
-export function RDGColumnVisibilityProvider(
-  props: RDGColumnVisibilityProviderProps
+export function RDGToolbarProvider(
+  props: RDGToolbarProviderProps
 ): React.ReactElement {
   const { children } = props;
-  const [store] = React.useState(createRDGColumnVisibilityStore);
+  const [store] = React.useState(createRDGToolbarStore);
 
   React.useEffect(() => () => store.dispose(), [store]);
 
@@ -26,9 +23,9 @@ export function RDGColumnVisibilityProvider(
     () =>
       React.Children.map(children, (child) =>
         React.isValidElement(child) && isMarkedGridType(child.type) ? (
-          <RDGColumnVisibilityTarget>
+          <RDGToolbarTarget>
             {child as React.ReactElement<TypeDataGridProps>}
-          </RDGColumnVisibilityTarget>
+          </RDGToolbarTarget>
         ) : (
           child
         )
@@ -37,8 +34,8 @@ export function RDGColumnVisibilityProvider(
   );
 
   return (
-    <RDGColumnVisibilityContext.Provider value={store}>
+    <RDGToolbarContext.Provider value={store}>
       {targets}
-    </RDGColumnVisibilityContext.Provider>
+    </RDGToolbarContext.Provider>
   );
 }

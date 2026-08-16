@@ -15,17 +15,17 @@ import {
   RDGSearchTarget,
 } from "@geovi/the-datagrid/search";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
-  type RDGColumnVisibilityProviderProps,
-  type RDGColumnVisibilityTargetProps,
-  type RDGColumnVisibilityToolbarProps,
-} from "@geovi/the-datagrid/column-visibility";
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+  RDGToolbar,
+  type RDGToolbarProviderProps,
+  type RDGToolbarTargetProps,
+  type RDGToolbarProps,
+} from "@geovi/the-datagrid/toolbar";
 import {
-  RDGColumnVisibilityProvider as ComponentsColumnVisibilityProvider,
-  RDGColumnVisibilityTarget as ComponentsColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar as ComponentsColumnVisibilityToolbar,
+  RDGToolbarProvider as ComponentsToolbarProvider,
+  RDGToolbarTarget as ComponentsToolbarTarget,
+  RDGToolbar as ComponentsToolbar,
   RDGProvider,
   RDGSearchBar as ComponentsSearchBar,
   RDGSearchProvider as ComponentsSearchProvider,
@@ -194,14 +194,12 @@ export type PublishedSearchProviderProps = ComponentProps<
   typeof RDGSearchProvider
 >;
 export type PublishedSearchTargetProps = ComponentProps<typeof RDGSearchTarget>;
-export type PublishedColumnVisibilityProviderProps = ComponentProps<
-  typeof RDGColumnVisibilityProvider
+export type PublishedToolbarProviderProps = ComponentProps<
+  typeof RDGToolbarProvider
 >;
-export type PublishedColumnVisibilityToolbarProps = ComponentProps<
-  typeof RDGColumnVisibilityToolbar
->;
-export type PublishedColumnVisibilityTargetProps = ComponentProps<
-  typeof RDGColumnVisibilityTarget
+export type PublishedToolbarProps = ComponentProps<typeof RDGToolbar>;
+export type PublishedToolbarTargetProps = ComponentProps<
+  typeof RDGToolbarTarget
 >;
 export type PublishedComponentsProviderProps = ComponentProps<
   typeof RDGProvider
@@ -216,14 +214,14 @@ export type PublishedComponentsSearchProviderProps = ComponentProps<
 export type PublishedComponentsSearchTargetProps = ComponentProps<
   typeof ComponentsSearchTarget
 >;
-export type PublishedComponentsColumnVisibilityProviderProps = ComponentProps<
-  typeof ComponentsColumnVisibilityProvider
+export type PublishedComponentsToolbarProviderProps = ComponentProps<
+  typeof ComponentsToolbarProvider
 >;
-export type PublishedComponentsColumnVisibilityTargetProps = ComponentProps<
-  typeof ComponentsColumnVisibilityTarget
+export type PublishedComponentsToolbarTargetProps = ComponentProps<
+  typeof ComponentsToolbarTarget
 >;
-export type PublishedComponentsColumnVisibilityToolbarProps = ComponentProps<
-  typeof ComponentsColumnVisibilityToolbar
+export type PublishedComponentsToolbarProps = ComponentProps<
+  typeof ComponentsToolbar
 >;
 export type PublishedTextInputProps = ComponentProps<typeof TextInput>;
 export type PublishedRootTextInputProps = ComponentProps<typeof RootTextInput>;
@@ -277,30 +275,31 @@ void rootClearButtonConfig;
 textInputInstance.renderClearButton(clearButtonConfig);
 
 const publishedGridElement = createElement(ReactDataGrid, gridProps);
-const publishedColumnVisibilityToolbarProps = {
+const publishedToolbarProps = {
   ariaLabel: "Published column toggles",
-  children: createElement("button", { type: "button" }, "Export"),
+  children: createElement("button", { type: "button" }, "Reload"),
   description: "Choose visible columns.",
+  exportFileName: "published-grid",
+  exportFormats: ["csv", "json"],
+  exportScope: "all",
+  labels: { export: "Download" },
+  showClearFilters: true,
+  showExport: true,
+  showFilterToggle: true,
   title: "Visible columns",
-} satisfies RDGColumnVisibilityToolbarProps;
-const publishedColumnVisibilityTargetProps = {
+} satisfies RDGToolbarProps;
+const publishedToolbarTargetProps = {
   children: publishedGridElement,
-} satisfies RDGColumnVisibilityTargetProps;
-export const publishedColumnVisibilityProviderProps = {
+} satisfies RDGToolbarTargetProps;
+export const publishedToolbarProviderProps = {
   children: [
-    createElement(
-      RDGColumnVisibilityToolbar,
-      publishedColumnVisibilityToolbarProps
-    ),
-    createElement(
-      RDGColumnVisibilityTarget,
-      publishedColumnVisibilityTargetProps
-    ),
+    createElement(RDGToolbar, publishedToolbarProps),
+    createElement(RDGToolbarTarget, publishedToolbarTargetProps),
   ],
-} satisfies RDGColumnVisibilityProviderProps;
-export const publishedColumnVisibilityComposition = createElement(
-  RDGColumnVisibilityProvider,
-  publishedColumnVisibilityProviderProps
+} satisfies RDGToolbarProviderProps;
+export const publishedToolbarComposition = createElement(
+  RDGToolbarProvider,
+  publishedToolbarProviderProps
 );
 
 const publishedComponentsTargetProps = {
@@ -310,8 +309,9 @@ export const publishedComponentsProviderProps = {
   defaultSearchValue: "Ada",
   children: [
     createElement(ComponentsSearchBar, { placeholder: "Search records" }),
-    createElement(ComponentsColumnVisibilityToolbar, {
-      children: createElement("button", { type: "button" }, "Export"),
+    createElement(ComponentsToolbar, {
+      showExport: true,
+      children: createElement("button", { type: "button" }, "Reload"),
     }),
     createElement(RDGTarget, publishedComponentsTargetProps),
   ],

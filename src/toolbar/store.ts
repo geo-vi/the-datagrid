@@ -2,36 +2,45 @@ import * as React from "react";
 import { useSyncExternalStore } from "use-sync-external-store/shim";
 
 import type {
-  RDGColumnVisibilityController,
-  RDGColumnVisibilityPublishedSnapshot,
+  RDGToolbarController,
+  RDGToolbarPublishedSnapshot,
 } from "./controller";
 
-const EMPTY_COLUMNS: RDGColumnVisibilityPublishedSnapshot["columns"] = [];
-const EMPTY_COLUMN_ORDER: RDGColumnVisibilityPublishedSnapshot["columnOrder"] =
-  [];
-const EMPTY_COLUMN_VISIBILITY: RDGColumnVisibilityPublishedSnapshot["columnVisibilityMap"] =
+const EMPTY_COLUMNS: RDGToolbarPublishedSnapshot["columns"] = [];
+const EMPTY_COLUMN_ORDER: RDGToolbarPublishedSnapshot["columnOrder"] = [];
+const EMPTY_COLUMN_VISIBILITY: RDGToolbarPublishedSnapshot["columnVisibilityMap"] =
   {};
+const EMPTY_ROWS: readonly unknown[] = [];
 const NOOP_SET_COLUMN_VISIBLE = () => {};
+const NOOP_SET_FILTERING_ENABLED = () => {};
+const NOOP_CLEAR_ALL_FILTERS = () => {};
+const EMPTY_GET_ROWS = () => EMPTY_ROWS;
 
-export const EMPTY_COLUMN_VISIBILITY_SNAPSHOT: RDGColumnVisibilityPublishedSnapshot =
-  {
-    columns: EMPTY_COLUMNS,
-    columnOrder: EMPTY_COLUMN_ORDER,
-    columnVisibilityMap: EMPTY_COLUMN_VISIBILITY,
-    theme: "default",
-    setColumnVisible: NOOP_SET_COLUMN_VISIBLE,
-  };
+export const EMPTY_TOOLBAR_SNAPSHOT: RDGToolbarPublishedSnapshot = {
+  columns: EMPTY_COLUMNS,
+  columnOrder: EMPTY_COLUMN_ORDER,
+  columnVisibilityMap: EMPTY_COLUMN_VISIBILITY,
+  theme: "default",
+  setColumnVisible: NOOP_SET_COLUMN_VISIBLE,
+  filteringEnabled: false,
+  canToggleFiltering: false,
+  setFilteringEnabled: NOOP_SET_FILTERING_ENABLED,
+  filtered: false,
+  clearAllFilters: NOOP_CLEAR_ALL_FILTERS,
+  getViewRows: EMPTY_GET_ROWS,
+  getAllRows: EMPTY_GET_ROWS,
+};
 
 type TargetRegistration = {
   attach: () => () => void;
-  controller: RDGColumnVisibilityController;
+  controller: RDGToolbarController;
 };
 
-export type RDGColumnVisibilityStore = {
+export type RDGToolbarStore = {
   createTargetRegistration: () => TargetRegistration;
   dispose: () => void;
-  getServerSnapshot: () => RDGColumnVisibilityPublishedSnapshot;
-  getSnapshot: () => RDGColumnVisibilityPublishedSnapshot;
+  getServerSnapshot: () => RDGToolbarPublishedSnapshot;
+  getSnapshot: () => RDGToolbarPublishedSnapshot;
   subscribe: (listener: () => void) => () => void;
 };
 
@@ -62,24 +71,31 @@ function sameVisibilityMap(
 }
 
 function sameSnapshot(
-  left: RDGColumnVisibilityPublishedSnapshot,
-  right: RDGColumnVisibilityPublishedSnapshot
+  left: RDGToolbarPublishedSnapshot,
+  right: RDGToolbarPublishedSnapshot
 ): boolean {
   return (
     sameArray(left.columns, right.columns) &&
     sameArray(left.columnOrder, right.columnOrder) &&
     sameVisibilityMap(left.columnVisibilityMap, right.columnVisibilityMap) &&
     left.theme === right.theme &&
-    left.setColumnVisible === right.setColumnVisible
+    left.setColumnVisible === right.setColumnVisible &&
+    left.filteringEnabled === right.filteringEnabled &&
+    left.canToggleFiltering === right.canToggleFiltering &&
+    left.setFilteringEnabled === right.setFilteringEnabled &&
+    left.filtered === right.filtered &&
+    left.clearAllFilters === right.clearAllFilters &&
+    left.getViewRows === right.getViewRows &&
+    left.getAllRows === right.getAllRows
   );
 }
 
-export function createRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
+export function createRDGToolbarStore(): RDGToolbarStore {
   let activeTarget: symbol | null = null;
-  let snapshot = EMPTY_COLUMN_VISIBILITY_SNAPSHOT;
+  let snapshot = EMPTY_TOOLBAR_SNAPSHOT;
   const listeners = new Set<() => void>();
 
-  const emitSnapshot = (next: RDGColumnVisibilityPublishedSnapshot) => {
+  const emitSnapshot = (next: RDGToolbarPublishedSnapshot) => {
     if (sameSnapshot(snapshot, next)) return;
     snapshot = next;
     listeners.forEach((listener) => listener());
@@ -87,9 +103,9 @@ export function createRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
 
   return {
     createTargetRegistration() {
-      const target = Symbol("rdg-column-visibility-target");
+      const target = Symbol("rdg-toolbar-target");
       let attached = false;
-      let latestSnapshot: RDGColumnVisibilityPublishedSnapshot | null = null;
+      let latestSnapshot: RDGToolbarPublishedSnapshot | null = null;
 
       return {
         controller: {
@@ -103,7 +119,7 @@ export function createRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
         attach() {
           if (activeTarget !== null && activeTarget !== target) {
             throw new Error(
-              "RDGColumnVisibilityProvider supports one ReactDataGrid target. " +
+              "RDGToolbarProvider supports one ReactDataGrid target. " +
                 "Use a separate provider for each grid."
             );
           }
@@ -117,18 +133,18 @@ export function createRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
             attached = false;
             if (activeTarget !== target) return;
             activeTarget = null;
-            emitSnapshot(EMPTY_COLUMN_VISIBILITY_SNAPSHOT);
+            emitSnapshot(EMPTY_TOOLBAR_SNAPSHOT);
           };
         },
       };
     },
     dispose() {
       activeTarget = null;
-      snapshot = EMPTY_COLUMN_VISIBILITY_SNAPSHOT;
+      snapshot = EMPTY_TOOLBAR_SNAPSHOT;
       listeners.clear();
     },
     getSnapshot: () => snapshot,
-    getServerSnapshot: () => EMPTY_COLUMN_VISIBILITY_SNAPSHOT,
+    getServerSnapshot: () => EMPTY_TOOLBAR_SNAPSHOT,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -136,22 +152,22 @@ export function createRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
   };
 }
 
-export const RDGColumnVisibilityContext =
-  React.createContext<RDGColumnVisibilityStore | null>(null);
+export const RDGToolbarContext = React.createContext<RDGToolbarStore | null>(
+  null
+);
 
-export function useRDGColumnVisibilityStore(): RDGColumnVisibilityStore {
-  const store = React.useContext(RDGColumnVisibilityContext);
+export function useRDGToolbarStore(): RDGToolbarStore {
+  const store = React.useContext(RDGToolbarContext);
   if (!store) {
     throw new Error(
-      "RDG column visibility components must be rendered inside " +
-        "RDGColumnVisibilityProvider."
+      "RDG toolbar components must be rendered inside RDGToolbarProvider."
     );
   }
   return store;
 }
 
-export function useRDGColumnVisibilitySnapshot(): RDGColumnVisibilityPublishedSnapshot {
-  const store = useRDGColumnVisibilityStore();
+export function useRDGToolbarSnapshot(): RDGToolbarPublishedSnapshot {
+  const store = useRDGToolbarStore();
   return useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,

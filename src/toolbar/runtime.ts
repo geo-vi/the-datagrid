@@ -1,8 +1,6 @@
 import ReactDataGrid from "../main";
 
-const RDG_GRID_TARGET_MARKER = Symbol.for(
-  "@geovi/the-datagrid/column-visibility-target"
-);
+const RDG_GRID_TARGET_MARKER = Symbol.for("@geovi/the-datagrid/toolbar-target");
 
 export function isMarkedGridType(type: unknown): boolean {
   if ((typeof type !== "function" && typeof type !== "object") || !type) {

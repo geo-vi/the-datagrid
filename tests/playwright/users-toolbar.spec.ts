@@ -1,4 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Download,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const ALL_COLUMN_IDS = [
   "csuserid",
@@ -12,6 +18,8 @@ const ALL_COLUMN_IDS = [
   "tfa_enabled",
   "actions",
 ] as const;
+
+const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
 
 const INITIALLY_VISIBLE_COLUMN_IDS = [
   "csuserid",
@@ -31,7 +39,7 @@ function usersGrid(preview: Locator) {
 }
 
 function visibilityToolbar(preview: Locator) {
-  return preview.locator('[data-slot="rdg-column-visibility"]');
+  return preview.locator('[data-slot="rdg-toolbar"]');
 }
 
 function toggleList(toolbar: Locator) {
@@ -42,6 +50,27 @@ function columnToggle(toolbar: Locator, columnId: string) {
   return toggleList(toolbar).locator(
     `[data-slot="rdg-column-toggle"][data-column-id="${columnId}"]`
   );
+}
+
+function toolbarActions(toolbar: Locator) {
+  return toolbar.locator('[data-slot="rdg-toolbar-actions"]');
+}
+
+function exportMenuItem(page: Page, format: "csv" | "json") {
+  return page.locator(
+    `[data-slot="rdg-toolbar-export-format"][data-export-format="${format}"]`
+  );
+}
+
+async function readDownload(download: Download): Promise<string> {
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function columnHeader(grid: Locator, columnId: string) {
@@ -91,7 +120,7 @@ async function pressedState(
   return state;
 }
 
-test.describe("external column visibility controls", () => {
+test.describe("external toolbar controls", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/examples/users");
   });
@@ -105,7 +134,7 @@ test.describe("external column visibility controls", () => {
     const group = toggleList(toolbar);
     const toggles = group.locator('[data-slot="rdg-column-toggle"]');
     const description = toolbar.getByText(
-      "Toggle columns, export the current dataset shape, and show or hide the filter row.",
+      "Toggle columns, export the current view, and show or hide the filter row.",
       { exact: true }
     );
 
@@ -212,16 +241,14 @@ test.describe("external column visibility controls", () => {
     await expect(mountedColumnCells(grid, "lang")).toHaveCount(0);
   });
 
-  test("keeps composed export and filter controls isolated from visibility", async ({
+  test("keeps built-in export and filter controls isolated from visibility", async ({
     page,
   }) => {
     const preview = usersPreview(page);
     const grid = usersGrid(preview);
     const toolbar = visibilityToolbar(preview);
     const group = toggleList(toolbar);
-    const actions = toolbar.locator(
-      '[data-slot="rdg-column-visibility-actions"]'
-    );
+    const actions = toolbarActions(toolbar);
     const initialPressedState = await pressedState(toolbar);
     const initialHeaderIds = await columnIds(
       grid.locator('[data-slot="grid-header-cell"][data-column-id]')
@@ -253,18 +280,118 @@ test.describe("external column visibility controls", () => {
     ).toEqual(initialHeaderIds);
 
     await actions.getByRole("button", { name: "Export" }).click();
-    await expect(
-      page.getByRole("menuitem", { name: "Export CSV" })
-    ).toBeVisible();
+    await expect(exportMenuItem(page, "csv")).toBeVisible();
+    await expect(exportMenuItem(page, "csv")).toBeFocused();
     await page.keyboard.press("Escape");
-    await expect(
-      page.getByRole("menuitem", { name: "Export CSV" })
-    ).toHaveCount(0);
+    await expect(exportMenuItem(page, "csv")).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: "Export" })).toBeFocused();
     expect(await pressedState(toolbar)).toEqual(initialPressedState);
 
     await actions.getByRole("button", { name: "Show filters" }).click();
     await expect(grid.locator(".tdg-filter-cell").first()).toBeVisible();
     expect(await pressedState(toolbar)).toEqual(initialPressedState);
+  });
+
+  test("exports the visible columns, honouring exportValue and exportWhenHidden", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const toolbar = visibilityToolbar(preview);
+    const actions = toolbarActions(toolbar);
+
+    await expect(usersGrid(preview)).toHaveCount(1);
+    await actions.getByRole("button", { name: "Export" }).click();
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      exportMenuItem(page, "csv").click(),
+    ]);
+
+    expect(download.suggestedFilename()).toBe("users-grid.csv");
+
+    const csv = await readDownload(download);
+    // The CSV is written with a UTF-8 BOM so spreadsheet apps stop guessing.
+    expect(csv.startsWith(BYTE_ORDER_MARK)).toBe(true);
+    const [header, firstRow] = csv.slice(BYTE_ORDER_MARK.length).split("\r\n");
+
+    // `failed_login_attempts` is hidden but marked exportWhenHidden; `actions`
+    // is exportable:false; hidden columns without the flag stay out.
+    expect(header).toBe("User #,Role,Email,Failed logins,Disabled,2FA");
+    expect(firstRow).toBe(
+      "1000,Administrator,user.1000@ikarus.demo,0,Yes,Disabled"
+    );
+    expect(csv).not.toContain("Actions");
+    expect(csv).not.toContain("Language");
+
+    // A toggled-off column drops out of the next export.
+    await columnToggle(toolbar, "csemail").click();
+    await actions.getByRole("button", { name: "Export" }).click();
+
+    const [jsonDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      exportMenuItem(page, "json").click(),
+    ]);
+
+    expect(jsonDownload.suggestedFilename()).toBe("users-grid.json");
+
+    const records = JSON.parse(await readDownload(jsonDownload)) as Record<
+      string,
+      unknown
+    >[];
+    expect(records).toHaveLength(48);
+    expect(Object.keys(records[0])).toEqual([
+      "csuserid",
+      "csrolename",
+      "failed_login_attempts",
+      "disabled",
+      "tfa_enabled",
+    ]);
+    expect(records[0].disabled).toBe("Yes");
+    expect(records[0].tfa_enabled).toBe("Disabled");
+  });
+
+  test("exports only the filtered rows and enables clearing filters", async ({
+    page,
+  }) => {
+    const preview = usersPreview(page);
+    const grid = usersGrid(preview);
+    const toolbar = visibilityToolbar(preview);
+    const actions = toolbarActions(toolbar);
+    const clearFilters = actions.getByRole("button", {
+      name: "Clear filters",
+    });
+    const roleFilter = grid
+      .locator('.tdg-filter-cell[data-column-id="csrolename"]')
+      .getByRole("combobox");
+
+    await expect(grid).toHaveCount(1);
+    await expect(clearFilters).toBeDisabled();
+
+    await roleFilter.click();
+    await page.getByRole("option", { name: "Billing Manager" }).click();
+
+    await expect(clearFilters).toBeEnabled();
+    await expect(preview.getByText("Filtered users: 12 / 48")).toBeVisible();
+
+    await actions.getByRole("button", { name: "Export" }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      exportMenuItem(page, "json").click(),
+    ]);
+
+    const records = JSON.parse(await readDownload(download)) as Record<
+      string,
+      unknown
+    >[];
+    expect(records).toHaveLength(12);
+    expect(
+      records.every((record) => record.csrolename === "Billing Manager")
+    ).toBe(true);
+
+    await clearFilters.click();
+
+    await expect(clearFilters).toBeDisabled();
+    await expect(preview.getByText("Filtered users: 48 / 48")).toBeVisible();
   });
 
   test("never hides the final visible column", async ({ page }) => {
@@ -298,9 +425,9 @@ test.describe("external column visibility controls", () => {
 test("an explicit nested target follows controlled order after a remount", async ({
   page,
 }) => {
-  await page.goto("/compat/column-visibility");
+  await page.goto("/compat/toolbar");
 
-  const scope = page.getByTestId("column-visibility-nested-target");
+  const scope = page.getByTestId("toolbar-nested-target");
   const toolbar = visibilityToolbar(scope);
   const grid = usersGrid(scope);
   const toggles = toggleList(toolbar).locator(
@@ -320,12 +447,12 @@ test("an explicit nested target follows controlled order after a remount", async
     "false"
   );
 
-  await page.getByTestId("column-visibility-reverse-order").click();
+  await page.getByTestId("toolbar-reverse-order").click();
 
   await expectColumnIds(toggles, ["city", "name", "id"]);
   await expectColumnIds(headers, ["name", "id"]);
 
-  await page.getByTestId("column-visibility-remount-grid").click();
+  await page.getByTestId("toolbar-remount-grid").click();
 
   await expectColumnIds(toggles, ["city", "name", "id"]);
   await expectColumnIds(headers, ["name", "id"]);
@@ -347,9 +474,9 @@ test("an explicit nested target follows controlled order after a remount", async
 test("auto-targets a direct grid and omits non-hideable columns", async ({
   page,
 }) => {
-  await page.goto("/compat/column-visibility");
+  await page.goto("/compat/toolbar");
 
-  const scope = page.getByTestId("column-visibility-direct-target");
+  const scope = page.getByTestId("toolbar-direct-target");
   const toolbar = visibilityToolbar(scope);
   const grid = usersGrid(scope);
   const toggles = toggleList(toolbar).locator(

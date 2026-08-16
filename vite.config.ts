@@ -12,6 +12,7 @@ const DATAGRID_SCOPE_SELECTOR = ".tdg-root";
 const REACT_EXTERNAL_ID = "the-datagrid:react-external";
 const REACT_DOM_EXTERNAL_ID = "the-datagrid:react-dom-external";
 const REACT_RUNTIME_DEDUPE = ["react", "react-dom"];
+const XLSX_EXTERNAL_ID = "xlsx";
 const DATAGRID_OWNED_SELECTOR_MARKERS = [
   ".tdg-",
   ".InovuaReactDataGrid",
@@ -141,7 +142,7 @@ function injectLibraryCssEntry() {
   const cssEntryByJsEntry: Record<string, string> = {
     "index.js": "index.css",
     "search.js": "search.css",
-    "column-visibility.js": "column-visibility.css",
+    "toolbar.js": "toolbar.css",
     "packages/TextInput/index.js": "packages/TextInput/style.css",
   };
   const clientEntriesWithoutCss = new Set(["components.js"]);
@@ -217,8 +218,8 @@ function scopeLibraryCssBundle() {
         const scopeSelector =
           cssAsset.fileName === "search.css"
             ? ".tdg-search-root"
-            : cssAsset.fileName === "column-visibility.css"
-              ? ".tdg-column-visibility-root"
+            : cssAsset.fileName === "toolbar.css"
+              ? ".tdg-toolbar-root"
               : DATAGRID_SCOPE_SELECTOR;
         cssAsset.source = scopeLibraryCss(source, scopeSelector);
       }
@@ -229,7 +230,7 @@ function scopeLibraryCssBundle() {
 function scopeOptionalCssForSite() {
   const optionalStyleScopes = new Map([
     ["/src/search/style.css", ".tdg-search-root"],
-    ["/src/column-visibility/style.css", ".tdg-column-visibility-root"],
+    ["/src/toolbar/style.css", ".tdg-toolbar-root"],
   ]);
 
   return {
@@ -257,8 +258,8 @@ export default defineConfig(({ command, mode }) => {
   const isDev = command === "serve";
   const isSiteBuild = command === "build" && mode === "site";
   const isSearchLibraryBuild = command === "build" && mode === "library-search";
-  const isColumnVisibilityLibraryBuild =
-    command === "build" && mode === "library-column-visibility";
+  const isToolbarLibraryBuild =
+    command === "build" && mode === "library-toolbar";
   const isComponentsLibraryBuild =
     command === "build" && mode === "library-components";
   const isTextInputLibraryBuild =
@@ -307,12 +308,12 @@ export default defineConfig(({ command, mode }) => {
     command === "build" && communityLibraryEntry != null;
   const isSupplementalLibraryBuild =
     isSearchLibraryBuild ||
-    isColumnVisibilityLibraryBuild ||
+    isToolbarLibraryBuild ||
     isComponentsLibraryBuild ||
     isTextInputLibraryBuild ||
     isCommunityLibraryBuild;
   const isCoreDependentSupplementalBuild =
-    isSearchLibraryBuild || isColumnVisibilityLibraryBuild;
+    isSearchLibraryBuild || isToolbarLibraryBuild;
   const resolveAlias = {
     "@": path.resolve(__dirname, "./src"),
   };
@@ -361,8 +362,8 @@ export default defineConfig(({ command, mode }) => {
 
   const libraryEntryName = isSearchLibraryBuild
     ? "search"
-    : isColumnVisibilityLibraryBuild
-      ? "column-visibility"
+    : isToolbarLibraryBuild
+      ? "toolbar"
       : isComponentsLibraryBuild
         ? "components"
         : isTextInputLibraryBuild
@@ -375,16 +376,16 @@ export default defineConfig(({ command, mode }) => {
   const searchLibraryEntry = fileURLToPath(
     new URL("./src/search/index.ts", import.meta.url)
   );
-  const columnVisibilityLibraryEntry = fileURLToPath(
-    new URL("./src/column-visibility/index.ts", import.meta.url)
+  const toolbarLibraryEntry = fileURLToPath(
+    new URL("./src/toolbar/index.ts", import.meta.url)
   );
   const componentsLibraryEntry = fileURLToPath(
     new URL("./src/providers/index.ts", import.meta.url)
   );
   const libraryEntry = isSearchLibraryBuild
     ? searchLibraryEntry
-    : isColumnVisibilityLibraryBuild
-      ? columnVisibilityLibraryEntry
+    : isToolbarLibraryBuild
+      ? toolbarLibraryEntry
       : isComponentsLibraryBuild
         ? componentsLibraryEntry
         : isTextInputLibraryBuild
@@ -399,6 +400,10 @@ export default defineConfig(({ command, mode }) => {
   const externalDependencies = new Set([
     REACT_EXTERNAL_ID,
     REACT_DOM_EXTERNAL_ID,
+    // SheetJS is an optional peer dependency several times the size of the
+    // toolbar entry. It stays external and dynamically imported, so consumers
+    // who never export a spreadsheet never load it.
+    XLSX_EXTERNAL_ID,
   ]);
   const componentsSearchEntryIds = new Set([
     "../search",
@@ -408,17 +413,17 @@ export default defineConfig(({ command, mode }) => {
     searchLibraryEntry,
     searchLibraryEntry.replace(/\.ts$/, ""),
   ]);
-  const componentsColumnVisibilityEntryIds = new Set([
-    "../column-visibility",
-    "../column-visibility/index",
-    "../column-visibility/index.js",
-    "../column-visibility/index.ts",
-    columnVisibilityLibraryEntry,
-    columnVisibilityLibraryEntry.replace(/\.ts$/, ""),
+  const componentsToolbarEntryIds = new Set([
+    "../toolbar",
+    "../toolbar/index",
+    "../toolbar/index.js",
+    "../toolbar/index.ts",
+    toolbarLibraryEntry,
+    toolbarLibraryEntry.replace(/\.ts$/, ""),
   ]);
 
   // Build core, optional UI entries, and the legacy TextInput path
-  // independently. Search and column visibility externalize the already
+  // independently. Search and toolbar externalize the already
   // required core runtime. Components composes those exact optional module
   // instances instead of bundling duplicate provider contexts. TextInput stays
   // standalone.
@@ -451,7 +456,7 @@ export default defineConfig(({ command, mode }) => {
         },
         formats:
           isSearchLibraryBuild ||
-          isColumnVisibilityLibraryBuild ||
+          isToolbarLibraryBuild ||
           isComponentsLibraryBuild ||
           isTextInputLibraryBuild
             ? ["es"]
@@ -469,7 +474,7 @@ export default defineConfig(({ command, mode }) => {
             (id === "../main" || id === coreLibraryEntry)) ||
           (isComponentsLibraryBuild &&
             (componentsSearchEntryIds.has(id) ||
-              componentsColumnVisibilityEntryIds.has(id))),
+              componentsToolbarEntryIds.has(id))),
         output: {
           inlineDynamicImports: true,
           paths: (id) => {
@@ -488,9 +493,9 @@ export default defineConfig(({ command, mode }) => {
             }
             if (
               isComponentsLibraryBuild &&
-              componentsColumnVisibilityEntryIds.has(id)
+              componentsToolbarEntryIds.has(id)
             ) {
-              return "./column-visibility.js";
+              return "./toolbar.js";
             }
             return id;
           },

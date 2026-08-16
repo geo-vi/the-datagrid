@@ -1,0 +1,541 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@source "./**/*.{ts,tsx}";
+
+/*
+ * Presentation contract
+ * =====================
+ *
+ * Everything below the palette block is expressed through `--tdg-toolbar-*`
+ * custom properties, so a consumer restyles the toolbar by redeclaring tokens
+ * on `.tdg-toolbar-root` (or any ancestor) instead of fighting selectors.
+ *
+ * The rules that consume them are wrapped in `:where()` so the scope adds no
+ * specificity: an override as ordinary as `.tdg-toolbar-root button { ... }`
+ * outranks them, and `!important` is never required.
+ *
+ * Palette tokens (`--tdg-toolbar-card`, `--tdg-toolbar-accent`, ...) keep
+ * reading `--tdg-color-*`, then the shadcn variable of the same name, so an
+ * existing themed app inherits sensible values without setting anything. A grid
+ * theme that names its own mode is the exception; see the palette blocks below.
+ */
+
+.tdg-toolbar-root,
+.tdg-toolbar-root::before,
+.tdg-toolbar-root::after,
+.tdg-toolbar-root *,
+.tdg-toolbar-root *::before,
+.tdg-toolbar-root *::after {
+  box-sizing: border-box;
+}
+
+.tdg-toolbar-root {
+  /*
+   * Palette: an explicit `--tdg-color-*`, else the host's shadcn variable, else
+   * this file's literal.
+   *
+   * The last two steps are private `-host-*` / `-*-fallback` properties, so each
+   * public token is declared once, here, and the mode blocks below move only
+   * plumbing. They are selected by attribute and would otherwise outrank your own
+   * `.tdg-toolbar-root` rule.
+   */
+  --tdg-toolbar-host-background: var(--background);
+  --tdg-toolbar-host-foreground: var(--foreground);
+  --tdg-toolbar-host-card: var(--card);
+  --tdg-toolbar-host-accent: var(--accent);
+  --tdg-toolbar-host-accent-foreground: var(--accent-foreground);
+  --tdg-toolbar-host-muted-foreground: var(--muted-foreground);
+  --tdg-toolbar-host-border: var(--border);
+  --tdg-toolbar-host-ring: var(--ring);
+  --tdg-toolbar-host-input: var(--input);
+  --tdg-toolbar-host-popover: var(--popover);
+  --tdg-toolbar-host-popover-foreground: var(--popover-foreground);
+
+  --tdg-toolbar-background-fallback: oklch(1 0 0);
+  --tdg-toolbar-foreground-fallback: oklch(0.145 0 0);
+  --tdg-toolbar-card-fallback: oklch(1 0 0);
+  --tdg-toolbar-accent-fallback: oklch(0.97 0 0);
+  --tdg-toolbar-accent-foreground-fallback: oklch(0.205 0 0);
+  --tdg-toolbar-muted-foreground-fallback: oklch(0.556 0 0);
+  --tdg-toolbar-border-fallback: oklch(0.922 0 0);
+  --tdg-toolbar-ring-fallback: oklch(0.708 0 0);
+  --tdg-toolbar-input-fallback: oklch(0.922 0 0);
+  --tdg-toolbar-popover-fallback: oklch(1 0 0);
+  --tdg-toolbar-popover-foreground-fallback: oklch(0.145 0 0);
+
+  --tdg-toolbar-background: var(
+    --tdg-color-background,
+    var(--tdg-toolbar-host-background, var(--tdg-toolbar-background-fallback))
+  );
+  --tdg-toolbar-foreground: var(
+    --tdg-color-foreground,
+    var(--tdg-toolbar-host-foreground, var(--tdg-toolbar-foreground-fallback))
+  );
+  --tdg-toolbar-card: var(
+    --tdg-color-card,
+    var(--tdg-toolbar-host-card, var(--tdg-toolbar-card-fallback))
+  );
+  --tdg-toolbar-accent: var(
+    --tdg-color-accent,
+    var(--tdg-toolbar-host-accent, var(--tdg-toolbar-accent-fallback))
+  );
+  --tdg-toolbar-accent-foreground: var(
+    --tdg-color-accent-foreground,
+    var(
+      --tdg-toolbar-host-accent-foreground,
+      var(--tdg-toolbar-accent-foreground-fallback)
+    )
+  );
+  --tdg-toolbar-muted-foreground: var(
+    --tdg-color-muted-foreground,
+    var(
+      --tdg-toolbar-host-muted-foreground,
+      var(--tdg-toolbar-muted-foreground-fallback)
+    )
+  );
+  --tdg-toolbar-border: var(
+    --tdg-color-border,
+    var(--tdg-toolbar-host-border, var(--tdg-toolbar-border-fallback))
+  );
+  --tdg-toolbar-ring: var(
+    --tdg-color-ring,
+    var(--tdg-toolbar-host-ring, var(--tdg-toolbar-ring-fallback))
+  );
+  --tdg-toolbar-input: var(
+    --tdg-color-input,
+    var(--tdg-toolbar-host-input, var(--tdg-toolbar-input-fallback))
+  );
+  --tdg-toolbar-popover: var(
+    --tdg-color-popover,
+    var(--tdg-toolbar-host-popover, var(--tdg-toolbar-popover-fallback))
+  );
+  --tdg-toolbar-popover-foreground: var(
+    --tdg-color-popover-foreground,
+    var(
+      --tdg-toolbar-host-popover-foreground,
+      var(--tdg-toolbar-popover-foreground-fallback)
+    )
+  );
+
+  /* Surface: `card` at 60%, so the page tints it. The backdrop is what the other
+   * 40% is; a named mode swaps it below. */
+  --tdg-toolbar-surface-backdrop: transparent;
+  --tdg-toolbar-surface: color-mix(
+    in oklab,
+    var(--tdg-toolbar-card) 60%,
+    var(--tdg-toolbar-surface-backdrop)
+  );
+  --tdg-toolbar-color: var(--tdg-toolbar-foreground);
+  --tdg-toolbar-padding: 0.75rem;
+  --tdg-toolbar-gap: 0.75rem;
+  --tdg-toolbar-radius: var(
+    --tdg-radius-xl,
+    var(--radius-xl, calc(var(--radius, 0.5rem) + 4px))
+  );
+  --tdg-toolbar-border-width: 1px;
+  --tdg-toolbar-border-color: var(--tdg-toolbar-border);
+  --tdg-toolbar-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+  /* Heading */
+  --tdg-toolbar-title-font-size: 0.875rem;
+  --tdg-toolbar-title-font-weight: 500;
+  --tdg-toolbar-title-color: inherit;
+  --tdg-toolbar-description-font-size: 0.75rem;
+  --tdg-toolbar-description-color: var(--tdg-toolbar-muted-foreground);
+
+  /* Groups */
+  --tdg-toolbar-body-gap: 1.5rem;
+  --tdg-toolbar-toggle-gap: 0.5rem;
+  --tdg-toolbar-actions-gap: 0.5rem;
+
+  /* Controls: every button in the toolbar */
+  --tdg-toolbar-control-height: 2rem;
+  --tdg-toolbar-control-padding: 0 0.75rem;
+  --tdg-toolbar-control-radius: var(
+    --tdg-radius-md,
+    var(--radius-md, calc(var(--radius, 0.5rem) - 2px))
+  );
+  --tdg-toolbar-control-font-weight: 500;
+  --tdg-toolbar-control-gap: 0.5rem;
+  --tdg-toolbar-control-cursor: default;
+  --tdg-toolbar-control-border-width: 1px;
+  --tdg-toolbar-control-transition: 150ms;
+  --tdg-toolbar-control-disabled-opacity: 0.5;
+  --tdg-toolbar-icon-size: 1rem;
+
+  /*
+   * Three colour families, one per appearance, and one signal apart: the border
+   * draws state, the fill draws the pointer. Hover only ever changes the fill, so
+   * it cannot be mistaken for the state under it. Geometry stays shared above,
+   * because all three are the same size and shape.
+   *
+   * `action` is export and clear-filters, which command rather than report and so
+   * always look pressable.
+   */
+  --tdg-toolbar-action-fill: transparent;
+  --tdg-toolbar-action-color: inherit;
+  --tdg-toolbar-action-border-color: var(--tdg-toolbar-input);
+  --tdg-toolbar-action-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-action-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  /* Released: a hidden column, a hidden filter row. Gives up the edge and dims
+   * the label. */
+  --tdg-toolbar-toggle-off-fill: transparent;
+  --tdg-toolbar-toggle-off-color: var(--tdg-toolbar-muted-foreground);
+  --tdg-toolbar-toggle-off-border-color: transparent;
+  --tdg-toolbar-toggle-off-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-toggle-off-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  /*
+   * Pressed: a visible column, a visible filter row. The export trigger borrows
+   * this while its menu is open, since an open menu reads as held down.
+   *
+   * Opaque `card` rather than a tint, so it lifts off the toolbar's translucent
+   * surface; where the page leaves the two the same colour (a white page, light
+   * theme) the border carries the state alone.
+   */
+  --tdg-toolbar-toggle-on-fill: var(--tdg-toolbar-card);
+  --tdg-toolbar-toggle-on-color: var(--tdg-toolbar-foreground);
+  --tdg-toolbar-toggle-on-border-color: var(--tdg-toolbar-input);
+  --tdg-toolbar-toggle-on-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-toggle-on-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  /* Font size is per family so the two keep their distinct scale by default. */
+  --tdg-toolbar-toggle-font-size: 0.875rem;
+  --tdg-toolbar-action-font-size: 0.75rem;
+
+  --tdg-toolbar-focus-ring-width: 1px;
+  --tdg-toolbar-focus-ring-color: var(--tdg-toolbar-ring);
+
+  /* Export format menu */
+  --tdg-toolbar-menu-fill: var(--tdg-toolbar-popover);
+  --tdg-toolbar-menu-color: var(--tdg-toolbar-popover-foreground);
+  --tdg-toolbar-menu-border-width: 1px;
+  --tdg-toolbar-menu-border-color: var(--tdg-toolbar-border);
+  --tdg-toolbar-menu-radius: var(--tdg-toolbar-control-radius);
+  --tdg-toolbar-menu-padding: 0.25rem;
+  --tdg-toolbar-menu-min-width: 8rem;
+  --tdg-toolbar-menu-offset: 0.25rem;
+  --tdg-toolbar-menu-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --tdg-toolbar-menu-item-font-size: 0.875rem;
+  --tdg-toolbar-menu-item-padding: 0.375rem 0.5rem;
+  --tdg-toolbar-menu-item-radius: var(
+    --tdg-radius-sm,
+    var(--radius-sm, calc(var(--radius, 0.5rem) - 4px))
+  );
+  --tdg-toolbar-menu-item-hover-fill: var(--tdg-toolbar-accent);
+  --tdg-toolbar-menu-item-hover-color: var(--tdg-toolbar-accent-foreground);
+
+  color-scheme: light;
+}
+
+/*
+ * Dark, whether the host put the toolbar in a `.dark` subtree or the grid was
+ * given a dark theme by name. Only the literals move: the resolution order is
+ * declared once, above.
+ */
+.dark .tdg-toolbar-root[data-theme="default"][data-theme-base="default"],
+.tdg-toolbar-root[data-theme-base="dark"] {
+  --tdg-toolbar-background-fallback: oklch(0.145 0 0);
+  --tdg-toolbar-foreground-fallback: oklch(0.985 0 0);
+  --tdg-toolbar-card-fallback: oklch(0.205 0 0);
+  --tdg-toolbar-accent-fallback: oklch(0.269 0 0);
+  --tdg-toolbar-accent-foreground-fallback: oklch(0.985 0 0);
+  --tdg-toolbar-muted-foreground-fallback: oklch(0.708 0 0);
+  --tdg-toolbar-border-fallback: oklch(1 0 0 / 10%);
+  --tdg-toolbar-ring-fallback: oklch(0.556 0 0);
+  --tdg-toolbar-input-fallback: oklch(1 0 0 / 15%);
+  --tdg-toolbar-popover-fallback: oklch(0.205 0 0);
+  --tdg-toolbar-popover-foreground-fallback: oklch(0.985 0 0);
+
+  color-scheme: dark;
+}
+
+/*
+ * A theme named `*-dark` or `*-light` states its own mode; the host's variables
+ * track the host's. Reading both mixes them - a dark toolbar paints a white chip
+ * from the host's `--card` - so the host drops out of every chain here. `initial`
+ * is what does it: it resolves to the guaranteed-invalid value, the one thing
+ * that makes `var()` take its fallback.
+ *
+ * The surface needs the same, or a dark card over a light page shows 40% of that
+ * page and washes out to grey. Mixing into its own `background` lands on the
+ * colour the translucent surface reaches over a page of the matching mode.
+ *
+ * `default` is excluded: it states no mode, so it keeps following the host.
+ */
+.tdg-toolbar-root[data-theme-base="dark"],
+.tdg-toolbar-root[data-theme-base="light"] {
+  --tdg-toolbar-host-background: initial;
+  --tdg-toolbar-host-foreground: initial;
+  --tdg-toolbar-host-card: initial;
+  --tdg-toolbar-host-accent: initial;
+  --tdg-toolbar-host-accent-foreground: initial;
+  --tdg-toolbar-host-muted-foreground: initial;
+  --tdg-toolbar-host-border: initial;
+  --tdg-toolbar-host-ring: initial;
+  --tdg-toolbar-host-input: initial;
+  --tdg-toolbar-host-popover: initial;
+  --tdg-toolbar-host-popover-foreground: initial;
+
+  --tdg-toolbar-surface-backdrop: var(--tdg-toolbar-background);
+}
+
+:where(.tdg-toolbar-root) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tdg-toolbar-gap);
+  padding: var(--tdg-toolbar-padding);
+  border: var(--tdg-toolbar-border-width) solid var(--tdg-toolbar-border-color);
+  border-radius: var(--tdg-toolbar-radius);
+  background: var(--tdg-toolbar-surface);
+  box-shadow: var(--tdg-toolbar-shadow);
+  color: var(--tdg-toolbar-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-heading"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-title"] {
+  font-size: var(--tdg-toolbar-title-font-size);
+  font-weight: var(--tdg-toolbar-title-font-weight);
+  line-height: 1.25rem;
+  color: var(--tdg-toolbar-title-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-description"] {
+  font-size: var(--tdg-toolbar-description-font-size);
+  line-height: 1rem;
+  color: var(--tdg-toolbar-description-color);
+}
+
+/*
+ * Stacked, the actions come first: the toggle list wraps to several rows on a
+ * phone and would otherwise push export and the filter controls far down the
+ * card. Reversing here rather than in the markup keeps the wide layout's visual
+ * order (toggles leading, actions trailing) identical to DOM and focus order.
+ */
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-body"] {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--tdg-toolbar-body-gap);
+}
+
+@media (width >= 80rem) {
+  :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-body"] {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-list"] {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: var(--tdg-toolbar-toggle-gap);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-actions"] {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tdg-toolbar-actions-gap);
+}
+
+/*
+ * Every control rule below carries exactly one unit of specificity: the part
+ * that names the state (`[data-slot]`, `[data-state]`, `:hover`, `:disabled`,
+ * `:focus-visible`), with everything else inside `:where()`. Later rules win
+ * over earlier ones by order, and any consumer selector that adds a second
+ * part - `.tdg-toolbar-root button`, `button:hover`, a class of your own -
+ * outranks all of them. `!important` is never needed.
+ */
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+  display: inline-flex;
+  height: var(--tdg-toolbar-control-height);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tdg-toolbar-control-gap);
+  padding: var(--tdg-toolbar-control-padding);
+  border: var(--tdg-toolbar-control-border-width) solid
+    var(--tdg-toolbar-action-border-color);
+  border-radius: var(--tdg-toolbar-control-radius);
+  background: var(--tdg-toolbar-action-fill);
+  color: var(--tdg-toolbar-action-color);
+  font: inherit;
+  font-weight: var(--tdg-toolbar-control-font-weight);
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  appearance: none;
+  cursor: var(--tdg-toolbar-control-cursor);
+  user-select: none;
+  outline: none;
+  transition:
+    color var(--tdg-toolbar-control-transition),
+    background-color var(--tdg-toolbar-control-transition),
+    border-color var(--tdg-toolbar-control-transition);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"] {
+  font-size: var(--tdg-toolbar-toggle-font-size);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+  font-size: var(--tdg-toolbar-action-font-size);
+}
+
+/*
+ * The export trigger is absent here on purpose: its `data-state` reports whether
+ * the menu is open, not a grid setting, so closed leaves it a plain action.
+ */
+:where(.tdg-toolbar-root)
+  [data-state="off"]:where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ) {
+  border-color: var(--tdg-toolbar-toggle-off-border-color);
+  background: var(--tdg-toolbar-toggle-off-fill);
+  color: var(--tdg-toolbar-toggle-off-color);
+}
+
+:where(.tdg-toolbar-root)
+  [data-state="on"]:where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ) {
+  border-color: var(--tdg-toolbar-toggle-on-border-color);
+  background: var(--tdg-toolbar-toggle-on-fill);
+  color: var(--tdg-toolbar-toggle-on-color);
+}
+
+/* No hover rule restates `border-color`, so each control keeps the edge its
+ * state gave it. */
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"],
+    [data-slot="rdg-toolbar-clear-filters"]
+  ):where(:enabled):hover {
+  background: var(--tdg-toolbar-action-hover-fill);
+  color: var(--tdg-toolbar-action-hover-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where([data-state="off"]):where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ):where(:enabled):hover {
+  background: var(--tdg-toolbar-toggle-off-hover-fill);
+  color: var(--tdg-toolbar-toggle-off-hover-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where([data-state="on"]):where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"]
+  ):where(:enabled):hover {
+  background: var(--tdg-toolbar-toggle-on-hover-fill);
+  color: var(--tdg-toolbar-toggle-on-hover-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot^="rdg-toolbar"],
+    [data-slot="rdg-column-toggle"]
+  ):focus-visible {
+  box-shadow: 0 0 0 var(--tdg-toolbar-focus-ring-width)
+    var(--tdg-toolbar-focus-ring-color);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-export"],
+    [data-slot="rdg-toolbar-filter-toggle"],
+    [data-slot="rdg-toolbar-clear-filters"]
+  ):disabled {
+  pointer-events: none;
+  opacity: var(--tdg-toolbar-control-disabled-opacity);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-wrapper"] {
+  position: relative;
+  display: inline-flex;
+}
+
+:where(.tdg-toolbar-root) svg {
+  width: var(--tdg-toolbar-icon-size);
+  height: var(--tdg-toolbar-icon-size);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-menu"] {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 100%;
+  z-index: 50;
+  display: flex;
+  min-width: var(--tdg-toolbar-menu-min-width);
+  flex-direction: column;
+  margin-top: var(--tdg-toolbar-menu-offset);
+  padding: var(--tdg-toolbar-menu-padding);
+  overflow: hidden;
+  border: var(--tdg-toolbar-menu-border-width) solid
+    var(--tdg-toolbar-menu-border-color);
+  border-radius: var(--tdg-toolbar-menu-radius);
+  background: var(--tdg-toolbar-menu-fill);
+  box-shadow: var(--tdg-toolbar-menu-shadow);
+  color: var(--tdg-toolbar-menu-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-format"] {
+  display: flex;
+  align-items: center;
+  gap: var(--tdg-toolbar-control-gap);
+  padding: var(--tdg-toolbar-menu-item-padding);
+  border: 0;
+  border-radius: var(--tdg-toolbar-menu-item-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--tdg-toolbar-menu-item-font-size);
+  white-space: nowrap;
+  text-align: start;
+  cursor: var(--tdg-toolbar-control-cursor);
+  user-select: none;
+  outline: none;
+}
+
+:where(.tdg-toolbar-root)
+  :where([data-slot="rdg-toolbar-export-format"]):is(:hover, :focus-visible) {
+  background: var(--tdg-toolbar-menu-item-hover-fill);
+  color: var(--tdg-toolbar-menu-item-hover-color);
+}
+
+/*
+ * Tailwind's default radius scale is withheld so this stylesheet cannot shadow
+ * the host's own `--radius-*` tokens inside the toolbar; the radius defaults
+ * above read the host value and fall back to the shadcn formula.
+ */
+@theme {
+  --radius-*: initial;
+}

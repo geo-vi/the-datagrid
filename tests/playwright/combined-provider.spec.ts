@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const COMPAT_ROUTE = "/compat/column-visibility";
+const COMPAT_ROUTE = "/compat/toolbar";
 
 function combinedScope(page: Page, target: "direct" | "nested") {
   return page.getByTestId(`combined-provider-${target}-target`);
@@ -11,7 +11,7 @@ function gridIn(scope: Locator) {
 }
 
 function visibilityToolbar(scope: Locator) {
-  return scope.locator('[data-slot="rdg-column-visibility"]');
+  return scope.locator('[data-slot="rdg-toolbar"]');
 }
 
 function columnToggle(scope: Locator, columnId: string) {

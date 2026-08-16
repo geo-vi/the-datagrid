@@ -2,19 +2,19 @@ import { expect, test } from "@playwright/test";
 
 import { viteFsUrl } from "./helpers/vite-fs-url";
 
-test("published core and column-visibility entries hide and show a column", async ({
+test("published core and toolbar entries hide and show a column", async ({
   page,
 }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  const columnVisibilityUrl = viteFsUrl("dist/column-visibility.js");
+  const toolbarUrl = viteFsUrl("dist/toolbar.js");
   const coreUrl = viteFsUrl("dist/index.js");
   const reactDomUrl = viteFsUrl("node_modules/.vite/deps/react-dom_client.js");
   const reactUrl = viteFsUrl("node_modules/.vite/deps/react.js");
 
   await page.goto("/");
-  await page.setContent('<div id="published-column-visibility-root"></div>');
+  await page.setContent('<div id="published-toolbar-root"></div>');
   await page.addScriptTag({
     type: "module",
     content: `
@@ -22,9 +22,9 @@ test("published core and column-visibility entries hide and show a column", asyn
       import ReactDOMClient from ${JSON.stringify(reactDomUrl)};
       import ReactDataGrid from ${JSON.stringify(coreUrl)};
       import {
-        RDGColumnVisibilityProvider,
-        RDGColumnVisibilityToolbar,
-      } from ${JSON.stringify(columnVisibilityUrl)};
+        RDGToolbarProvider,
+        RDGToolbar,
+      } from ${JSON.stringify(toolbarUrl)};
 
       const columns = [
         { name: "name", header: "Name" },
@@ -35,11 +35,11 @@ test("published core and column-visibility entries hide and show a column", asyn
         { id: 2, name: "Grace", city: "New York" },
       ];
 
-      function PublishedColumnVisibilitySmoke() {
+      function PublishedToolbarSmoke() {
         return React.createElement(
-          RDGColumnVisibilityProvider,
+          RDGToolbarProvider,
           null,
-          React.createElement(RDGColumnVisibilityToolbar, {
+          React.createElement(RDGToolbar, {
             title: "Visible columns",
           }),
           React.createElement(ReactDataGrid, {
@@ -53,12 +53,12 @@ test("published core and column-visibility entries hide and show a column", asyn
       }
 
       ReactDOMClient.createRoot(
-        document.getElementById("published-column-visibility-root")
-      ).render(React.createElement(PublishedColumnVisibilitySmoke));
+        document.getElementById("published-toolbar-root")
+      ).render(React.createElement(PublishedToolbarSmoke));
     `,
   });
 
-  const toolbar = page.locator('[data-slot="rdg-column-visibility"]');
+  const toolbar = page.locator('[data-slot="rdg-toolbar"]');
   const cityToggle = toolbar.locator(
     '[data-slot="rdg-column-toggle"][data-column-id="city"]'
   );

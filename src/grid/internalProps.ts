@@ -28,23 +28,30 @@ export type InternalSearchController = {
   filterRows: <Row>(rows: Row[], columns: TypeColumn[]) => Row[];
 };
 
-export type InternalColumnVisibilitySnapshot = {
+export type InternalToolbarSnapshot = {
   columns: readonly TypeColumn[];
   columnOrder: readonly string[];
   columnVisibilityMap: Readonly<Record<string, boolean>>;
   theme: string;
   setColumnVisible: (columnId: string, visible: boolean) => void;
+  filteringEnabled: boolean;
+  canToggleFiltering: boolean;
+  setFilteringEnabled: (enabled: boolean) => void;
+  filtered: boolean;
+  clearAllFilters: () => void;
+  getViewRows: () => readonly unknown[];
+  getAllRows: () => readonly unknown[];
 };
 
-export type InternalColumnVisibilityController = {
-  publish: (snapshot: InternalColumnVisibilitySnapshot) => void;
+export type InternalToolbarController = {
+  publish: (snapshot: InternalToolbarSnapshot) => void;
 };
 
 export type InternalDataGridProps = TypeDataGridProps & {
   /** Injected by the optional search package; intentionally not public API. */
   __rdgSearchController?: InternalSearchController;
-  /** Injected by the optional column-visibility package; not public API. */
-  __rdgColumnVisibilityController?: InternalColumnVisibilityController;
+  /** Injected by the optional toolbar package; not public API. */
+  __rdgToolbarController?: InternalToolbarController;
 };
 
 let publicPropsCache:
@@ -65,7 +72,7 @@ export function getPublicProps(
 
   const publicProps = { ...internalProps };
   delete publicProps.__rdgSearchController;
-  delete publicProps.__rdgColumnVisibilityController;
+  delete publicProps.__rdgToolbarController;
   cache.set(internalProps, publicProps);
   return publicProps;
 }

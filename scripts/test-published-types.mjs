@@ -126,9 +126,9 @@ try {
     "dist/style/theme/green-light/index.css",
     "dist/style/theme/pink-dark/index.css",
     "dist/style/theme/pink-light/index.css",
-    "dist/column-visibility.js",
-    "dist/column-visibility.css",
-    "dist/column-visibility/index.d.ts",
+    "dist/toolbar.js",
+    "dist/toolbar.css",
+    "dist/toolbar/index.d.ts",
     "dist/components.js",
     "dist/providers/index.d.ts",
     "dist/packages/TextInput/index.js",
@@ -233,7 +233,7 @@ try {
     }
 
     console.log(
-      `Packed root, Community editors/filters/types, search, column-visibility, components, and TextInput types resolved with ${configuration}.`
+      `Packed root, Community editors/filters/types, search, toolbar, components, and TextInput types resolved with ${configuration}.`
     );
   }
 } finally {

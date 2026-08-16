@@ -6,7 +6,7 @@ import postcss from "postcss";
 const cssPaths = [
   path.resolve(process.cwd(), "dist/index.css"),
   path.resolve(process.cwd(), "dist/search.css"),
-  path.resolve(process.cwd(), "dist/column-visibility.css"),
+  path.resolve(process.cwd(), "dist/toolbar.css"),
   path.resolve(process.cwd(), "dist/packages/TextInput/style.css"),
 ];
 const datagridOwnedMarkers = [

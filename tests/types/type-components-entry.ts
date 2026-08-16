@@ -4,17 +4,17 @@ import ReactDataGrid, {
 } from "@geovi/the-datagrid";
 import * as ComponentsEntry from "@geovi/the-datagrid/components";
 import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityTarget,
-  RDGColumnVisibilityToolbar,
+  RDGToolbarProvider,
+  RDGToolbarTarget,
+  RDGToolbar,
   RDGProvider,
   RDGSearchBar,
   RDGSearchProvider,
   RDGSearchTarget,
   RDGTarget,
-  type RDGColumnVisibilityProviderProps,
-  type RDGColumnVisibilityTargetProps,
-  type RDGColumnVisibilityToolbarProps,
+  type RDGToolbarProviderProps,
+  type RDGToolbarTargetProps,
+  type RDGToolbarProps,
   type RDGProviderProps,
   type RDGSearchBarProps,
   type RDGSearchProviderProps,
@@ -31,9 +31,9 @@ type ComponentsRuntimeExport =
   | "RDGSearchBar"
   | "RDGSearchProvider"
   | "RDGSearchTarget"
-  | "RDGColumnVisibilityProvider"
-  | "RDGColumnVisibilityTarget"
-  | "RDGColumnVisibilityToolbar";
+  | "RDGToolbarProvider"
+  | "RDGToolbarTarget"
+  | "RDGToolbar";
 
 export type ComponentsEntryHasNoPublicInternals = AssertNever<
   Exclude<keyof typeof ComponentsEntry, ComponentsRuntimeExport>
@@ -68,8 +68,10 @@ export const componentsProviderProps = {
   defaultSearchValue: "Ada",
   children: [
     createElement(RDGSearchBar, { placeholder: "Search people" }),
-    createElement(RDGColumnVisibilityToolbar, {
-      children: createElement("button", { type: "button" }, "Export"),
+    createElement(RDGToolbar, {
+      showExport: true,
+      showFilterToggle: true,
+      children: createElement("button", { type: "button" }, "Reload"),
     }),
     createElement(RDGTarget, componentsTargetProps),
   ],
@@ -93,14 +95,14 @@ export type ComponentsSearchProviderPropsAreExported = ComponentProps<
 export type ComponentsSearchTargetPropsAreExported = ComponentProps<
   typeof RDGSearchTarget
 >;
-export type ComponentsColumnVisibilityProviderPropsAreExported = ComponentProps<
-  typeof RDGColumnVisibilityProvider
+export type ComponentsToolbarProviderPropsAreExported = ComponentProps<
+  typeof RDGToolbarProvider
 >;
-export type ComponentsColumnVisibilityTargetPropsAreExported = ComponentProps<
-  typeof RDGColumnVisibilityTarget
+export type ComponentsToolbarTargetPropsAreExported = ComponentProps<
+  typeof RDGToolbarTarget
 >;
-export type ComponentsColumnVisibilityToolbarPropsAreExported = ComponentProps<
-  typeof RDGColumnVisibilityToolbar
+export type ComponentsToolbarPropsAreExported = ComponentProps<
+  typeof RDGToolbar
 >;
 
 export type ComponentsProviderPropsMatchExport = RDGProviderProps;
@@ -108,9 +110,6 @@ export type ComponentsTargetPropsMatchExport = RDGTargetProps;
 export type ComponentsSearchBarPropsMatchExport = RDGSearchBarProps;
 export type ComponentsSearchProviderPropsMatchExport = RDGSearchProviderProps;
 export type ComponentsSearchTargetPropsMatchExport = RDGSearchTargetProps;
-export type ComponentsColumnVisibilityProviderPropsMatchExport =
-  RDGColumnVisibilityProviderProps;
-export type ComponentsColumnVisibilityTargetPropsMatchExport =
-  RDGColumnVisibilityTargetProps;
-export type ComponentsColumnVisibilityToolbarPropsMatchExport =
-  RDGColumnVisibilityToolbarProps;
+export type ComponentsToolbarProviderPropsMatchExport = RDGToolbarProviderProps;
+export type ComponentsToolbarTargetPropsMatchExport = RDGToolbarTargetProps;
+export type ComponentsToolbarPropsMatchExport = RDGToolbarProps;

@@ -10,7 +10,7 @@ Documentation and live examples: https://geo-vi.github.io/the-datagrid/
 - Sorting (single + multi-column)
 - Filtering with a built-in filter row and operators
 - Opt-in global table search through a separate, tree-shakeable entry
-- Opt-in contextual column-visibility toolbar with a right-side action slot
+- Opt-in grid toolbar: column toggles, export, filter-row and clear-filter actions
 - Column management (reorder, resize, auto-size)
 - Stacked and nested column headers with split/rejoin and group resizing
 - Pagination (local + remote)
@@ -154,7 +154,7 @@ method allowlists.
   entry, normalized AND matching, column-scoped queries and aliases, nested or
   derived search values, hidden-column search, a lazy cached local index, static
   Promise search, and `searchValue` forwarding for remote functions.
-- **Optional column visibility:** a separate provider/toolbar/target entry that
+- **Optional toolbar:** a separate provider/toolbar/target entry that
   follows live grid order and visibility, honors non-hideable columns, protects
   the final visible column, and accepts application actions on the right.
 - **Themes and UI:** packaged CSS, shadcn-aligned controls, fixed
@@ -237,15 +237,15 @@ light/dark theme path, and `@geovi/the-datagrid/search/style.css`.
 
 The optional `@geovi/the-datagrid/components` entry is the one-import choice for
 mixed contextual controls. It exports `RDGProvider`, `RDGTarget`,
-`RDGSearchBar`, `RDGColumnVisibilityToolbar`, all four stable feature-specific
+`RDGSearchBar`, `RDGToolbar`, all four stable feature-specific
 provider/target APIs, and their prop types. It reuses the existing search and
-column-visibility singleton contexts and automatically loads both isolated
+toolbar singleton contexts and automatically loads both isolated
 stylesheets; there is intentionally no duplicate `components/style.css`.
 
-The optional `@geovi/the-datagrid/column-visibility` entry exports
-`RDGColumnVisibilityProvider`, `RDGColumnVisibilityToolbar`,
-`RDGColumnVisibilityTarget`, and their prop types. Its explicit stylesheet
-fallback is `@geovi/the-datagrid/column-visibility/style.css`.
+The optional `@geovi/the-datagrid/toolbar` entry exports
+`RDGToolbarProvider`, `RDGToolbar`, `RDGToolbarTarget`, and their prop types.
+Its explicit stylesheet fallback is
+`@geovi/the-datagrid/toolbar/style.css`.
 
 The Inovua-compatible standalone input remains a default class export at
 `@geovi/the-datagrid/packages/TextInput`. That deep entry loads the packaged
@@ -457,24 +457,20 @@ export default function App() {
 
 ## Combined contextual controls
 
-Use one `RDGProvider` when search and column visibility control the same grid.
+Use one `RDGProvider` when search and the toolbar control the same grid.
 A direct grid child connects automatically:
 
 ```tsx
 import ReactDataGrid from "@geovi/the-datagrid";
 import {
-  RDGColumnVisibilityToolbar,
+  RDGToolbar,
   RDGProvider,
   RDGSearchBar,
 } from "@geovi/the-datagrid/components";
 
 <RDGProvider>
   <RDGSearchBar />
-  <RDGColumnVisibilityToolbar>
-    <button type="button" onClick={exportRows}>
-      Export CSV
-    </button>
-  </RDGColumnVisibilityToolbar>
+  <RDGToolbar showExport showFilterToggle />
   <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
 </RDGProvider>;
 ```
@@ -484,12 +480,12 @@ between the provider and grid, put one `RDGTarget` immediately around the grid.
 `RDGProvider` and `RDGTarget` add no DOM elements and support one grid per
 provider scope. Use `defaultSearchValue` when the shared search query needs a
 non-empty initial value. Do not nest `RDGSearchTarget` and
-`RDGColumnVisibilityTarget`; use the combined target instead.
+`RDGToolbarTarget`; use the combined target instead.
 
 Controls imported from `@geovi/the-datagrid/search` and
-`@geovi/the-datagrid/column-visibility` also work inside `RDGProvider`. The
+`@geovi/the-datagrid/toolbar` also work inside `RDGProvider`. The
 existing `RDGSearchProvider`, `RDGSearchTarget`,
-`RDGColumnVisibilityProvider`, and `RDGColumnVisibilityTarget` exports remain
+`RDGToolbarProvider`, and `RDGToolbarTarget` exports remain
 supported and are not deprecated.
 
 ## Optional table search
@@ -625,31 +621,114 @@ remote page and present it as a server-wide result. If the backend does not yet
 support global search, keep that search state application-owned until its
 request contract is defined.
 
-## Optional column visibility toolbar
+## Optional grid toolbar
 
-Column visibility controls are also an opt-in contextual entry. A direct grid
-child connects automatically, and toolbar children form a separate right-side
-action area for consumer-owned export, filter, or navigation controls:
+Grid toolbar controls are also an opt-in contextual entry. A direct grid child
+connects automatically. Column toggles always render; export, filter-row and
+clear-filter buttons are opt-in props, and toolbar children stay a separate
+right-side action area for consumer-owned controls:
 
 ```tsx
 import ReactDataGrid from "@geovi/the-datagrid";
-import {
-  RDGColumnVisibilityProvider,
-  RDGColumnVisibilityToolbar,
-} from "@geovi/the-datagrid/column-visibility";
+import { RDGToolbarProvider, RDGToolbar } from "@geovi/the-datagrid/toolbar";
 
-<RDGColumnVisibilityProvider>
-  <RDGColumnVisibilityToolbar>
-    <button type="button" onClick={exportRows}>
-      Export CSV
+<RDGToolbarProvider>
+  <RDGToolbar showExport showFilterToggle showClearFilters>
+    <button type="button" onClick={reload}>
+      Reload
     </button>
-    <button type="button" onClick={toggleFilters}>
-      Show filters
-    </button>
-  </RDGColumnVisibilityToolbar>
+  </RDGToolbar>
   <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
-</RDGColumnVisibilityProvider>;
+</RDGToolbarProvider>;
 ```
+
+`showExport` writes the grid's current columns, in grid order, as CSV, JSON or
+XLSX. Spreadsheet output needs the optional `xlsx` peer dependency:
+
+```bash
+npm install xlsx
+```
+
+It is left out of `exportFormats` by default, since its writer is many times the
+size of the toolbar entry, and it is imported on demand the first time somebody
+exports a workbook. Values keep their JavaScript type on the way into a
+workbook, so numbers stay summable, `Date` values become date cells carrying
+`exportDateFormat`, and booleans become `TRUE`/`FALSE`; text formats stringify
+the same values and write dates as ISO-8601. `exportDateFormat` is an Excel
+number format code rather than a date-library pattern, `exportSheetName` names
+the worksheet, and the two callbacks report the outcome: `onExportSuccess`
+receives the format, scope, row and column counts, file name and byte size,
+which is enough for a confirmation toast, while `onExportError` reports a
+failure such as a missing peer dependency.
+
+`exportScope` selects the rows: `"view"` (default) exports the filtered,
+searched and sorted rows, `"all"` the entire data source. Under local pagination
+the grid holds a single page, so `"view"` exports that page. `exportFormats`,
+`exportFileName` and `labels` cover the rest; with exactly one format the button
+exports on click instead of opening a menu.
+
+Every string the toolbar renders itself comes from `labels`, as a string or an
+element, so a translation helper can supply all of them:
+
+```tsx
+<RDGToolbar
+  showExport
+  showFilterToggle
+  showClearFilters
+  labels={{
+    export: t("export"),
+    showFilters: t("show_filters"),
+    hideFilters: t("hide_filters"),
+    clearFilters: t("clear_filters"),
+
+    // Menu entry per format; an unnamed format keeps its own name.
+    exportFormats: { csv: t("csv"), xlsx: t("excel") },
+
+    // Whole button text when one format is offered. The default joins
+    // `export` and the format name in that order ("Export CSV"), which a
+    // translation file cannot reorder - set this for "CSV exportieren".
+    exportSingle: { csv: t("export_csv") },
+  }}
+/>
+```
+
+`title`, `description` and `ariaLabel` are separate props and take the same
+treatment; column toggles read each column's `header`. The export menu is named
+after its own trigger, so a translated label needs no second string.
+
+Export reads row values, never `render`, which returns React nodes. Columns
+describe their own exported shape:
+
+```tsx
+const columns: TypeColumns = [
+  { name: "id", header: "ID" },
+
+  // render returns a React node, so export needs its own value.
+  {
+    name: "active",
+    header: "Active",
+    render: ({ value }) => <StatusPill active={value} />,
+    exportValue: ({ value }) => (value ? "Yes" : "No"),
+  },
+
+  // Hidden in the grid, still written to the file.
+  {
+    name: "auditId",
+    header: "Audit ID",
+    defaultVisible: false,
+    exportWhenHidden: true,
+  },
+
+  // Row buttons have no exportable representation.
+  { name: "actions", header: "Actions", exportable: false },
+];
+```
+
+Only visible columns are exported unless a column sets `exportWhenHidden`, and
+`exportable: false` always wins. `showFilterToggle` drives the grid's own
+filter-row state, so it renders disabled while `enableFiltering` is passed as a
+controlled prop; `showClearFilters` calls `clearAllFilters` and stays disabled
+while nothing is filtered.
 
 The toolbar renders columns in the grid's current order and reflects the live
 visibility map. It uses string or numeric headers with stable `id`/`name`
@@ -670,19 +749,95 @@ toggle group keeps its `ariaLabel`, and the description is associated with both
 through `aria-describedby`. Passing `title={null}` suppresses the heading while
 preserving the group's accessible name.
 
-Use `RDGColumnVisibilityTarget` around the grid when layout markup separates it
+### Styling the toolbar
+
+The toolbar carries no utility classes: every visual decision is a
+`--tdg-toolbar-*` custom property, so restyling means redeclaring tokens on
+`.tdg-toolbar-root` or any ancestor.
+
+```css
+.tdg-toolbar-root {
+  --tdg-toolbar-padding: 0;
+  --tdg-toolbar-radius: 0;
+  --tdg-toolbar-border-width: 0;
+  --tdg-toolbar-shadow: none;
+
+  --tdg-toolbar-toggle-gap: 3px;
+  --tdg-toolbar-control-padding: 6px 8px;
+  --tdg-toolbar-control-radius: 4px;
+  --tdg-toolbar-control-height: auto;
+  --tdg-toolbar-control-cursor: pointer;
+
+  /* Export and clear-filters. */
+  --tdg-toolbar-action-fill: #eef1f5;
+  --tdg-toolbar-action-color: #12263f;
+
+  /* A released toggle, filled here rather than recessed. */
+  --tdg-toolbar-toggle-off-fill: #eef1f5;
+  --tdg-toolbar-toggle-off-color: #5b6b7f;
+
+  /* A pressed toggle, and export while its menu is open. */
+  --tdg-toolbar-toggle-on-fill: #1a73e8;
+  --tdg-toolbar-toggle-on-color: #ffffff;
+}
+```
+
+The three appearances differ by one signal each: an action keeps its border, a
+released toggle drops it and dims the label, a pressed toggle keeps it over an
+opaque `card` fill. Hover only changes the fill, so it never reads as a state.
+
+Colour tokens fall back through `--tdg-color-*` and then the shadcn variable of
+the same name, so a themed application inherits sensible values without setting
+anything. Bridging another design system - BaseUI, MUI, a styled-components
+theme - means assigning its values to these tokens once, on a wrapper element.
+
+A grid theme named `*-dark` or `*-light` is the exception: it states a mode, so
+the toolbar skips the shadcn step, which tracks the page's mode rather than the
+grid's. Reading it would paint a dark toolbar with the page's white `--card`. A
+theme named `default` states no mode and keeps following the page.
+
+Two caveats when you theme a toolbar that sits outside the grid. Theme
+stylesheets scope their variables to the grid root, so a sibling toolbar never
+sees them - declare `--tdg-color-*` on a common ancestor to share one palette.
+And the mode rules above are selected by attribute, so they only ever move
+private plumbing (`--tdg-toolbar-host-*`, `--tdg-toolbar-*-fallback`,
+`--tdg-toolbar-surface-backdrop`); every token in the reference is declared once
+at plain `.tdg-toolbar-root` specificity, so your override always wins.
+
+Plain CSS overrides work too, and never need `!important`: every default rule is
+written with exactly one unit of specificity, so any selector of yours that adds
+a second part outranks it.
+
+```css
+.tdg-toolbar-root button[data-state="off"] {
+  background-color: var(--button-secondary-fill);
+}
+```
+
+Elements expose stable `data-slot` names (`rdg-toolbar`, `rdg-column-toggle`,
+`rdg-toolbar-actions`, `rdg-toolbar-export`, `rdg-toolbar-filter-toggle`, ...),
+and toggles expose `data-state` as `on` or `off`. `RDGToolbar` also accepts
+`className` for scoping overrides to a class of your own. The complete token
+table lives in
+[the toolbar styling reference](https://geo-vi.github.io/the-datagrid/docs/reference/toolbar#toolbar-styling).
+
+Stacked, the toolbar places its actions above the column toggles, since a
+wrapping toggle list would otherwise push export and the filter controls far
+down the card; from `80rem` it becomes a row with toggles leading.
+
+Use `RDGToolbarTarget` around the grid when layout markup separates it
 from the provider. Keep one grid per provider so the column model is
 unambiguous. The JavaScript entry loads its scoped stylesheet automatically; if
 your environment requires manual CSS imports, add
-`import "@geovi/the-datagrid/column-visibility/style.css"`.
+`import "@geovi/the-datagrid/toolbar/style.css"`.
 
 For the complete direct-child rules, nested layout examples, multiple-grid
 scoping, and the stability contract for all feature-specific providers and
 targets, see [Providers and targets](https://geo-vi.github.io/the-datagrid/docs/reference/providers-and-targets).
 
-When search and visibility share a grid, prefer `RDGProvider`/`RDGTarget` from
+When search and the toolbar share a grid, prefer `RDGProvider`/`RDGTarget` from
 `@geovi/the-datagrid/components`. The feature-specific provider and target
-remain supported for visibility-only screens and existing integrations.
+remain supported for toolbar-only screens and existing integrations.
 
 ## Advanced usage
 

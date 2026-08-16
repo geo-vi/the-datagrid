@@ -24,11 +24,11 @@ export function RDGSearchTarget(
   props: RDGSearchTargetProps
 ): React.ReactElement {
   const { children } = props;
-  const forwardedColumnVisibilityController = (
+  const forwardedToolbarController = (
     props as RDGSearchTargetProps & {
-      __rdgColumnVisibilityController?: unknown;
+      __rdgToolbarController?: unknown;
     }
-  ).__rdgColumnVisibilityController;
+  ).__rdgToolbarController;
   const store = useRDGSearchStore();
   const committedValue = useRDGSearchSnapshot();
   const query = committedValue.trim();
@@ -65,9 +65,8 @@ export function RDGSearchTarget(
   const injectedProps: Record<string, unknown> = {
     __rdgSearchController: controller,
   };
-  if (forwardedColumnVisibilityController !== undefined) {
-    injectedProps.__rdgColumnVisibilityController =
-      forwardedColumnVisibilityController;
+  if (forwardedToolbarController !== undefined) {
+    injectedProps.__rdgToolbarController = forwardedToolbarController;
   }
 
   return React.cloneElement(

@@ -8,8 +8,8 @@
       "@geovi/the-datagrid/packages/TextInput": [
         "./src/packages/TextInput/index.tsx"
       ],
-      "@geovi/the-datagrid/column-visibility": [
-        "./src/column-visibility/index.ts"
+      "@geovi/the-datagrid/toolbar": [
+        "./src/toolbar/index.ts"
       ],
       "@geovi/the-datagrid/components": ["./src/providers/index.ts"],
       "@geovi/the-datagrid/search": ["./src/search/index.ts"]

@@ -131,6 +131,7 @@ import { useGridPaginationApi } from "./hooks/useGridPaginationApi";
 import { useGridRowApi } from "./hooks/useGridRowApi";
 import { useGridScrollApi } from "./hooks/useGridScrollApi";
 import { useGridSelection } from "./hooks/useGridSelection";
+import { useGridToolbarBridge } from "./hooks/useGridToolbarBridge";
 import { useGridVirtualListApi } from "./hooks/useGridVirtualListApi";
 
 export { plugins };
@@ -144,11 +145,10 @@ type ReactDataGridComponent = React.FunctionComponent<TypeDataGridProps> & {
 function ReactDataGrid(props: TypeDataGridProps) {
   const internalProps = props as InternalDataGridProps;
   const searchController = internalProps.__rdgSearchController;
-  const columnVisibilityController =
-    internalProps.__rdgColumnVisibilityController;
+  const toolbarController = internalProps.__rdgToolbarController;
   const searchConnected = searchController != null;
   const optionalControllerConnected =
-    searchConnected || columnVisibilityController != null;
+    searchConnected || toolbarController != null;
   // Optional entries use private props as zero-dependency bridges. Keep those
   // bridges out of every consumer-facing props mirror and remote-source args.
   const publicProps: InternalDataGridProps = optionalControllerConnected
@@ -2573,13 +2573,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     allowUnsort,
     checkboxColId,
     checkboxEnabled,
-    columnOrderForDs,
-    columnVisibilityController,
     columnVisibilityMap,
     defaultSortDir,
     filterTypes,
     filterValue,
-    inputColumns,
     onColumnFilterValueChange,
     onColumnVisibleChange,
     orderedColumns,
@@ -2589,7 +2586,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortFunctions,
     sortInfo,
     table,
+  });
+
+  useGridToolbarBridge({
+    columnOrderForDs,
+    columnVisibilityMap,
+    enableFilteringProp: enableFiltering,
+    filterTypes,
+    filterValue,
+    filteringEnabled: effectiveEnableFiltering,
+    inputColumns,
+    originalData,
+    rows,
+    setColumnVisibleById,
+    setEnableFiltering: setEnableFilteringCompat,
+    setFilterValueAndResetPage,
     theme,
+    toolbarController,
   });
 
   const {
@@ -3154,7 +3167,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 sortable={sortable}
                 sortFunctions={sortFunctions}
                 searchEnabled={!searchConnected}
-                columnPickerEnabled={columnVisibilityController == null}
+                columnPickerEnabled={toolbarController == null}
                 authoritativeResultCount={searchConnected ? count : undefined}
                 scrollRef={scrollRef}
                 nativeScroll={nativeScroll}
@@ -3660,7 +3673,7 @@ Object.defineProperty(
 
 Object.defineProperty(
   ReactDataGridWithDefaultProps,
-  Symbol.for("@geovi/the-datagrid/column-visibility-target"),
+  Symbol.for("@geovi/the-datagrid/toolbar-target"),
   { value: true }
 );
 
