@@ -409,11 +409,7 @@ export function GridBody(props: GridBodyProps) {
   );
   const renderedTableColumnCount = columnRenderItems.length;
   const columnRenderEdges = resolveColumnRenderEdges(columnRenderItems);
-  /**
-   * The active-row indicator closes its left and right sides on these two
-   * cells. It used to key off `:first-child`/`:last-child`, which cannot tell
-   * row content apart from a cell that merely happens to sit at either end.
-   */
+  /** Where the active-row indicator closes its left and right sides. */
   const rowEdgeClassName = (renderItemIndex: number) =>
     cn(
       renderItemIndex === columnRenderEdges.rowStartItemIndex
@@ -1259,7 +1255,6 @@ export function GridBody(props: GridBodyProps) {
                 aria-hidden="true"
                 data-slot="grid-filler-cell"
                 data-filler-variant={renderItem.variant}
-                data-slack={renderItem.width > 0 ? "some" : "none"}
                 data-horizontal-borders={
                   showHorizontalCellBorders ? "true" : "false"
                 }
@@ -1290,12 +1285,10 @@ export function GridBody(props: GridBodyProps) {
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
           /*
-           * `--last` drops the cell's right border because nothing follows it.
-           * That has to mean "at the table's trailing edge", not "the last
-           * column": a slack filler sits after the final column, and then the
-           * final column does need its border — it is the rule between the data
-           * and the empty gap. An index comparison against the column count
-           * cannot see the filler and stripped it.
+           * `--last` drops the right border because nothing follows. That means
+           * "at the table's trailing edge", not "the last column": with a filler
+           * after it, the final column does need its border — that border is the
+           * rule between the data and the gap.
            */
           const isLastCell =
             columnId === columnRenderEdges.trailingEdgeColumnId;
@@ -1845,7 +1838,6 @@ export function GridBody(props: GridBodyProps) {
             aria-hidden="true"
             data-slot="grid-filler-cell"
             data-filler-variant={renderItem.variant}
-            data-slack={renderItem.width > 0 ? "some" : "none"}
             data-horizontal-borders={
               showHorizontalCellBorders ? "true" : "false"
             }

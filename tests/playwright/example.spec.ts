@@ -549,10 +549,15 @@ test("resizes columns and double-click autosizes them again", async ({
   expect(initialWidths.bodyWidth).toBe(initialWidths.headerWidth);
   expect(initialWidths.headerWidth ?? 0).toBeGreaterThan(200);
 
+  // The boundary indicator used to be the handle's own `::before`, centred in a
+  // box that shifts inboard on the trailing column — so it painted off the
+  // column boundary. It hangs off `.tdg-header-cell__inner` now, anchored to the
+  // cell's edge, and the handle is free to sit wherever hit-testing needs it.
   const getResizerOpacity = async () => {
-    return nameResizer.evaluate(
-      (element) => getComputedStyle(element, "::before").opacity
-    );
+    return nameResizer.evaluate((element) => {
+      const inner = element.closest(".tdg-header-cell__inner");
+      return inner ? getComputedStyle(inner, "::after").opacity : null;
+    });
   };
 
   await expect.poll(getResizerOpacity).toBe("0");

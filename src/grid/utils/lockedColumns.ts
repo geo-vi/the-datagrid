@@ -28,12 +28,8 @@ export type TypeGridColumnRenderItem =
     };
 
 /**
- * Where the grid's leftover width is absorbed, which decides how it is drawn.
- *
- * `interior` sits between the last unlocked column and the locked-end section,
- * so it is row content: it takes the row's own background and the active-row
- * indicator crosses it. `trailing` sits after the final column and is not row
- * content, so it stays unstriped and the indicator stops before it.
+ * `interior` sits before a locked-end section and is row content; `trailing`
+ * sits after the final column and is not. They are styled as opposites.
  */
 export type TypeGridFillerVariant = "interior" | "trailing";
 
@@ -130,19 +126,13 @@ export function buildGridColumnRenderItems(args: {
   virtualizeColumns: boolean;
   trailingViewportWidth?: number;
   /**
-   * Leftover viewport width the columns do not cover. Absorbed by a real cell
-   * rather than left as a hole, so the row keeps its full width and the
-   * locked-end section can sit at the viewport edge without being transformed
-   * out of its own slot.
+   * Leftover viewport width the columns do not cover. `0` still emits the cell,
+   * at zero width; `null` omits it (stretch mode, where the columns absorb the
+   * surplus themselves).
    *
-   * `0` still emits the cell, at zero width. `null` omits it entirely, which is
-   * what stretch mode wants — there the table is forced to 100% and the columns
-   * are deliberately allowed to absorb the surplus.
-   *
-   * Keeping a zero-width cell mounted is what lets the live-resize preview work:
-   * it can only move width between elements already in the DOM, so a filler that
-   * appears only once slack exists would leave the first drag with nothing to
-   * grow, and the locked-end section would drift with the shrinking table.
+   * Zero width rather than omitting matters: the live-resize preview can only
+   * move width between elements already mounted, so a filler that appeared only
+   * once slack existed would leave the first drag nothing to grow.
    */
   fillerWidth?: number | null;
 }): {
@@ -325,9 +315,8 @@ export function buildGridColumnRenderItems(args: {
 }
 
 /**
- * Places the slack filler. With a locked-end section it goes immediately before
- * it, so the locked columns keep sitting at the viewport edge and stay the row's
- * last cells; otherwise it goes after everything, past the row's real content.
+ * Before a locked-end section if there is one, so those columns stay the row's
+ * last cells and keep sitting at the viewport edge; otherwise at the very end.
  */
 function withSlackFiller(
   items: TypeGridColumnRenderItem[],
@@ -359,19 +348,13 @@ function withSlackFiller(
 }
 
 /**
- * Which rendered items sit at the row's edges, and which column (if any) sits
- * at the table's trailing/leading edge.
+ * Row edges for the active-row indicator, and the column at each table edge for
+ * the resize-handle clamp. Both used to key off `:first-child`/`:last-child`,
+ * which reads DOM position rather than intent.
  *
- * The active-row indicator and the trailing resize-handle clamp both used to
- * key off `:first-child` / `:last-child`. That reads the DOM position rather
- * than the intent, so any non-column cell at either end silently took the
- * edge treatment. Resolving it here keeps both concerns keyed on what the
- * item actually is.
- *
- * A virtualization spacer stands in for real columns it replaced, so it *is*
- * row content and covers exactly their width — the row's edge is legitimately
- * its edge. Slack fillers are not row content and are excluded, which is what
- * keeps the indicator from closing across empty space.
+ * Virtualization spacers count as row content — they cover exactly the width of
+ * the columns they replaced, so the row's edge really is theirs. Slack fillers
+ * do not, which is what stops the indicator closing across empty space.
  */
 export function resolveColumnRenderEdges(
   items: readonly TypeGridColumnRenderItem[]

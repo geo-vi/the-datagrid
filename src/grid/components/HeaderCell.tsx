@@ -135,10 +135,8 @@ export type HeaderCellProps = {
   rtl: boolean;
   isCheckboxColumn: boolean;
   /**
-   * Whether this column sits against the table's leading/trailing edge. Drives
-   * the resize-handle clamp, which used to key off `:first-child`/`:last-child`
-   * and so fired on whatever cell happened to be first or last. Both can be
-   * true at once in a single-column grid, so they are separate flags.
+   * Drives the resize-handle clamp. Separate flags rather than one union: a
+   * single-column grid is both edges at once.
    */
   isLeadingEdge?: boolean;
   isTrailingEdge?: boolean;

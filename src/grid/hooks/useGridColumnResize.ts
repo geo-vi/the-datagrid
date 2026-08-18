@@ -200,10 +200,8 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
       table.renderedWidth =
         tableRenderWidth ?? table.element.getBoundingClientRect().width;
     }
-    // Re-collect the fillers, then re-baseline the slack. The first drag starts
-    // in stretch mode, where no filler is mounted at all; seeding the manual
-    // widths flips to fixed mode and mounts one, and without re-querying here
-    // this drag would keep believing there is nothing to move width into.
+    // Re-collect: the first drag starts in stretch mode with no filler mounted,
+    // and seeding is what mounts one mid-gesture.
     const surface = surfaceRef.current;
     if (surface) {
       preview.fillers = Array.from(
@@ -1052,9 +1050,6 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
 
       const surfaceRect = surfaceElement.getBoundingClientRect();
       const headerRect = headerCell.getBoundingClientRect();
-      const seededWidths = seedManualColumnWidthsFromDom();
-      const startWidth =
-        seededWidths?.[columnId] ?? Math.round(headerRect.width);
       const columnLeft = headerRect.left - surfaceRect.left;
       const previousDraggable = headerCell.draggable;
       const bodyViewport = scrollRef.current;
@@ -1064,6 +1059,13 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
         column,
         computedColumnMinWidth,
         computedColumnMaxWidth
+      );
+      // What the seed would have recorded for this column, without seeding:
+      // seeding flips the grid to fixed mode and must wait for a real change.
+      const startWidth = clamp(
+        Math.round(headerRect.width),
+        columnWidthBounds.minWidth,
+        columnWidthBounds.maxWidth
       );
       const minWidth = isLastColumn
         ? ensureLastColumnHeaderFits({
@@ -1101,6 +1103,7 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
         minWidth,
         maxWidth,
         liveColumnResize,
+        hasSeededManualWidths: false,
         appliedPreviewWidth: null,
         preview,
       };
@@ -1122,6 +1125,16 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
           activeSession.minWidth,
           activeSession.maxWidth
         );
+
+        // Deferred to the first real width change: on pointerdown, a bare click
+        // would permanently switch the grid from stretch to fixed mode.
+        if (
+          nextWidth !== activeSession.startWidth &&
+          !activeSession.hasSeededManualWidths
+        ) {
+          activeSession.hasSeededManualWidths = true;
+          seedManualColumnWidthsFromDom();
+        }
 
         activeSession.nextWidth = nextWidth;
         if (activeSession.liveColumnResize) {

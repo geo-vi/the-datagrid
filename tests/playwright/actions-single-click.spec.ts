@@ -678,19 +678,34 @@ test("live resize keeps a fixed-width locked-end column aligned before pointer r
   await expect(grid).toBeVisible();
   await expect(grid).toHaveAttribute("data-column-width-mode", "stretch");
 
-  // The keyboard proposal enters deterministic fixed-width mode with a table
-  // narrower than this viewport, exercising the trailing viewport offset.
+  // The keyboard proposal enters deterministic fixed-width mode with the columns
+  // no longer covering this viewport.
+  //
+  // The slack used to be left as a hole and the locked column translated back
+  // over it, so this asserted that the *table* was narrower than the viewport.
+  // A filler cell absorbs it now, which is the point: the table still spans the
+  // viewport, so the check is that the filler carries the width instead.
   await resizer.press("ArrowLeft");
   await expect(grid).toHaveAttribute("data-column-width-mode", "fixed");
+  await expect
+    .poll(() =>
+      grid.evaluate((element) => {
+        const filler = element.querySelector<HTMLElement>(
+          '.tdg-header-row > [data-slot="grid-filler-cell"]'
+        );
+        return filler ? Math.round(filler.getBoundingClientRect().width) : 0;
+      })
+    )
+    .toBeGreaterThan(20);
   await expect
     .poll(async () => {
       const [tableBox, viewportWidth] = await Promise.all([
         bodyTable.boundingBox(),
         viewport.evaluate((element) => element.clientWidth),
       ]);
-      return viewportWidth - (tableBox?.width ?? viewportWidth);
+      return Math.abs(viewportWidth - (tableBox?.width ?? 0));
     })
-    .toBeGreaterThan(20);
+    .toBeLessThanOrEqual(2);
 
   const rightEdgeDrift = async () => {
     const [viewportBox, headerBox] = await Promise.all([

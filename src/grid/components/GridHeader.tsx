@@ -126,9 +126,8 @@ export type GridHeaderProps = {
 };
 
 /**
- * Absorbs the grid's leftover width in the header rows. Unlike a virtualization
- * spacer this stands for no columns at all, so it is marked for the chrome the
- * header and filter rows give it.
+ * Absorbs the grid's leftover width. Unlike a virtualization spacer it stands for
+ * no columns at all, hence its own chrome in the header and filter rows.
  */
 function ColumnFillerHeader(props: {
   width: number;
@@ -140,7 +139,6 @@ function ColumnFillerHeader(props: {
       aria-hidden="true"
       data-slot="grid-filler-cell"
       data-filler-variant={props.variant}
-      data-slack={props.width > 0 ? "some" : "none"}
       data-horizontal-borders={props.showHorizontalCellBorders ? "true" : "false"}
       className={cn(
         "tdg-filler-cell pointer-events-none !p-0",

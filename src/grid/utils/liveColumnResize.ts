@@ -15,10 +15,14 @@ export type LiveColumnResizePreview = {
   viewport: HTMLElement | null;
   surface: HTMLElement;
   /**
-   * The slack filler's `<col>`, when the columns do not fill the viewport. The
-   * drag moves width between the resized column and this, keeping the table
-   * pinned to the viewport until the slack runs out.
+   * Border rules read `data-grid-slack`, and a drag moves the filler between zero
+   * and non-zero width without a React render — so the preview maintains it here
+   * and restores it if the gesture is abandoned.
    */
+  root: HTMLElement | null;
+  inlineGridSlack: string | null;
+  /** The drag moves width between the resized column and this, so the table
+   * stays pinned to the viewport until the slack runs out. */
   fillers: {
     element: HTMLTableColElement;
     inlineWidth: string;
@@ -46,6 +50,12 @@ export type ColumnResizeSession = {
   minWidth: number;
   maxWidth: number;
   liveColumnResize: boolean;
+  /**
+   * Snapshotting the rendered widths is what switches stretch -> fixed, so it is
+   * deferred until a width actually changes: pressing a handle and letting go
+   * must leave the layout mode alone.
+   */
+  hasSeededManualWidths: boolean;
   appliedPreviewWidth: number | null;
   preview: LiveColumnResizePreview | null;
 };
@@ -122,6 +132,7 @@ export function captureLiveColumnResizePreview(
     });
   }
 
+  const root = surface.closest<HTMLElement>(".tdg-root");
   const fillers = Array.from(
     surface.querySelectorAll<HTMLTableColElement>("col[data-column-id]")
   )
@@ -141,6 +152,8 @@ export function captureLiveColumnResizePreview(
     })),
     viewport: surface.querySelector<HTMLElement>(".tdg-body-viewport"),
     surface,
+    root,
+    inlineGridSlack: root?.getAttribute("data-grid-slack") ?? null,
     fillers,
     baseSlackWidth,
     lockedColumns: Array.from(lockedColumnsByKey.values()),
@@ -185,11 +198,9 @@ export function applyLiveColumnResizePreview(
   }
 
   /*
-   * Move the delta between the resized column and the slack filler rather than
-   * straight onto the table. While there is slack the table stays pinned to the
-   * viewport, so a locked-end section keeps sitting on the viewport edge without
-   * being transformed out of its own slot; once the slack is spent the table
-   * grows again as before.
+   * Move the delta between the resized column and the filler rather than onto the
+   * table, so the table stays pinned to the viewport while slack remains and a
+   * locked-end section keeps sitting on its edge. Past that the table grows.
    */
   const viewportWidth = preview.surface.clientWidth;
   const baseTableWidth = preview.tables.reduce(
@@ -209,6 +220,12 @@ export function applyLiveColumnResizePreview(
   for (const { element } of preview.fillers) {
     element.style.width = `${nextSlack}px`;
   }
+  if (preview.root && preview.fillers.length) {
+    preview.root.setAttribute(
+      "data-grid-slack",
+      nextSlack > 0 ? "some" : "none"
+    );
+  }
   updateLiveLockedColumnLayout(preview);
   session.appliedPreviewWidth = nextWidth;
 }
@@ -226,6 +243,16 @@ export function restoreLiveColumnResizePreview(
   }
   for (const { element, inlineWidth } of session.preview.fillers) {
     element.style.width = inlineWidth;
+  }
+  if (session.preview.root) {
+    if (session.preview.inlineGridSlack == null) {
+      session.preview.root.removeAttribute("data-grid-slack");
+    } else {
+      session.preview.root.setAttribute(
+        "data-grid-slack",
+        session.preview.inlineGridSlack
+      );
+    }
   }
   for (const column of session.preview.lockedColumns) {
     for (const cell of column.cells) {

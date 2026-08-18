@@ -2162,17 +2162,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const tableMinWidth =
     visibleTableColumns.length > 0 ? table.getTotalSize() : undefined;
   /**
-   * Viewport width the columns do not cover. Stretch mode forces the table to
-   * 100% so there is never any; fixed mode is entered by the first resize, and
-   * from then on shrinking a column leaves the table narrower than the viewport.
+   * Viewport width the columns do not cover — only possible in fixed mode, since
+   * stretch forces the table to 100%.
    *
-   * A real cell absorbs it, which keeps every cell width explicit and summing to
-   * the table width. Letting `table-layout: fixed` distribute the surplus
-   * instead would silently widen the columns and undo the resize.
-   *
-   * Scoped to grids with no locked-end section for now: with one, the filler has
-   * to sit *interior* to it, and that only works once the locked-end transform
-   * is gone.
+   * A real cell absorbs it so every cell width stays explicit and sums to the
+   * table width. Letting `table-layout: fixed` distribute the surplus instead
+   * would silently widen the columns and undo the user's resize.
    */
   const gridSlackWidth =
     hasManualColumnWidths && tableMinWidth
@@ -3107,6 +3102,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-theme-base={themeBase}
       data-column-resizing={resizingColumnId ? "true" : "false"}
       data-column-width-mode={hasManualColumnWidths ? "fixed" : "stretch"}
+      /*
+       * Read by border rules that depend on where the table really ends. It lives
+       * here rather than on the filler because the live-resize preview patches the
+       * DOM without a React render, so it maintains this one attribute rather than
+       * every cell going stale mid-drag.
+       */
+      data-grid-slack={(gridSlackWidth ?? 0) > 0 ? "some" : "none"}
       data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
       data-focused={gridFocused ? "true" : "false"}

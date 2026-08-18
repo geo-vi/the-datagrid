@@ -416,17 +416,11 @@
     var(--tdg-color-muted) 28%,
     var(--tdg-color-background)
   );
-  /*
-   * Row-state backgrounds must be OPAQUE. Locked columns are sticky cells that
-   * take `background: inherit` from the row, and they sit over horizontally
-   * scrolled content — so a translucent row colour lets the cells underneath
-   * show straight through the locked column on hover and on selection.
-   *
-   * These used to mix towards `transparent`. Mixing towards the grid background
-   * instead renders identically, because a row's background-color is *replaced*
-   * on hover rather than layered, so the translucent colour was compositing over
-   * the viewport's own background anyway — while leaving nothing see-through.
-   */
+  /* Must stay opaque: locked columns are sticky cells that `inherit` these and
+     sit over horizontally scrolled content, so anything translucent shows the
+     rows underneath through them. Mixing towards the grid background renders the
+     same as towards `transparent`, since these replace the row's background
+     rather than layering over it. */
   --tdg-row-odd-hover-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 40%,
@@ -945,18 +939,16 @@
 }
 
 .tdg-root .tdg-header-cell {
-  /* Containing block for the boundary indicator below. The resize handle is a
-     child of `__inner` and keeps positioning against that, so this does not
-     move it. Locked header cells still take `sticky` from `.tdg-locked-column`,
-     which is declared later at equal specificity. */
-  position: relative !important;
+  position: static !important;
   inset: auto !important;
-  padding: 0 0.5rem !important;
+  padding: 0 var(--tdg-header-cell-padding-x, 0.5rem) !important;
   isolation: isolate !important;
+  --tdg-header-cell-padding-x: 0.5rem;
   /* Width of the cell's own right border, which is the visible column
-     separator. `right` on an absolutely positioned box resolves against the
-     padding box, which stops *inside* that border, so the boundary indicator
-     has to be pushed back out over it or it lands a pixel short. */
+     separator. The boundary indicator is positioned against `__inner`, whose
+     padding box stops short of the cell's outer edge by this border plus the
+     cell's horizontal padding — so both have to be added back or the line lands
+     inside the column instead of on its boundary. */
   --tdg-header-cell-separator-width: 0px !important;
 }
 
@@ -1009,26 +1001,24 @@
 }
 
 /*
- * The 2px boundary indicator.
- *
- * It used to be the resize handle's own `::before`, centred in the handle's
- * box. That box deliberately moves: it shifts inward on the trailing column so
- * its outer half cannot inflate `scrollWidth`, and inward again when the
- * overlay scrollbar would otherwise swallow the pointer. The indicator moved
- * with it, so on the trailing column it painted ~12px left of the column
- * boundary (~24px with the scrollbar showing) — you aimed at the line, the
- * drag proxy anchored to the real boundary, and the two disagreed.
- *
- * Anchoring it to the header cell's own right edge puts it on the true
- * boundary in all three geometries and leaves the handle's box free to sit
- * wherever hit-testing needs it.
+ * The boundary indicator. Deliberately not on the resize handle: that box shifts
+ * inboard on the trailing column and again when an overlay scrollbar is showing,
+ * and the indicator has to stay on the boundary through both. Anchored to
+ * `__inner` rather than the cell because header cells must stay `position:
+ * static` — see the reset above.
  */
-.tdg-root .tdg-header-cell::after {
+.tdg-root .tdg-header-cell__inner::after {
   content: "" !important;
   position: absolute !important;
   top: 0 !important;
   bottom: 0 !important;
-  right: calc(-1 * var(--tdg-header-cell-separator-width, 0px)) !important;
+  right: calc(
+    -1 *
+      (
+        var(--tdg-header-cell-padding-x, 0.5rem) +
+          var(--tdg-header-cell-separator-width, 0px)
+      )
+  ) !important;
   left: auto !important;
   width: var(--tdg-column-boundary-indicator-width, 2px) !important;
   /* Above the handle (10) so the label cannot paint over the line. */
@@ -1039,14 +1029,23 @@
   transition: opacity 120ms ease !important;
 }
 
-.tdg-root[dir="rtl"] .tdg-header-cell::after {
+.tdg-root[dir="rtl"] .tdg-header-cell__inner::after {
   right: auto !important;
-  left: calc(-1 * var(--tdg-header-cell-separator-width, 0px)) !important;
+  left: calc(
+    -1 *
+      (
+        var(--tdg-header-cell-padding-x, 0.5rem) +
+          var(--tdg-header-cell-separator-width, 0px)
+      )
+  ) !important;
 }
 
 .tdg-root
-  .tdg-header-cell:has(.tdg-column-resizer:is(:hover, :focus-visible))::after,
-.tdg-root .tdg-header-cell:has(.tdg-column-resizer[data-resizing="true"])::after {
+  .tdg-header-cell__inner:has(
+    .tdg-column-resizer:is(:hover, :focus-visible)
+  )::after,
+.tdg-root
+  .tdg-header-cell__inner:has(.tdg-column-resizer[data-resizing="true"])::after {
   opacity: 1 !important;
 }
 
@@ -1056,25 +1055,21 @@
  * manufacture an otherwise-useless horizontal scroll range.
  */
 /*
- * The trailing target cannot straddle the boundary — its outer half would
- * contribute to `scrollWidth` and manufacture a useless horizontal scroll
- * range. It sits flush inboard instead.
- *
- * It is also *narrower* than the others. A full-width inboard target reaches
- * twice as far into the column as a straddling one does (measured: 24px of
- * inward reach against 12px), which reads as a noticeably larger hit area on
- * the last column alone. Halving the width matches the inward reach of every
- * other column, which is the distance-from-the-line a pointer actually feels.
+ * The trailing target sits flush inboard: straddling would put its outer half
+ * into `scrollWidth`. It therefore reaches twice as far into its column as the
+ * others — deliberate, since `24px` is a floor asserted by `inovua-parity` and
+ * `mobile-transform` and a narrower target is worse than an uneven one.
  */
 .tdg-root {
-  --tdg-column-resize-trailing-handle-width: 0.75rem;
+  --tdg-column-resize-trailing-inset: 0px;
   /* Shared by the boundary indicator and the drag proxy's centring below. */
   --tdg-column-boundary-indicator-width: 2px;
 }
 
 .tdg-root .tdg-header-row > .tdg-header-cell--trailing-edge .tdg-column-resizer {
-  right: -0.5rem !important;
-  width: var(--tdg-column-resize-trailing-handle-width, 0.75rem) !important;
+  right: calc(
+    var(--tdg-column-resize-trailing-inset, 0px) - 0.5rem
+  ) !important;
 }
 
 .tdg-root[dir="rtl"]
@@ -1082,8 +1077,9 @@
   > .tdg-header-cell--leading-edge
   .tdg-column-resizer {
   right: auto !important;
-  left: -0.5rem !important;
-  width: var(--tdg-column-resize-trailing-handle-width, 0.75rem) !important;
+  left: calc(
+    var(--tdg-column-resize-trailing-inset, 0px) - 0.5rem
+  ) !important;
 }
 
 /*
@@ -1095,7 +1091,7 @@
   > .tdg-header-cell--trailing-edge
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: calc(
-    var(--tdg-column-resize-trailing-handle-width, 0.75rem) + 0.25rem
+    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
   ) !important;
 }
 
@@ -1105,30 +1101,32 @@
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: 0 !important;
   margin-left: calc(
-    var(--tdg-column-resize-trailing-handle-width, 0.75rem) + 0.25rem
+    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
   ) !important;
 }
 
 /*
- * Radix scrollbars overlay the viewport instead of consuming layout space.
- * When the vertical bar is visible, move the final 24px hit target fully to
- * its left. The header still reaches the viewport edge, so column geometry
- * and horizontal scroll alignment remain unchanged. A smaller offset leaves
- * the handle over the track, which swallows the pointer.
+ * Radix scrollbars overlay the viewport, so the trailing target has to clear the
+ * bar or the track wins hit-testing — issue #43 asserts that with
+ * `elementFromPoint`. Do not remove without doing
+ * ISSUE-scrollbar-overlays-header.md first.
  *
- * REMOVED deliberately. Insetting the target to clear the bar put it out of
- * line with the drag proxy, which is anchored to the true boundary and tracks
- * the pointer's delta from wherever the grab started — so grabbing 12px inboard
- * left the proxy 12px ahead of the cursor for the whole drag. Insetting the
- * indicator to match the target instead just moved the disagreement onto the
- * proxy. Neither is fixable while the bar owns the boundary.
+ * Only the target moves; the indicator stays on the boundary, so while the bar
+ * shows the two disagree. Unavoidable until the bar stops covering the header.
  *
- * The bar paints above the header (bar `z-30`, header layer `z-20`, and the
- * header is sticky *inside* the scroll viewport), but the boundary is still
- * clickable in practice, so the target stays on the boundary and everything
- * lines up. Making the bar stop covering the header is its own issue:
- * ISSUE-scrollbar-overlays-header.md.
+ * `:not([data-state="hidden"])`, not `[data-state="visible"]`: Radix omits
+ * data-state entirely on an always-visible bar.
  */
+.tdg-root:has(
+    [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]:not(
+        [data-state="hidden"]
+      )
+  ) {
+  --tdg-column-resize-trailing-inset: var(
+    --tdg-scroll-vertical-footprint,
+    0.75rem
+  );
+}
 
 .tdg-root .tdg-column-resizer:focus-visible {
   outline: none !important;
@@ -1142,13 +1140,8 @@
   /* Above the sticky header layer (20); it renders later, so equal z-index loses. */
   z-index: 30 !important;
   width: var(--tdg-column-resize-proxy-width, 5px) !important;
-  /*
-   * Share a centre line with the boundary indicator. The proxy's x is the
-   * column boundary and the indicator's right edge is that same boundary, so
-   * left-aligning the proxy made the two abut — the thin line stopped exactly
-   * where the thick one started, reading as two bars rather than one. Pulling
-   * the proxy back by half of both widths puts their centres together.
-   */
+  /* Share a centre line with the boundary indicator: both anchor to the same x,
+     so left-aligning the proxy made the two abut rather than overlap. */
   margin-left: calc(
     -0.5 *
       (
@@ -1248,17 +1241,9 @@
 }
 
 /*
- * No transform. A locked-end column used to be translated by whatever width the
- * columns left uncovered, to keep it on the viewport edge. But it is sticky, so
- * it kept its in-flow slot and the translate only moved where it painted: the
- * vacated slot stayed in the row as an empty phantom column exactly as wide as
- * the locked one, and the active-row indicator — drawn per cell — split into two
- * disconnected rectangles with a hole between them.
- *
- * The slack is absorbed by a real filler cell placed just before this section
- * instead, so the table spans the viewport, this column sits on the edge in
- * normal flow, and the row stays continuous. It also fixes RTL for free: the old
- * translate was unconditionally positive.
+ * No transform here. This is sticky, so translating it to the viewport edge left
+ * its in-flow slot behind as an empty phantom column and split the per-cell
+ * active-row indicator in two. A filler cell absorbs the slack instead.
  */
 .tdg-root .tdg-locked-column--end {
   right: var(--tdg-locked-column-offset, 0px) !important;
@@ -2171,23 +2156,9 @@
 }
 
 /*
- * Slack fillers — the cell that absorbs whatever viewport width the columns do
- * not cover. The two variants are drawn as opposites on purpose.
- *
- * `interior` sits between the last unlocked column and the locked-end section,
- * so it IS row content: it takes the row's own background, which means zebra
- * striping, selection and hover run through it, and the active-row indicator
- * crosses it.
- *
- * `trailing` sits past the final column, so it is NOT row content: it takes the
- * grid's background instead of the row's, so striping stops at the data, it
- * draws no internal borders, and the indicator stops before it.
- *
- * Both take the surrounding row's chrome in the header rows, so the header and
- * filter rows read as continuing across the gap rather than stopping short. The
- * vertical rule at the data's right edge needs no rule of its own: with a filler
- * present the final column is no longer `:last-child`, so it keeps the
- * `border-r` that `last:border-r-0` would otherwise have removed.
+ * Slack fillers, drawn as opposites. `interior` is row content — it takes the
+ * row's background and the active-row indicator crosses it. `trailing` is not:
+ * it takes the grid background so striping stops at the data.
  */
 .tdg-root .tdg-header-row > .tdg-filler-cell {
   background: var(--tdg-header-bg) !important;
@@ -2203,22 +2174,31 @@
 }
 
 /*
- * A filler stays mounted in fixed mode even with no slack to absorb, so the
- * live-resize preview always has something to move width into. At zero width it
- * occupies nothing, but it is still the row's `:last-child` — which the two
- * `--show-border-right:last-child` rules above use to drop the trailing
- * separator. Without this, the final real cell would keep a right border sitting
+ * A filler is mounted in fixed mode even at zero width, so it is always the row's
+ * `:last-child` — which the `--show-border-right:last-child` rules above use to
+ * drop the trailing separator. Without this the final real cell keeps a border
  * against the grid's own edge.
  */
-.tdg-root
+.tdg-root[data-grid-slack="none"]
   .InovuaReactDataGrid__column-header--show-border-right:has(
-    + .tdg-filler-cell[data-slack="none"]
+    + .tdg-filler-cell--trailing
   ),
-.tdg-root
+.tdg-root[data-grid-slack="none"]
   .InovuaReactDataGrid__filter-cell--show-border-right:has(
-    + .tdg-filler-cell[data-slack="none"]
+    + .tdg-filler-cell--trailing
   ) {
   border-right: 0 !important;
+}
+
+/*
+ * Body mirror. `--last` is React-written, so a drag that grows the filler from
+ * nothing leaves it stale on the final column. Re-assert while there is slack.
+ */
+.tdg-root[data-grid-slack="some"]
+  .InovuaReactDataGrid__cell--show-border-right.InovuaReactDataGrid__cell--last:has(
+    + .tdg-filler-cell--trailing
+  ) {
+  border-right: 1px solid var(--tdg-cell-border-color) !important;
 }
 
 .tdg-root .tdg-row > .tdg-filler-cell--trailing {
@@ -2230,12 +2210,10 @@
 }
 
 /*
- * An interior filler needs the row's own horizontal rule, for two reasons. It is
- * row content, so the separator between rows has to continue across it. And the
- * active-row indicator is an absolutely positioned `::after` at `inset: 0`, which
- * resolves against the *padding* box — border box minus borders. A data cell's
- * 1px bottom border pulls its padding box up by 1px, so a filler without that
- * border put its segment of the ring 1px lower than the rest of the row.
+ * The row's rule continues across an interior filler, and the border also keeps
+ * the active-row indicator level: that `::after` is at `inset: 0`, which resolves
+ * against the padding box, so a cell without a bottom border paints its segment
+ * 1px lower than its bordered neighbours.
  */
 .tdg-root
   .tdg-row
