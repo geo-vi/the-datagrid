@@ -27,6 +27,7 @@ import type {
   TypeGridColumnRenderItem,
   TypeLockedColumnLayout,
 } from "../utils/lockedColumns";
+import { resolveColumnRenderEdges } from "../utils/lockedColumns";
 
 export type GridHeaderProps = {
   headerGroups: any[];
@@ -236,6 +237,7 @@ export function GridHeader(props: GridHeaderProps) {
   const orderedColumnsMap = new Map(
     orderedColumns.map((column) => [column.id ?? column.name ?? "", column])
   );
+  const columnRenderEdges = resolveColumnRenderEdges(columnRenderItems);
 
   return (
     <TableHeader className="InovuaReactDataGrid__header [&_tr]:!border-b-0">
@@ -370,6 +372,8 @@ export function GridHeader(props: GridHeaderProps) {
                 colId={colId}
                 columnIndex={columnIndex}
                 width={width}
+                isLeadingEdge={colId === columnRenderEdges.leadingEdgeColumnId}
+                isTrailingEdge={colId === columnRenderEdges.trailingEdgeColumnId}
                 lockedLayout={lockedColumnLayout[colId]}
                 headerHeight={headerHeight}
                 sortInfo={sortInfo}

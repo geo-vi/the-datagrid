@@ -984,13 +984,13 @@
  * target on the final edge contributes its outer half to scrollWidth and can
  * manufacture an otherwise-useless horizontal scroll range.
  */
-.tdg-root .tdg-header-row > .tdg-header-cell:last-child .tdg-column-resizer {
+.tdg-root .tdg-header-row > .tdg-header-cell--trailing-edge .tdg-column-resizer {
   right: -0.5rem !important;
 }
 
 .tdg-root[dir="rtl"]
   .tdg-header-row
-  > .tdg-header-cell:first-child
+  > .tdg-header-cell--leading-edge
   .tdg-column-resizer {
   right: auto !important;
   left: -0.5rem !important;
@@ -1002,7 +1002,7 @@
  */
 .tdg-root
   .tdg-header-row
-  > .tdg-header-cell:last-child
+  > .tdg-header-cell--trailing-edge
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: calc(
     var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
@@ -1011,7 +1011,7 @@
 
 .tdg-root[dir="rtl"]
   .tdg-header-row
-  > .tdg-header-cell:first-child
+  > .tdg-header-cell--leading-edge
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: 0 !important;
   margin-left: calc(
@@ -1035,7 +1035,7 @@
       )
   )
   .tdg-header-row
-  > .tdg-header-cell:last-child
+  > .tdg-header-cell--trailing-edge
   .tdg-column-resizer {
   right: calc(
     var(--tdg-scroll-vertical-footprint, 0.75rem) - 0.5rem
@@ -1172,12 +1172,12 @@
     var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
 }
 
-.tdg-root .tdg-row--active-indicator > *:first-child::after {
+.tdg-root .tdg-row--active-indicator > .tdg-row-edge--start::after {
   border-left: var(--tdg-row-active-border-width)
     var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
 }
 
-.tdg-root .tdg-row--active-indicator > *:last-child::after {
+.tdg-root .tdg-row--active-indicator > .tdg-row-edge--end::after {
   border-right: var(--tdg-row-active-border-width)
     var(--tdg-row-active-border-style) var(--tdg-row-active-border-color);
 }

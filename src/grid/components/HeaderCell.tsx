@@ -134,6 +134,14 @@ export type HeaderCellProps = {
   theme: string;
   rtl: boolean;
   isCheckboxColumn: boolean;
+  /**
+   * Whether this column sits against the table's leading/trailing edge. Drives
+   * the resize-handle clamp, which used to key off `:first-child`/`:last-child`
+   * and so fired on whatever cell happened to be first or last. Both can be
+   * true at once in a single-column grid, so they are separate flags.
+   */
+  isLeadingEdge?: boolean;
+  isTrailingEdge?: boolean;
 };
 
 function humanizeColumnName(value: string): string {
@@ -182,6 +190,8 @@ export function HeaderCell(props: HeaderCellProps) {
     theme,
     rtl,
     isCheckboxColumn,
+    isLeadingEdge,
+    isTrailingEdge,
   } = props;
 
   const canSort = (col?.sortable ?? sortable) && header.column.getCanSort();
@@ -316,6 +326,8 @@ export function HeaderCell(props: HeaderCellProps) {
       className={cn(
         "tdg-header-cell InovuaReactDataGrid__column-header bg-[var(--tdg-header-bg)] [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         "InovuaReactDataGrid__column-header--direction-ltr",
+        isLeadingEdge ? "tdg-header-cell--leading-edge" : "",
+        isTrailingEdge ? "tdg-header-cell--trailing-edge" : "",
         lockedLayout
           ? [
               "tdg-locked-column",

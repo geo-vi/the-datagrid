@@ -27,7 +27,10 @@ import type {
   TypeGridColumnRenderItem,
   TypeLockedColumnLayout,
 } from "../utils/lockedColumns";
-import { resolveColumnLock } from "../utils/lockedColumns";
+import {
+  resolveColumnLock,
+  resolveColumnRenderEdges,
+} from "../utils/lockedColumns";
 
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
 
@@ -405,6 +408,21 @@ export function GridBody(props: GridBodyProps) {
     [measureElement]
   );
   const renderedTableColumnCount = columnRenderItems.length;
+  const columnRenderEdges = resolveColumnRenderEdges(columnRenderItems);
+  /**
+   * The active-row indicator closes its left and right sides on these two
+   * cells. It used to key off `:first-child`/`:last-child`, which cannot tell
+   * row content apart from a cell that merely happens to sit at either end.
+   */
+  const rowEdgeClassName = (renderItemIndex: number) =>
+    cn(
+      renderItemIndex === columnRenderEdges.rowStartItemIndex
+        ? "tdg-row-edge--start"
+        : "",
+      renderItemIndex === columnRenderEdges.rowEndItemIndex
+        ? "tdg-row-edge--end"
+        : ""
+    );
 
   const cancelRowLongPress = React.useCallback(() => {
     if (rowLongPressTimerRef.current) {
@@ -1215,13 +1233,16 @@ export function GridBody(props: GridBodyProps) {
     const allCells = row.getVisibleCells();
     return (
       <>
-        {columnRenderItems.map((renderItem) => {
+        {columnRenderItems.map((renderItem, renderItemIndex) => {
           if (renderItem.type === "spacer") {
             return (
               <TableCell
                 key={renderItem.id}
                 aria-hidden="true"
-                className="pointer-events-none !p-0"
+                className={cn(
+                  "pointer-events-none !p-0",
+                  rowEdgeClassName(renderItemIndex)
+                )}
                 style={{
                   width: renderItem.width,
                   minWidth: renderItem.width,
@@ -1477,6 +1498,7 @@ export function GridBody(props: GridBodyProps) {
                 userSelectClass,
                 "InovuaReactDataGrid__cell",
                 "InovuaReactDataGrid__cell--direction-ltr",
+                rowEdgeClassName(renderItemIndex),
                 lockedLayout
                   ? [
                       "tdg-locked-column",
@@ -1764,13 +1786,16 @@ export function GridBody(props: GridBodyProps) {
       typeof rowClassName === "function"
         ? rowClassName(compatibilityRowProps)
         : rowClassName;
-    const children = columnRenderItems.map((renderItem) => {
+    const children = columnRenderItems.map((renderItem, renderItemIndex) => {
       if (renderItem.type === "spacer") {
         return (
           <TableCell
             key={`empty-${emptyIndex}-${renderItem.id}`}
             aria-hidden="true"
-            className="pointer-events-none !p-0"
+            className={cn(
+              "pointer-events-none !p-0",
+              rowEdgeClassName(renderItemIndex)
+            )}
             style={{
               width: renderItem.width,
               minWidth: renderItem.width,
@@ -1830,6 +1855,7 @@ export function GridBody(props: GridBodyProps) {
           aria-hidden="true"
           className={cn(
             "InovuaReactDataGrid__cell InovuaReactDataGrid__cell--empty",
+            rowEdgeClassName(renderItemIndex),
             configuredClassName,
             domProps.className
           )}

@@ -275,3 +275,51 @@ export function buildGridColumnRenderItems(args: {
     columnRenderCount: items.filter((item) => item.type === "column").length,
   };
 }
+
+/**
+ * Which rendered items sit at the row's edges, and which column (if any) sits
+ * at the table's trailing/leading edge.
+ *
+ * The active-row indicator and the trailing resize-handle clamp both used to
+ * key off `:first-child` / `:last-child`. That reads the DOM position rather
+ * than the intent, so any non-column cell at either end silently took the
+ * edge treatment. Resolving it here keeps both concerns keyed on what the
+ * item actually is.
+ *
+ * A virtualization spacer stands in for real columns it replaced, so it *is*
+ * row content and covers exactly their width — the row's edge is legitimately
+ * its edge. Slack fillers are not row content and are excluded, which is what
+ * keeps the indicator from closing across empty space.
+ */
+export function resolveColumnRenderEdges(
+  items: readonly TypeGridColumnRenderItem[]
+): {
+  rowStartItemIndex: number;
+  rowEndItemIndex: number;
+  leadingEdgeColumnId: string | null;
+  trailingEdgeColumnId: string | null;
+} {
+  let rowStartItemIndex = -1;
+  let rowEndItemIndex = -1;
+
+  for (let index = 0; index < items.length; index += 1) {
+    if (!isRowContentItem(items[index]!)) continue;
+    if (rowStartItemIndex === -1) rowStartItemIndex = index;
+    rowEndItemIndex = index;
+  }
+
+  const firstItem = items[0];
+  const lastItem = items[items.length - 1];
+
+  return {
+    rowStartItemIndex,
+    rowEndItemIndex,
+    leadingEdgeColumnId:
+      firstItem?.type === "column" ? firstItem.id : null,
+    trailingEdgeColumnId: lastItem?.type === "column" ? lastItem.id : null,
+  };
+}
+
+function isRowContentItem(item: TypeGridColumnRenderItem): boolean {
+  return item.type === "column" || item.type === "spacer";
+}
