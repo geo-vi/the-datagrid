@@ -1229,12 +1229,22 @@
   left: var(--tdg-locked-column-offset, 0px) !important;
 }
 
+/*
+ * No transform. A locked-end column used to be translated by whatever width the
+ * columns left uncovered, to keep it on the viewport edge. But it is sticky, so
+ * it kept its in-flow slot and the translate only moved where it painted: the
+ * vacated slot stayed in the row as an empty phantom column exactly as wide as
+ * the locked one, and the active-row indicator — drawn per cell — split into two
+ * disconnected rectangles with a hole between them.
+ *
+ * The slack is absorbed by a real filler cell placed just before this section
+ * instead, so the table spans the viewport, this column sits on the edge in
+ * normal flow, and the row stays continuous. It also fixes RTL for free: the old
+ * translate was unconditionally positive.
+ */
 .tdg-root .tdg-locked-column--end {
   right: var(--tdg-locked-column-offset, 0px) !important;
   left: auto !important;
-  transform: translateX(
-    var(--tdg-locked-column-viewport-offset, 0px)
-  ) !important;
 }
 
 /* Active-row indicator, drawn per cell rather than as an outline on the row:
@@ -2140,4 +2150,86 @@
   height: 0.5rem !important;
   fill: currentColor !important;
   stroke: currentColor !important;
+}
+
+/*
+ * Slack fillers — the cell that absorbs whatever viewport width the columns do
+ * not cover. The two variants are drawn as opposites on purpose.
+ *
+ * `interior` sits between the last unlocked column and the locked-end section,
+ * so it IS row content: it takes the row's own background, which means zebra
+ * striping, selection and hover run through it, and the active-row indicator
+ * crosses it.
+ *
+ * `trailing` sits past the final column, so it is NOT row content: it takes the
+ * grid's background instead of the row's, so striping stops at the data, it
+ * draws no internal borders, and the indicator stops before it.
+ *
+ * Both take the surrounding row's chrome in the header rows, so the header and
+ * filter rows read as continuing across the gap rather than stopping short. The
+ * vertical rule at the data's right edge needs no rule of its own: with a filler
+ * present the final column is no longer `:last-child`, so it keeps the
+ * `border-r` that `last:border-r-0` would otherwise have removed.
+ */
+.tdg-root .tdg-header-row > .tdg-filler-cell {
+  background: var(--tdg-header-bg) !important;
+}
+
+.tdg-root .tdg-filter-row > .tdg-filler-cell {
+  background: var(--tdg-filter-bg) !important;
+}
+
+.tdg-root .tdg-header-row > .tdg-filler-cell[data-horizontal-borders="true"],
+.tdg-root .tdg-filter-row > .tdg-filler-cell[data-horizontal-borders="true"] {
+  border-bottom: 1px solid var(--tdg-header-border-color) !important;
+}
+
+/*
+ * A filler stays mounted in fixed mode even with no slack to absorb, so the
+ * live-resize preview always has something to move width into. At zero width it
+ * occupies nothing, but it is still the row's `:last-child` — which the two
+ * `--show-border-right:last-child` rules above use to drop the trailing
+ * separator. Without this, the final real cell would keep a right border sitting
+ * against the grid's own edge.
+ */
+.tdg-root
+  .InovuaReactDataGrid__column-header--show-border-right:has(
+    + .tdg-filler-cell[data-slack="none"]
+  ),
+.tdg-root
+  .InovuaReactDataGrid__filter-cell--show-border-right:has(
+    + .tdg-filler-cell[data-slack="none"]
+  ) {
+  border-right: 0 !important;
+}
+
+.tdg-root .tdg-row > .tdg-filler-cell--trailing {
+  background: var(--tdg-grid-bg) !important;
+}
+
+.tdg-root .tdg-row > .tdg-filler-cell--interior {
+  background: inherit !important;
+}
+
+/*
+ * An interior filler needs the row's own horizontal rule, for two reasons. It is
+ * row content, so the separator between rows has to continue across it. And the
+ * active-row indicator is an absolutely positioned `::after` at `inset: 0`, which
+ * resolves against the *padding* box — border box minus borders. A data cell's
+ * 1px bottom border pulls its padding box up by 1px, so a filler without that
+ * border put its segment of the ring 1px lower than the rest of the row.
+ */
+.tdg-root
+  .tdg-row
+  > .tdg-filler-cell--interior[data-horizontal-borders="true"] {
+  border-bottom: 1px solid var(--tdg-cell-border-color) !important;
+}
+
+/*
+ * The indicator marks the active row, and a trailing filler is not part of it.
+ * `.tdg-row--active-indicator > *::after` would otherwise run the top and bottom
+ * segments across the empty gap and close the rectangle at the viewport edge.
+ */
+.tdg-root .tdg-row--active-indicator > .tdg-filler-cell--trailing::after {
+  content: none !important;
 }

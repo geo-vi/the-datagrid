@@ -1,4 +1,5 @@
 import type { TypeColumn } from "../../types";
+import { GRID_SLACK_FILLER_ID } from "./lockedColumns";
 
 export type LiveColumnResizePreview = {
   baseColumnWidth: number;
@@ -12,13 +13,23 @@ export type LiveColumnResizePreview = {
     renderedWidth: number;
   }[];
   viewport: HTMLElement | null;
+  surface: HTMLElement;
+  /**
+   * The slack filler's `<col>`, when the columns do not fill the viewport. The
+   * drag moves width between the resized column and this, keeping the table
+   * pinned to the viewport until the slack runs out.
+   */
+  fillers: {
+    element: HTMLTableColElement;
+    inlineWidth: string;
+  }[];
+  baseSlackWidth: number;
   lockedColumns: {
     side: "start" | "end";
     columnId: string;
     cells: {
       element: HTMLElement;
       inlineOffset: string;
-      inlineViewportOffset: string;
     }[];
   }[];
 };
@@ -108,11 +119,17 @@ export function captureLiveColumnResizePreview(
       inlineOffset: element.style.getPropertyValue(
         "--tdg-locked-column-offset"
       ),
-      inlineViewportOffset: element.style.getPropertyValue(
-        "--tdg-locked-column-viewport-offset"
-      ),
     });
   }
+
+  const fillers = Array.from(
+    surface.querySelectorAll<HTMLTableColElement>("col[data-column-id]")
+  )
+    .filter((element) => element.dataset.columnId === GRID_SLACK_FILLER_ID)
+    .map((element) => ({ element, inlineWidth: element.style.width }));
+  const baseSlackWidth = fillers[0]
+    ? fillers[0].element.getBoundingClientRect().width
+    : 0;
 
   return {
     baseColumnWidth,
@@ -123,23 +140,14 @@ export function captureLiveColumnResizePreview(
       renderedWidth: element.getBoundingClientRect().width,
     })),
     viewport: surface.querySelector<HTMLElement>(".tdg-body-viewport"),
+    surface,
+    fillers,
+    baseSlackWidth,
     lockedColumns: Array.from(lockedColumnsByKey.values()),
   };
 }
 
 export function updateLiveLockedColumnLayout(preview: LiveColumnResizePreview) {
-  const root = preview.viewport?.closest<HTMLElement>(".tdg-root");
-  const fixedWidthMode = root?.dataset.columnWidthMode === "fixed";
-  const renderedTableWidth = preview.tables.reduce(
-    (width, table) =>
-      Math.max(width, table.element.getBoundingClientRect().width),
-    0
-  );
-  const viewportOffset =
-    fixedWidthMode && preview.viewport
-      ? Math.max(0, preview.viewport.clientWidth - renderedTableWidth)
-      : 0;
-
   const updateSide = (side: "start" | "end") => {
     const columns = preview.lockedColumns.filter(
       (column) => column.side === side
@@ -152,10 +160,6 @@ export function updateLiveLockedColumnLayout(preview: LiveColumnResizePreview) {
         cell.element.style.setProperty(
           "--tdg-locked-column-offset",
           `${offset}px`
-        );
-        cell.element.style.setProperty(
-          "--tdg-locked-column-viewport-offset",
-          side === "end" ? `${viewportOffset}px` : "0px"
         );
       }
 
@@ -174,14 +178,38 @@ export function applyLiveColumnResizePreview(
 ) {
   if (!session.preview || session.appliedPreviewWidth === nextWidth) return;
 
-  const widthDelta = nextWidth - session.preview.baseColumnWidth;
-  for (const { element } of session.preview.columns) {
+  const preview = session.preview;
+  const widthDelta = nextWidth - preview.baseColumnWidth;
+  for (const { element } of preview.columns) {
     element.style.width = `${nextWidth}px`;
   }
-  for (const { element, renderedWidth } of session.preview.tables) {
-    element.style.width = `${Math.max(1, renderedWidth + widthDelta)}px`;
+
+  /*
+   * Move the delta between the resized column and the slack filler rather than
+   * straight onto the table. While there is slack the table stays pinned to the
+   * viewport, so a locked-end section keeps sitting on the viewport edge without
+   * being transformed out of its own slot; once the slack is spent the table
+   * grows again as before.
+   */
+  const viewportWidth = preview.surface.clientWidth;
+  const baseTableWidth = preview.tables.reduce(
+    (width, table) => Math.max(width, table.renderedWidth),
+    0
+  );
+  const columnsTotal = baseTableWidth - preview.baseSlackWidth + widthDelta;
+  // No filler mounted means stretch mode, for the instant before seeding the
+  // manual widths flips to fixed and mounts one.
+  const nextSlack = preview.fillers.length
+    ? Math.max(0, viewportWidth - columnsTotal)
+    : 0;
+
+  for (const { element } of preview.tables) {
+    element.style.width = `${Math.max(1, columnsTotal + nextSlack)}px`;
   }
-  updateLiveLockedColumnLayout(session.preview);
+  for (const { element } of preview.fillers) {
+    element.style.width = `${nextSlack}px`;
+  }
+  updateLiveLockedColumnLayout(preview);
   session.appliedPreviewWidth = nextWidth;
 }
 
@@ -196,6 +224,9 @@ export function restoreLiveColumnResizePreview(
   for (const { element, inlineWidth } of session.preview.tables) {
     element.style.width = inlineWidth;
   }
+  for (const { element, inlineWidth } of session.preview.fillers) {
+    element.style.width = inlineWidth;
+  }
   for (const column of session.preview.lockedColumns) {
     for (const cell of column.cells) {
       if (cell.inlineOffset) {
@@ -205,16 +236,6 @@ export function restoreLiveColumnResizePreview(
         );
       } else {
         cell.element.style.removeProperty("--tdg-locked-column-offset");
-      }
-      if (cell.inlineViewportOffset) {
-        cell.element.style.setProperty(
-          "--tdg-locked-column-viewport-offset",
-          cell.inlineViewportOffset
-        );
-      } else {
-        cell.element.style.removeProperty(
-          "--tdg-locked-column-viewport-offset"
-        );
       }
     }
   }

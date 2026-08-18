@@ -2,6 +2,7 @@ import type { TypeColumn, TypeColumnGroup } from "../../types";
 import { getColumnId } from "../../utils/column";
 import type {
   TypeGridColumnRenderItem,
+  TypeGridFillerVariant,
   TypeResolvedColumnLock,
 } from "./lockedColumns";
 import { resolveColumnLock } from "./lockedColumns";
@@ -26,6 +27,14 @@ export type TypeColumnGroupHeaderRenderItem =
       depth: number;
       width: number;
       colSpan: 1;
+    }
+  | {
+      type: "filler";
+      key: string;
+      depth: number;
+      width: number;
+      colSpan: 1;
+      variant: TypeGridFillerVariant;
     }
   | {
       type: "placeholder";
@@ -297,6 +306,7 @@ export function buildColumnGroupHeaderRows(args: {
       const canMerge =
         previous &&
         previous.type !== "spacer" &&
+        previous.type !== "filler" &&
         previous.locked === logical.locked &&
         previousIndex + 1 === currentIndex &&
         ((previous.type === "group" &&
@@ -360,6 +370,18 @@ export function buildColumnGroupHeaderRows(args: {
           depth,
           width: renderItem.width,
           colSpan: 1,
+        });
+        continue;
+      }
+
+      if (renderItem.type === "filler") {
+        row.push({
+          type: "filler",
+          key: `group-filler:${depth}:${renderItem.id}`,
+          depth,
+          width: renderItem.width,
+          colSpan: 1,
+          variant: renderItem.variant,
         });
         continue;
       }

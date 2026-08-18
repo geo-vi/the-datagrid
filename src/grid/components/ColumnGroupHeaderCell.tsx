@@ -184,7 +184,6 @@ export function ColumnGroupHeaderCell(props: ColumnGroupHeaderCellProps) {
         ...(lockedLayout
           ? ({
               "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
-              "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
             } as React.CSSProperties)
           : {}),
       }}

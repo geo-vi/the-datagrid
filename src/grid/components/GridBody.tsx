@@ -1252,6 +1252,31 @@ export function GridBody(props: GridBodyProps) {
             );
           }
 
+          if (renderItem.type === "filler") {
+            return (
+              <TableCell
+                key={renderItem.id}
+                aria-hidden="true"
+                data-slot="grid-filler-cell"
+                data-filler-variant={renderItem.variant}
+                data-slack={renderItem.width > 0 ? "some" : "none"}
+                data-horizontal-borders={
+                  showHorizontalCellBorders ? "true" : "false"
+                }
+                className={cn(
+                  "tdg-filler-cell pointer-events-none !p-0",
+                  `tdg-filler-cell--${renderItem.variant}`,
+                  rowEdgeClassName(renderItemIndex)
+                )}
+                style={{
+                  width: renderItem.width,
+                  minWidth: renderItem.width,
+                  maxWidth: renderItem.width,
+                }}
+              />
+            );
+          }
+
           const cellIndex = renderItem.index;
           const cell = allCells[cellIndex];
           if (!cell) return null;
@@ -1264,7 +1289,16 @@ export function GridBody(props: GridBodyProps) {
           const lockedLayout = lockedColumnLayout[columnId];
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
-          const isLastCell = cellIndex === allCells.length - 1;
+          /*
+           * `--last` drops the cell's right border because nothing follows it.
+           * That has to mean "at the table's trailing edge", not "the last
+           * column": a slack filler sits after the final column, and then the
+           * final column does need its border — it is the rule between the data
+           * and the empty gap. An index comparison against the column count
+           * cannot see the filler and stripped it.
+           */
+          const isLastCell =
+            columnId === columnRenderEdges.trailingEdgeColumnId;
           const rowId = getCompatRowId(row, rowStyleMetadata.getItemId);
           const isEditingThisCell = Boolean(
             editingCell &&
@@ -1542,7 +1576,6 @@ export function GridBody(props: GridBodyProps) {
                 ...(lockedLayout
                   ? ({
                       "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
-                      "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
                     } as React.CSSProperties)
                   : {}),
                 ...(isEditingThisCell && rowHeight == null
@@ -1804,6 +1837,32 @@ export function GridBody(props: GridBodyProps) {
           />
         );
       }
+
+      if (renderItem.type === "filler") {
+        return (
+          <TableCell
+            key={`empty-${emptyIndex}-${renderItem.id}`}
+            aria-hidden="true"
+            data-slot="grid-filler-cell"
+            data-filler-variant={renderItem.variant}
+            data-slack={renderItem.width > 0 ? "some" : "none"}
+            data-horizontal-borders={
+              showHorizontalCellBorders ? "true" : "false"
+            }
+            className={cn(
+              "tdg-filler-cell pointer-events-none !p-0",
+              `tdg-filler-cell--${renderItem.variant}`,
+              rowEdgeClassName(renderItemIndex)
+            )}
+            style={{
+              width: renderItem.width,
+              minWidth: renderItem.width,
+              maxWidth: renderItem.width,
+            }}
+          />
+        );
+      }
+
       const columnIndex = renderItem.index;
       const column = orderedColumns[columnIndex];
       if (!column) return null;

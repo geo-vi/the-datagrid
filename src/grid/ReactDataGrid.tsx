@@ -2161,8 +2161,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
       : "select-text";
   const tableMinWidth =
     visibleTableColumns.length > 0 ? table.getTotalSize() : undefined;
-  const sharedTableStyle = tableMinWidth
-    ? { width: `${tableMinWidth}px` }
+  /**
+   * Viewport width the columns do not cover. Stretch mode forces the table to
+   * 100% so there is never any; fixed mode is entered by the first resize, and
+   * from then on shrinking a column leaves the table narrower than the viewport.
+   *
+   * A real cell absorbs it, which keeps every cell width explicit and summing to
+   * the table width. Letting `table-layout: fixed` distribute the surplus
+   * instead would silently widen the columns and undo the resize.
+   *
+   * Scoped to grids with no locked-end section for now: with one, the filler has
+   * to sit *interior* to it, and that only works once the locked-end transform
+   * is gone.
+   */
+  const gridSlackWidth =
+    hasManualColumnWidths && tableMinWidth
+      ? Math.max(0, Math.floor(columnViewportWidth - tableMinWidth))
+      : null;
+  const tableRenderWidth =
+    tableMinWidth == null ? undefined : tableMinWidth + (gridSlackWidth ?? 0);
+  const sharedTableStyle = tableRenderWidth
+    ? { width: `${tableRenderWidth}px` }
     : undefined;
   const columnLayout = React.useMemo(
     () =>
@@ -2205,6 +2224,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     trailingViewportWidth: isAtTrailingColumnEdge
       ? Math.max(0, columnViewportWidth - lockedEndWidth)
       : 0,
+    fillerWidth: gridSlackWidth,
   });
   const columnRenderItems = columnRenderRange.items;
   const columnGroupHeaderRows = React.useMemo(
@@ -2217,24 +2237,19 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }),
     [columnGroupModel, columnRenderItems, columnWidths, orderedColumns]
   );
-  const lockedEndViewportOffset =
-    hasManualColumnWidths && tableMinWidth
-      ? Math.max(0, columnViewportWidth - tableMinWidth)
-      : 0;
   const lockedColumnLayout = React.useMemo(
     () =>
       buildLockedColumnLayout(
         orderedColumns,
         Object.fromEntries(
           columnLayout.map((column) => [column.id, column.width])
-        ),
-        lockedEndViewportOffset
+        )
       ),
-    [columnLayout, lockedEndViewportOffset, orderedColumns]
+    [columnLayout, orderedColumns]
   );
   const renderedColumnLayout = React.useMemo(() => {
     return columnRenderItems.flatMap((renderItem) => {
-      if (renderItem.type === "spacer") {
+      if (renderItem.type === "spacer" || renderItem.type === "filler") {
         return [
           {
             id: renderItem.id,
@@ -2290,7 +2305,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
     showHeader,
     skipHeaderOnAutoSize,
     surfaceRef,
-    tableMinWidth,
+    tableRenderWidth,
+    gridSlackWidth: gridSlackWidth ?? 0,
   });
 
   /** ---------------- header drag/drop reorder ---------------- */

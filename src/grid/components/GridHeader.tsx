@@ -25,6 +25,7 @@ import type { TypeColumnGroupHeaderRenderItem } from "../utils/columnGroups";
 import { getColumnGroupSegmentKey } from "../utils/columnGroups";
 import type {
   TypeGridColumnRenderItem,
+  TypeGridFillerVariant,
   TypeLockedColumnLayout,
 } from "../utils/lockedColumns";
 import { resolveColumnRenderEdges } from "../utils/lockedColumns";
@@ -124,6 +125,36 @@ export type GridHeaderProps = {
   headerDOMProps?: TypeDataGridProps["headerDOMProps"];
 };
 
+/**
+ * Absorbs the grid's leftover width in the header rows. Unlike a virtualization
+ * spacer this stands for no columns at all, so it is marked for the chrome the
+ * header and filter rows give it.
+ */
+function ColumnFillerHeader(props: {
+  width: number;
+  variant: TypeGridFillerVariant;
+  showHorizontalCellBorders: boolean;
+}) {
+  return (
+    <TableHead
+      aria-hidden="true"
+      data-slot="grid-filler-cell"
+      data-filler-variant={props.variant}
+      data-slack={props.width > 0 ? "some" : "none"}
+      data-horizontal-borders={props.showHorizontalCellBorders ? "true" : "false"}
+      className={cn(
+        "tdg-filler-cell pointer-events-none !p-0",
+        `tdg-filler-cell--${props.variant}`
+      )}
+      style={{
+        width: props.width,
+        minWidth: props.width,
+        maxWidth: props.width,
+      }}
+    />
+  );
+}
+
 function ColumnSpacerHeader(props: { width: number }) {
   if (props.width <= 0) return null;
 
@@ -165,7 +196,6 @@ function resolveSegmentLockedLayout(
   return {
     side,
     offset: edgeLayout.offset,
-    viewportOffset: edgeLayout.viewportOffset,
     boundary: boundaryLayout.boundary,
   };
 }
@@ -254,6 +284,17 @@ export function GridHeader(props: GridHeaderProps) {
               return <ColumnSpacerHeader key={item.key} width={item.width} />;
             }
 
+            if (item.type === "filler") {
+              return (
+                <ColumnFillerHeader
+                  key={item.key}
+                  width={item.width}
+                  variant={item.variant}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
+                />
+              );
+            }
+
             const lockedLayout = resolveSegmentLockedLayout(
               item.columnIds,
               lockedColumnLayout
@@ -289,7 +330,6 @@ export function GridHeader(props: GridHeaderProps) {
                     ...(lockedLayout
                       ? ({
                           "--tdg-locked-column-offset": `${lockedLayout.offset}px`,
-                          "--tdg-locked-column-viewport-offset": `${lockedLayout.viewportOffset}px`,
                         } as React.CSSProperties)
                       : {}),
                   }}
@@ -341,6 +381,17 @@ export function GridHeader(props: GridHeaderProps) {
                 <ColumnSpacerHeader
                   key={`${hg.id}-${renderItem.id}`}
                   width={renderItem.width}
+                />
+              );
+            }
+
+            if (renderItem.type === "filler") {
+              return (
+                <ColumnFillerHeader
+                  key={`${hg.id}-${renderItem.id}`}
+                  width={renderItem.width}
+                  variant={renderItem.variant}
+                  showHorizontalCellBorders={showHorizontalCellBorders}
                 />
               );
             }
@@ -423,6 +474,17 @@ export function GridHeader(props: GridHeaderProps) {
                   <ColumnSpacerHeader
                     key={`${hg.id}-filters-${renderItem.id}`}
                     width={renderItem.width}
+                  />
+                );
+              }
+
+              if (renderItem.type === "filler") {
+                return (
+                  <ColumnFillerHeader
+                    key={`${hg.id}-filters-${renderItem.id}`}
+                    width={renderItem.width}
+                    variant={renderItem.variant}
+                    showHorizontalCellBorders={showHorizontalCellBorders}
                   />
                 );
               }

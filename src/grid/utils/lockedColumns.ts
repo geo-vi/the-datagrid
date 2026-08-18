@@ -6,7 +6,6 @@ export type TypeResolvedColumnLock = "start" | "end" | false;
 export type TypeLockedColumnLayout = {
   side: Exclude<TypeResolvedColumnLock, false>;
   offset: number;
-  viewportOffset: number;
   boundary: boolean;
 };
 
@@ -20,7 +19,25 @@ export type TypeGridColumnRenderItem =
       type: "spacer";
       id: string;
       width: number;
+    }
+  | {
+      type: "filler";
+      id: string;
+      width: number;
+      variant: TypeGridFillerVariant;
     };
+
+/**
+ * Where the grid's leftover width is absorbed, which decides how it is drawn.
+ *
+ * `interior` sits between the last unlocked column and the locked-end section,
+ * so it is row content: it takes the row's own background and the active-row
+ * indicator crosses it. `trailing` sits after the final column and is not row
+ * content, so it stays unstriped and the indicator stops before it.
+ */
+export type TypeGridFillerVariant = "interior" | "trailing";
+
+export const GRID_SLACK_FILLER_ID = "__tdg_grid_slack_filler__";
 
 type TypeColumnLayoutItem = {
   id: string;
@@ -58,8 +75,7 @@ export function groupColumnsByLock(
 
 export function buildLockedColumnLayout(
   columns: readonly TypeColumn[],
-  columnWidths: Readonly<Record<string, number>>,
-  lockedEndViewportOffset = 0
+  columnWidths: Readonly<Record<string, number>>
 ): Record<string, TypeLockedColumnLayout> {
   const result: Record<string, TypeLockedColumnLayout> = {};
   const lockedStart = columns.filter(
@@ -75,7 +91,6 @@ export function buildLockedColumnLayout(
     result[columnId] = {
       side: "start",
       offset: startOffset,
-      viewportOffset: 0,
       boundary: index === lockedStart.length - 1,
     };
     startOffset += columnWidths[columnId] ?? 0;
@@ -88,7 +103,6 @@ export function buildLockedColumnLayout(
     result[columnId] = {
       side: "end",
       offset: endOffset,
-      viewportOffset: lockedEndViewportOffset,
       boundary: index === 0,
     };
     endOffset += columnWidths[columnId] ?? 0;
@@ -115,6 +129,22 @@ export function buildGridColumnRenderItems(args: {
   virtualColumnIndexes: readonly number[];
   virtualizeColumns: boolean;
   trailingViewportWidth?: number;
+  /**
+   * Leftover viewport width the columns do not cover. Absorbed by a real cell
+   * rather than left as a hole, so the row keeps its full width and the
+   * locked-end section can sit at the viewport edge without being transformed
+   * out of its own slot.
+   *
+   * `0` still emits the cell, at zero width. `null` omits it entirely, which is
+   * what stretch mode wants — there the table is forced to 100% and the columns
+   * are deliberately allowed to absorb the surplus.
+   *
+   * Keeping a zero-width cell mounted is what lets the live-resize preview work:
+   * it can only move width between elements already in the DOM, so a filler that
+   * appears only once slack exists would leave the first drag with nothing to
+   * grow, and the locked-end section would drift with the shrinking table.
+   */
+  fillerWidth?: number | null;
 }): {
   items: TypeGridColumnRenderItem[];
   firstIndex: number;
@@ -129,27 +159,9 @@ export function buildGridColumnRenderItems(args: {
     virtualColumnIndexes,
     virtualizeColumns,
     trailingViewportWidth = 0,
+    fillerWidth = null,
   } = args;
   const totalColumnCount = columnLayout.length;
-
-  if (
-    !virtualizeColumns ||
-    totalColumnCount === 0 ||
-    virtualColumnIndexes.length === 0
-  ) {
-    return {
-      items: columnLayout.map((column, index) => ({
-        type: "column",
-        id: column.id,
-        index,
-      })),
-      firstIndex: 0,
-      lastIndex: totalColumnCount - 1,
-      beforeWidth: 0,
-      afterWidth: 0,
-      columnRenderCount: totalColumnCount,
-    };
-  }
 
   let lockedStartCount = 0;
   while (
@@ -165,6 +177,34 @@ export function buildGridColumnRenderItems(args: {
     resolveColumnLock(columns[lockedEndStartIndex - 1]!) === "end"
   ) {
     lockedEndStartIndex -= 1;
+  }
+
+  if (
+    !virtualizeColumns ||
+    totalColumnCount === 0 ||
+    virtualColumnIndexes.length === 0
+  ) {
+    const columnItems: TypeGridColumnRenderItem[] = columnLayout.map(
+      (column, index) => ({
+        type: "column",
+        id: column.id,
+        index,
+      })
+    );
+
+    return {
+      items: withSlackFiller(
+        columnItems,
+        lockedEndStartIndex,
+        columns.length,
+        fillerWidth
+      ),
+      firstIndex: 0,
+      lastIndex: totalColumnCount - 1,
+      beforeWidth: 0,
+      afterWidth: 0,
+      columnRenderCount: totalColumnCount,
+    };
   }
 
   const unlockedCount = lockedEndStartIndex - lockedStartCount;
@@ -266,14 +306,56 @@ export function buildGridColumnRenderItems(args: {
     }
   }
 
-  return {
+  const itemsWithFiller = withSlackFiller(
     items,
+    lockedEndStartIndex,
+    columns.length,
+    fillerWidth
+  );
+
+  return {
+    items: itemsWithFiller,
     firstIndex,
     lastIndex,
     beforeWidth,
     afterWidth,
-    columnRenderCount: items.filter((item) => item.type === "column").length,
+    columnRenderCount: itemsWithFiller.filter((item) => item.type === "column")
+      .length,
   };
+}
+
+/**
+ * Places the slack filler. With a locked-end section it goes immediately before
+ * it, so the locked columns keep sitting at the viewport edge and stay the row's
+ * last cells; otherwise it goes after everything, past the row's real content.
+ */
+function withSlackFiller(
+  items: TypeGridColumnRenderItem[],
+  lockedEndStartIndex: number,
+  columnCount: number,
+  fillerWidth: number | null
+): TypeGridColumnRenderItem[] {
+  if (fillerWidth == null || !Number.isFinite(fillerWidth) || fillerWidth < 0) {
+    return items;
+  }
+
+  const hasLockedEnd = lockedEndStartIndex < columnCount;
+  const filler: TypeGridColumnRenderItem = {
+    type: "filler",
+    id: GRID_SLACK_FILLER_ID,
+    width: fillerWidth,
+    variant: hasLockedEnd ? "interior" : "trailing",
+  };
+
+  if (!hasLockedEnd) return [...items, filler];
+
+  const lockedEndAt = items.findIndex(
+    (item) => item.type === "column" && item.index >= lockedEndStartIndex
+  );
+
+  return lockedEndAt === -1
+    ? [...items, filler]
+    : [...items.slice(0, lockedEndAt), filler, ...items.slice(lockedEndAt)];
 }
 
 /**
@@ -308,14 +390,18 @@ export function resolveColumnRenderEdges(
     rowEndItemIndex = index;
   }
 
-  const firstItem = items[0];
-  const lastItem = items[items.length - 1];
+  // A filler carrying no slack occupies no space, so it does not displace the
+  // table's edges even though it is mounted.
+  const spanning = items.filter(
+    (item) => !(item.type === "filler" && item.width <= 0)
+  );
+  const firstItem = spanning[0];
+  const lastItem = spanning[spanning.length - 1];
 
   return {
     rowStartItemIndex,
     rowEndItemIndex,
-    leadingEdgeColumnId:
-      firstItem?.type === "column" ? firstItem.id : null,
+    leadingEdgeColumnId: firstItem?.type === "column" ? firstItem.id : null,
     trailingEdgeColumnId: lastItem?.type === "column" ? lastItem.id : null,
   };
 }

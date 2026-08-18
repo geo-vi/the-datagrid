@@ -21,6 +21,7 @@ import {
   type ColumnResizeSession,
   type GroupResizeSession,
 } from "../utils/liveColumnResize";
+import { GRID_SLACK_FILLER_ID } from "../utils/lockedColumns";
 import { getLogicalScrollLeft, setLogicalScrollLeft } from "../utils/rtlScroll";
 
 export type GridColumnResizeEntry = {
@@ -61,7 +62,9 @@ export type UseGridColumnResizeParams = {
   showHeader: boolean;
   skipHeaderOnAutoSize: boolean;
   surfaceRef: React.RefObject<HTMLDivElement | null>;
-  tableMinWidth: number | undefined;
+  /** The table's rendered width: the columns' total plus any slack filler. */
+  tableRenderWidth: number | undefined;
+  gridSlackWidth: number;
 };
 
 /**
@@ -99,7 +102,8 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
     showHeader,
     skipHeaderOnAutoSize,
     surfaceRef,
-    tableMinWidth,
+    tableRenderWidth,
+    gridSlackWidth,
   } = params;
 
   const [resizeProxyLeft, setResizeProxyLeft] = React.useState<number | null>(
@@ -188,19 +192,36 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
       column.inlineWidth = `${latestColumn.width}px`;
     }
 
-    const latestTableInlineWidth = tableMinWidth ? `${tableMinWidth}px` : "";
+    const latestTableInlineWidth = tableRenderWidth
+      ? `${tableRenderWidth}px`
+      : "";
     for (const table of preview.tables) {
       table.inlineWidth = latestTableInlineWidth;
       table.renderedWidth =
-        tableMinWidth ?? table.element.getBoundingClientRect().width;
+        tableRenderWidth ?? table.element.getBoundingClientRect().width;
+    }
+    // Re-collect the fillers, then re-baseline the slack. The first drag starts
+    // in stretch mode, where no filler is mounted at all; seeding the manual
+    // widths flips to fixed mode and mounts one, and without re-querying here
+    // this drag would keep believing there is nothing to move width into.
+    const surface = surfaceRef.current;
+    if (surface) {
+      preview.fillers = Array.from(
+        surface.querySelectorAll<HTMLTableColElement>("col[data-column-id]")
+      )
+        .filter(
+          (element) => element.dataset.columnId === GRID_SLACK_FILLER_ID
+        )
+        .map((element) => ({ element, inlineWidth: element.style.width }));
+    }
+    preview.baseSlackWidth = gridSlackWidth;
+    for (const filler of preview.fillers) {
+      filler.inlineWidth = gridSlackWidth > 0 ? `${gridSlackWidth}px` : "";
     }
     for (const lockedColumn of preview.lockedColumns) {
       for (const cell of lockedColumn.cells) {
         cell.inlineOffset = cell.element.style.getPropertyValue(
           "--tdg-locked-column-offset"
-        );
-        cell.inlineViewportOffset = cell.element.style.getPropertyValue(
-          "--tdg-locked-column-viewport-offset"
         );
       }
     }
@@ -210,7 +231,7 @@ export function useGridColumnResize(params: UseGridColumnResizeParams) {
 
     activeSession.appliedPreviewWidth = null;
     applyLiveColumnResizePreview(activeSession, appliedPreviewWidth);
-  }, [renderedColumnLayout, tableMinWidth]);
+  }, [gridSlackWidth, renderedColumnLayout, surfaceRef, tableRenderWidth]);
 
   const captureRenderedColumnWidths = React.useCallback(() => {
     const headerCells = Array.from(

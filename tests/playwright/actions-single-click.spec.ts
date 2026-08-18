@@ -225,31 +225,30 @@ test("locked-column helpers normalize both start forms and accumulate offsets on
     "end-a": 80,
     "end-b": 100,
   };
-  const layout = buildLockedColumnLayout(grouped, widths, 17);
+  const layout = buildLockedColumnLayout(grouped, widths);
 
+  // No viewport offset any more: the locked-end section reaches the viewport
+  // edge because a filler cell absorbs the slack, not because these cells are
+  // transformed out of their own slots.
   expect(layout).toEqual({
     "start-alias": {
       side: "start",
       offset: 0,
-      viewportOffset: 0,
       boundary: false,
     },
     "start-explicit": {
       side: "start",
       offset: 70,
-      viewportOffset: 0,
       boundary: true,
     },
     "end-a": {
       side: "end",
       offset: 100,
-      viewportOffset: 17,
       boundary: true,
     },
     "end-b": {
       side: "end",
       offset: 0,
-      viewportOffset: 17,
       boundary: false,
     },
   });
