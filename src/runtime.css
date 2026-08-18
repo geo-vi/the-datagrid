@@ -539,6 +539,24 @@
   color-scheme: dark;
 }
 
+/*
+ * Boundary indicator and drag guide. The generic `--tdg-color-accent` default is
+ * a pale hover surface in every stock theme, so it was near-invisible against
+ * the header. Light weight is calibrated against ikarus-light's amber (2.05:1
+ * vs 2.08:1 on its header), not maximised.
+ *
+ * `:where()` contributes no specificity, so a named theme stating this token
+ * always wins regardless of stylesheet order.
+ */
+.tdg-root:where([data-theme-base="light"], [data-theme-base="default"]) {
+  --tdg-column-header-resizer-constrained-color: #9db2d8;
+}
+
+.tdg-root:where([data-theme-base="dark"]),
+.dark .tdg-root:where([data-theme-base="default"]) {
+  --tdg-column-header-resizer-constrained-color: #26324a;
+}
+
 .dark .tdg-root[data-theme="default"][data-theme-base="default"],
 .tdg-root[data-theme="dark"][data-theme-base="dark"] {
   --tdg-color-background: var(--background, oklch(0.145 0 0));

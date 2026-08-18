@@ -54,5 +54,7 @@
   --tdg-checkbox-checked-border-color: #426dcd;
   --tdg-checkbox-checked-color: #fefefe;
 
-  --tdg-column-header-resizer-constrained-color: #f6f8fc;
+  // #f6f8fc is this theme's pale accent surface — invisible as a 2px line on a
+  // #fafafa header. Same hue, weighted to match ikarus-light's amber.
+  --tdg-column-header-resizer-constrained-color: #9db2d8;
 }
