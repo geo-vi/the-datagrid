@@ -916,10 +916,31 @@
 }
 
 .tdg-root .tdg-header-cell {
-  position: static !important;
+  /* Containing block for the boundary indicator below. The resize handle is a
+     child of `__inner` and keeps positioning against that, so this does not
+     move it. Locked header cells still take `sticky` from `.tdg-locked-column`,
+     which is declared later at equal specificity. */
+  position: relative !important;
   inset: auto !important;
   padding: 0 0.5rem !important;
   isolation: isolate !important;
+  /* Width of the cell's own right border, which is the visible column
+     separator. `right` on an absolutely positioned box resolves against the
+     padding box, which stops *inside* that border, so the boundary indicator
+     has to be pushed back out over it or it lands a pixel short. */
+  --tdg-header-cell-separator-width: 0px !important;
+}
+
+.tdg-root
+  .tdg-header-cell.InovuaReactDataGrid__column-header--show-border-right {
+  --tdg-header-cell-separator-width: 1px !important;
+}
+
+/* Mirrors Tailwind's `last:border-r-0` on the header cell: the trailing cell
+   carries the border class but renders no border, so it has no separator to
+   straddle. Keep these two in step if that utility ever changes. */
+.tdg-root .tdg-header-row > .tdg-header-cell:last-child {
+  --tdg-header-cell-separator-width: 0px !important;
 }
 
 .tdg-root .tdg-header-cell__inner {
@@ -958,24 +979,45 @@
   left: calc(-0.75rem - 0.5rem) !important;
 }
 
-.tdg-root .tdg-column-resizer::before {
+/*
+ * The 2px boundary indicator.
+ *
+ * It used to be the resize handle's own `::before`, centred in the handle's
+ * box. That box deliberately moves: it shifts inward on the trailing column so
+ * its outer half cannot inflate `scrollWidth`, and inward again when the
+ * overlay scrollbar would otherwise swallow the pointer. The indicator moved
+ * with it, so on the trailing column it painted ~12px left of the column
+ * boundary (~24px with the scrollbar showing) — you aimed at the line, the
+ * drag proxy anchored to the real boundary, and the two disagreed.
+ *
+ * Anchoring it to the header cell's own right edge puts it on the true
+ * boundary in all three geometries and leaves the handle's box free to sit
+ * wherever hit-testing needs it.
+ */
+.tdg-root .tdg-header-cell::after {
   content: "" !important;
-  display: block !important;
-  width: 2px !important;
-  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  right: calc(-1 * var(--tdg-header-cell-separator-width, 0px)) !important;
+  left: auto !important;
+  width: var(--tdg-column-boundary-indicator-width, 2px) !important;
+  /* Above the handle (10) so the label cannot paint over the line. */
+  z-index: 11 !important;
+  pointer-events: none !important;
   background: var(--tdg-column-header-resizer-constrained-color) !important;
   opacity: 0 !important;
-  transition:
-    opacity 120ms ease,
-    background-color 120ms ease !important;
+  transition: opacity 120ms ease !important;
 }
 
-.tdg-root .tdg-column-resizer[data-resizing="true"]::before {
-  opacity: 1 !important;
-  background: var(--tdg-column-header-resizer-constrained-color) !important;
+.tdg-root[dir="rtl"] .tdg-header-cell::after {
+  right: auto !important;
+  left: calc(-1 * var(--tdg-header-cell-separator-width, 0px)) !important;
 }
 
-.tdg-root .tdg-column-resizer:is(:hover, :focus-visible)::before {
+.tdg-root
+  .tdg-header-cell:has(.tdg-column-resizer:is(:hover, :focus-visible))::after,
+.tdg-root .tdg-header-cell:has(.tdg-column-resizer[data-resizing="true"])::after {
   opacity: 1 !important;
 }
 
@@ -984,8 +1026,26 @@
  * target on the final edge contributes its outer half to scrollWidth and can
  * manufacture an otherwise-useless horizontal scroll range.
  */
+/*
+ * The trailing target cannot straddle the boundary — its outer half would
+ * contribute to `scrollWidth` and manufacture a useless horizontal scroll
+ * range. It sits flush inboard instead.
+ *
+ * It is also *narrower* than the others. A full-width inboard target reaches
+ * twice as far into the column as a straddling one does (measured: 24px of
+ * inward reach against 12px), which reads as a noticeably larger hit area on
+ * the last column alone. Halving the width matches the inward reach of every
+ * other column, which is the distance-from-the-line a pointer actually feels.
+ */
+.tdg-root {
+  --tdg-column-resize-trailing-handle-width: 0.75rem;
+  /* Shared by the boundary indicator and the drag proxy's centring below. */
+  --tdg-column-boundary-indicator-width: 2px;
+}
+
 .tdg-root .tdg-header-row > .tdg-header-cell--trailing-edge .tdg-column-resizer {
   right: -0.5rem !important;
+  width: var(--tdg-column-resize-trailing-handle-width, 0.75rem) !important;
 }
 
 .tdg-root[dir="rtl"]
@@ -994,6 +1054,7 @@
   .tdg-column-resizer {
   right: auto !important;
   left: -0.5rem !important;
+  width: var(--tdg-column-resize-trailing-handle-width, 0.75rem) !important;
 }
 
 /*
@@ -1005,7 +1066,7 @@
   > .tdg-header-cell--trailing-edge
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: calc(
-    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+    var(--tdg-column-resize-trailing-handle-width, 0.75rem) + 0.25rem
   ) !important;
 }
 
@@ -1015,7 +1076,7 @@
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: 0 !important;
   margin-left: calc(
-    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+    var(--tdg-column-resize-trailing-handle-width, 0.75rem) + 0.25rem
   ) !important;
 }
 
@@ -1026,21 +1087,19 @@
  * and horizontal scroll alignment remain unchanged. A smaller offset leaves
  * the handle over the track, which swallows the pointer.
  *
- * :not([data-state="hidden"]), not [data-state="visible"]: Radix omits
- * data-state entirely on an always-visible bar (autoHide: false).
+ * REMOVED deliberately. Insetting the target to clear the bar put it out of
+ * line with the drag proxy, which is anchored to the true boundary and tracks
+ * the pointer's delta from wherever the grab started — so grabbing 12px inboard
+ * left the proxy 12px ahead of the cursor for the whole drag. Insetting the
+ * indicator to match the target instead just moved the disagreement onto the
+ * proxy. Neither is fixable while the bar owns the boundary.
+ *
+ * The bar paints above the header (bar `z-30`, header layer `z-20`, and the
+ * header is sticky *inside* the scroll viewport), but the boundary is still
+ * clickable in practice, so the target stays on the boundary and everything
+ * lines up. Making the bar stop covering the header is its own issue:
+ * ISSUE-scrollbar-overlays-header.md.
  */
-.tdg-root:has(
-    [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]:not(
-        [data-state="hidden"]
-      )
-  )
-  .tdg-header-row
-  > .tdg-header-cell--trailing-edge
-  .tdg-column-resizer {
-  right: calc(
-    var(--tdg-scroll-vertical-footprint, 0.75rem) - 0.5rem
-  ) !important;
-}
 
 .tdg-root .tdg-column-resizer:focus-visible {
   outline: none !important;
@@ -1054,6 +1113,20 @@
   /* Above the sticky header layer (20); it renders later, so equal z-index loses. */
   z-index: 30 !important;
   width: var(--tdg-column-resize-proxy-width, 5px) !important;
+  /*
+   * Share a centre line with the boundary indicator. The proxy's x is the
+   * column boundary and the indicator's right edge is that same boundary, so
+   * left-aligning the proxy made the two abut — the thin line stopped exactly
+   * where the thick one started, reading as two bars rather than one. Pulling
+   * the proxy back by half of both widths puts their centres together.
+   */
+  margin-left: calc(
+    -0.5 *
+      (
+        var(--tdg-column-resize-proxy-width, 5px) +
+          var(--tdg-column-boundary-indicator-width, 2px)
+      )
+  ) !important;
   pointer-events: none !important;
   will-change: transform !important;
   background: var(--tdg-column-header-resizer-constrained-color) !important;
