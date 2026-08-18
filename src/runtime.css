@@ -416,25 +416,36 @@
     var(--tdg-color-muted) 28%,
     var(--tdg-color-background)
   );
+  /*
+   * Row-state backgrounds must be OPAQUE. Locked columns are sticky cells that
+   * take `background: inherit` from the row, and they sit over horizontally
+   * scrolled content — so a translucent row colour lets the cells underneath
+   * show straight through the locked column on hover and on selection.
+   *
+   * These used to mix towards `transparent`. Mixing towards the grid background
+   * instead renders identically, because a row's background-color is *replaced*
+   * on hover rather than layered, so the translucent colour was compositing over
+   * the viewport's own background anyway — while leaving nothing see-through.
+   */
   --tdg-row-odd-hover-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 40%,
-    transparent
+    var(--tdg-grid-bg)
   );
   --tdg-row-even-hover-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 40%,
-    transparent
+    var(--tdg-grid-bg)
   );
   --tdg-row-selected-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 30%,
-    transparent
+    var(--tdg-grid-bg)
   );
   --tdg-row-selected-hover-bg: color-mix(
     in oklab,
     var(--tdg-color-muted) 45%,
-    transparent
+    var(--tdg-grid-bg)
   );
   --tdg-row-odd-selected-bg: var(--tdg-row-selected-bg);
   --tdg-row-odd-selected-hover-bg: var(--tdg-row-selected-hover-bg);
