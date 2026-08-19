@@ -930,6 +930,25 @@
 }
 
 /*
+ * A sortable column's label is a flex item that hugs its text, so `text-align`
+ * cannot place it — `justify-content` moves it and its sort indicator together.
+ * `start` keeps `space-between`, which already puts the label at the start.
+ */
+.tdg-root
+  .InovuaReactDataGrid__column-header--align-end
+  .InovuaReactDataGrid__column-header__sort-button {
+  justify-content: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.tdg-root
+  .InovuaReactDataGrid__column-header--align-center
+  .InovuaReactDataGrid__column-header__sort-button {
+  justify-content: center !important;
+  gap: 0.5rem !important;
+}
+
+/*
  * The non-sortable header label is a block box that grows into the header
  * content area, so content sizing itself against it (a centered checkbox, a
  * full-width custom renderer) lines up with the matching body cell.
@@ -1167,6 +1186,10 @@
   position: relative !important;
 }
 
+/*
+ * `justify-content` is deliberately absent: `textAlign` ships a `justify-*`
+ * utility on this element, and an !important here would beat it.
+ */
 .tdg-root .tdg-cell-content {
   display: flex !important;
   width: 100% !important;

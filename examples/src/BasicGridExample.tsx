@@ -56,6 +56,8 @@ export default function BasicGridExample() {
         filterEditorProps: {
           options: ["London", "Berlin", "Paris", "Rome"],
         },
+        textAlign: "center",
+        headerAlign: "center",
       },
       {
         name: "amount",

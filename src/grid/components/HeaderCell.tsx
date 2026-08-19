@@ -220,12 +220,20 @@ export function HeaderCell(props: HeaderCellProps) {
     : null;
 
   const headerAlign = col?.headerAlign ?? col?.textAlign;
-  const headerAlignClass =
-    headerAlign === "right" || headerAlign === "end"
-      ? "InovuaReactDataGrid__column-header--align-end"
-      : headerAlign === "center"
-        ? "InovuaReactDataGrid__column-header--align-center"
-        : "InovuaReactDataGrid__column-header--align-start";
+  const alignsEnd = headerAlign === "right" || headerAlign === "end";
+  const alignsCenter = headerAlign === "center";
+  const headerAlignClass = alignsEnd
+    ? "InovuaReactDataGrid__column-header--align-end"
+    : alignsCenter
+      ? "InovuaReactDataGrid__column-header--align-center"
+      : "InovuaReactDataGrid__column-header--align-start";
+  // Only reaches a column that cannot sort, whose label is a block filling the
+  // cell. A sortable one aligns via `--align-*` in `runtime.css`.
+  const headerTextAlignClass = alignsEnd
+    ? "text-right"
+    : alignsCenter
+      ? "text-center"
+      : "";
 
   const handleSort = React.useCallback(() => {
     applySort({
@@ -350,7 +358,7 @@ export function HeaderCell(props: HeaderCellProps) {
         showVerticalCellBorders
           ? "border-r last:border-r-0 [border-right-color:var(--tdg-header-border-color)]"
           : "",
-        headerAlign === "right" || headerAlign === "end" ? "text-right" : "",
+        headerTextAlignClass,
         col?.headerProps?.className,
         inheritedHeaderDOMProps.className
       )}
@@ -484,8 +492,11 @@ export function HeaderCell(props: HeaderCellProps) {
         >
           {header.isPlaceholder ? null : canSort ? (
             <div className="InovuaReactDataGrid__column-header__sort-button flex min-w-0 flex-1 items-center justify-between">
+              {/* Leads when right-aligned, so the label ends on the trailing
+                  padding and lines up with the cells. */}
+              {alignsEnd ? renderedSortTool : null}
               <span className="truncate text-inherit">{headerContent}</span>
-              {renderedSortTool}
+              {alignsEnd ? null : renderedSortTool}
             </div>
           ) : (
             <div className="tdg-header-cell__label min-w-0 flex-1">

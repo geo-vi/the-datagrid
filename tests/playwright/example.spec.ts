@@ -2132,6 +2132,102 @@ test("keeps grid buttons styled under hostile global button styles", async ({
   expect(darkThemeStyles.borderTopColor).not.toBe("rgb(118, 118, 118)");
 });
 
+// Both the header label and the cell content are flex items that hug their own
+// text, so `text-align` cannot place them and the element box says nothing about
+// where the text landed — these measure the text itself with a Range. `/basic`
+// aligns Amount to `end` and City to `center`; ID and Name are left at the
+// default. `textAlign` drives the header too unless `headerAlign` overrides it,
+// which is Inovua's behaviour.
+test("textAlign and headerAlign place the text in the header and in the cells", async ({
+  page,
+}) => {
+  await page.goto("/basic");
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  await expect(grid.locator("tbody td").first()).toBeVisible();
+
+  const placement = await grid.evaluate((root) => {
+    const textGaps = (cell: Element) => {
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      let widest: DOMRect | null = null;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rect = range.getBoundingClientRect();
+        if (rect.width && (!widest || rect.width > widest.width)) widest = rect;
+      }
+      if (!widest) return null;
+      const box = cell.getBoundingClientRect();
+      return {
+        left: Math.round(widest.left - box.left),
+        right: Math.round(box.right - widest.right),
+      };
+    };
+
+    const row = root.querySelector("tbody .tdg-row");
+    const out: Record<string, unknown> = {};
+    for (const header of root.querySelectorAll(
+      ".tdg-header-row > .tdg-header-cell"
+    )) {
+      const id = (header as HTMLElement).dataset.columnId;
+      if (!id) continue;
+      const cell = row?.querySelector(`td[data-column-id="${id}"]`);
+      out[id] = {
+        header: textGaps(header),
+        body: cell ? textGaps(cell) : null,
+      };
+    }
+    return out as Record<
+      string,
+      {
+        header: { left: number; right: number } | null;
+        body: { left: number; right: number } | null;
+      }
+    >;
+  });
+
+  for (const id of ["cldomnr", "name", "city", "amount"]) {
+    expect(placement[id]?.header, `${id} header text`).not.toBeNull();
+    expect(placement[id]?.body, `${id} body text`).not.toBeNull();
+  }
+
+  // Default: text on the leading padding, in both rows.
+  for (const id of ["cldomnr", "name"]) {
+    expect(placement[id]!.header!.left, `${id} header starts`).toBeLessThan(12);
+    expect(placement[id]!.body!.left, `${id} body starts`).toBeLessThan(12);
+  }
+
+  // `end`: text on the trailing padding, and the header lands on the same line
+  // as the cells — the sort indicator is rendered ahead of the label so it does
+  // not push the label inboard.
+  const amount = placement.amount!;
+  expect(amount.body!.right, "amount cell ends trailing").toBeLessThan(12);
+  expect(amount.body!.right).toBeLessThan(amount.body!.left);
+  expect(amount.header!.right, "amount header ends trailing").toBeLessThan(12);
+  expect(
+    Math.abs(amount.header!.right - amount.body!.right),
+    "header and cells share a trailing edge"
+  ).toBeLessThanOrEqual(1);
+
+  // `center`: the cell text is centred. The header centres the label *and* its
+  // sort indicator as one group, so the label itself sits a little inside —
+  // bounded here rather than pinned, since it tracks the indicator's width.
+  const city = placement.city!;
+  expect(
+    Math.abs(city.body!.left - city.body!.right),
+    "city cell text is centred"
+  ).toBeLessThanOrEqual(2);
+  expect(
+    city.header!.left,
+    "city header text is off the leading padding"
+  ).toBeGreaterThan(24);
+  expect(
+    Math.abs(city.header!.left - city.header!.right),
+    "city header text is near the centre"
+  ).toBeLessThanOrEqual(40);
+});
+
 // The probe is a bare button because that is what a column's `render` produces:
 // the grid's own controls carry `.tdg-button`, which sizes itself.
 test("lets cell content override the grid typography", async ({ page }) => {

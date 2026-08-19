@@ -1284,6 +1284,14 @@ export function GridBody(props: GridBodyProps) {
           const lockedLayout = lockedColumnLayout[columnId];
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
+          // The content wrapper is a flex row, so its child hugs itself and
+          // `text-align` cannot place it. This also aligns a custom `render`.
+          const contentAlignClass =
+            align === "right" || align === "end"
+              ? "justify-end"
+              : align === "center"
+                ? "justify-center"
+                : "";
           /*
            * `--last` drops the right border because nothing follows. That means
            * "at the table's trailing edge", not "the last column": with a filler
@@ -1556,7 +1564,11 @@ export function GridBody(props: GridBodyProps) {
                 showVerticalCellBorders
                   ? "border-r last:border-r-0 [border-right-color:var(--tdg-cell-border-color)]"
                   : "",
-                align === "right" || align === "end" ? "text-right" : "",
+                align === "right" || align === "end"
+                  ? "text-right"
+                  : align === "center"
+                    ? "text-center"
+                    : "",
                 configuredClassName,
                 inheritedCellDOMProps.className
               )}
@@ -1631,7 +1643,10 @@ export function GridBody(props: GridBodyProps) {
                 );
               }}
             >
-              <div className="tdg-cell-content" style={contentStyle}>
+              <div
+                className={cn("tdg-cell-content", contentAlignClass)}
+                style={contentStyle}
+              >
                 {editor != null ? (
                   <>
                     <CellEditorSurfaceSync
