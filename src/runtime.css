@@ -1120,15 +1120,21 @@
 }
 
 /*
- * The final resize target intentionally sits inside the grid boundary, so
- * reserve its hit area instead of letting it cover the column-menu trigger.
+ * An interior handle straddles its boundary and the next cell paints over the
+ * outer half, so it reaches `width / 2` into its own column. The trailing handle
+ * cannot straddle — anything past the final boundary lands in `scrollWidth` and
+ * manufactures a horizontal scroll range — so it reaches the full width, across
+ * the column-menu trigger.
+ *
+ * Reserving the difference, the other half, leaves the trigger the same share of
+ * itself as on every other column.
  */
 .tdg-root
   .tdg-header-row
   > .tdg-header-cell--trailing-edge
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: calc(
-    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+    var(--tdg-column-resize-handle-width, 1.5rem) / 2
   ) !important;
 }
 
@@ -1138,7 +1144,7 @@
   .InovuaReactDataGrid__column-header__menu-tool {
   margin-right: 0 !important;
   margin-left: calc(
-    var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
+    var(--tdg-column-resize-handle-width, 1.5rem) / 2
   ) !important;
 }
 
