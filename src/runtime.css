@@ -792,12 +792,15 @@
   vertical-align: middle !important;
 }
 
+/* Typography here and on the control reset below carries no !important, so cell
+   content can set its own. It only has to beat the UA default, and these selectors
+   already outrank a host `td`/`button` rule on specificity. Structure keeps the
+   flag. */
 .tdg-root .tdg-table th,
 .tdg-root .tdg-table td {
   display: table-cell !important;
   vertical-align: middle !important;
-  font: inherit !important;
-  line-height: inherit !important;
+  font: inherit;
 }
 
 .tdg-root p {
@@ -813,9 +816,9 @@
 .tdg-root input,
 .tdg-root select,
 .tdg-root textarea {
-  font: inherit !important;
-  letter-spacing: inherit !important;
-  text-transform: none !important;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
 }
 
 .tdg-root [data-slot="scroll-area-scrollbar"],

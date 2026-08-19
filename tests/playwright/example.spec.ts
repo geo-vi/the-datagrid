@@ -2132,6 +2132,62 @@ test("keeps grid buttons styled under hostile global button styles", async ({
   expect(darkThemeStyles.borderTopColor).not.toBe("rgb(118, 118, 118)");
 });
 
+// The probe is a bare button because that is what a column's `render` produces:
+// the grid's own controls carry `.tdg-button`, which sizes itself.
+test("lets cell content override the grid typography", async ({ page }) => {
+  await page.goto("/basic");
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  await expect(grid.locator("tbody td").first()).toBeVisible();
+
+  await page.addStyleTag({
+    content: `th, td, button { font: 700 30px serif; }`,
+  });
+
+  const type = await grid.evaluate((root) => {
+    const cell = [...root.querySelectorAll<HTMLElement>("tbody td")].find(
+      (candidate) => candidate.textContent?.trim()
+    );
+    if (!cell) return null;
+
+    const plain = document.createElement("button");
+    const styled = document.createElement("button");
+    Object.assign(styled.style, {
+      fontSize: "22px",
+      fontFamily: "monospace",
+      fontWeight: "700",
+    });
+    cell.append(plain, styled);
+
+    const read = (element: HTMLElement) => {
+      const style = getComputedStyle(element);
+      return {
+        size: style.fontSize,
+        family: style.fontFamily.split(",")[0],
+        weight: style.fontWeight,
+      };
+    };
+    const result = { plain: read(plain), styled: read(styled) };
+
+    plain.remove();
+    styled.remove();
+    return result;
+  });
+
+  expect(type).not.toBeNull();
+  // Host css and the UA button default both still lose.
+  expect(type!.plain).toEqual({
+    size: "14px",
+    family: "ui-sans-serif",
+    weight: "400",
+  });
+  // Deliberate styling does not.
+  expect(type!.styled).toEqual({
+    size: "22px",
+    family: "monospace",
+    weight: "700",
+  });
+});
+
 test("keeps grid-owned structure under broad host css overrides", async ({
   page,
 }) => {
