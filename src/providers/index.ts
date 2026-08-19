@@ -12,6 +12,8 @@ export {
   RDGToolbar,
   RDGToolbarProvider,
   RDGToolbarTarget,
+  useRDGToolbarApi,
+  useRDGToolbarApiState,
 } from "../toolbar/index";
 
 export type { RDGProviderProps } from "./RDGProvider";
@@ -22,10 +24,15 @@ export type {
   RDGSearchTargetProps,
 } from "../search/index";
 export type {
+  RDGToolbarApi,
   RDGToolbarExportFormat,
+  RDGToolbarExportInfo,
+  RDGToolbarExportResult,
   RDGToolbarExportScope,
+  RDGToolbarExportSettings,
   RDGToolbarLabels,
   RDGToolbarProps,
   RDGToolbarProviderProps,
+  RDGToolbarState,
   RDGToolbarTargetProps,
 } from "../toolbar/index";
