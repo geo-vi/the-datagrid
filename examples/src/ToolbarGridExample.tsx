@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Pencil, Trash2 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode, type Ref } from "react";
 
 import ReactDataGrid, {
   DateFilter,
@@ -15,6 +15,8 @@ import {
   RDGToolbar,
   RDGToolbarProvider,
   RDGToolbarTarget,
+  useRDGToolbarApiState,
+  type RDGToolbarApi,
   type RDGToolbarExportFormat,
   type RDGToolbarExportScope,
 } from "../../src/toolbar";
@@ -190,6 +192,36 @@ ${toolbarProps.join("\n")}
 </RDGToolbarProvider>`;
 }
 
+const apiSnippet = `import {
+  RDGToolbarProvider,
+  RDGToolbar,
+  type RDGToolbarApi,
+} from "@geovi/the-datagrid/toolbar";
+
+// The shared wrapper every screen already renders. It owns the provider and
+// forwards the ref, so the page above it never has to.
+function GridCard({ apiRef, ...gridProps }) {
+  return (
+    <RDGToolbarProvider apiRef={apiRef} exportDefaults={{ fileName: "orders" }}>
+      <RDGToolbar showExport showFilterToggle />
+      <ReactDataGrid idProperty="orderId" {...gridProps} />
+    </RDGToolbarProvider>
+  );
+}
+
+function OrdersPage() {
+  const grid = useRef<RDGToolbarApi>(null);
+
+  return (
+    <>
+      <button onClick={() => grid.current?.exportGrid("xlsx", { scope: "all" })}>
+        Export all orders
+      </button>
+      <GridCard apiRef={grid} columns={columns} dataSource={orders} />
+    </>
+  );
+}`;
+
 /**
  * One captioned card of playground controls. The panel configures three
  * unrelated things - which parts render, what the export writes, and who owns
@@ -220,6 +252,163 @@ function ControlGroup({
   );
 }
 
+type ExternalActionsProps = {
+  api: RDGToolbarApi;
+  onNotice: (notice: { kind: "ok" | "error"; text: string } | null) => void;
+};
+
+/** Rendered above the provider, holding nothing but the ref it was handed. */
+function ExternalActions({ api, onNotice }: ExternalActionsProps) {
+  const state = useRDGToolbarApiState(api);
+
+  const runExport = async (
+    format: RDGToolbarExportFormat,
+    settings?: Parameters<RDGToolbarApi["exportGrid"]>[1]
+  ) => {
+    onNotice(null);
+    try {
+      const result = await api.exportGrid(format, settings);
+      onNotice(
+        result
+          ? {
+              kind: "ok",
+              text: `Wrote ${result.rowCount} rows to ${
+                result.fileName
+              } (${formatBytes(result.byteLength)}).`,
+            }
+          : { kind: "error", text: "Nothing to export." }
+      );
+    } catch (error) {
+      onNotice({
+        kind: "error",
+        text: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  return (
+    <div
+      className="flex flex-wrap items-start gap-3"
+      role="group"
+      aria-label="External grid controls"
+      data-testid="toolbar-api-controls"
+    >
+      <ControlGroup label="Export" hint="provider names the file">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void runExport("csv")}
+        >
+          Export CSV
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void runExport("xlsx", { scope: "all" })}
+        >
+          Export all as Excel
+        </Button>
+      </ControlGroup>
+
+      <ControlGroup label="Columns">
+        {state.columns
+          .filter((column) => column.hideable !== false)
+          .slice(0, 3)
+          .map((column) => {
+            const columnId = String(column.id ?? column.name);
+            const visible = state.columnVisibilityMap[columnId] !== false;
+
+            return (
+              <Button
+                key={columnId}
+                type="button"
+                variant={visible ? "secondary" : "outline"}
+                size="sm"
+                aria-pressed={visible}
+                onClick={() => api.setColumnVisible(columnId, !visible)}
+              >
+                {String(column.header ?? columnId)}
+              </Button>
+            );
+          })}
+      </ControlGroup>
+
+      <ControlGroup label="Filters">
+        <Button
+          type="button"
+          variant={state.filteringEnabled ? "secondary" : "outline"}
+          size="sm"
+          aria-pressed={state.filteringEnabled}
+          disabled={!state.canToggleFiltering}
+          onClick={() => api.setFilteringEnabled(!state.filteringEnabled)}
+        >
+          Filter row {state.filteringEnabled ? "on" : "off"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!state.filtered}
+          onClick={() => api.clearAllFilters()}
+        >
+          Clear filters
+        </Button>
+      </ControlGroup>
+    </div>
+  );
+}
+
+type ApiGridCardProps = {
+  apiRef: Ref<RDGToolbarApi>;
+  columns: TypeColumns;
+  dataSource: ExampleOrder[];
+  defaultFilterValue: TypeFilterValue;
+  theme: string;
+  i18n: TypeI18n;
+  resizable: boolean;
+  showCellBorders: TypeShowCellBorders;
+};
+
+/** Stands in for a shared wrapper: it owns the provider and forwards one ref. */
+function ApiGridCard({
+  apiRef,
+  columns,
+  dataSource,
+  defaultFilterValue,
+  theme,
+  i18n,
+  resizable,
+  showCellBorders,
+}: ApiGridCardProps) {
+  return (
+    <RDGToolbarProvider
+      apiRef={apiRef}
+      exportDefaults={{ fileName: "orders", sheetName: "Orders" }}
+    >
+      <div className="h-80 min-h-0" data-testid="toolbar-api-viewport">
+        <RDGToolbarTarget>
+          <ReactDataGrid
+            theme={theme}
+            idProperty="orderId"
+            columns={columns}
+            dataSource={dataSource}
+            defaultFilterValue={defaultFilterValue}
+            enableColumnFilterContextMenu
+            resizable={resizable}
+            showCellBorders={showCellBorders}
+            i18n={i18n}
+            showColumnMenuTool={false}
+            virtualized
+            columnUserSelect
+          />
+        </RDGToolbarTarget>
+      </div>
+    </RDGToolbarProvider>
+  );
+}
+
 export default function ToolbarGridExample({
   theme,
   i18n,
@@ -241,6 +430,11 @@ export default function ToolbarGridExample({
     useState<FilteringOwner>("toolbar");
   const [filteredRows, setFilteredRows] = useState(orders.length);
   const [exportNotice, setExportNotice] = useState<{
+    kind: "ok" | "error";
+    text: string;
+  } | null>(null);
+  const [toolbarApi, setToolbarApi] = useState<RDGToolbarApi | null>(null);
+  const [apiNotice, setApiNotice] = useState<{
     kind: "ok" | "error";
     text: string;
   } | null>(null);
@@ -410,257 +604,321 @@ export default function ToolbarGridExample({
   });
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border bg-background/95 p-4 shadow-sm">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Toolbar playground</h2>
-        <p className="text-sm text-muted-foreground">
-          Switch the built-in toolbar actions on and off, choose what the export
-          writes, and hand filter-row ownership back to the grid to watch the
-          toggle disable itself.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Appearance is not configured here: the toolbar is styled entirely
-          through <code>--tdg-toolbar-*</code> custom properties. See the{" "}
-          <Link
-            to="/docs/$group/$slug"
-            params={{ group: "reference", slug: "toolbar" }}
-            hash="toolbar-styling"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            styling and theme tokens reference
-          </Link>{" "}
-          for the full token list and the override rules.
-        </p>
-      </div>
-
-      <div
-        className="flex flex-wrap items-start gap-3"
-        role="group"
-        aria-label="Toolbar playground controls"
-        data-testid="toolbar-playground-controls"
+    <>
+      <section
+        className="flex flex-col gap-4 rounded-2xl border bg-background/95 p-4 shadow-sm"
+        data-testid="toolbar-playground"
       >
-        {/* Ordered to match the toolbar top to bottom. */}
-        <ControlGroup label="Parts">
-          <Button
-            type="button"
-            variant={heading ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={heading}
-            onClick={() => setHeading((current) => !current)}
-          >
-            Heading {heading ? "on" : "off"}
-          </Button>
-          <Button
-            type="button"
-            variant={showColumnToggles ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={showColumnToggles}
-            onClick={() => setShowColumnToggles((current) => !current)}
-          >
-            Column toggles {showColumnToggles ? "on" : "off"}
-          </Button>
-          <Button
-            type="button"
-            variant={showExport ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={showExport}
-            onClick={() => setShowExport((current) => !current)}
-          >
-            Export {showExport ? "on" : "off"}
-          </Button>
-          <Button
-            type="button"
-            variant={showFilterToggle ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={showFilterToggle}
-            onClick={() => setShowFilterToggle((current) => !current)}
-          >
-            Filter toggle {showFilterToggle ? "on" : "off"}
-          </Button>
-          <Button
-            type="button"
-            variant={showClearFilters ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={showClearFilters}
-            onClick={() => setShowClearFilters((current) => !current)}
-          >
-            Clear filters {showClearFilters ? "on" : "off"}
-          </Button>
-        </ControlGroup>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">Toolbar playground</h2>
+          <p className="text-sm text-muted-foreground">
+            Switch the built-in toolbar actions on and off, choose what the
+            export writes, and hand filter-row ownership back to the grid to
+            watch the toggle disable itself.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Appearance is not configured here: the toolbar is styled entirely
+            through <code>--tdg-toolbar-*</code> custom properties. See the{" "}
+            <Link
+              to="/docs/$group/$slug"
+              params={{ group: "reference", slug: "toolbar" }}
+              hash="toolbar-styling"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              styling and theme tokens reference
+            </Link>{" "}
+            for the full token list and the override rules.
+          </p>
+        </div>
 
-        <ControlGroup
-          label="Export writes"
-          hint={showExport ? undefined : "needs Export on"}
+        <div
+          className="flex flex-wrap items-start gap-3"
+          role="group"
+          aria-label="Toolbar playground controls"
+          data-testid="toolbar-playground-controls"
         >
-          <ButtonGroup
-            aria-label="Export scope buttons"
-            className="max-w-full flex-wrap"
-          >
-            {(["view", "all"] as const).map((scope) => (
-              <Button
-                key={scope}
-                type="button"
-                variant={exportScope === scope ? "secondary" : "outline"}
-                size="sm"
-                className="rounded-none font-medium normal-case"
-                aria-pressed={exportScope === scope}
-                disabled={!showExport}
-                onClick={() => setExportScope(scope)}
-              >
-                {scope === "view" ? "Scope: view" : "Scope: all rows"}
-              </Button>
-            ))}
-          </ButtonGroup>
+          {/* Ordered to match the toolbar top to bottom. */}
+          <ControlGroup label="Parts">
+            <Button
+              type="button"
+              variant={heading ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={heading}
+              onClick={() => setHeading((current) => !current)}
+            >
+              Heading {heading ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={showColumnToggles ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={showColumnToggles}
+              onClick={() => setShowColumnToggles((current) => !current)}
+            >
+              Column toggles {showColumnToggles ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={showExport ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={showExport}
+              onClick={() => setShowExport((current) => !current)}
+            >
+              Export {showExport ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={showFilterToggle ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={showFilterToggle}
+              onClick={() => setShowFilterToggle((current) => !current)}
+            >
+              Filter toggle {showFilterToggle ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={showClearFilters ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={showClearFilters}
+              onClick={() => setShowClearFilters((current) => !current)}
+            >
+              Clear filters {showClearFilters ? "on" : "off"}
+            </Button>
+          </ControlGroup>
 
-          <ButtonGroup
-            aria-label="Export format buttons"
-            className="max-w-full flex-wrap"
+          <ControlGroup
+            label="Export writes"
+            hint={showExport ? undefined : "needs Export on"}
           >
-            {FORMAT_ORDER.map((format) => {
-              const selected = formats.includes(format);
-
-              return (
+            <ButtonGroup
+              aria-label="Export scope buttons"
+              className="max-w-full flex-wrap"
+            >
+              {(["view", "all"] as const).map((scope) => (
                 <Button
-                  key={format}
+                  key={scope}
                   type="button"
-                  variant={selected ? "secondary" : "outline"}
+                  variant={exportScope === scope ? "secondary" : "outline"}
                   size="sm"
                   className="rounded-none font-medium normal-case"
-                  aria-pressed={selected}
-                  // One format has to stay selected for the control to do anything.
-                  disabled={!showExport || (selected && formats.length === 1)}
-                  onClick={() =>
-                    setFormats((current) =>
-                      FORMAT_ORDER.filter((candidate) =>
-                        candidate === format
-                          ? !current.includes(format)
-                          : current.includes(candidate)
-                      )
-                    )
-                  }
+                  aria-pressed={exportScope === scope}
+                  disabled={!showExport}
+                  onClick={() => setExportScope(scope)}
                 >
-                  {FORMAT_LABELS[format]}
+                  {scope === "view" ? "Scope: view" : "Scope: all rows"}
                 </Button>
-              );
-            })}
-          </ButtonGroup>
-        </ControlGroup>
+              ))}
+            </ButtonGroup>
 
-        <ControlGroup label="Filter row owner">
-          <ButtonGroup
-            aria-label="Filter row ownership buttons"
-            className="max-w-full flex-wrap"
+            <ButtonGroup
+              aria-label="Export format buttons"
+              className="max-w-full flex-wrap"
+            >
+              {FORMAT_ORDER.map((format) => {
+                const selected = formats.includes(format);
+
+                return (
+                  <Button
+                    key={format}
+                    type="button"
+                    variant={selected ? "secondary" : "outline"}
+                    size="sm"
+                    className="rounded-none font-medium normal-case"
+                    aria-pressed={selected}
+                    // One format has to stay selected for the control to do anything.
+                    disabled={!showExport || (selected && formats.length === 1)}
+                    onClick={() =>
+                      setFormats((current) =>
+                        FORMAT_ORDER.filter((candidate) =>
+                          candidate === format
+                            ? !current.includes(format)
+                            : current.includes(candidate)
+                        )
+                      )
+                    }
+                  >
+                    {FORMAT_LABELS[format]}
+                  </Button>
+                );
+              })}
+            </ButtonGroup>
+          </ControlGroup>
+
+          <ControlGroup label="Filter row owner">
+            <ButtonGroup
+              aria-label="Filter row ownership buttons"
+              className="max-w-full flex-wrap"
+            >
+              {(
+                [
+                  ["toolbar", "Filters: toolbar-owned"],
+                  ["always", "Filters: enableFiltering={true}"],
+                  ["never", "Filters: enableFiltering={false}"],
+                ] as const
+              ).map(([owner, label]) => (
+                <Button
+                  key={owner}
+                  type="button"
+                  variant={filteringOwner === owner ? "secondary" : "outline"}
+                  size="sm"
+                  className="rounded-none font-medium normal-case"
+                  aria-pressed={filteringOwner === owner}
+                  onClick={() => setFilteringOwner(owner)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </ControlGroup>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span data-testid="toolbar-playground-row-summary">
+            Filtered orders: <span className="font-mono">{filteredRows}</span> /{" "}
+            {orders.length} · export writes{" "}
+            <span className="font-mono">{exportedRowCount}</span> rows
+          </span>
+          <span>
+            <code>internalNote</code> stays hidden but is exported;{" "}
+            <code>Actions</code> is never exported.
+          </span>
+        </div>
+
+        {exportNotice ? (
+          <p
+            className={
+              exportNotice.kind === "ok"
+                ? "rounded-lg border bg-muted/30 p-2 text-xs text-muted-foreground"
+                : "rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+            }
+            role="status"
+            data-testid={`toolbar-playground-export-${exportNotice.kind}`}
           >
-            {(
-              [
-                ["toolbar", "Filters: toolbar-owned"],
-                ["always", "Filters: enableFiltering={true}"],
-                ["never", "Filters: enableFiltering={false}"],
-              ] as const
-            ).map(([owner, label]) => (
-              <Button
-                key={owner}
-                type="button"
-                variant={filteringOwner === owner ? "secondary" : "outline"}
-                size="sm"
-                className="rounded-none font-medium normal-case"
-                aria-pressed={filteringOwner === owner}
-                onClick={() => setFilteringOwner(owner)}
-              >
-                {label}
-              </Button>
-            ))}
-          </ButtonGroup>
-        </ControlGroup>
-      </div>
+            {exportNotice.text}
+          </p>
+        ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span data-testid="toolbar-playground-row-summary">
-          Filtered orders: <span className="font-mono">{filteredRows}</span> /{" "}
-          {orders.length} · export writes{" "}
-          <span className="font-mono">{exportedRowCount}</span> rows
-        </span>
-        <span>
-          <code>internalNote</code> stays hidden but is exported;{" "}
-          <code>Actions</code> is never exported.
-        </span>
-      </div>
+        <RDGToolbarProvider>
+          <RDGToolbar
+            title={heading ? "Order columns" : null}
+            description={
+              heading
+                ? "Toggle columns, export the orders, and control the filter row."
+                : null
+            }
+            showColumnToggles={showColumnToggles}
+            showExport={showExport}
+            showFilterToggle={showFilterToggle}
+            showClearFilters={showClearFilters}
+            exportScope={exportScope}
+            exportFormats={formats}
+            exportFileName="orders"
+            exportSheetName="Orders"
+            onExportSuccess={({ fileName, rowCount, byteLength }) => {
+              setExportNotice({
+                kind: "ok",
+                text: `Wrote ${rowCount} rows to ${fileName} (${formatBytes(
+                  byteLength
+                )}).`,
+              });
+            }}
+            onExportError={(error) => {
+              // A failed export is worth surfacing; the toolbar stays usable.
+              setExportNotice({
+                kind: "error",
+                text: error instanceof Error ? error.message : String(error),
+              });
+            }}
+          />
 
-      {exportNotice ? (
-        <p
-          className={
-            exportNotice.kind === "ok"
-              ? "rounded-lg border bg-muted/30 p-2 text-xs text-muted-foreground"
-              : "rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
-          }
-          role="status"
-          data-testid={`toolbar-playground-export-${exportNotice.kind}`}
-        >
-          {exportNotice.text}
-        </p>
-      ) : null}
+          <div
+            className="h-[26rem] min-h-0"
+            data-testid="toolbar-grid-viewport"
+          >
+            <RDGToolbarTarget>
+              <ReactDataGrid
+                theme={theme}
+                idProperty="orderId"
+                columns={columns}
+                dataSource={orders}
+                defaultFilterValue={defaultFilterValue}
+                {...(filteringOwner === "toolbar"
+                  ? {}
+                  : { enableFiltering: filteringOwner === "always" })}
+                filteredRowsCount={setFilteredRows}
+                enableColumnFilterContextMenu
+                resizable={resizable}
+                showCellBorders={showCellBorders}
+                i18n={i18n}
+                showColumnMenuTool={false}
+                virtualized
+                columnUserSelect
+              />
+            </RDGToolbarTarget>
+          </div>
+        </RDGToolbarProvider>
 
-      <RDGToolbarProvider>
-        <RDGToolbar
-          title={heading ? "Order columns" : null}
-          description={
-            heading
-              ? "Toggle columns, export the orders, and control the filter row."
-              : null
-          }
-          showColumnToggles={showColumnToggles}
-          showExport={showExport}
-          showFilterToggle={showFilterToggle}
-          showClearFilters={showClearFilters}
-          exportScope={exportScope}
-          exportFormats={formats}
-          exportFileName="orders"
-          exportSheetName="Orders"
-          onExportSuccess={({ fileName, rowCount, byteLength }) => {
-            setExportNotice({
-              kind: "ok",
-              text: `Wrote ${rowCount} rows to ${fileName} (${formatBytes(
-                byteLength
-              )}).`,
-            });
-          }}
-          onExportError={(error) => {
-            // A failed export is worth surfacing; the toolbar stays usable.
-            setExportNotice({
-              kind: "error",
-              text: error instanceof Error ? error.message : String(error),
-            });
-          }}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Matching props</h3>
+          <CopyableCodeBlock code={snippet} language="tsx" label="tsx" />
+        </div>
+      </section>
+
+      <section
+        className="flex flex-col gap-4 rounded-2xl border bg-background/95 p-4 shadow-sm"
+        data-testid="toolbar-api-demo"
+      >
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">
+            Trigger the toolbar from outside the provider
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            The grid below renders no toolbar at all. Every button above it sits
+            outside <code>RDGToolbarProvider</code>, in a component that only
+            holds the <code>apiRef</code> the provider filled in - which is how
+            a page reaches a grid that a shared wrapper component owns.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            The provider sets <code>exportDefaults</code>, so both export
+            buttons write <code>orders</code> without naming the file, and the
+            Excel button still overrides the scope for its own export.
+          </p>
+        </div>
+
+        {toolbarApi ? (
+          <ExternalActions api={toolbarApi} onNotice={setApiNotice} />
+        ) : null}
+
+        {apiNotice ? (
+          <p
+            className={
+              apiNotice.kind === "ok"
+                ? "rounded-lg border bg-muted/30 p-2 text-xs text-muted-foreground"
+                : "rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+            }
+            role="status"
+            data-testid={`toolbar-api-export-${apiNotice.kind}`}
+          >
+            {apiNotice.text}
+          </p>
+        ) : null}
+
+        <ApiGridCard
+          apiRef={setToolbarApi}
+          columns={columns}
+          dataSource={orders}
+          defaultFilterValue={defaultFilterValue}
+          theme={theme}
+          i18n={i18n}
+          resizable={resizable}
+          showCellBorders={showCellBorders}
         />
 
-        <div className="h-[26rem] min-h-0" data-testid="toolbar-grid-viewport">
-          <RDGToolbarTarget>
-            <ReactDataGrid
-              theme={theme}
-              idProperty="orderId"
-              columns={columns}
-              dataSource={orders}
-              defaultFilterValue={defaultFilterValue}
-              {...(filteringOwner === "toolbar"
-                ? {}
-                : { enableFiltering: filteringOwner === "always" })}
-              filteredRowsCount={setFilteredRows}
-              enableColumnFilterContextMenu
-              resizable={resizable}
-              showCellBorders={showCellBorders}
-              i18n={i18n}
-              showColumnMenuTool={false}
-              virtualized
-              columnUserSelect
-            />
-          </RDGToolbarTarget>
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Matching props</h3>
+          <CopyableCodeBlock code={apiSnippet} language="tsx" label="tsx" />
         </div>
-      </RDGToolbarProvider>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">Matching props</h3>
-        <CopyableCodeBlock code={snippet} language="tsx" label="tsx" />
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

@@ -258,6 +258,55 @@ const nestedToolbarSnippet = `import {
   </section>
 </RDGToolbarProvider>;`;
 
+const toolbarApiSnippet = `import { useRef } from "react";
+import {
+  RDGToolbarProvider,
+  RDGToolbar,
+  type RDGToolbarApi,
+} from "@geovi/the-datagrid/toolbar";
+
+// The shared wrapper each screen renders. It owns the provider and forwards
+// one ref prop, so no page has to hoist the provider to reach the grid.
+function GridCard({ apiRef, ...gridProps }) {
+  return (
+    <RDGToolbarProvider apiRef={apiRef} exportDefaults={{ fileName: "orders" }}>
+      <RDGToolbar showExport showFilterToggle />
+      <ReactDataGrid idProperty="id" {...gridProps} />
+    </RDGToolbarProvider>
+  );
+}
+
+function OrdersPage() {
+  const grid = useRef<RDGToolbarApi>(null);
+
+  return (
+    <>
+      <button onClick={() => grid.current?.exportGrid("xlsx", { scope: "all" })}>
+        Export all orders
+      </button>
+      <GridCard apiRef={grid} columns={columns} dataSource={orders} />
+    </>
+  );
+}`;
+
+const toolbarApiStateSnippet = `import {
+  useRDGToolbarApiState,
+  type RDGToolbarApi,
+} from "@geovi/the-datagrid/toolbar";
+
+// A ref never re-renders its holder, so a control that renders grid state
+// subscribes instead. Inside the provider, useRDGToolbarApi() returns the
+// same object without a ref.
+function ExportButton({ api }: { api: RDGToolbarApi }) {
+  const { attached, filtered } = useRDGToolbarApiState(api);
+
+  return (
+    <button disabled={!attached} onClick={() => api.exportGrid("csv")}>
+      Export {filtered ? "filtered rows" : "all rows"}
+    </button>
+  );
+}`;
+
 const directProviderChildrenSnippet = `import ReactDataGrid from "@geovi/the-datagrid";
 import {
   RDGToolbar,
@@ -7226,6 +7275,78 @@ const columns: TypeColumns = [
         ),
       },
       {
+        id: "toolbar-imperative-api",
+        title: "Trigger the toolbar from outside the provider",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              A page above the provider - typically because a shared wrapper
+              component owns <code>RDGToolbarProvider</code> for every grid in
+              the application - cannot use a hook to reach the toolbar. Pass{" "}
+              <code>apiRef</code> to the provider instead: the wrapper forwards
+              one prop, and the page holds that grid&apos;s whole toolbar
+              surface.
+            </p>
+            <CodeBlock code={toolbarApiSnippet} language="tsx" />
+            <p>
+              The API exposes methods only, never properties, because a ref does
+              not re-render the component holding it: <code>getColumns()</code>{" "}
+              read at call time cannot go stale the way a <code>columns</code>{" "}
+              property would as soon as a column is hidden.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                <code>exportGrid(format, settings?)</code> writes the same file
+                the toolbar&apos;s own button writes, and resolves with the
+                format, scope, row and column counts, file name and byte size -
+                or <code>null</code> when there is nothing to export. It rejects
+                when a writer fails, such as on a missing <code>xlsx</code> peer
+                dependency.
+              </li>
+              <li>
+                <code>getColumns()</code>, <code>isColumnVisible(id)</code> and{" "}
+                <code>setColumnVisible(id, visible)</code> drive column
+                visibility; <code>getViewRows()</code> and{" "}
+                <code>getAllRows()</code> read the rows an export would write.
+              </li>
+              <li>
+                <code>isFilteringEnabled()</code>,{" "}
+                <code>canToggleFiltering()</code>,{" "}
+                <code>setFilteringEnabled(enabled)</code>,{" "}
+                <code>isFiltered()</code> and <code>clearAllFilters()</code>{" "}
+                mirror the filter-row actions, including the grid-owned{" "}
+                <code>enableFiltering</code> case where the setter is a no-op.
+              </li>
+              <li>
+                <code>getState()</code> returns the same state as plain data and{" "}
+                <code>subscribe(listener)</code> reports every change, so a
+                control outside the provider can render grid state as well as
+                change it.
+              </li>
+            </ul>
+            <CodeBlock code={toolbarApiStateSnippet} language="tsx" />
+            <Callout title="Safe before the grid mounts">
+              <p>
+                Until a grid attaches, and again after it unmounts,{" "}
+                <code>getState().attached</code> is <code>false</code>: every
+                action is a no-op, <code>getColumns()</code> is empty, and{" "}
+                <code>exportGrid</code> resolves <code>null</code> instead of
+                throwing. A button wired to the ref is therefore safe to render
+                before the grid is.
+              </p>
+            </Callout>
+            <p>
+              <code>exportDefaults</code> on the provider is the layer beneath
+              the <code>RDGToolbar</code> export props: settings passed to one{" "}
+              <code>exportGrid</code> call win, then the matching toolbar prop,
+              then <code>exportDefaults</code>, then the library defaults. One
+              wrapper can name the file for every grid it renders while an
+              individual export still overrides the scope or the name.
+            </p>
+          </div>
+        ),
+      },
+      {
         id: "toolbar-styling",
         title: "Styling and theme tokens",
         body: (
@@ -7733,6 +7854,34 @@ const columns: TypeColumns = [
                   defaultValue: "required",
                   description:
                     "Contains the toolbar and one direct grid or explicit target.",
+                },
+                {
+                  name: "RDGToolbarProvider.apiRef",
+                  type: "Ref<RDGToolbarApi>",
+                  defaultValue: "none",
+                  description:
+                    "Receives the imperative toolbar API, so a component above the provider can export, toggle columns or clear filters without a hook. Filled on mount, nulled on unmount.",
+                },
+                {
+                  name: "RDGToolbarProvider.exportDefaults",
+                  type: "RDGToolbarExportSettings",
+                  defaultValue: "none",
+                  description:
+                    "Export settings every export of this grid falls back to: scope, fileName, dateFormat and sheetName. Outranked by the matching RDGToolbar prop and by settings passed to one exportGrid call.",
+                },
+                {
+                  name: "useRDGToolbarApi()",
+                  type: "() => RDGToolbarApi",
+                  defaultValue: "none",
+                  description:
+                    "Returns the same API object apiRef receives, for components rendered inside the provider.",
+                },
+                {
+                  name: "useRDGToolbarApiState(api)",
+                  type: "(api: RDGToolbarApi) => RDGToolbarState",
+                  defaultValue: "none",
+                  description:
+                    "Subscribes to the API state - attached, columns, columnVisibilityMap, theme, filteringEnabled, canToggleFiltering, filtered - and re-renders on every grid change.",
                 },
                 {
                   name: "RDGToolbar.ariaLabel",
