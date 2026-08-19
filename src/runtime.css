@@ -835,6 +835,23 @@
   border-left-color: transparent !important;
 }
 
+/*
+ * The header layer is sticky *inside* the scroll viewport at z-20 while the bar is
+ * a sibling of it at z-30, so without this the bar paints over the header and
+ * takes the pointer there. Radix positions the bar with an inline `top: 0` and a
+ * `bottom`, no height, so overriding `top` shortens the track and leaves its
+ * bottom anchored; every thumb figure derives from the track's own measured
+ * height, so the thumb and the drag mapping rescale themselves.
+ *
+ * Scoped to the body's own scroll area — the mobile list renders no header inside
+ * its viewport and must not inherit the offset.
+ */
+.tdg-root
+  .tdg-scroll-area
+  > [data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+  top: var(--tdg-header-block-height, 0px) !important;
+}
+
 .tdg-root
   .InovuaReactDataGrid__column-header--show-border-right:not(:last-child) {
   border-right: 1px solid var(--tdg-header-border-color) !important;
@@ -1049,19 +1066,7 @@
   opacity: 1 !important;
 }
 
-/*
- * Keep the trailing resize target inside the table boundary. A centered
- * target on the final edge contributes its outer half to scrollWidth and can
- * manufacture an otherwise-useless horizontal scroll range.
- */
-/*
- * The trailing target sits flush inboard: straddling would put its outer half
- * into `scrollWidth`. It therefore reaches twice as far into its column as the
- * others — deliberate, since `24px` is a floor asserted by `inovua-parity` and
- * `mobile-transform` and a narrower target is worse than an uneven one.
- */
 .tdg-root {
-  --tdg-column-resize-trailing-inset: 0px;
   /* The indicator matches the drag proxy's width so the two coincide exactly
      rather than one being a thinner version of the other. Shared with the
      proxy's centring below. */
@@ -1071,10 +1076,17 @@
   );
 }
 
-.tdg-root .tdg-header-row > .tdg-header-cell--trailing-edge .tdg-column-resizer {
-  right: calc(
-    var(--tdg-column-resize-trailing-inset, 0px) - 0.5rem
-  ) !important;
+/*
+ * The trailing target sits flush inboard rather than straddling the final edge,
+ * whose outer half would land in `scrollWidth`. It therefore reaches twice as far
+ * into its column as the others — deliberate, since 24px is a floor asserted by
+ * `inovua-parity` and `mobile-transform`.
+ */
+.tdg-root
+  .tdg-header-row
+  > .tdg-header-cell--trailing-edge
+  .tdg-column-resizer {
+  right: -0.5rem !important;
 }
 
 .tdg-root[dir="rtl"]
@@ -1082,9 +1094,7 @@
   > .tdg-header-cell--leading-edge
   .tdg-column-resizer {
   right: auto !important;
-  left: calc(
-    var(--tdg-column-resize-trailing-inset, 0px) - 0.5rem
-  ) !important;
+  left: -0.5rem !important;
 }
 
 /*
@@ -1108,29 +1118,6 @@
   margin-left: calc(
     var(--tdg-column-resize-handle-width, 1.5rem) + 0.25rem
   ) !important;
-}
-
-/*
- * Radix scrollbars overlay the viewport, so the trailing target has to clear the
- * bar or the track wins hit-testing — issue #43 asserts that with
- * `elementFromPoint`. Do not remove without doing
- * ISSUE-scrollbar-overlays-header.md first.
- *
- * Only the target moves; the indicator stays on the boundary, so while the bar
- * shows the two disagree. Unavoidable until the bar stops covering the header.
- *
- * `:not([data-state="hidden"])`, not `[data-state="visible"]`: Radix omits
- * data-state entirely on an always-visible bar.
- */
-.tdg-root:has(
-    [data-slot="scroll-area-scrollbar"][data-orientation="vertical"]:not(
-        [data-state="hidden"]
-      )
-  ) {
-  --tdg-column-resize-trailing-inset: var(
-    --tdg-scroll-vertical-footprint,
-    0.75rem
-  );
 }
 
 .tdg-root .tdg-column-resizer:focus-visible {

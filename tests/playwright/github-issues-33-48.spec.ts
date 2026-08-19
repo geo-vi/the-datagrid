@@ -1904,14 +1904,14 @@ test("GitHub issue #43: Community scrollbar defaults are applied without overrid
   );
 });
 
-// Overlay scrollbars take no layout width, so the trailing resize handle must
-// be pulled clear of the bar or the bar wins hit-testing. `scrollProps` changes
-// the footprint, hence both geometries.
+// The bar's track starts below the header block, so the header keeps its full
+// height and the trailing handle owns the column boundary. `scrollProps` changes
+// the bar's footprint, hence both geometries.
 for (const scenario of [
   { mode: "defaults", label: "default", footprint: 8 + 4 },
   { mode: "custom", label: "always-visible custom", footprint: 15 + 3 },
 ]) {
-  test(`GitHub issue #43: the trailing resize handle clears the ${scenario.label} vertical scrollbar`, async ({
+  test(`GitHub issue #43: the ${scenario.label} vertical scrollbar clears the header and leaves the trailing boundary to the resize handle`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -1945,6 +1945,8 @@ for (const scenario of [
       const bar = gridElement.querySelector<HTMLElement>(
         '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
       );
+      const headerTable =
+        gridElement.querySelector<HTMLElement>(".tdg-header-table");
       const headers = [
         ...gridElement.querySelectorAll<HTMLElement>(
           ".tdg-header-row > .tdg-header-cell"
@@ -1954,11 +1956,20 @@ for (const scenario of [
       const handle = lastHeader?.querySelector<HTMLElement>(
         '[data-slot="column-resizer"]'
       );
-      if (!bar || !lastHeader || !handle) return null;
+      if (!bar || !headerTable || !lastHeader || !handle) return null;
 
       const barRect = bar.getBoundingClientRect();
+      const headerRect = headerTable.getBoundingClientRect();
+      const columnRect = lastHeader.getBoundingClientRect();
       const handleRect = handle.getBoundingClientRect();
-      const hit = document.elementFromPoint(
+      const isHandle = (node: Element | null) =>
+        node === handle || Boolean(node && handle.contains(node));
+      // A hair inside the boundary: exactly on it is outside every box.
+      const boundaryHit = document.elementFromPoint(
+        columnRect.right - 1,
+        handleRect.top + handleRect.height / 2
+      );
+      const centreHit = document.elementFromPoint(
         handleRect.left + handleRect.width / 2,
         handleRect.top + handleRect.height / 2
       );
@@ -1968,21 +1979,23 @@ for (const scenario of [
         barFootprint: Math.round(
           barRect.width + parseFloat(getComputedStyle(bar).marginRight)
         ),
-        clearsScrollbar: handleRect.right <= barRect.left + 1,
-        overlap: Math.round(handleRect.right - barRect.left),
-        handleWinsHitTest:
-          hit === handle || Boolean(hit && handle.contains(hit)),
+        barClearsHeader: Math.round(barRect.top - headerRect.bottom),
+        // Zero means the handle and the boundary indicator mark the same line.
+        handleOffBoundary: Math.round(columnRect.right - handleRect.right),
+        boundaryWinsHitTest: isHandle(boundaryHit),
+        handleWinsHitTest: isHandle(centreHit),
         columnId: lastHeader.getAttribute("data-column-id"),
       };
     });
 
     expect(layout).not.toBeNull();
     expect(layout!.barFootprint).toBe(scenario.footprint);
-    expect(layout!.overlap).toBeLessThanOrEqual(1);
-    expect(layout!.clearsScrollbar).toBe(true);
+    expect(layout!.barClearsHeader).toBeGreaterThanOrEqual(0);
+    expect(layout!.handleOffBoundary).toBe(0);
+    expect(layout!.boundaryWinsHitTest).toBe(true);
     expect(layout!.handleWinsHitTest).toBe(true);
 
-    // Clearing the bar only matters if the handle is actually draggable.
+    // Owning the boundary only matters if the handle is actually draggable.
     const lastHeader = grid.locator(
       `.tdg-header-row > .tdg-header-cell[data-column-id="${layout!.columnId}"]`
     );
@@ -2015,6 +2028,111 @@ for (const scenario of [
       .toBeGreaterThan(initialWidth + 20);
   });
 }
+
+// `filter-race` renders a header row and a filter row — the tallest header block
+// the grid builds.
+test("GitHub issue #43: the vertical scrollbar never covers the header or filter row", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const scope = await openIssue(page, 43, "scrollMode=filter-race");
+  const grid = scope.locator(".tdg-root");
+  await expect(grid.locator(".tdg-filter-row")).toBeVisible();
+  await expect(
+    grid.locator(
+      '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
+    )
+  ).toBeVisible();
+
+  const layout = await grid.evaluate((gridElement) => {
+    const bar = gridElement.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
+    );
+    const thumb = bar?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-thumb"]'
+    );
+    const headerTable =
+      gridElement.querySelector<HTMLElement>(".tdg-header-table");
+    const headerRow = gridElement.querySelector<HTMLElement>(".tdg-header-row");
+    const filterRow = gridElement.querySelector<HTMLElement>(".tdg-filter-row");
+    const viewport = gridElement.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    );
+    if (!bar || !thumb || !headerTable || !headerRow || !filterRow || !viewport)
+      return null;
+
+    const barRect = bar.getBoundingClientRect();
+    const headerRect = headerTable.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    const barCentreX = barRect.left + barRect.width / 2;
+    const rowMidY = (row: HTMLElement) => {
+      const rect = row.getBoundingClientRect();
+      return rect.top + rect.height / 2;
+    };
+    const overHeaderRow = document.elementFromPoint(
+      barCentreX,
+      rowMidY(headerRow)
+    );
+    const overFilterRow = document.elementFromPoint(
+      barCentreX,
+      rowMidY(filterRow)
+    );
+    const isBar = (node: Element | null) =>
+      node === bar || Boolean(node && bar.contains(node));
+
+    return {
+      // `headerHeight` is a prop, not a measurement, so a header cell that wraps
+      // would let the track creep back over the header. Caught here.
+      publishedHeight: parseFloat(
+        getComputedStyle(gridElement).getPropertyValue(
+          "--tdg-header-block-height"
+        )
+      ),
+      renderedHeaderHeight: headerRect.height,
+      barClearsHeader: barRect.top - headerRect.bottom,
+      // A track shortened by pushing its bottom out of the viewport would also
+      // clear the header, and would be wrong.
+      barWithinViewport: viewportRect.bottom - barRect.bottom,
+      headerRowBelongsToHeader: !isBar(overHeaderRow),
+      filterRowBelongsToHeader: !isBar(overFilterRow),
+      thumbRatio: thumb.getBoundingClientRect().height / barRect.height,
+      visibleFraction: viewport.clientHeight / viewport.scrollHeight,
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout!.publishedHeight).toBeCloseTo(layout!.renderedHeaderHeight, 0);
+  expect(layout!.barClearsHeader).toBeGreaterThanOrEqual(0);
+  expect(layout!.barWithinViewport).toBeGreaterThanOrEqual(0);
+  expect(layout!.headerRowBelongsToHeader).toBe(true);
+  expect(layout!.filterRowBelongsToHeader).toBe(true);
+  expect(layout!.visibleFraction).toBeLessThan(0.9);
+  expect(layout!.thumbRatio).toBeCloseTo(layout!.visibleFraction, 1);
+
+  // A shortened track still maps onto the full row range.
+  const thumb = grid.locator(
+    '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"] [data-slot="scroll-area-thumb"]'
+  );
+  const thumbBox = await thumb.boundingBox();
+  expect(thumbBox).not.toBeNull();
+  await page.mouse.move(
+    thumbBox!.x + thumbBox!.width / 2,
+    thumbBox!.y + thumbBox!.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(thumbBox!.x + thumbBox!.width / 2, 900, { steps: 8 });
+  await page.mouse.up();
+
+  const viewport = grid.locator('[data-slot="scroll-area-viewport"]').first();
+  await expect
+    .poll(() =>
+      viewport.evaluate(
+        (element) =>
+          element.scrollHeight - element.clientHeight - element.scrollTop
+      )
+    )
+    .toBeLessThanOrEqual(1);
+});
 
 test("GitHub issue #43: a user scroll after filtering is not overwritten by delayed reset work", async ({
   page,

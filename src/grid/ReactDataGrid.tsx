@@ -3124,6 +3124,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
           "--tdg-column-resize-handle-width": `${computedColumnResizeHandleWidth}px`,
           "--tdg-column-resize-proxy-width": `${computedColumnResizeProxyWidth}px`,
           "--tdg-scroll-vertical-footprint": `${computedVerticalScrollbarFootprint}px`,
+          // The header layer is `h-0`, so its own box cannot report its height.
+          // CSS needs it to inset the vertical scrollbar's track.
+          "--tdg-header-block-height": `${stickyHeaderOffset}px`,
         } as React.CSSProperties
       }
       onKeyDown={handleGridKeyDown}
