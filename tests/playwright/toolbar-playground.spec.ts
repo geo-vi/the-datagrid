@@ -6,8 +6,9 @@ import {
   type Page,
 } from "@playwright/test";
 
+// The playground card, not the whole panel: the apiRef demo adds a second grid.
 function preview(page: Page) {
-  return page.getByTestId("example-preview-panel");
+  return page.getByTestId("toolbar-playground");
 }
 
 function toolbar(scope: Locator) {
