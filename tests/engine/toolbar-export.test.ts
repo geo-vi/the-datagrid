@@ -6,9 +6,12 @@ import { read, utils } from "xlsx";
 import type { TypeColumn } from "../../src/types";
 import {
   buildExportTable,
+  mergeExportSettings,
+  performExport,
   resolveExportColumns,
   serializeExportCsv,
   serializeExportJson,
+  type RDGToolbarExportSource,
 } from "../../src/toolbar/export";
 import {
   createXlsxContent,
@@ -212,4 +215,94 @@ test("a number format the writer rejects reports which prop caused it", async ()
       return true;
     }
   );
+});
+
+function sourceOf(
+  columns: TypeColumn[],
+  viewRows: Row[],
+  allRows: Row[] = viewRows
+): RDGToolbarExportSource {
+  return {
+    ...snapshotOf(columns),
+    getViewRows: () => viewRows,
+    getAllRows: () => allRows,
+  };
+}
+
+test("export settings resolve most specific layer first, field by field", () => {
+  const merged = mergeExportSettings(
+    { scope: "all" },
+    { fileName: "toolbar-prop", sheetName: "Sheet" },
+    { fileName: "provider-default", dateFormat: "yyyy-mm-dd" }
+  );
+
+  assert.deepEqual(merged, {
+    scope: "all",
+    fileName: "toolbar-prop",
+    dateFormat: "yyyy-mm-dd",
+    sheetName: "Sheet",
+  });
+});
+
+test("a settings layer that omits a field defers instead of blanking it", () => {
+  // `undefined` is how "the caller said nothing" arrives, so it must not win.
+  const merged = mergeExportSettings(
+    { scope: undefined, fileName: undefined },
+    undefined,
+    { scope: "all", fileName: "provider-default" }
+  );
+
+  assert.deepEqual(merged, {
+    scope: "all",
+    fileName: "provider-default",
+    dateFormat: undefined,
+    sheetName: undefined,
+  });
+});
+
+test("an export with nothing to write resolves null rather than a file", async () => {
+  const detached = await performExport(sourceOf([], []), "csv");
+  assert.equal(detached, null, "a snapshot with no grid attached exports null");
+
+  const unexportable = await performExport(
+    sourceOf(
+      [{ name: "actions", header: "Actions", exportable: false }],
+      [{ actions: "x" }]
+    ),
+    "csv"
+  );
+  assert.equal(unexportable, null, "no exportable column means no file");
+});
+
+test("performExport reports the export it wrote and defaults its name", async () => {
+  const columns: TypeColumn[] = [{ name: "id", header: "ID" }];
+  const result = await performExport(
+    sourceOf(columns, [{ id: 1 }], [{ id: 1 }, { id: 2 }]),
+    "csv"
+  );
+
+  assert.deepEqual(result, {
+    format: "csv",
+    scope: "view",
+    rowCount: 1,
+    columnCount: 1,
+    fileName: "grid-export.csv",
+    // Nothing was downloaded: there is no document in this environment.
+    byteLength: 0,
+  });
+});
+
+test("scope all exports the data source, and the file name sees the export", async () => {
+  const columns: TypeColumn[] = [{ name: "id", header: "ID" }];
+  const result = await performExport(
+    sourceOf(columns, [{ id: 1 }], [{ id: 1 }, { id: 2 }]),
+    "json",
+    {
+      scope: "all",
+      fileName: (info) => `orders-${info.scope}-${info.rowCount}`,
+    }
+  );
+
+  assert.equal(result?.rowCount, 2);
+  assert.equal(result?.fileName, "orders-all-2.json");
 });

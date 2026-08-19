@@ -12,6 +12,11 @@ import {
   RDGSearchProvider,
   RDGSearchTarget,
   RDGTarget,
+  useRDGToolbarApi,
+  useRDGToolbarApiState,
+  type RDGToolbarApi,
+  type RDGToolbarExportSettings,
+  type RDGToolbarState,
   type RDGToolbarProviderProps,
   type RDGToolbarTargetProps,
   type RDGToolbarProps,
@@ -33,7 +38,9 @@ type ComponentsRuntimeExport =
   | "RDGSearchTarget"
   | "RDGToolbarProvider"
   | "RDGToolbarTarget"
-  | "RDGToolbar";
+  | "RDGToolbar"
+  | "useRDGToolbarApi"
+  | "useRDGToolbarApiState";
 
 export type ComponentsEntryHasNoPublicInternals = AssertNever<
   Exclude<keyof typeof ComponentsEntry, ComponentsRuntimeExport>
@@ -113,3 +120,16 @@ export type ComponentsSearchTargetPropsMatchExport = RDGSearchTargetProps;
 export type ComponentsToolbarProviderPropsMatchExport = RDGToolbarProviderProps;
 export type ComponentsToolbarTargetPropsMatchExport = RDGToolbarTargetProps;
 export type ComponentsToolbarPropsMatchExport = RDGToolbarProps;
+
+export type ComponentsToolbarApiMatchesExport = RDGToolbarApi;
+export type ComponentsToolbarStateMatchesExport = RDGToolbarState;
+export type ComponentsToolbarExportSettingsMatchExport =
+  RDGToolbarExportSettings;
+
+export function useToolbarApiFromComponentsEntry() {
+  const api: RDGToolbarApi = useRDGToolbarApi();
+  const state: RDGToolbarState = useRDGToolbarApiState(api);
+  const exportDefaults: RDGToolbarExportSettings = { fileName: "people" };
+
+  return { attached: state.attached, exportDefaults, api };
+}

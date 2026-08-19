@@ -7,22 +7,30 @@ import {
   RDGToolbarProvider,
   RDGToolbarTarget,
   RDGToolbar,
+  useRDGToolbarApi,
+  useRDGToolbarApiState,
+  type RDGToolbarApi,
   type RDGToolbarExportFormat,
+  type RDGToolbarExportInfo,
   type RDGToolbarExportResult,
   type RDGToolbarExportScope,
+  type RDGToolbarExportSettings,
   type RDGToolbarLabels,
   type RDGToolbarProviderProps,
+  type RDGToolbarState,
   type RDGToolbarTargetProps,
   type RDGToolbarProps,
 } from "@geovi/the-datagrid/toolbar";
-import { createElement, type ComponentProps } from "react";
+import { createElement, createRef, type ComponentProps } from "react";
 
 type AssertNever<T extends never> = T;
 
 type ToolbarRuntimeExport =
   | "RDGToolbarProvider"
   | "RDGToolbarTarget"
-  | "RDGToolbar";
+  | "RDGToolbar"
+  | "useRDGToolbarApi"
+  | "useRDGToolbarApiState";
 
 export type ToolbarEntryHasNoPublicInternals = AssertNever<
   Exclude<keyof typeof ToolbarEntry, ToolbarRuntimeExport>
@@ -92,12 +100,53 @@ export const toolbarTargetProps = {
   children: gridElement,
 } satisfies RDGToolbarTargetProps;
 
+const apiRef = createRef<RDGToolbarApi>();
+
+const exportDefaults = {
+  scope: exportScope,
+  fileName: (info: RDGToolbarExportInfo) => `accounts-${info.rowCount}`,
+  dateFormat: "yyyy-mm-dd hh:mm",
+  sheetName: "Accounts",
+} satisfies RDGToolbarExportSettings;
+
 export const toolbarProviderProps = {
+  apiRef,
+  exportDefaults,
   children: [
     createElement(RDGToolbar, toolbarProps),
     createElement(RDGToolbarTarget, toolbarTargetProps),
   ],
 } satisfies RDGToolbarProviderProps;
+
+export async function readsTheToolbarApi(api: RDGToolbarApi) {
+  const result: RDGToolbarExportResult | null = await api.exportGrid("xlsx", {
+    scope: "all",
+  });
+  const formats: readonly RDGToolbarExportFormat[] = api.getExportFormats();
+  const state: RDGToolbarState = api.getState();
+  const stop: () => void = api.subscribe(() => {});
+
+  api.setColumnVisible("city", api.isColumnVisible("city"));
+  api.setFilteringEnabled(!api.isFilteringEnabled());
+  if (api.canToggleFiltering() && api.isFiltered()) api.clearAllFilters();
+  stop();
+
+  return {
+    result,
+    formats,
+    state,
+    columnCount: api.getColumns().length,
+    viewRows: api.getViewRows().length,
+    allRows: api.getAllRows().length,
+  };
+}
+
+export function useToolbarHooksSurface() {
+  const api: RDGToolbarApi = useRDGToolbarApi();
+  const state: RDGToolbarState = useRDGToolbarApiState(api);
+
+  return state.attached && !state.filtered;
+}
 
 export const toolbarComposition = createElement(
   RDGToolbarProvider,

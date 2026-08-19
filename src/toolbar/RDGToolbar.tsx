@@ -6,17 +6,22 @@ import type { TypeColumn } from "../types";
 import { useStableId } from "../hooks/useStableId";
 import { ExportIcon, FilterIcon, FilterOffIcon, ResetIcon } from "./icons";
 import { normalizeThemeName, resolveThemeBase } from "../theme/context";
+import { getColumnId, orderColumns } from "./columns";
 import {
-  buildExportTable,
   DEFAULT_TOOLBAR_EXPORT_FORMATS,
-  downloadExportFile,
+  mergeExportSettings,
+  performExport,
   RDG_TOOLBAR_EXPORT_FORMATS,
   resolveExportColumns,
   type RDGToolbarExportFormat,
+  type RDGToolbarExportInfo,
+  type RDGToolbarExportResult,
   type RDGToolbarExportScope,
 } from "./export";
-import { DEFAULT_XLSX_DATE_FORMAT } from "./xlsx";
-import { useRDGToolbarSnapshot } from "./store";
+import { useRDGToolbarSnapshot, useRDGToolbarStore } from "./store";
+
+// Declared in ./export, where the shared export path can reach them.
+export type { RDGToolbarExportInfo, RDGToolbarExportResult };
 
 /**
  * Every string the toolbar renders itself. Values are `ReactNode`, so a
@@ -50,22 +55,6 @@ export type RDGToolbarLabels = {
    * prop. Stays a `string`: it renders as a `title` attribute.
    */
   filteringControlledHint?: string;
-};
-
-/** Describes one export, for `exportFileName` callbacks. */
-export type RDGToolbarExportInfo = {
-  format: RDGToolbarExportFormat;
-  scope: RDGToolbarExportScope;
-  rowCount: number;
-  columnCount: number;
-};
-
-/** Describes a finished export, for `onExportSuccess`. */
-export type RDGToolbarExportResult = RDGToolbarExportInfo & {
-  /** File name the browser was given, including the extension. */
-  fileName: string;
-  /** Size of the written file in bytes. */
-  byteLength: number;
 };
 
 export type RDGToolbarProps = {
@@ -119,39 +108,12 @@ const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
     "The grid owns its filter row through the enableFiltering prop.",
 };
 
-function getColumnId(column: TypeColumn): string {
-  return String(column.id ?? column.name ?? "");
-}
-
 function getColumnLabel(column: TypeColumn): React.ReactNode {
   if (typeof column.header === "string" && column.header.trim()) {
     return column.header;
   }
   if (typeof column.header === "number") return column.header;
   return getColumnId(column);
-}
-
-function orderColumns(
-  columns: readonly TypeColumn[],
-  columnOrder: readonly string[]
-): TypeColumn[] {
-  const columnsById = new Map<string, TypeColumn>();
-  for (const column of columns) {
-    const columnId = getColumnId(column);
-    if (columnId && !columnsById.has(columnId)) {
-      columnsById.set(columnId, column);
-    }
-  }
-
-  const ordered: TypeColumn[] = [];
-  for (const columnId of columnOrder) {
-    const column = columnsById.get(columnId);
-    if (!column) continue;
-    ordered.push(column);
-    columnsById.delete(columnId);
-  }
-  ordered.push(...columnsById.values());
-  return ordered;
 }
 
 export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
@@ -164,10 +126,12 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     showExport = false,
     showFilterToggle = false,
     showClearFilters = false,
-    exportScope = "view",
+    // No literal defaults here: one would be indistinguishable from a passed
+    // value and would outrank the provider's `exportDefaults`.
+    exportScope,
     exportFormats = DEFAULT_TOOLBAR_EXPORT_FORMATS,
-    exportFileName = "grid-export",
-    exportDateFormat = DEFAULT_XLSX_DATE_FORMAT,
+    exportFileName,
+    exportDateFormat,
     exportSheetName,
     onExportSuccess,
     onExportError,
@@ -175,6 +139,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     className,
   } = props;
   const [exporting, setExporting] = React.useState(false);
+  const store = useRDGToolbarStore();
   const titleId = useStableId("tdg-toolbar-title");
   const descriptionId = useStableId("tdg-toolbar-description");
   const snapshot = useRDGToolbarSnapshot();
@@ -225,42 +190,24 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
 
   const runExport = React.useCallback(
     async (format: RDGToolbarExportFormat) => {
-      const definition = RDG_TOOLBAR_EXPORT_FORMATS[format];
-      if (!definition) return;
-
-      const columns = resolveExportColumns(snapshot);
-      if (columns.length === 0) return;
-
-      const rows =
-        exportScope === "all" ? snapshot.getAllRows() : snapshot.getViewRows();
-      const table = buildExportTable(columns, rows);
-      const info: RDGToolbarExportInfo = {
-        format,
-        scope: exportScope,
-        rowCount: table.rows.length,
-        columnCount: table.headers.length,
-      };
-      const name =
-        typeof exportFileName === "function"
-          ? exportFileName(info)
-          : exportFileName;
-
       setExporting(true);
       try {
-        // A format may load its writer on demand, so this can suspend.
-        const content = await definition.createContent(table, {
-          dateFormat: exportDateFormat,
-          sheetName: exportSheetName ?? name,
-        });
-
-        const fileName = `${name}.${definition.extension}`;
-        const byteLength = downloadExportFile(
-          fileName,
-          content,
-          definition.mimeType
+        // Read now, not at render: the provider sets its defaults in an effect.
+        const result = await performExport(
+          snapshot,
+          format,
+          mergeExportSettings(
+            {
+              scope: exportScope,
+              fileName: exportFileName,
+              dateFormat: exportDateFormat,
+              sheetName: exportSheetName,
+            },
+            store.getExportDefaults()
+          )
         );
 
-        onExportSuccess?.({ ...info, fileName, byteLength });
+        if (result) onExportSuccess?.(result);
       } catch (error) {
         onExportError?.(error);
         if (!onExportError) console.error(error);
@@ -276,6 +223,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       onExportError,
       onExportSuccess,
       snapshot,
+      store,
     ]
   );
 

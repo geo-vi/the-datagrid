@@ -1,10 +1,16 @@
 import * as React from "react";
 import { useSyncExternalStore } from "use-sync-external-store/shim";
 
+import {
+  createRDGToolbarApi,
+  type RDGToolbarApi,
+  type RDGToolbarState,
+} from "./api";
 import type {
   RDGToolbarController,
   RDGToolbarPublishedSnapshot,
 } from "./controller";
+import type { RDGToolbarExportSettings } from "./export";
 
 const EMPTY_COLUMNS: RDGToolbarPublishedSnapshot["columns"] = [];
 const EMPTY_COLUMN_ORDER: RDGToolbarPublishedSnapshot["columnOrder"] = [];
@@ -37,10 +43,15 @@ type TargetRegistration = {
 };
 
 export type RDGToolbarStore = {
+  /** One instance per store, so `apiRef` and `useRDGToolbarApi()` agree. */
+  api: RDGToolbarApi;
   createTargetRegistration: () => TargetRegistration;
   dispose: () => void;
+  /** Export settings the provider configured for every export of this grid. */
+  getExportDefaults: () => RDGToolbarExportSettings | undefined;
   getServerSnapshot: () => RDGToolbarPublishedSnapshot;
   getSnapshot: () => RDGToolbarPublishedSnapshot;
+  setExportDefaults: (settings: RDGToolbarExportSettings | undefined) => void;
   subscribe: (listener: () => void) => () => void;
 };
 
@@ -93,6 +104,7 @@ function sameSnapshot(
 export function createRDGToolbarStore(): RDGToolbarStore {
   let activeTarget: symbol | null = null;
   let snapshot = EMPTY_TOOLBAR_SNAPSHOT;
+  let exportDefaults: RDGToolbarExportSettings | undefined;
   const listeners = new Set<() => void>();
 
   const emitSnapshot = (next: RDGToolbarPublishedSnapshot) => {
@@ -101,7 +113,22 @@ export function createRDGToolbarStore(): RDGToolbarStore {
     listeners.forEach((listener) => listener());
   };
 
+  const getSnapshot = () => snapshot;
+  const getExportDefaults = () => exportDefaults;
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+
   return {
+    api: createRDGToolbarApi({
+      getSnapshot,
+      subscribe,
+      getExportDefaults,
+      isAttached: () => snapshot !== EMPTY_TOOLBAR_SNAPSHOT,
+    }),
     createTargetRegistration() {
       const target = Symbol("rdg-toolbar-target");
       let attached = false;
@@ -141,14 +168,16 @@ export function createRDGToolbarStore(): RDGToolbarStore {
     dispose() {
       activeTarget = null;
       snapshot = EMPTY_TOOLBAR_SNAPSHOT;
+      exportDefaults = undefined;
       listeners.clear();
     },
-    getSnapshot: () => snapshot,
+    getExportDefaults,
+    getSnapshot,
     getServerSnapshot: () => EMPTY_TOOLBAR_SNAPSHOT,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+    setExportDefaults(settings) {
+      exportDefaults = settings;
     },
+    subscribe,
   };
 }
 
@@ -173,4 +202,17 @@ export function useRDGToolbarSnapshot(): RDGToolbarPublishedSnapshot {
     store.getSnapshot,
     store.getServerSnapshot
   );
+}
+
+/**
+ * The provider's imperative API. Stable, and does not re-render on grid
+ * changes: pass it to `useRDGToolbarApiState` to render grid state.
+ */
+export function useRDGToolbarApi(): RDGToolbarApi {
+  return useRDGToolbarStore().api;
+}
+
+/** Subscribes to `api.getState()`, re-rendering when the grid state changes. */
+export function useRDGToolbarApiState(api: RDGToolbarApi): RDGToolbarState {
+  return useSyncExternalStore(api.subscribe, api.getState, api.getState);
 }

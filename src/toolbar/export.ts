@@ -1,5 +1,9 @@
 import type { TypeColumn } from "../types";
-import { createXlsxContent, XLSX_MIME_TYPE } from "./xlsx";
+import {
+  createXlsxContent,
+  DEFAULT_XLSX_DATE_FORMAT,
+  XLSX_MIME_TYPE,
+} from "./xlsx";
 
 /**
  * Formats the built-in toolbar export can write. Adding a format means adding
@@ -13,6 +17,54 @@ export type RDGToolbarExportFormat = "csv" | "json" | "xlsx";
 
 /** Rows the export reads: the current grid view, or the whole data source. */
 export type RDGToolbarExportScope = "view" | "all";
+
+/** Describes one export, for `exportFileName` callbacks. */
+export type RDGToolbarExportInfo = {
+  format: RDGToolbarExportFormat;
+  scope: RDGToolbarExportScope;
+  rowCount: number;
+  columnCount: number;
+};
+
+/** Describes a finished export, for `onExportSuccess`. */
+export type RDGToolbarExportResult = RDGToolbarExportInfo & {
+  /** File name the browser was given, including the extension. */
+  fileName: string;
+  /** Size of the written file in bytes. */
+  byteLength: number;
+};
+
+/**
+ * Everything an export needs beyond the format. Wherever the export is
+ * triggered from, the layers resolve most specific first: one export's own
+ * settings, then the `RDGToolbar` prop, then the provider's `exportDefaults`,
+ * then the fallbacks below.
+ */
+export type RDGToolbarExportSettings = {
+  /** `"view"` exports the filtered, searched and sorted rows; `"all"` the whole data source. */
+  scope?: RDGToolbarExportScope;
+  /**
+   * Downloaded file name without extension. A function is called per export, so
+   * a name that embeds the date or the chosen format stays accurate.
+   */
+  fileName?: string | ((info: RDGToolbarExportInfo) => string);
+  /** Excel number format for date cells in spreadsheet exports. */
+  dateFormat?: string;
+  /** Worksheet name for spreadsheet exports. Defaults to the file name. */
+  sheetName?: string;
+};
+
+export const DEFAULT_EXPORT_FILE_NAME = "grid-export";
+export const DEFAULT_EXPORT_SCOPE: RDGToolbarExportScope = "view";
+
+/** The subset of the toolbar snapshot an export reads. */
+export type RDGToolbarExportSource = {
+  columns: readonly TypeColumn[];
+  columnOrder: readonly string[];
+  columnVisibilityMap: Readonly<Record<string, boolean>>;
+  getViewRows: () => readonly unknown[];
+  getAllRows: () => readonly unknown[];
+};
 
 export type RDGToolbarExportTable = {
   /** Header labels, in export order. */
@@ -226,4 +278,67 @@ export function downloadExportFile(
   URL.revokeObjectURL(url);
 
   return blob.size;
+}
+
+/**
+ * Folds the settings layers into one, most specific first. A layer that omits a
+ * field defers to the next, per field rather than wholesale.
+ */
+export function mergeExportSettings(
+  ...layers: readonly (RDGToolbarExportSettings | undefined)[]
+): RDGToolbarExportSettings {
+  const merged: RDGToolbarExportSettings = {};
+  for (const layer of layers) {
+    if (!layer) continue;
+    merged.scope ??= layer.scope;
+    merged.fileName ??= layer.fileName;
+    merged.dateFormat ??= layer.dateFormat;
+    merged.sheetName ??= layer.sheetName;
+  }
+  return merged;
+}
+
+/**
+ * Writes one export and hands it to the browser. The single path behind both
+ * the toolbar's button and the imperative API.
+ *
+ * Returns `null` when there is nothing to write: an unknown format, or no
+ * exportable column - which is also a snapshot with no grid attached. A failing
+ * writer rejects rather than no-opping, so the caller can report it.
+ */
+export async function performExport(
+  source: RDGToolbarExportSource,
+  format: RDGToolbarExportFormat,
+  settings: RDGToolbarExportSettings = {}
+): Promise<RDGToolbarExportResult | null> {
+  const definition = RDG_TOOLBAR_EXPORT_FORMATS[format];
+  if (!definition) return null;
+
+  const columns = resolveExportColumns(source);
+  if (columns.length === 0) return null;
+
+  const scope = settings.scope ?? DEFAULT_EXPORT_SCOPE;
+  const rows = scope === "all" ? source.getAllRows() : source.getViewRows();
+  const table = buildExportTable(columns, rows);
+  const info: RDGToolbarExportInfo = {
+    format,
+    scope,
+    rowCount: table.rows.length,
+    columnCount: table.headers.length,
+  };
+  const name =
+    typeof settings.fileName === "function"
+      ? settings.fileName(info)
+      : (settings.fileName ?? DEFAULT_EXPORT_FILE_NAME);
+
+  // A format may load its writer on demand, so this can suspend.
+  const content = await definition.createContent(table, {
+    dateFormat: settings.dateFormat ?? DEFAULT_XLSX_DATE_FORMAT,
+    sheetName: settings.sheetName ?? name,
+  });
+
+  const fileName = `${name}.${definition.extension}`;
+  const byteLength = downloadExportFile(fileName, content, definition.mimeType);
+
+  return { ...info, fileName, byteLength };
 }
