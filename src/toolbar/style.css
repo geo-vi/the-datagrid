@@ -303,11 +303,55 @@
 }
 
 :where(.tdg-toolbar-root[data-collapsible="true"]) {
+  position: relative;
+  isolation: isolate;
   gap: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: padding var(--tdg-toolbar-collapsible-duration) ease;
+}
+
+:where(.tdg-toolbar-root[data-collapsible="true"])::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: var(--tdg-toolbar-border-width) solid var(--tdg-toolbar-border-color);
+  border-radius: var(--tdg-toolbar-radius);
+  background: var(--tdg-toolbar-surface);
+  box-shadow: var(--tdg-toolbar-shadow);
+  content: "";
+  clip-path: inset(0 round var(--tdg-toolbar-radius));
+  opacity: 1;
+  pointer-events: none;
+  transform-origin: top right;
+  transition:
+    clip-path var(--tdg-toolbar-collapsible-duration) ease,
+    opacity var(--tdg-toolbar-collapsible-duration) ease,
+    box-shadow var(--tdg-toolbar-collapsible-duration) ease;
+}
+
+:where(.tdg-toolbar-root[data-collapsible="true"][data-state="closed"]) {
+  padding: 0;
+}
+
+:where(
+  .tdg-toolbar-root[data-collapsible="true"][data-state="closed"]
+)::before {
+  clip-path: inset(0 0 100% 100% round var(--tdg-toolbar-radius));
+  opacity: 0;
+  box-shadow: none;
 }
 
 :where(.tdg-toolbar-root[data-collapsible="true"]:dir(rtl)) {
   --tdg-toolbar-collapsible-offset-inline: -0.75rem;
+}
+
+:where(
+  .tdg-toolbar-root[data-collapsible="true"][data-state="closed"]:dir(rtl)
+)::before {
+  clip-path: inset(0 100% 100% 0 round var(--tdg-toolbar-radius));
+  transform-origin: top left;
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-disclosure-row"] {
@@ -339,7 +383,9 @@
   gap: var(--tdg-toolbar-gap);
   padding-top: var(--tdg-toolbar-gap);
   overflow: visible;
-  transition: overflow 0s linear var(--tdg-toolbar-collapsible-duration);
+  transition:
+    padding-top var(--tdg-toolbar-collapsible-duration) ease,
+    overflow 0s linear var(--tdg-toolbar-collapsible-duration);
 }
 
 :where(.tdg-toolbar-root[data-state="closed"])
@@ -360,8 +406,11 @@
 
 :where(.tdg-toolbar-root[data-state="closed"])
   [data-slot="rdg-toolbar-collapsible-panel-inner"] {
+  padding-top: 0;
   overflow: hidden;
-  transition-delay: 0s;
+  transition:
+    padding-top var(--tdg-toolbar-collapsible-duration) ease,
+    overflow 0s linear 0s;
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-heading"] {

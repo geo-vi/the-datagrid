@@ -696,10 +696,11 @@ element, so a translation helper can supply all of them:
 treatment; column toggles read each column's `header`. The export menu is named
 after its own trigger, so a translated label needs no second string.
 
-Set `collapsible` when a dense screen should reserve only one control row until
-the toolbar is needed. The complete existing surface starts closed behind a
-right-aligned disclosure button and expands in place; column, filter and export
-state remain mounted while it is closed. Override `labels.showToolbar` and
+Set `collapsible` when a dense screen should show only one right-aligned control
+until the toolbar is needed. The card surface, border, shadow and spacing collapse
+fully into that disclosure button, then expand left and down from it; column,
+filter and export state remain mounted while it is closed. Override
+`labels.showToolbar` and
 `labels.hideToolbar` to localize the disclosure:
 
 ```tsx

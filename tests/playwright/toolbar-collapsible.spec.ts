@@ -44,9 +44,23 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   const disclosureBox = await disclosure.boundingBox();
   expect(rootBox).not.toBeNull();
   expect(disclosureBox).not.toBeNull();
+  expect(rootBox!.height).toBeLessThanOrEqual(disclosureBox!.height + 1);
   expect(
     rootBox!.x + rootBox!.width - (disclosureBox!.x + disclosureBox!.width)
   ).toBeLessThanOrEqual(16);
+
+  const closedSurface = await bar.evaluate((element) => ({
+    background: getComputedStyle(element).backgroundColor,
+    borderWidth: getComputedStyle(element).borderWidth,
+    boxShadow: getComputedStyle(element).boxShadow,
+    surfaceOpacity: getComputedStyle(element, "::before").opacity,
+  }));
+  expect(closedSurface).toEqual({
+    background: "rgba(0, 0, 0, 0)",
+    borderWidth: "0px",
+    boxShadow: "none",
+    surfaceOpacity: "0",
+  });
 
   const closedOffset = await panel.evaluate((element) => {
     const matrix = new DOMMatrix(getComputedStyle(element).transform);
@@ -66,6 +80,16 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
     bar.getByRole("heading", { level: 2, name: "Collapsible columns" })
   ).toBeVisible();
   await expect(optionalToggle).toBeVisible();
+
+  await expect
+    .poll(() =>
+      bar.evaluate((element) => getComputedStyle(element, "::before").opacity)
+    )
+    .toBe("1");
+
+  const openRootBox = await bar.boundingBox();
+  expect(openRootBox).not.toBeNull();
+  expect(openRootBox!.height).toBeGreaterThan(disclosureBox!.height);
 
   await expect
     .poll(() =>
@@ -91,6 +115,9 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   await expect(panel).toHaveAttribute("aria-hidden", "true");
   await expect(panel).toBeHidden();
   await expect(optionalHeader).toBeVisible();
+  await expect
+    .poll(async () => (await bar.boundingBox())?.height)
+    .toBeLessThanOrEqual(disclosureBox!.height + 1);
 });
 
 test("keeps the disclosure and expanded controls inside a narrow viewport", async ({

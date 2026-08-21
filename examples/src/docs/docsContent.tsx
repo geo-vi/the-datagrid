@@ -7056,9 +7056,10 @@ const columns: TypeColumns = [
             </p>
             <p>
               Add <code>collapsible</code> on dense screens to replace the full
-              surface with one right-aligned disclosure until it is needed. The
-              toolbar starts closed and keeps its grid state mounted while the
-              panel animates open in place.
+              surface with one right-aligned disclosure until it is needed. No
+              empty card surface or spacing remains while closed; the complete
+              toolbar expands left and down from the button while its grid state
+              stays mounted.
             </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
