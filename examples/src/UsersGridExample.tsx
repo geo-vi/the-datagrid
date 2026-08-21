@@ -157,7 +157,10 @@ export default function UsersGridExample({
         value: null,
       },
       { name: "lang", operator: "eq", type: "select", value: null },
-      { name: "disabled", operator: "eq", type: "select", value: null },
+      // A multiple editor emits an array, so this needs the array operator:
+      // "eq" would compare the whole array against each row's boolean and
+      // match nothing, leaving the control looking inert.
+      { name: "disabled", operator: "inlist", type: "select", value: null },
       { name: "tfa_enabled", operator: "eq", type: "select", value: null },
     ],
     []
@@ -255,6 +258,8 @@ export default function UsersGridExample({
         filterEditor: SelectFilter,
         filterEditorProps: {
           placeholder: "All states",
+          multiple: true,
+          wrapMultiple: false,
           dataSource: [
             { id: true, label: "Yes" },
             { id: false, label: "No" },

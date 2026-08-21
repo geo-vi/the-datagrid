@@ -1,14 +1,18 @@
-import * as React from "react"
-import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import * as React from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
-import { cn } from "../../lib/utils"
-import { useLegacyStateClasses } from "../../lib/use-legacy-state-classes"
-import { useDatagridPortalContainer, useDatagridThemeClassSuffix } from "../../theme/context"
+import { cn } from "../../lib/utils";
+import { useLegacyStateClasses } from "../../lib/use-legacy-state-classes";
+import { useSelectTriggerClassName } from "../../lib/use-select-trigger-class-name";
+import {
+  useDatagridPortalContainer,
+  useDatagridThemeClassSuffix,
+} from "../../theme/context";
 
-const Select = SelectPrimitive.Root
+const Select = SelectPrimitive.Root;
 
-const SelectGroup = SelectPrimitive.Group
+const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Value>,
@@ -16,54 +20,73 @@ const SelectValue = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Value
     ref={ref}
-    className={cn("inovua-react-toolkit-combo-box__value__display-value", className)}
+    className={cn(
+      "inovua-react-toolkit-combo-box__value__display-value",
+      className
+    )}
     {...props}
   />
-))
-SelectValue.displayName = SelectPrimitive.Value.displayName
+));
+SelectValue.displayName = SelectPrimitive.Value.displayName;
+
+const selectToggleIconClassName =
+  "tdg-select-toggle-icon inovua-react-toolkit-combo-box__toggle-icon h-4 w-4 opacity-50";
+
+/** The two spans a trigger holds: the value, then the tools well with the chevron. */
+function SelectTriggerFrame({
+  children,
+  icon,
+}: {
+  children?: React.ReactNode;
+  icon?: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <>
+      <span className="tdg-select-value inovua-react-toolkit-combo-box__value inovua-react-toolkit-combo-box__value--no-wrap flex min-w-0 flex-1 items-center">
+        {children}
+      </span>
+      <span className="tdg-select-tools inovua-react-toolkit-combo-box__tools">
+        {icon ?? <ChevronDown className={selectToggleIconClassName} />}
+      </span>
+    </>
+  );
+}
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
 >(({ className, children, onFocus, onBlur, disabled, ...props }, ref) => {
-  const themeClassSuffix = useDatagridThemeClassSuffix()
-  const [focused, setFocused] = React.useState(false)
+  const [focused, setFocused] = React.useState(false);
+  const triggerClassName = useSelectTriggerClassName({ disabled, focused });
 
   return (
     <SelectPrimitive.Trigger
       ref={ref}
-      className={cn(
-        "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-[var(--tdg-select-bg)] px-3 py-2 text-sm text-[var(--tdg-select-color)] shadow-sm ring-offset-background data-[placeholder]:text-muted-foreground [border-color:var(--tdg-select-border-color)] hover:[border-color:var(--tdg-select-border-color-hover)] focus:outline-none focus:ring-1 focus:ring-ring focus:[border-color:var(--tdg-select-border-color-focus)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-        "tdg-select-trigger",
-        "inovua-react-toolkit-combo-box inovua-react-toolkit-combo-box--ltr",
-        `inovua-react-toolkit-combo-box--theme-${themeClassSuffix}`,
-        disabled ? "inovua-react-toolkit-combo-box--disabled" : "",
-        focused ? "inovua-react-toolkit-combo-box--focus" : "",
-        className
-      )}
+      className={cn(triggerClassName, className)}
       disabled={disabled}
       onFocus={(event) => {
-        setFocused(true)
-        onFocus?.(event)
+        setFocused(true);
+        onFocus?.(event);
       }}
       onBlur={(event) => {
-        setFocused(false)
-        onBlur?.(event)
+        setFocused(false);
+        onBlur?.(event);
       }}
       {...props}
     >
-      <span className="tdg-select-value inovua-react-toolkit-combo-box__value inovua-react-toolkit-combo-box__value--no-wrap flex min-w-0 flex-1 items-center">
+      <SelectTriggerFrame
+        icon={
+          <SelectPrimitive.Icon asChild>
+            <ChevronDown className={selectToggleIconClassName} />
+          </SelectPrimitive.Icon>
+        }
+      >
         {children}
-      </span>
-      <span className="tdg-select-tools inovua-react-toolkit-combo-box__tools">
-        <SelectPrimitive.Icon asChild>
-          <ChevronDown className="tdg-select-toggle-icon inovua-react-toolkit-combo-box__toggle-icon h-4 w-4 opacity-50" />
-        </SelectPrimitive.Icon>
-      </span>
+      </SelectTriggerFrame>
     </SelectPrimitive.Trigger>
-  )
-})
-SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+  );
+});
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
@@ -79,8 +102,8 @@ const SelectScrollUpButton = React.forwardRef<
   >
     <ChevronUp className="h-4 w-4" />
   </SelectPrimitive.ScrollUpButton>
-))
-SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
+));
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
 
 const SelectScrollDownButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
@@ -96,16 +119,16 @@ const SelectScrollDownButton = React.forwardRef<
   >
     <ChevronDown className="h-4 w-4" />
   </SelectPrimitive.ScrollDownButton>
-))
+));
 SelectScrollDownButton.displayName =
-  SelectPrimitive.ScrollDownButton.displayName
+  SelectPrimitive.ScrollDownButton.displayName;
 
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
 >(({ className, children, position = "popper", ...props }, ref) => {
-  const portalContainer = useDatagridPortalContainer()
-  const themeClassSuffix = useDatagridThemeClassSuffix()
+  const portalContainer = useDatagridPortalContainer();
+  const themeClassSuffix = useDatagridThemeClassSuffix();
 
   return (
     <SelectPrimitive.Portal container={portalContainer ?? undefined}>
@@ -138,9 +161,9 @@ const SelectContent = React.forwardRef<
         <SelectScrollDownButton />
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
-  )
-})
-SelectContent.displayName = SelectPrimitive.Content.displayName
+  );
+});
+SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectLabel = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Label>,
@@ -151,16 +174,20 @@ const SelectLabel = React.forwardRef<
     className={cn("px-2 py-1.5 text-sm font-semibold", className)}
     {...props}
   />
-))
-SelectLabel.displayName = SelectPrimitive.Label.displayName
+));
+SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, ...props }, ref) => {
-  const itemRef = React.useRef<React.ElementRef<typeof SelectPrimitive.Item>>(null)
+  const itemRef =
+    React.useRef<React.ElementRef<typeof SelectPrimitive.Item>>(null);
 
-  React.useImperativeHandle(ref, () => itemRef.current as React.ElementRef<typeof SelectPrimitive.Item>)
+  React.useImperativeHandle(
+    ref,
+    () => itemRef.current as React.ElementRef<typeof SelectPrimitive.Item>
+  );
 
   useLegacyStateClasses(itemRef, [
     {
@@ -176,7 +203,7 @@ const SelectItem = React.forwardRef<
       attribute: "data-disabled",
       className: "inovua-react-toolkit-combo-box__list__item--disabled",
     },
-  ])
+  ]);
 
   return (
     <SelectPrimitive.Item
@@ -196,9 +223,9 @@ const SelectItem = React.forwardRef<
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
-  )
-})
-SelectItem.displayName = SelectPrimitive.Item.displayName
+  );
+});
+SelectItem.displayName = SelectPrimitive.Item.displayName;
 
 const SelectSeparator = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Separator>,
@@ -206,21 +233,25 @@ const SelectSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-muted [background:var(--tdg-color-muted)]", className)}
+    className={cn(
+      "-mx-1 my-1 h-px bg-muted [background:var(--tdg-color-muted)]",
+      className
+    )}
     {...props}
   />
-))
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName
+));
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 
 export {
   Select,
   SelectGroup,
   SelectValue,
   SelectTrigger,
+  SelectTriggerFrame,
   SelectContent,
   SelectLabel,
   SelectItem,
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
-}
+};
