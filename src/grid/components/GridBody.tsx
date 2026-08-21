@@ -162,6 +162,7 @@ function DefaultCellEditor(props: {
 
 const SEAMLESS_CELL_EDITOR_SELECTOR =
   '.tdg-cell-editor[data-slot="cell-editor"], .InovuaReactDataGrid__cell__editor';
+const SHELL_CELL_EDITOR_SELECTOR = ".tdg-cell-editor-shell";
 
 function CellEditorSurfaceSync(props: {
   cellKey: string;
@@ -178,10 +179,15 @@ function CellEditorSurfaceSync(props: {
       : undefined;
     if (!cell || !content) return;
 
+    // Both surfaces take the editor out of flow, so the cell has to stop
+    // clipping and positioning its content either way. Only "seamless" also
+    // repaints the cell itself.
     const syncSurface = () => {
       if (content.querySelector(SEAMLESS_CELL_EDITOR_SELECTOR)) {
         cell.dataset.editorSurface = "seamless";
-      } else if (cell.dataset.editorSurface === "seamless") {
+      } else if (content.querySelector(SHELL_CELL_EDITOR_SELECTOR)) {
+        cell.dataset.editorSurface = "shell";
+      } else if (cell.dataset.editorSurface) {
         delete cell.dataset.editorSurface;
       }
     };
@@ -197,9 +203,7 @@ function CellEditorSurfaceSync(props: {
 
     return () => {
       observer.disconnect();
-      if (cell.dataset.editorSurface === "seamless") {
-        delete cell.dataset.editorSurface;
-      }
+      delete cell.dataset.editorSurface;
     };
   }, [props.cellKey, props.cellNodesRef]);
 
@@ -1292,6 +1296,15 @@ export function GridBody(props: GridBodyProps) {
               : align === "center"
                 ? "justify-center"
                 : "";
+          // An editor is positioned against the cell, not the content wrapper,
+          // so the wrapper's `justify-*` cannot place it. Expose the alignment
+          // on the cell so an editor can pick it up too.
+          const cellTextAlign =
+            align === "right" || align === "end"
+              ? "end"
+              : align === "center"
+                ? "center"
+                : undefined;
           /*
            * `--last` drops the right border because nothing follows. That means
            * "at the table's trailing edge", not "the last column": with a filler
@@ -1517,6 +1530,7 @@ export function GridBody(props: GridBodyProps) {
               data-column-id={columnId}
               data-column-index={cellIndex}
               data-editing={isEditingThisCell ? "true" : "false"}
+              data-text-align={cellTextAlign}
               data-cell-active={cellIsActive ? "true" : "false"}
               data-cell-selected={cellIsSelected ? "true" : "false"}
               aria-selected={cellSelectionEnabled ? cellIsSelected : undefined}

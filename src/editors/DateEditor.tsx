@@ -4,7 +4,11 @@ import * as React from "react";
 
 import { Input } from "../components/ui/input";
 import { cn } from "../lib/utils";
-import type { TypeCommunityEditorProps } from "./editorTypes";
+import {
+  editorSurfaceClass,
+  toDomEditorProps,
+  type TypeCommunityEditorProps,
+} from "./editorTypes";
 
 export type DateEditorValue = string | Date | null;
 
@@ -36,6 +40,7 @@ export default function DateEditor({
   disabled,
   readOnly,
   rtl,
+  seamless,
   className,
   style,
   editorProps,
@@ -51,14 +56,24 @@ export default function DateEditor({
 
   return (
     <Input
-      {...editorProps}
+      {...toDomEditorProps(editorProps, [
+        "relativeToViewport",
+        "constrainTo",
+        "renderPicker",
+        "overlayProps",
+      ])}
       type="date"
       value={draft}
       autoFocus={autoFocus}
       disabled={disabled}
       readOnly={readOnly}
       dir={rtl ? "rtl" : "ltr"}
-      className={cn("h-full min-h-8 w-full", editorProps?.className, className)}
+      className={cn(
+        "h-full min-h-8 w-full",
+        editorSurfaceClass(seamless),
+        editorProps?.className,
+        className
+      )}
       style={{ ...editorProps?.style, ...style }}
       data-slot="date-editor"
       onChange={(event) => {
