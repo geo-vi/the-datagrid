@@ -7,7 +7,13 @@ import type {
   TypeDataGridProps,
   TypeInlineEditorProps,
 } from "../../src/main";
-import { BoolEditor, DateEditor, NumericEditor } from "../../src/main";
+import {
+  BoolEditor,
+  DateEditor,
+  NumericEditor,
+  SelectEditor,
+  TextEditor,
+} from "../../src/main";
 
 const columns = [
   {
@@ -64,6 +70,48 @@ const columns = [
         void direction;
         void event;
       },
+    },
+  },
+  {
+    name: "status",
+    editable: true,
+    editor: SelectEditor,
+    editorProps: {
+      seamless: true,
+      dataSource: [
+        { id: "triage", label: "Triage" },
+        { id: "done", label: "Signed off" },
+      ],
+    },
+  },
+  {
+    // Inovua merges the column into the cell props, so column-scoped edit
+    // callbacks receive `(value, cellProps)` rather than a `TypeEditInfo`.
+    name: "text",
+    editable: (_value: unknown, cellProps: CellProps) =>
+      cellProps.data.enabled !== "locked",
+    editor: TextEditor,
+    editorProps: { seamless: true, trim: true, maxLength: 120 },
+    getEditCompleteValue: (value: unknown, cellProps: CellProps) =>
+      `${String(value)}@${cellProps.rowIndex}`,
+    onEditStart: (value: unknown, cellProps: CellProps) => {
+      void value;
+      void cellProps.rowId;
+    },
+    onEditValueChange: (value: unknown, cellProps: CellProps) => {
+      void value;
+      void cellProps.editValue;
+    },
+    onEditStop: (value: unknown, cellProps: CellProps) => {
+      void value;
+      void cellProps.columnId;
+    },
+    onEditCancel: (cellProps: CellProps) => {
+      void cellProps.data;
+    },
+    onEditComplete: async (value: string, cellProps: CellProps) => {
+      void value;
+      void cellProps.data;
     },
   },
 ] satisfies TypeColumns;

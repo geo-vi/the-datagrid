@@ -137,6 +137,20 @@ export function useGridEditing(params: UseGridEditingParams) {
     []
   );
 
+  // A throwing transform falls back to the raw draft; letting it escape would
+  // pin `editEndingSessionRef` to a session that never ends.
+  const applyEditCompleteValue = React.useCallback(
+    (cell: GridEditingCell, value: unknown): unknown => {
+      if (typeof cell.column?.getEditCompleteValue !== "function") return value;
+      try {
+        return cell.column.getEditCompleteValue(value, cell.cellProps);
+      } catch {
+        return value;
+      }
+    },
+    []
+  );
+
   const tryStartCellEdit = React.useCallback(
     async (
       args: GridCellEditStartArgs,
@@ -224,6 +238,7 @@ export function useGridEditing(params: UseGridEditingParams) {
       editEndingSessionRef.current = null;
       currentEditCompletePromiseRef.current = Promise.resolve(true);
       setEditingCell(next);
+      args.column.onEditStart?.(initialEditValue, initialCellProps);
       onEditStart?.(
         toEditInfo(
           { ...next, cellProps: initialCellProps },
@@ -572,6 +587,7 @@ export function useGridEditing(params: UseGridEditingParams) {
         },
       };
       setEditingCell(next);
+      current.column?.onEditValueChange?.(value, next.cellProps);
       onEditValueChange?.(toEditInfo(next, { includeValue: true, value }));
     },
     [
@@ -600,10 +616,14 @@ export function useGridEditing(params: UseGridEditingParams) {
       editAttemptRef.current += 1;
       const sessionId = current.sessionId;
       editEndingSessionRef.current = sessionId;
+      const baseCell = targetCell ?? current;
       const completedCell = {
-        ...(targetCell ?? current),
+        ...baseCell,
         sessionId,
-        value: value === undefined ? (targetCell ?? current).value : value,
+        value: applyEditCompleteValue(
+          baseCell,
+          value === undefined ? baseCell.value : value
+        ),
       };
       const info = toEditInfo(completedCell, { includeValue: true });
       let resolveCompletion!: (value: unknown) => void;
@@ -616,6 +636,10 @@ export function useGridEditing(params: UseGridEditingParams) {
 
       let stopError: unknown;
       try {
+        completedCell.column?.onEditStop?.(
+          completedCell.value,
+          completedCell.cellProps
+        );
         onEditStop?.(info);
       } catch (error) {
         stopError = error;
@@ -632,8 +656,15 @@ export function useGridEditing(params: UseGridEditingParams) {
         rejectCompletion(stopError);
       } else {
         try {
-          Promise.resolve(onEditComplete?.(info)).then(
-            resolveCompletion,
+          // Both run synchronously, as upstream does. Navigation waits for
+          // both, and a rejection from either suppresses it.
+          const columnResult = completedCell.column?.onEditComplete?.(
+            completedCell.value,
+            completedCell.cellProps
+          );
+          const gridResult = onEditComplete?.(info);
+          Promise.all([columnResult, gridResult]).then(
+            ([, resolvedGridResult]) => resolveCompletion(resolvedGridResult),
             rejectCompletion
           );
         } catch (error) {
@@ -663,6 +694,7 @@ export function useGridEditing(params: UseGridEditingParams) {
       }
     },
     [
+      applyEditCompleteValue,
       getEditingCellAtCurrentCoordinate,
       navigateAfterEdit,
       onEditComplete,
@@ -688,6 +720,10 @@ export function useGridEditing(params: UseGridEditingParams) {
       };
 
       try {
+        stoppedCell.column?.onEditStop?.(
+          stoppedCell.value,
+          stoppedCell.cellProps
+        );
         onEditStop?.(toEditInfo(stoppedCell, { includeValue: true }));
       } finally {
         if (editingCellRef.current?.sessionId === sessionId) {
@@ -723,7 +759,12 @@ export function useGridEditing(params: UseGridEditingParams) {
       const cancelledCell = targetCell ?? current;
       editEndingSessionRef.current = sessionId;
       try {
+        cancelledCell.column?.onEditStop?.(
+          cancelledCell.value,
+          cancelledCell.cellProps
+        );
         onEditStop?.(toEditInfo(cancelledCell, { includeValue: true }));
+        cancelledCell.column?.onEditCancel?.(cancelledCell.cellProps);
         onEditCancel?.(toEditInfo(cancelledCell, { includeValue: false }));
       } finally {
         if (editingCellRef.current?.sessionId === sessionId) {
@@ -751,25 +792,37 @@ export function useGridEditing(params: UseGridEditingParams) {
     (targetCell: GridEditingCell, value?: unknown) => {
       const completedCell = {
         ...targetCell,
-        value: value === undefined ? targetCell.value : value,
+        value: applyEditCompleteValue(
+          targetCell,
+          value === undefined ? targetCell.value : value
+        ),
       };
       isInEditRef.current = false;
 
       try {
-        currentEditCompletePromiseRef.current = Promise.resolve(
-          onEditComplete?.(toEditInfo(completedCell, { includeValue: true }))
+        const columnResult = completedCell.column?.onEditComplete?.(
+          completedCell.value,
+          completedCell.cellProps
         );
+        const gridResult = onEditComplete?.(
+          toEditInfo(completedCell, { includeValue: true })
+        );
+        currentEditCompletePromiseRef.current = Promise.all([
+          columnResult,
+          gridResult,
+        ]).then(([, resolvedGridResult]) => resolvedGridResult);
       } catch (error) {
         const rejectedPromise = Promise.reject(error);
         currentEditCompletePromiseRef.current = rejectedPromise;
         void rejectedPromise.catch(() => undefined);
       }
     },
-    [onEditComplete, toEditInfo]
+    [applyEditCompleteValue, onEditComplete, toEditInfo]
   );
 
   const handleCrossTargetEditCancel = React.useCallback(
     (targetCell: GridEditingCell) => {
+      targetCell.column?.onEditCancel?.(targetCell.cellProps);
       onEditCancel?.(toEditInfo(targetCell, { includeValue: false }));
       window.setTimeout(() => {
         if (editingCellRef.current) isInEditRef.current = false;

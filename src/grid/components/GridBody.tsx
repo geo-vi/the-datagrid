@@ -1016,7 +1016,9 @@ export function GridBody(props: GridBodyProps) {
           undefined,
           value === undefined ? undefined : normalizeEditorValue(value)
         ),
-      onCancel: onEditCancel,
+      // Editors call `onCancel(event)`; forwarding directly would bind that
+      // event to `handleEditCancel`'s optional target-cell parameter.
+      onCancel: () => onEditCancel(),
       onEnterNavigation: (complete = true, direction = 0) => {
         compatCell.onEditorEnterNavigation(complete, direction);
       },
