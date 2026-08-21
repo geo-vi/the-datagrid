@@ -9,6 +9,7 @@ import App, { useExamplesUi } from "./App";
 import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ColumnsGridExample from "./ColumnsGridExample";
+import EditingGridExample from "./EditingGridExample";
 import ToolbarCompatPage from "./ToolbarCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
@@ -104,6 +105,27 @@ function ColumnsExamplePage() {
       tags={example.tags}
     >
       <ColumnsGridExample />
+    </ExampleDetailPage>
+  );
+}
+
+function EditingExamplePage() {
+  const example = getExampleMeta("editing");
+
+  if (!example) {
+    throw new Error("Missing example metadata for editing");
+  }
+
+  return (
+    <ExampleDetailPage
+      title={example.title}
+      summary={example.summary}
+      details={example.details}
+      sourcePath={example.sourcePath}
+      sourceCode={example.sourceCode}
+      tags={example.tags}
+    >
+      <EditingGridExample />
     </ExampleDetailPage>
   );
 }
@@ -245,6 +267,12 @@ const exampleActionsRoute = createRoute({
   component: ActionsExamplePage,
 });
 
+const exampleEditingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "examples/editing",
+  component: EditingExamplePage,
+});
+
 const exampleInovuaParityRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "examples/inovua-parity",
@@ -297,6 +325,12 @@ const legacyActionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "actions",
   component: ActionsExamplePage,
+});
+
+const legacyEditingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "editing",
+  component: EditingExamplePage,
 });
 
 const legacyInovuaParityRoute = createRoute({
@@ -483,6 +517,7 @@ const routeTree = rootRoute.addChildren([
   exampleActionsRoute,
   exampleBasicRoute,
   exampleColumnsRoute,
+  exampleEditingRoute,
   exampleInovuaParityRoute,
   exampleSelectionRoute,
   exampleToolbarRoute,
@@ -492,6 +527,7 @@ const routeTree = rootRoute.addChildren([
   legacyActionsRoute,
   legacyBasicRoute,
   legacyColumnsRoute,
+  legacyEditingRoute,
   legacyInovuaParityRoute,
   legacySelectionRoute,
   legacyStackedColumnsRoute,
