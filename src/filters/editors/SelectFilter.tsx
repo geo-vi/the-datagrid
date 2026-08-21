@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { IconChevronDown } from "@tabler/icons-react";
 
 import { cn } from "../../lib/utils";
-import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import {
   DropdownMenu,
@@ -17,8 +15,10 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectTriggerFrame,
   SelectValue,
 } from "../../components/ui/select";
+import { useSelectTriggerClassName } from "../../lib/use-select-trigger-class-name";
 import {
   type TypeCommunityFilterChange,
   type TypeCommunityFilterValue,
@@ -104,6 +104,41 @@ export type SelectFilterProps = {
   className?: string;
   style?: React.CSSProperties;
 };
+
+/**
+ * Wears the same shell as a single-value SelectTrigger. Sharing it is what
+ * keeps the two filter variants looking like one control: a Button here would
+ * be forced centre-aligned and transparent by `.tdg-button`'s armour, which is
+ * how this trigger drifted away from the rest of the filter row.
+ */
+function MultipleTrigger({
+  label,
+  disabled,
+  className,
+  style,
+}: {
+  label: string;
+  disabled?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}): React.ReactElement {
+  const [focused, setFocused] = React.useState(false);
+  const triggerClassName = useSelectTriggerClassName({ disabled, focused });
+
+  return (
+    <DropdownMenuTrigger
+      className={cn(triggerClassName, "h-8 w-full", className)}
+      style={style}
+      disabled={disabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
+      <SelectTriggerFrame>
+        <span className="truncate">{label}</span>
+      </SelectTriggerFrame>
+    </DropdownMenuTrigger>
+  );
+}
 
 export default function SelectFilter(
   props: SelectFilterProps
@@ -197,19 +232,12 @@ export default function SelectFilter(
 
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn("h-8 w-full justify-between px-2", className)}
-            style={style}
-            disabled={disabled}
-          >
-            <span className="truncate">{buttonText}</span>
-            <IconChevronDown className="ml-2 size-3 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
+        <MultipleTrigger
+          label={buttonText}
+          disabled={disabled}
+          className={className}
+          style={style}
+        />
 
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuItem

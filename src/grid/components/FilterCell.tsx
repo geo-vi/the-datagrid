@@ -405,7 +405,7 @@ export function FilterCell(props: FilterCellProps) {
       key={`${header.id}-filter`}
       data-column-id={colId}
       className={cn(
-        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] [color:var(--tdg-filter-color)]",
+        "tdg-filter-cell InovuaReactDataGrid__filter-cell InovuaReactDataGrid__column-header__filter-wrapper bg-[var(--tdg-filter-bg)] text-[color:var(--tdg-filter-color)]",
         lockedLayout
           ? [
               "tdg-locked-column",
