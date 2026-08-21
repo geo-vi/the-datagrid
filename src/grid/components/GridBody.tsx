@@ -654,7 +654,7 @@ export function GridBody(props: GridBodyProps) {
                 "hover:bg-[var(--tdg-row-even-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
             )
         : cn(
-            "tdg-row--no-zebra InovuaReactDataGrid__row--no-zebra bg-[var(--tdg-grid-bg)]",
+            "tdg-row--no-zebra InovuaReactDataGrid__row--no-zebra bg-[var(--tdg-row-bg)]",
             showHoverRows &&
               "hover:bg-[var(--tdg-row-odd-hover-bg)] hover:[color:var(--tdg-row-active-color)]"
           ),

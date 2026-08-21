@@ -155,7 +155,7 @@ export function ColumnGroupHeaderCell(props: ColumnGroupHeaderCellProps) {
       data-group-column-ids={item.columnIds.join(",")}
       data-rendered-column-ids={item.renderedColumnIds.join(",")}
       className={cn(
-        "tdg-header-cell tdg-header-group-cell InovuaReactDataGrid__header-group relative bg-[var(--tdg-header-bg)] px-2 [color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
+        "tdg-header-cell tdg-header-group-cell InovuaReactDataGrid__header-group relative bg-[var(--tdg-header-bg)] px-2 text-[color:var(--tdg-header-color)] [font-size:var(--tdg-header-font-size)] [font-weight:var(--tdg-header-font-weight)]",
         lockedLayout
           ? [
               "tdg-locked-column",

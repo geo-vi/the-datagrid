@@ -390,12 +390,25 @@
   --tdg-grid-bg: var(--tdg-color-background);
   --tdg-grid-border-color: var(--tdg-color-border);
 
+  /* The background rows paint when zebra striping is off. Defaults to the grid
+     surface, which is what those rows used to hardcode, so themes that only set
+     --tdg-grid-bg are unaffected; themes that want the rows to differ from the
+     surface behind them now have somewhere to say so. Striped rows keep their
+     own --tdg-row-odd-bg / --tdg-row-even-bg. */
+  --tdg-row-bg: var(--tdg-grid-bg);
+
   /* Base grid font size. Cells and controls inherit this; the header uses its
      own --tdg-header-font-size so it can be sized independently. */
   --tdg-font-size: 0.875rem;
 
   --tdg-header-bg: var(--tdg-color-muted);
-  --tdg-header-color: var(--tdg-color-foreground);
+  /* Muted rather than the plain foreground because that is what header cells
+     have always rendered: shadcn's TableHead carries text-muted-foreground,
+     which used to defeat this token outright. The token now wins, so this value
+     is what actually paints — keeping it muted makes fixing the plumbing a fix
+     rather than a restyle. Set it to var(--tdg-color-foreground) for stronger
+     headers. */
+  --tdg-header-color: var(--tdg-color-muted-foreground);
   --tdg-header-border-color: var(--tdg-color-border);
   --tdg-header-proxy-border-color: var(--tdg-header-border-color);
   --tdg-header-font-size: 0.875rem;
@@ -1084,7 +1097,9 @@
     .tdg-column-resizer:is(:hover, :focus-visible)
   )::after,
 .tdg-root
-  .tdg-header-cell__inner:has(.tdg-column-resizer[data-resizing="true"])::after {
+  .tdg-header-cell__inner:has(
+    .tdg-column-resizer[data-resizing="true"]
+  )::after {
   opacity: 1 !important;
 }
 
