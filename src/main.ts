@@ -2,13 +2,25 @@ import "./index.css";
 
 export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
-export { BoolEditor, DateEditor, NumericEditor } from "./editors";
+export {
+  BoolEditor,
+  DateEditor,
+  NumericEditor,
+  SEAMLESS_EDITOR_CLASS,
+  SelectEditor,
+  TextEditor,
+} from "./editors";
 export type {
   BoolEditorProps,
   DateEditorProps,
   DateEditorValue,
   NumericEditorProps,
   NumericEditorValue,
+  SelectEditorOption,
+  SelectEditorProps,
+  SelectEditorValue,
+  TextEditorProps,
+  TextEditorValue,
   TypeCommunityEditorProps,
 } from "./editors";
 export {

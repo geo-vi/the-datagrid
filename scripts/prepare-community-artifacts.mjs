@@ -40,7 +40,13 @@ const manifest = {
     version: "5.10.2",
   },
   moduleSystems: ["esm", "commonjs"],
-  editors: ["BoolEditor", "DateEditor", "NumericEditor"],
+  editors: [
+    "BoolEditor",
+    "DateEditor",
+    "NumericEditor",
+    "SelectEditor",
+    "TextEditor",
+  ],
   filters: [
     "StringFilter",
     "BoolFilter",

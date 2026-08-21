@@ -1811,6 +1811,27 @@
 }
 
 /*
+ * Only the text editor is expected to line up with what it replaces: it stands
+ * in for plain text, so any horizontal shift on mount reads as the text
+ * jumping. The other editors are controls with a shape of their own and keep
+ * their natural padding.
+ *
+ * Seamless matches the cell's 8px padding directly. The shell reaches the same
+ * 8px as 3px inset + 1px border + 4px padding.
+ */
+.tdg-root .tdg-text-editor.InovuaReactDataGrid__cell__editor {
+  padding-inline: var(--tdg-cell-editor-padding) !important;
+}
+
+.tdg-root
+  .tdg-text-editor.tdg-cell-editor-shell.tdg-cell-editor-shell {
+  padding-inline: calc(
+    var(--tdg-cell-editor-padding) - var(--tdg-cell-editor-inset) -
+      var(--tdg-cell-editor-border-width)
+  ) !important;
+}
+
+/*
  * Cells place their content with `justify-content` on the content wrapper,
  * because a flex item hugs itself and `text-align` has no room to act. An
  * editor is positioned against the cell rather than that wrapper, so it needs
@@ -1984,6 +2005,37 @@
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus-visible {
   border-color: var(--tdg-select-shell-border-color) !important;
+}
+
+/*
+ * The armour above matches at the same specificity as the seamless editor
+ * block but sits later in this file, so an in-cell select needs its own
+ * override. Sized by the cell rather than by the standalone control's fixed
+ * height, or a bordered select editor grows the row it opens in.
+ */
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.tdg-cell-editor-shell {
+  position: absolute !important;
+  inset: var(--tdg-cell-editor-inset) !important;
+  /* The armour pins width to 100%, which anchored at inset overflows right. */
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  border-radius: var(--tdg-radius-sm) !important;
+  box-shadow: none !important;
+}
+
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.InovuaReactDataGrid__cell__editor {
+  position: absolute !important;
+  inset: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .tdg-root

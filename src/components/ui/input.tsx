@@ -5,6 +5,8 @@ import { useDatagridThemeClassSuffix } from "../../theme/context";
 
 type InputProps = React.ComponentProps<"input"> & {
   inputClassName?: string;
+  /** Rendered inside the field shell, after the input. */
+  endAdornment?: React.ReactNode;
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -12,6 +14,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     {
       className,
       inputClassName,
+      endAdornment,
       type,
       onFocus,
       onBlur,
@@ -54,6 +57,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           }}
           {...props}
         />
+        {endAdornment}
       </div>
     );
   }
