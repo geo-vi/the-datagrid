@@ -40,7 +40,13 @@ const configurations = ["tsconfig.json", "tsconfig.node10.json"];
 try {
   const packResult = spawnSync(
     npmCommand,
-    ["pack", "--json", "--pack-destination", shellQuote(fixtureDirectory)],
+    [
+      "pack",
+      "--ignore-scripts",
+      "--json",
+      "--pack-destination",
+      shellQuote(fixtureDirectory),
+    ],
     { cwd: repoRoot, encoding: "utf8", ...npmSpawnOptions }
   );
 

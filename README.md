@@ -696,6 +696,25 @@ element, so a translation helper can supply all of them:
 treatment; column toggles read each column's `header`. The export menu is named
 after its own trigger, so a translated label needs no second string.
 
+Set `collapsible` when a dense screen should reserve only one control row until
+the toolbar is needed. The complete existing surface starts closed behind a
+right-aligned disclosure button and expands in place; column, filter and export
+state remain mounted while it is closed. Override `labels.showToolbar` and
+`labels.hideToolbar` to localize the disclosure:
+
+```tsx
+<RDGToolbar
+  collapsible
+  showExport
+  showFilterToggle
+  showClearFilters
+  labels={{
+    showToolbar: t("show_table_controls"),
+    hideToolbar: t("hide_table_controls"),
+  }}
+/>
+```
+
 Export reads row values, never `render`, which returns React nodes. Columns
 describe their own exported shape:
 

@@ -4,7 +4,14 @@ import * as React from "react";
 
 import type { TypeColumn } from "../types";
 import { useStableId } from "../hooks/useStableId";
-import { ExportIcon, FilterIcon, FilterOffIcon, ResetIcon } from "./icons";
+import {
+  ChevronDownIcon,
+  ExportIcon,
+  FilterIcon,
+  FilterOffIcon,
+  ResetIcon,
+  ToolbarSettingsIcon,
+} from "./icons";
 import { normalizeThemeName, resolveThemeBase } from "../theme/context";
 import { getColumnId, orderColumns } from "./columns";
 import {
@@ -28,16 +35,18 @@ export type { RDGToolbarExportInfo, RDGToolbarExportResult };
  * translation helper that returns an element works as well as one that returns
  * a string; `filteringControlledHint` is the exception and is noted below.
  *
- * The four button labels are required, because a toolbar that renders a button
- * needs a word for it. The rest refine text that already reads correctly on its
- * own, so translating the buttons does not oblige you to name a format map you
- * have no opinion about.
+ * The four always-available action labels are required, because a toolbar that
+ * renders one of those buttons needs a word for it. The compact disclosure and
+ * format labels refine opt-in controls, so existing translation objects remain
+ * valid when a consumer enables neither feature.
  */
 export type RDGToolbarLabels = {
   export: React.ReactNode;
   showFilters: React.ReactNode;
   hideFilters: React.ReactNode;
   clearFilters: React.ReactNode;
+  showToolbar?: React.ReactNode;
+  hideToolbar?: React.ReactNode;
   /**
    * Export menu entry per format, defaulting to the format's own name. Naming
    * one format leaves the rest untouched: `{ xlsx: t("excel") }`.
@@ -62,6 +71,8 @@ export type RDGToolbarProps = {
   ariaLabel?: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
+  /** Collapses the complete toolbar surface behind one right-aligned button. */
+  collapsible?: boolean;
   /** Column visibility toggles. */
   showColumnToggles?: boolean;
   /** Downloads the grid's rows in one of `exportFormats`. */
@@ -102,6 +113,8 @@ const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
   showFilters: "Show filters",
   hideFilters: "Hide filters",
   clearFilters: "Clear filters",
+  showToolbar: "Columns and filters",
+  hideToolbar: "Hide columns and filters",
   exportFormats: {},
   exportSingle: {},
   filteringControlledHint:
@@ -122,6 +135,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     ariaLabel = "Visible column toggles",
     title = "Visible columns",
     description = "Choose which columns are visible in the grid.",
+    collapsible = false,
     showColumnToggles = true,
     showExport = false,
     showFilterToggle = false,
@@ -142,6 +156,8 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const store = useRDGToolbarStore();
   const titleId = useStableId("tdg-toolbar-title");
   const descriptionId = useStableId("tdg-toolbar-description");
+  const collapsiblePanelId = useStableId("tdg-toolbar-collapsible-panel");
+  const [expanded, setExpanded] = React.useState(false);
   const snapshot = useRDGToolbarSnapshot();
   const theme = normalizeThemeName(snapshot.theme);
   const themeBase = resolveThemeBase(theme);
@@ -227,18 +243,8 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     ]
   );
 
-  return (
-    <div
-      className={
-        className ? `tdg-toolbar-root ${className}` : "tdg-toolbar-root"
-      }
-      data-slot="rdg-toolbar"
-      data-theme={theme}
-      data-theme-base={themeBase}
-      role={title != null ? "region" : undefined}
-      aria-labelledby={title != null ? titleId : undefined}
-      aria-describedby={description != null ? descriptionId : undefined}
-    >
+  const toolbarContent = (
+    <>
       {title != null || description != null ? (
         <div data-slot="rdg-toolbar-heading">
           {title != null ? (
@@ -345,6 +351,54 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
           </div>
         ) : null}
       </div>
+    </>
+  );
+
+  return (
+    <div
+      className={
+        className ? `tdg-toolbar-root ${className}` : "tdg-toolbar-root"
+      }
+      data-slot="rdg-toolbar"
+      data-collapsible={collapsible ? "true" : undefined}
+      data-state={collapsible ? (expanded ? "open" : "closed") : undefined}
+      data-theme={theme}
+      data-theme-base={themeBase}
+      role={title != null ? "region" : undefined}
+      aria-labelledby={title != null ? titleId : undefined}
+      aria-describedby={description != null ? descriptionId : undefined}
+    >
+      {collapsible ? (
+        <>
+          <div data-slot="rdg-toolbar-disclosure-row">
+            <button
+              type="button"
+              aria-controls={collapsiblePanelId}
+              aria-expanded={expanded}
+              data-state={expanded ? "open" : "closed"}
+              data-slot="rdg-toolbar-disclosure"
+              onClick={() => setExpanded((current) => !current)}
+            >
+              <ToolbarSettingsIcon />
+              {expanded
+                ? resolvedLabels.hideToolbar
+                : resolvedLabels.showToolbar}
+              <ChevronDownIcon className="tdg-toolbar-disclosure-chevron" />
+            </button>
+          </div>
+          <div
+            id={collapsiblePanelId}
+            aria-hidden={!expanded}
+            data-slot="rdg-toolbar-collapsible-panel"
+          >
+            <div data-slot="rdg-toolbar-collapsible-panel-inner">
+              {toolbarContent}
+            </div>
+          </div>
+        </>
+      ) : (
+        toolbarContent
+      )}
     </div>
   );
 }

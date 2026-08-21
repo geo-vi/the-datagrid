@@ -228,7 +228,7 @@ import {
 export function AccountsGrid() {
   return (
     <RDGToolbarProvider>
-      <RDGToolbar showExport showFilterToggle showClearFilters>
+      <RDGToolbar collapsible showExport showFilterToggle showClearFilters>
         {/* Children stay application-owned, next to the built-in actions. */}
         <button type="button" onClick={reload}>Reload</button>
       </RDGToolbar>
@@ -7054,6 +7054,12 @@ const columns: TypeColumns = [
               its children render separately on the right, so export, filter,
               and other application controls remain application-owned.
             </p>
+            <p>
+              Add <code>collapsible</code> on dense screens to replace the full
+              surface with one right-aligned disclosure until it is needed. The
+              toolbar starts closed and keeps its grid state mounted while the
+              panel animates open in place.
+            </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
               <p>
@@ -7906,6 +7912,13 @@ const columns: TypeColumns = [
                     "Supporting copy associated with the toolbar region and toggle group through aria-describedby; null suppresses it.",
                 },
                 {
+                  name: "RDGToolbar.collapsible",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Starts the complete toolbar surface closed behind one right-aligned disclosure button. Opening expands the existing controls in place without resetting grid state.",
+                },
+                {
                   name: "RDGToolbar.showColumnToggles",
                   type: "boolean",
                   defaultValue: "true",
@@ -7987,7 +8000,7 @@ const columns: TypeColumns = [
                   type: "Partial<RDGToolbarLabels>",
                   defaultValue: "English defaults",
                   description:
-                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
+                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
                 },
                 {
                   name: "RDGToolbar.children",

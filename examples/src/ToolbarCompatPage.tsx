@@ -137,6 +137,34 @@ export default function ToolbarCompatPage() {
         </RDGToolbarProvider>
       </section>
 
+      <section data-testid="toolbar-collapsible">
+        <RDGToolbarProvider>
+          <RDGToolbar
+            collapsible
+            title="Collapsible columns"
+            description="Reveal the complete toolbar without reserving its full height."
+            showExport
+            showFilterToggle
+            showClearFilters
+            labels={{
+              hideToolbar: "Hide table controls",
+              showToolbar: "Show table controls",
+            }}
+          />
+          <div className="h-80 min-h-0">
+            <RDGToolbarTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={directColumns}
+                dataSource={directRows}
+                virtualized={false}
+                showColumnMenuTool={false}
+              />
+            </RDGToolbarTarget>
+          </div>
+        </RDGToolbarProvider>
+      </section>
+
       <section
         className="flex flex-col gap-3"
         data-testid="combined-provider-direct-target"

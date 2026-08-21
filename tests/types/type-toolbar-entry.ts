@@ -78,6 +78,7 @@ const exportScope: RDGToolbarExportScope = "view";
 export const toolbarProps = {
   ariaLabel: "Account column toggles",
   children: createElement("button", { type: "button" }, "Reload"),
+  collapsible: true,
   description: "Choose fields shown in this table.",
   exportFileName: "accounts",
   exportFormats,

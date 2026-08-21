@@ -76,3 +76,28 @@ export function ResetIcon(props: ToolbarIconProps): React.ReactElement {
     </ToolbarIcon>
   );
 }
+
+/** Sliders: the compact toolbar can reveal its column and filter controls. */
+export function ToolbarSettingsIcon(
+  props: ToolbarIconProps
+): React.ReactElement {
+  return (
+    <ToolbarIcon className={props.className}>
+      <path d="M4 7h10" />
+      <path d="M18 7h2" />
+      <path d="M14 5v4" />
+      <path d="M4 17h2" />
+      <path d="M10 17h10" />
+      <path d="M10 15v4" />
+    </ToolbarIcon>
+  );
+}
+
+/** Down chevron: rotates while the compact toolbar panel is expanded. */
+export function ChevronDownIcon(props: ToolbarIconProps): React.ReactElement {
+  return (
+    <ToolbarIcon className={props.className}>
+      <path d="m6 9 6 6 6-6" />
+    </ToolbarIcon>
+  );
+}
