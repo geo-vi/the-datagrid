@@ -243,114 +243,120 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     ]
   );
 
-  const toolbarContent = (
-    <>
-      {title != null || description != null ? (
-        <div data-slot="rdg-toolbar-heading">
-          {title != null ? (
-            <div
-              id={titleId}
-              data-slot="rdg-toolbar-title"
-              role="heading"
-              aria-level={2}
-            >
-              {title}
-            </div>
-          ) : null}
-          {description != null ? (
-            <div id={descriptionId} data-slot="rdg-toolbar-description">
-              {description}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div data-slot="rdg-toolbar-body">
-        {showColumnToggles ? (
+  const toolbarHeading =
+    title != null || description != null ? (
+      <div data-slot="rdg-toolbar-heading">
+        {title != null ? (
           <div
-            role="group"
-            aria-label={ariaLabel}
-            aria-describedby={description != null ? descriptionId : undefined}
-            data-slot="rdg-column-toggle-list"
+            id={titleId}
+            data-slot="rdg-toolbar-title"
+            role="heading"
+            aria-level={2}
           >
-            {toggleColumns.map((column) => {
-              const columnId = getColumnId(column);
-              const visible = snapshot.columnVisibilityMap[columnId] !== false;
-              const disabled = visible && visibleColumnCount <= 1;
-
-              return (
-                <button
-                  key={columnId}
-                  type="button"
-                  aria-pressed={visible}
-                  disabled={disabled}
-                  data-state={visible ? "on" : "off"}
-                  data-slot="rdg-column-toggle"
-                  data-column-id={columnId}
-                  onClick={() => snapshot.setColumnVisible(columnId, !visible)}
-                >
-                  {getColumnLabel(column)}
-                </button>
-              );
-            })}
+            {title}
           </div>
         ) : null}
-
-        {showExport ||
-        showFilterToggle ||
-        showClearFilters ||
-        children != null ? (
-          <div data-slot="rdg-toolbar-actions">
-            {showExport ? (
-              <ExportControl
-                disabled={exportDisabled || exporting}
-                formats={availableFormats}
-                label={resolvedLabels.export}
-                formatLabels={resolvedLabels.exportFormats}
-                singleLabels={resolvedLabels.exportSingle}
-                onExport={runExport}
-              />
-            ) : null}
-
-            {showFilterToggle ? (
-              <button
-                type="button"
-                aria-pressed={snapshot.filteringEnabled}
-                data-state={snapshot.filteringEnabled ? "on" : "off"}
-                data-slot="rdg-toolbar-filter-toggle"
-                disabled={!snapshot.canToggleFiltering}
-                title={
-                  snapshot.canToggleFiltering
-                    ? undefined
-                    : resolvedLabels.filteringControlledHint
-                }
-                onClick={() =>
-                  snapshot.setFilteringEnabled(!snapshot.filteringEnabled)
-                }
-              >
-                {snapshot.filteringEnabled ? <FilterOffIcon /> : <FilterIcon />}
-                {snapshot.filteringEnabled
-                  ? resolvedLabels.hideFilters
-                  : resolvedLabels.showFilters}
-              </button>
-            ) : null}
-
-            {showClearFilters ? (
-              <button
-                type="button"
-                data-slot="rdg-toolbar-clear-filters"
-                disabled={!snapshot.filtered}
-                onClick={() => snapshot.clearAllFilters()}
-              >
-                <ResetIcon />
-                {resolvedLabels.clearFilters}
-              </button>
-            ) : null}
-
-            {children}
+        {description != null ? (
+          <div id={descriptionId} data-slot="rdg-toolbar-description">
+            {description}
           </div>
         ) : null}
       </div>
+    ) : null;
+
+  const toolbarBody = (
+    <div data-slot="rdg-toolbar-body">
+      {showColumnToggles ? (
+        <div
+          role="group"
+          aria-label={ariaLabel}
+          aria-describedby={description != null ? descriptionId : undefined}
+          data-slot="rdg-column-toggle-list"
+        >
+          {toggleColumns.map((column) => {
+            const columnId = getColumnId(column);
+            const visible = snapshot.columnVisibilityMap[columnId] !== false;
+            const disabled = visible && visibleColumnCount <= 1;
+
+            return (
+              <button
+                key={columnId}
+                type="button"
+                aria-pressed={visible}
+                disabled={disabled}
+                data-state={visible ? "on" : "off"}
+                data-slot="rdg-column-toggle"
+                data-column-id={columnId}
+                onClick={() => snapshot.setColumnVisible(columnId, !visible)}
+              >
+                {getColumnLabel(column)}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {showExport ||
+      showFilterToggle ||
+      showClearFilters ||
+      children != null ? (
+        <div data-slot="rdg-toolbar-actions">
+          {showExport ? (
+            <ExportControl
+              disabled={exportDisabled || exporting}
+              formats={availableFormats}
+              label={resolvedLabels.export}
+              formatLabels={resolvedLabels.exportFormats}
+              singleLabels={resolvedLabels.exportSingle}
+              onExport={runExport}
+            />
+          ) : null}
+
+          {showFilterToggle ? (
+            <button
+              type="button"
+              aria-pressed={snapshot.filteringEnabled}
+              data-state={snapshot.filteringEnabled ? "on" : "off"}
+              data-slot="rdg-toolbar-filter-toggle"
+              disabled={!snapshot.canToggleFiltering}
+              title={
+                snapshot.canToggleFiltering
+                  ? undefined
+                  : resolvedLabels.filteringControlledHint
+              }
+              onClick={() =>
+                snapshot.setFilteringEnabled(!snapshot.filteringEnabled)
+              }
+            >
+              {snapshot.filteringEnabled ? <FilterOffIcon /> : <FilterIcon />}
+              {snapshot.filteringEnabled
+                ? resolvedLabels.hideFilters
+                : resolvedLabels.showFilters}
+            </button>
+          ) : null}
+
+          {showClearFilters ? (
+            <button
+              type="button"
+              data-slot="rdg-toolbar-clear-filters"
+              disabled={!snapshot.filtered}
+              onClick={() => snapshot.clearAllFilters()}
+            >
+              <ResetIcon />
+              {resolvedLabels.clearFilters}
+            </button>
+          ) : null}
+
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const toolbarContent = (
+    <>
+      {toolbarHeading}
+      {toolbarBody}
     </>
   );
 
@@ -370,21 +376,28 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     >
       {collapsible ? (
         <>
-          <div data-slot="rdg-toolbar-disclosure-row">
-            <button
-              type="button"
-              aria-controls={collapsiblePanelId}
-              aria-expanded={expanded}
-              data-state={expanded ? "open" : "closed"}
-              data-slot="rdg-toolbar-disclosure"
-              onClick={() => setExpanded((current) => !current)}
-            >
-              <ToolbarSettingsIcon />
-              {expanded
-                ? resolvedLabels.hideToolbar
-                : resolvedLabels.showToolbar}
-              <ChevronDownIcon className="tdg-toolbar-disclosure-chevron" />
-            </button>
+          <div data-slot="rdg-toolbar-header-row">
+            {toolbarHeading != null ? (
+              <div data-slot="rdg-toolbar-collapsible-heading">
+                {toolbarHeading}
+              </div>
+            ) : null}
+            <div data-slot="rdg-toolbar-disclosure-row">
+              <button
+                type="button"
+                aria-controls={collapsiblePanelId}
+                aria-expanded={expanded}
+                data-state={expanded ? "open" : "closed"}
+                data-slot="rdg-toolbar-disclosure"
+                onClick={() => setExpanded((current) => !current)}
+              >
+                <ToolbarSettingsIcon />
+                {expanded
+                  ? resolvedLabels.hideToolbar
+                  : resolvedLabels.showToolbar}
+                <ChevronDownIcon className="tdg-toolbar-disclosure-chevron" />
+              </button>
+            </div>
           </div>
           <div
             id={collapsiblePanelId}
@@ -392,7 +405,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
             data-slot="rdg-toolbar-collapsible-panel"
           >
             <div data-slot="rdg-toolbar-collapsible-panel-inner">
-              {toolbarContent}
+              {toolbarBody}
             </div>
           </div>
         </>

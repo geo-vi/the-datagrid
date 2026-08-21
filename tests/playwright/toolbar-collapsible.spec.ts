@@ -18,6 +18,10 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   const scope = fixture(page);
   const bar = toolbar(scope);
   const disclosure = bar.locator('[data-slot="rdg-toolbar-disclosure"]');
+  const headerRow = bar.locator('[data-slot="rdg-toolbar-header-row"]');
+  const collapsibleHeading = bar.locator(
+    '[data-slot="rdg-toolbar-collapsible-heading"]'
+  );
   const panel = bar.locator('[data-slot="rdg-toolbar-collapsible-panel"]');
   const optionalToggle = bar.locator(
     '[data-slot="rdg-column-toggle"][data-column-id="optional"]'
@@ -34,6 +38,7 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   await expect(disclosure).toHaveAttribute("aria-expanded", "false");
   await expect(panel).toHaveAttribute("aria-hidden", "true");
   await expect(panel).toBeHidden();
+  await expect(collapsibleHeading).toBeHidden();
   await expect(optionalToggle).toBeHidden();
 
   const panelId = await panel.getAttribute("id");
@@ -76,10 +81,28 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   await expect(disclosure).toHaveText("Hide table controls");
   await expect(panel).toHaveAttribute("aria-hidden", "false");
   await expect(panel).toBeVisible();
+  await expect(collapsibleHeading).toBeVisible();
   await expect(
     bar.getByRole("heading", { level: 2, name: "Collapsible columns" })
   ).toBeVisible();
   await expect(optionalToggle).toBeVisible();
+
+  const openHeaderBox = await headerRow.boundingBox();
+  const openHeadingBox = await collapsibleHeading.boundingBox();
+  const openDisclosureBox = await disclosure.boundingBox();
+  const openBodyBox = await bar
+    .locator('[data-slot="rdg-toolbar-body"]')
+    .boundingBox();
+  expect(openHeaderBox).not.toBeNull();
+  expect(openHeadingBox).not.toBeNull();
+  expect(openDisclosureBox).not.toBeNull();
+  expect(openBodyBox).not.toBeNull();
+  expect(
+    Math.abs(openHeadingBox!.y - openDisclosureBox!.y)
+  ).toBeLessThanOrEqual(1);
+  expect(
+    openBodyBox!.y - (openHeaderBox!.y + openHeaderBox!.height)
+  ).toBeLessThanOrEqual(16);
 
   await expect
     .poll(() =>
