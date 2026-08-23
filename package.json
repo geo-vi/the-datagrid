@@ -280,7 +280,6 @@
     "preview": "vite preview",
     "preview:e2e": "vite preview examples --outDir ../dist-site --base /",
     "preview:site": "vite preview examples --outDir ../dist-site --base /the-datagrid/ --host 0.0.0.0",
-    "prepack": "yarn build",
     "prepublishOnly": "npm run build",
     "publish-release": "npm run build && npm publish --tag latest --access public"
   },
