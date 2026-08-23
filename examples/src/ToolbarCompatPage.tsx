@@ -165,6 +165,28 @@ export default function ToolbarCompatPage() {
         </RDGToolbarProvider>
       </section>
 
+      <section data-testid="toolbar-collapsed-column-toggles">
+        <RDGToolbarProvider>
+          <RDGToolbar
+            toolbarCollapsedColumnToggles
+            title="Dropdown columns"
+            description="Toggle columns without expanding a row of buttons."
+            labels={{ columns: "Choose columns" }}
+          />
+          <div className="h-80 min-h-0">
+            <RDGToolbarTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={columns}
+                dataSource={rows}
+                virtualized={false}
+                showColumnMenuTool={false}
+              />
+            </RDGToolbarTarget>
+          </div>
+        </RDGToolbarProvider>
+      </section>
+
       <section
         className="flex flex-col gap-3"
         data-testid="combined-provider-direct-target"

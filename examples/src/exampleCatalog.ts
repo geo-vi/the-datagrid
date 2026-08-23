@@ -119,9 +119,9 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
     label: "Toolbar",
     title: "Toolbar playground",
     summary:
-      "An interactive playground for the optional RDGToolbar: column toggles, export, filter-row and clear-filter actions.",
+      "An interactive playground for the optional RDGToolbar: inline or dropdown column toggles, export, filter-row and clear-filter actions.",
     details:
-      "Switch each built-in action on or off, choose whether the export writes the current view or the whole data source, pick its formats, and hand filter-row ownership back to the grid to see the toggle disable itself. Columns show exportValue, exportWhenHidden, and exportable. A second grid is driven entirely from buttons outside its provider, through the apiRef the provider fills in.",
+      "Switch each built-in action on or off, collapse column visibility into one dropdown, choose whether the export writes the current view or the whole data source, pick its formats, and hand filter-row ownership back to the grid to see the toggle disable itself. Columns show exportValue, exportWhenHidden, and exportable. A second grid is driven entirely from buttons outside its provider, through the apiRef the provider fills in.",
     sourcePath: "examples/src/ToolbarGridExample.tsx",
     tags: ["Toolbar", "Export", "Columns", "Filtering", "apiRef"],
   },

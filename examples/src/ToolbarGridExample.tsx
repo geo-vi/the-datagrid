@@ -153,11 +153,15 @@ function buildSnippet(config: {
   showColumnToggles: boolean;
   showExport: boolean;
   showFilterToggle: boolean;
+  toolbarCollapsedColumnToggles: boolean;
 }): string {
   const toolbarProps = [
     config.heading ? null : "  title={null}",
     config.heading ? null : "  description={null}",
     config.showColumnToggles ? null : "  showColumnToggles={false}",
+    config.toolbarCollapsedColumnToggles
+      ? "  toolbarCollapsedColumnToggles"
+      : null,
     config.showExport ? "  showExport" : null,
     config.showFilterToggle ? "  showFilterToggle" : null,
     config.showClearFilters ? "  showClearFilters" : null,
@@ -418,6 +422,8 @@ export default function ToolbarGridExample({
   const orders = useMemo(() => createOrders(), []);
 
   const [showColumnToggles, setShowColumnToggles] = useState(true);
+  const [toolbarCollapsedColumnToggles, setToolbarCollapsedColumnToggles] =
+    useState(false);
   const [showExport, setShowExport] = useState(true);
   const [showFilterToggle, setShowFilterToggle] = useState(true);
   const [showClearFilters, setShowClearFilters] = useState(true);
@@ -601,6 +607,7 @@ export default function ToolbarGridExample({
     showColumnToggles,
     showExport,
     showFilterToggle,
+    toolbarCollapsedColumnToggles,
   });
 
   return (
@@ -656,6 +663,18 @@ export default function ToolbarGridExample({
               onClick={() => setShowColumnToggles((current) => !current)}
             >
               Column toggles {showColumnToggles ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={toolbarCollapsedColumnToggles ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={toolbarCollapsedColumnToggles}
+              disabled={!showColumnToggles}
+              onClick={() =>
+                setToolbarCollapsedColumnToggles((current) => !current)
+              }
+            >
+              Column dropdown {toolbarCollapsedColumnToggles ? "on" : "off"}
             </Button>
             <Button
               type="button"
@@ -807,6 +826,7 @@ export default function ToolbarGridExample({
                 : null
             }
             showColumnToggles={showColumnToggles}
+            toolbarCollapsedColumnToggles={toolbarCollapsedColumnToggles}
             showExport={showExport}
             showFilterToggle={showFilterToggle}
             showClearFilters={showClearFilters}

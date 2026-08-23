@@ -78,6 +78,7 @@ export const componentsProviderProps = {
     createElement(RDGToolbar, {
       showExport: true,
       showFilterToggle: true,
+      toolbarCollapsedColumnToggles: true,
       children: createElement("button", { type: "button" }, "Reload"),
     }),
     createElement(RDGTarget, componentsTargetProps),

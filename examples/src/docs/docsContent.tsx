@@ -228,7 +228,13 @@ import {
 export function AccountsGrid() {
   return (
     <RDGToolbarProvider>
-      <RDGToolbar collapsible showExport showFilterToggle showClearFilters>
+      <RDGToolbar
+        collapsible
+        toolbarCollapsedColumnToggles
+        showExport
+        showFilterToggle
+        showClearFilters
+      >
         {/* Children stay application-owned, next to the built-in actions. */}
         <button type="button" onClick={reload}>Reload</button>
       </RDGToolbar>
@@ -7061,6 +7067,12 @@ const columns: TypeColumns = [
               toolbar expands left and down from the button while its grid state
               stays mounted.
             </p>
+            <p>
+              Add <code>toolbarCollapsedColumnToggles</code> when the toolbar
+              should stay visible but its column buttons should use one compact
+              dropdown. The menu keeps the same grid order and visibility rules,
+              and stays open while several columns are toggled.
+            </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
               <p>
@@ -7927,6 +7939,13 @@ const columns: TypeColumns = [
                     "Renders the column visibility toggle group. False leaves an actions-only toolbar.",
                 },
                 {
+                  name: "RDGToolbar.toolbarCollapsedColumnToggles",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Replaces the inline column visibility buttons with one dropdown containing the same hideable columns in grid order.",
+                },
+                {
                   name: "RDGToolbar.showExport",
                   type: "boolean",
                   defaultValue: "false",
@@ -8001,7 +8020,7 @@ const columns: TypeColumns = [
                   type: "Partial<RDGToolbarLabels>",
                   defaultValue: "English defaults",
                   description:
-                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
+                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, columns, showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
                 },
                 {
                   name: "RDGToolbar.children",

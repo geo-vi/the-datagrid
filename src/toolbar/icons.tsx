@@ -93,6 +93,26 @@ export function ToolbarSettingsIcon(
   );
 }
 
+/** Three vertical panels: opens the compact column visibility menu. */
+export function ColumnsIcon(props: ToolbarIconProps): React.ReactElement {
+  return (
+    <ToolbarIcon className={props.className}>
+      <rect x="3" y="5" width="18" height="14" rx="1" />
+      <path d="M9 5v14" />
+      <path d="M15 5v14" />
+    </ToolbarIcon>
+  );
+}
+
+/** Check: marks a visible column inside the compact column menu. */
+export function CheckIcon(props: ToolbarIconProps): React.ReactElement {
+  return (
+    <ToolbarIcon className={props.className}>
+      <path d="m5 12 4 4L19 6" />
+    </ToolbarIcon>
+  );
+}
+
 /** Down chevron: rotates while the compact toolbar panel is expanded. */
 export function ChevronDownIcon(props: ToolbarIconProps): React.ReactElement {
   return (

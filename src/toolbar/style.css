@@ -495,6 +495,7 @@
  * outranks all of them. `!important` is never needed.
  */
 :where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-trigger"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"],
@@ -531,6 +532,7 @@
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-trigger"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-disclosure"] {
@@ -538,8 +540,8 @@
 }
 
 /*
- * The export trigger is absent here on purpose: its `data-state` reports whether
- * the menu is open, not a grid setting, so closed leaves it a plain action.
+ * Menu triggers are absent here on purpose: their `data-state` reports whether
+ * a menu is open, not a grid setting, so closed leaves them plain actions.
  */
 :where(.tdg-toolbar-root)
   [data-state="off"]:where(
@@ -554,6 +556,7 @@
 :where(.tdg-toolbar-root)
   [data-state="on"]:where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
   ) {
@@ -567,6 +570,7 @@
 :where(.tdg-toolbar-root)
   :where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"],
     [data-slot="rdg-toolbar-clear-filters"],
@@ -588,6 +592,7 @@
 :where(.tdg-toolbar-root)
   :where([data-state="on"]):where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
   ):where(:enabled):hover {
@@ -607,6 +612,7 @@
 :where(.tdg-toolbar-root)
   :where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"],
     [data-slot="rdg-toolbar-clear-filters"],
@@ -616,7 +622,11 @@
   opacity: var(--tdg-toolbar-control-disabled-opacity);
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-wrapper"] {
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-wrapper"],
+    [data-slot="rdg-toolbar-export-wrapper"]
+  ) {
   position: relative;
   display: inline-flex;
 }
@@ -632,9 +642,19 @@
   transition: transform var(--tdg-toolbar-collapsible-duration) ease;
 }
 
+:where(.tdg-toolbar-root) .tdg-toolbar-column-toggle-chevron {
+  transition: transform var(--tdg-toolbar-control-transition) ease;
+}
+
 :where(.tdg-toolbar-root)
   [data-slot="rdg-toolbar-disclosure"][data-state="open"]
   .tdg-toolbar-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="on"]
+  .tdg-toolbar-column-toggle-chevron {
   transform: rotate(180deg);
 }
 
@@ -644,17 +664,23 @@
   }
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-menu"] {
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-menu"],
+    [data-slot="rdg-toolbar-export-menu"]
+  ) {
   position: absolute;
   inset-inline-end: 0;
   top: 100%;
   z-index: 50;
   display: flex;
   min-width: var(--tdg-toolbar-menu-min-width);
+  max-width: min(20rem, calc(100vw - 2rem));
   flex-direction: column;
   margin-top: var(--tdg-toolbar-menu-offset);
   padding: var(--tdg-toolbar-menu-padding);
-  overflow: hidden;
+  max-height: min(20rem, 60vh);
+  overflow-y: auto;
   border: var(--tdg-toolbar-menu-border-width) solid
     var(--tdg-toolbar-menu-border-color);
   border-radius: var(--tdg-toolbar-menu-radius);
@@ -663,7 +689,11 @@
   color: var(--tdg-toolbar-menu-color);
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-format"] {
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"]:where([data-layout="menu"]),
+    [data-slot="rdg-toolbar-export-format"]
+  ) {
   display: flex;
   align-items: center;
   gap: var(--tdg-toolbar-control-gap);
@@ -682,7 +712,43 @@
 }
 
 :where(.tdg-toolbar-root)
-  :where([data-slot="rdg-toolbar-export-format"]):is(:hover, :focus-visible) {
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]) {
+  width: 100%;
+  height: auto;
+  flex-shrink: 1;
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--tdg-toolbar-menu-item-font-size);
+  text-align: start;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-indicator"] {
+  display: inline-flex;
+  width: var(--tdg-toolbar-icon-size);
+  height: var(--tdg-toolbar-icon-size);
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"][data-state="on"])
+  [data-slot="rdg-column-toggle-indicator"] {
+  opacity: 1;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-label"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-column-toggle"]:where([data-layout="menu"]),
+    [data-slot="rdg-toolbar-export-format"]
+  ):is(:hover, :focus-visible) {
   background: var(--tdg-toolbar-menu-item-hover-fill);
   color: var(--tdg-toolbar-menu-item-hover-color);
 }

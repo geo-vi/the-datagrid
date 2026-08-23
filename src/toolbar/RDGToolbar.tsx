@@ -5,7 +5,9 @@ import * as React from "react";
 import type { TypeColumn } from "../types";
 import { useStableId } from "../hooks/useStableId";
 import {
+  CheckIcon,
   ChevronDownIcon,
+  ColumnsIcon,
   ExportIcon,
   FilterIcon,
   FilterOffIcon,
@@ -36,15 +38,17 @@ export type { RDGToolbarExportInfo, RDGToolbarExportResult };
  * a string; `filteringControlledHint` is the exception and is noted below.
  *
  * The four always-available action labels are required, because a toolbar that
- * renders one of those buttons needs a word for it. The compact disclosure and
- * format labels refine opt-in controls, so existing translation objects remain
- * valid when a consumer enables neither feature.
+ * renders one of those buttons needs a word for it. The compact disclosure,
+ * column-menu and format labels refine opt-in controls, so existing translation
+ * objects remain valid when a consumer enables none of those features.
  */
 export type RDGToolbarLabels = {
   export: React.ReactNode;
   showFilters: React.ReactNode;
   hideFilters: React.ReactNode;
   clearFilters: React.ReactNode;
+  /** Trigger text for the compact column visibility dropdown. */
+  columns?: React.ReactNode;
   showToolbar?: React.ReactNode;
   hideToolbar?: React.ReactNode;
   /**
@@ -75,6 +79,8 @@ export type RDGToolbarProps = {
   collapsible?: boolean;
   /** Column visibility toggles. */
   showColumnToggles?: boolean;
+  /** Replaces the inline column toggles with one dropdown menu. */
+  toolbarCollapsedColumnToggles?: boolean;
   /** Downloads the grid's rows in one of `exportFormats`. */
   showExport?: boolean;
   /** Shows or hides the grid's filter row. */
@@ -113,6 +119,7 @@ const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
   showFilters: "Show filters",
   hideFilters: "Hide filters",
   clearFilters: "Clear filters",
+  columns: "Columns",
   showToolbar: "Columns and filters",
   hideToolbar: "Hide columns and filters",
   exportFormats: {},
@@ -137,6 +144,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     description = "Choose which columns are visible in the grid.",
     collapsible = false,
     showColumnToggles = true,
+    toolbarCollapsedColumnToggles = false,
     showExport = false,
     showFilterToggle = false,
     showClearFilters = false,
@@ -189,6 +197,18 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       (snapshot.columnVisibilityMap[getColumnId(column)] === false ? 0 : 1),
     0
   );
+  const columnToggleItems = toggleColumns.map((column) => {
+    const columnId = getColumnId(column);
+    const visible = snapshot.columnVisibilityMap[columnId] !== false;
+
+    return {
+      columnId,
+      disabled: visible && visibleColumnCount <= 1,
+      label: getColumnLabel(column),
+      onToggle: () => snapshot.setColumnVisible(columnId, !visible),
+      visible,
+    };
+  });
 
   const availableFormats = React.useMemo(
     () =>
@@ -267,33 +287,36 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const toolbarBody = (
     <div data-slot="rdg-toolbar-body">
       {showColumnToggles ? (
-        <div
-          role="group"
-          aria-label={ariaLabel}
-          aria-describedby={description != null ? descriptionId : undefined}
-          data-slot="rdg-column-toggle-list"
-        >
-          {toggleColumns.map((column) => {
-            const columnId = getColumnId(column);
-            const visible = snapshot.columnVisibilityMap[columnId] !== false;
-            const disabled = visible && visibleColumnCount <= 1;
-
-            return (
+        toolbarCollapsedColumnToggles ? (
+          <ColumnToggleDropdown
+            ariaLabel={ariaLabel}
+            descriptionId={description != null ? descriptionId : undefined}
+            items={columnToggleItems}
+            label={resolvedLabels.columns}
+          />
+        ) : (
+          <div
+            role="group"
+            aria-label={ariaLabel}
+            aria-describedby={description != null ? descriptionId : undefined}
+            data-slot="rdg-column-toggle-list"
+          >
+            {columnToggleItems.map((item) => (
               <button
-                key={columnId}
+                key={item.columnId}
                 type="button"
-                aria-pressed={visible}
-                disabled={disabled}
-                data-state={visible ? "on" : "off"}
+                aria-pressed={item.visible}
+                disabled={item.disabled}
+                data-state={item.visible ? "on" : "off"}
                 data-slot="rdg-column-toggle"
-                data-column-id={columnId}
-                onClick={() => snapshot.setColumnVisible(columnId, !visible)}
+                data-column-id={item.columnId}
+                onClick={item.onToggle}
               >
-                {getColumnLabel(column)}
+                {item.label}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )
       ) : null}
 
       {showExport ||
@@ -412,6 +435,172 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       ) : (
         toolbarContent
       )}
+    </div>
+  );
+}
+
+type ColumnToggleItem = {
+  columnId: string;
+  disabled: boolean;
+  label: React.ReactNode;
+  onToggle: () => void;
+  visible: boolean;
+};
+
+type ColumnToggleDropdownProps = {
+  ariaLabel: string;
+  descriptionId?: string;
+  items: readonly ColumnToggleItem[];
+  label: React.ReactNode;
+};
+
+/** A dependency-free, multi-select menu that keeps column state in the grid. */
+function ColumnToggleDropdown(
+  props: ColumnToggleDropdownProps
+): React.ReactElement {
+  const { ariaLabel, descriptionId, items, label } = props;
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const menuId = useStableId("tdg-toolbar-column-toggle-menu");
+  const firstEnabledIndex = items.findIndex((item) => !item.disabled);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent | MouseEvent) => {
+      const container = containerRef.current;
+      if (container && !container.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [open]);
+
+  const closeAndRestoreFocus = React.useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+
+  const getEnabledItems = React.useCallback(
+    () =>
+      Array.from(
+        containerRef.current?.querySelectorAll<HTMLButtonElement>(
+          '[data-slot="rdg-column-toggle"][data-layout="menu"]:not(:disabled)'
+        ) ?? []
+      ),
+    []
+  );
+
+  const focusItem = React.useCallback(
+    (index: number) => {
+      const menuItems = getEnabledItems();
+      if (menuItems.length === 0) return;
+      menuItems[(index + menuItems.length) % menuItems.length]?.focus();
+    },
+    [getEnabledItems]
+  );
+
+  const moveFocus = React.useCallback(
+    (from: HTMLElement, delta: number) => {
+      const menuItems = getEnabledItems();
+      if (menuItems.length === 0) return;
+      const currentIndex = menuItems.indexOf(from as HTMLButtonElement);
+      const nextIndex =
+        currentIndex < 0
+          ? 0
+          : (currentIndex + delta + menuItems.length) % menuItems.length;
+      menuItems[nextIndex]?.focus();
+    },
+    [getEnabledItems]
+  );
+
+  return (
+    <div data-slot="rdg-toolbar-column-toggle-wrapper" ref={containerRef}>
+      <button
+        type="button"
+        ref={triggerRef}
+        data-slot="rdg-toolbar-column-toggle-trigger"
+        data-state={open ? "on" : "off"}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-describedby={descriptionId}
+        disabled={items.length === 0}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <ColumnsIcon />
+        {label}
+        <ChevronDownIcon className="tdg-toolbar-column-toggle-chevron" />
+      </button>
+
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={ariaLabel}
+          aria-describedby={descriptionId}
+          data-slot="rdg-toolbar-column-toggle-menu"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              closeAndRestoreFocus();
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              moveFocus(event.target as HTMLElement, 1);
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              moveFocus(event.target as HTMLElement, -1);
+              return;
+            }
+            if (event.key === "Home") {
+              event.preventDefault();
+              focusItem(0);
+              return;
+            }
+            if (event.key === "End") {
+              event.preventDefault();
+              focusItem(-1);
+              return;
+            }
+            if (event.key === "Tab") setOpen(false);
+          }}
+        >
+          {items.map((item, index) => (
+            <button
+              key={item.columnId}
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={item.visible}
+              autoFocus={index === firstEnabledIndex}
+              disabled={item.disabled}
+              data-state={item.visible ? "on" : "off"}
+              data-slot="rdg-column-toggle"
+              data-layout="menu"
+              data-column-id={item.columnId}
+              onClick={item.onToggle}
+            >
+              <span aria-hidden="true" data-slot="rdg-column-toggle-indicator">
+                <CheckIcon />
+              </span>
+              <span data-slot="rdg-column-toggle-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

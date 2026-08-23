@@ -67,6 +67,7 @@ const gridElement = createElement(ReactDataGrid, gridProps);
 
 const toolbarLabels = {
   clearFilters: "Reset filters",
+  columns: "Choose columns",
   export: "Download",
   hideFilters: "Hide filter row",
   showFilters: "Show filter row",
@@ -94,6 +95,7 @@ export const toolbarProps = {
   showColumnToggles: true,
   showExport: true,
   showFilterToggle: true,
+  toolbarCollapsedColumnToggles: true,
   title: "Visible fields",
 } satisfies RDGToolbarProps;
 
