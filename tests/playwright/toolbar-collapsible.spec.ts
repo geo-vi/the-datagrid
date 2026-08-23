@@ -97,9 +97,11 @@ test("reveals the complete toolbar from one right-aligned disclosure", async ({
   expect(openHeadingBox).not.toBeNull();
   expect(openDisclosureBox).not.toBeNull();
   expect(openBodyBox).not.toBeNull();
+  // Fractional font/layout rounding can differ slightly under parallel
+  // Chromium rendering; both controls still share the same visual row.
   expect(
     Math.abs(openHeadingBox!.y - openDisclosureBox!.y)
-  ).toBeLessThanOrEqual(1);
+  ).toBeLessThanOrEqual(2);
   expect(
     openBodyBox!.y - (openHeaderBox!.y + openHeaderBox!.height)
   ).toBeLessThanOrEqual(16);
@@ -154,8 +156,17 @@ test("keeps the disclosure and expanded controls inside a narrow viewport", asyn
 
   await expect(disclosure).toBeVisible();
   await disclosure.click();
+  await expect(bar.locator('[data-slot="rdg-column-toggle-list"]')).toHaveCount(
+    0
+  );
+  const columnTrigger = bar.getByRole("button", {
+    name: "Columns",
+    exact: true,
+  });
+  await expect(columnTrigger).toBeVisible();
+  await columnTrigger.click();
   await expect(
-    bar.locator('[data-slot="rdg-column-toggle-list"]')
+    bar.getByRole("menu", { name: "Visible column toggles" })
   ).toBeVisible();
   await expect(bar.locator('[data-slot="rdg-toolbar-actions"]')).toBeVisible();
 

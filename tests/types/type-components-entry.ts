@@ -76,6 +76,7 @@ export const componentsProviderProps = {
   children: [
     createElement(RDGSearchBar, { placeholder: "Search people" }),
     createElement(RDGToolbar, {
+      disableMobileAutoToolbarCollapsedColumns: true,
       showExport: true,
       showFilterToggle: true,
       toolbarCollapsedColumnToggles: true,

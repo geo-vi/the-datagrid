@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import type { TypeColumn } from "../types";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useStableId } from "../hooks/useStableId";
 import {
   CheckIcon,
@@ -81,6 +82,8 @@ export type RDGToolbarProps = {
   showColumnToggles?: boolean;
   /** Replaces the inline column toggles with one dropdown menu. */
   toolbarCollapsedColumnToggles?: boolean;
+  /** Keeps inline column toggles at mobile widths instead of auto-collapsing them. */
+  disableMobileAutoToolbarCollapsedColumns?: boolean;
   /** Downloads the grid's rows in one of `exportFormats`. */
   showExport?: boolean;
   /** Shows or hides the grid's filter row. */
@@ -145,6 +148,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     collapsible = false,
     showColumnToggles = true,
     toolbarCollapsedColumnToggles = false,
+    disableMobileAutoToolbarCollapsedColumns = false,
     showExport = false,
     showFilterToggle = false,
     showClearFilters = false,
@@ -166,6 +170,10 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const descriptionId = useStableId("tdg-toolbar-description");
   const collapsiblePanelId = useStableId("tdg-toolbar-collapsible-panel");
   const [expanded, setExpanded] = React.useState(false);
+  const isMobileViewport = useMediaQuery("(max-width: 1024px)");
+  const columnTogglesCollapsed =
+    toolbarCollapsedColumnToggles ||
+    (isMobileViewport && !disableMobileAutoToolbarCollapsedColumns);
   const snapshot = useRDGToolbarSnapshot();
   const theme = normalizeThemeName(snapshot.theme);
   const themeBase = resolveThemeBase(theme);
@@ -287,7 +295,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const toolbarBody = (
     <div data-slot="rdg-toolbar-body">
       {showColumnToggles ? (
-        toolbarCollapsedColumnToggles ? (
+        columnTogglesCollapsed ? (
           <ColumnToggleDropdown
             ariaLabel={ariaLabel}
             descriptionId={description != null ? descriptionId : undefined}
@@ -538,9 +546,12 @@ function ColumnToggleDropdown(
           }
         }}
       >
-        <ColumnsIcon />
+        <ColumnsIcon data-icon="inline-start" />
         {label}
-        <ChevronDownIcon className="tdg-toolbar-column-toggle-chevron" />
+        <ChevronDownIcon
+          className="tdg-toolbar-column-toggle-chevron"
+          data-icon="inline-end"
+        />
       </button>
 
       {open ? (
@@ -579,26 +590,36 @@ function ColumnToggleDropdown(
             if (event.key === "Tab") setOpen(false);
           }}
         >
-          {items.map((item, index) => (
-            <button
-              key={item.columnId}
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={item.visible}
-              autoFocus={index === firstEnabledIndex}
-              disabled={item.disabled}
-              data-state={item.visible ? "on" : "off"}
-              data-slot="rdg-column-toggle"
-              data-layout="menu"
-              data-column-id={item.columnId}
-              onClick={item.onToggle}
-            >
-              <span aria-hidden="true" data-slot="rdg-column-toggle-indicator">
-                <CheckIcon />
-              </span>
-              <span data-slot="rdg-column-toggle-label">{item.label}</span>
-            </button>
-          ))}
+          <div data-slot="rdg-toolbar-column-toggle-menu-label">{label}</div>
+          <div
+            role="separator"
+            data-slot="rdg-toolbar-column-toggle-menu-separator"
+          />
+          <div role="group" data-slot="rdg-toolbar-column-toggle-menu-group">
+            {items.map((item, index) => (
+              <button
+                key={item.columnId}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={item.visible}
+                autoFocus={index === firstEnabledIndex}
+                disabled={item.disabled}
+                data-state={item.visible ? "on" : "off"}
+                data-slot="rdg-column-toggle"
+                data-layout="menu"
+                data-column-id={item.columnId}
+                onClick={item.onToggle}
+              >
+                <span
+                  aria-hidden="true"
+                  data-slot="rdg-column-toggle-indicator"
+                >
+                  <CheckIcon />
+                </span>
+                <span data-slot="rdg-column-toggle-label">{item.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

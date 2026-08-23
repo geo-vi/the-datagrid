@@ -81,6 +81,7 @@ export const toolbarProps = {
   children: createElement("button", { type: "button" }, "Reload"),
   collapsible: true,
   description: "Choose fields shown in this table.",
+  disableMobileAutoToolbarCollapsedColumns: true,
   exportFileName: "accounts",
   exportFormats,
   exportScope,

@@ -140,7 +140,12 @@ test.describe("combined provider", () => {
     await expect(toolbar).toHaveCount(1);
     await expect(
       toolbar.locator('[data-slot="rdg-column-toggle-list"]')
-    ).toHaveCount(1);
+    ).toHaveCount(0);
+    const columnTrigger = toolbar.getByRole("button", {
+      name: "Columns",
+      exact: true,
+    });
+    await expect(columnTrigger).toBeVisible();
     await expect(
       grid.getByRole("button", { name: "Display columns" })
     ).toHaveCount(0);
@@ -148,9 +153,11 @@ test.describe("combined provider", () => {
     await expect(firstCard.getByText("City", { exact: true })).toBeVisible();
     await expect(firstCard.getByText("London", { exact: true })).toBeVisible();
 
+    await columnTrigger.click();
+    await expect(cityToggle).toHaveAttribute("aria-checked", "true");
     await cityToggle.click();
 
-    await expect(cityToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(cityToggle).toHaveAttribute("aria-checked", "false");
     await expect(firstCard.getByText("City", { exact: true })).toHaveCount(0);
     await expect(firstCard.getByText("London", { exact: true })).toHaveCount(0);
 
@@ -167,7 +174,7 @@ test.describe("combined provider", () => {
 
     await cityToggle.click();
 
-    await expect(cityToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(cityToggle).toHaveAttribute("aria-checked", "true");
     await expect(parisCard.getByText("City", { exact: true })).toBeVisible();
     await expect(parisCard.getByText("Paris", { exact: true })).toBeVisible();
   });

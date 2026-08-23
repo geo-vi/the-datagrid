@@ -697,14 +697,18 @@ element, so a translation helper can supply all of them:
 treatment; column toggles read each column's `header`. The export menu is named
 after its own trigger, so a translated label needs no second string.
 
-Set `toolbarCollapsedColumnToggles` to replace the wrapping row of column
-buttons with one `Columns` dropdown. The menu contains the same hideable
-columns in grid order, stays open while several columns are toggled, and keeps
-the rule that the final visible column cannot be hidden. Override
-`labels.columns` to localize the trigger:
+At widths up to `1024px`, the toolbar automatically replaces the wrapping row
+of column buttons with one `Columns` dropdown. The menu contains the same
+hideable columns in grid order, stays open while several columns are toggled,
+and keeps the rule that the final visible column cannot be hidden. Set
+`toolbarCollapsedColumnToggles` to force the dropdown at every width, or set
+`disableMobileAutoToolbarCollapsedColumns` to keep the buttons inline on
+mobile. Override `labels.columns` to localize the trigger:
 
 ```tsx
 <RDGToolbar toolbarCollapsedColumnToggles labels={{ columns: t("columns") }} />
+
+<RDGToolbar disableMobileAutoToolbarCollapsedColumns />
 ```
 
 Set `collapsible` when a dense screen should show only one right-aligned control

@@ -7068,10 +7068,14 @@ const columns: TypeColumns = [
               stays mounted.
             </p>
             <p>
-              Add <code>toolbarCollapsedColumnToggles</code> when the toolbar
-              should stay visible but its column buttons should use one compact
-              dropdown. The menu keeps the same grid order and visibility rules,
-              and stays open while several columns are toggled.
+              At widths up to <code>1024px</code>, column buttons automatically
+              move into one compact dropdown. Add{" "}
+              <code>toolbarCollapsedColumnToggles</code> to keep that dropdown
+              at every width, or{" "}
+              <code>disableMobileAutoToolbarCollapsedColumns</code> to preserve
+              inline buttons on mobile. The menu keeps the same grid order and
+              visibility rules, and stays open while several columns are
+              toggled.
             </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
@@ -7944,6 +7948,13 @@ const columns: TypeColumns = [
                   defaultValue: "false",
                   description:
                     "Replaces the inline column visibility buttons with one dropdown containing the same hideable columns in grid order.",
+                },
+                {
+                  name: "RDGToolbar.disableMobileAutoToolbarCollapsedColumns",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Disables the automatic column dropdown at widths up to 1024px. An explicit toolbarCollapsedColumnToggles still forces the dropdown.",
                 },
                 {
                   name: "RDGToolbar.showExport",

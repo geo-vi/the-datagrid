@@ -187,6 +187,27 @@ export default function ToolbarCompatPage() {
         </RDGToolbarProvider>
       </section>
 
+      <section data-testid="toolbar-mobile-inline-column-toggles">
+        <RDGToolbarProvider>
+          <RDGToolbar
+            disableMobileAutoToolbarCollapsedColumns
+            title="Mobile inline columns"
+            description="Keep the visibility buttons inline at mobile widths."
+          />
+          <div className="h-80 min-h-0">
+            <RDGToolbarTarget>
+              <ReactDataGrid
+                idProperty="id"
+                columns={columns}
+                dataSource={rows}
+                virtualized={false}
+                showColumnMenuTool={false}
+              />
+            </RDGToolbarTarget>
+          </div>
+        </RDGToolbarProvider>
+      </section>
+
       <section
         className="flex flex-col gap-3"
         data-testid="combined-provider-direct-target"

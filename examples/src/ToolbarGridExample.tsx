@@ -145,6 +145,7 @@ function createOrders(): ExampleOrder[] {
 }
 
 function buildSnippet(config: {
+  disableMobileAutoToolbarCollapsedColumns: boolean;
   filteringOwner: FilteringOwner;
   formats: RDGToolbarExportFormat[];
   heading: boolean;
@@ -161,6 +162,9 @@ function buildSnippet(config: {
     config.showColumnToggles ? null : "  showColumnToggles={false}",
     config.toolbarCollapsedColumnToggles
       ? "  toolbarCollapsedColumnToggles"
+      : null,
+    config.disableMobileAutoToolbarCollapsedColumns
+      ? "  disableMobileAutoToolbarCollapsedColumns"
       : null,
     config.showExport ? "  showExport" : null,
     config.showFilterToggle ? "  showFilterToggle" : null,
@@ -424,6 +428,8 @@ export default function ToolbarGridExample({
   const [showColumnToggles, setShowColumnToggles] = useState(true);
   const [toolbarCollapsedColumnToggles, setToolbarCollapsedColumnToggles] =
     useState(false);
+  const [disableMobileAutoToolbarCollapsedColumns, setDisableMobileAuto] =
+    useState(false);
   const [showExport, setShowExport] = useState(true);
   const [showFilterToggle, setShowFilterToggle] = useState(true);
   const [showClearFilters, setShowClearFilters] = useState(true);
@@ -599,6 +605,7 @@ export default function ToolbarGridExample({
 
   const exportedRowCount = exportScope === "all" ? orders.length : filteredRows;
   const snippet = buildSnippet({
+    disableMobileAutoToolbarCollapsedColumns,
     exportScope,
     filteringOwner,
     formats,
@@ -675,6 +682,20 @@ export default function ToolbarGridExample({
               }
             >
               Column dropdown {toolbarCollapsedColumnToggles ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={
+                disableMobileAutoToolbarCollapsedColumns
+                  ? "outline"
+                  : "secondary"
+              }
+              size="sm"
+              aria-pressed={!disableMobileAutoToolbarCollapsedColumns}
+              onClick={() => setDisableMobileAuto((current) => !current)}
+            >
+              Mobile auto dropdown{" "}
+              {disableMobileAutoToolbarCollapsedColumns ? "off" : "on"}
             </Button>
             <Button
               type="button"
@@ -827,6 +848,9 @@ export default function ToolbarGridExample({
             }
             showColumnToggles={showColumnToggles}
             toolbarCollapsedColumnToggles={toolbarCollapsedColumnToggles}
+            disableMobileAutoToolbarCollapsedColumns={
+              disableMobileAutoToolbarCollapsedColumns
+            }
             showExport={showExport}
             showFilterToggle={showFilterToggle}
             showClearFilters={showClearFilters}
