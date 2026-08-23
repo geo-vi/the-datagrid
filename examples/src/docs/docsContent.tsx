@@ -228,7 +228,13 @@ import {
 export function AccountsGrid() {
   return (
     <RDGToolbarProvider>
-      <RDGToolbar showExport showFilterToggle showClearFilters>
+      <RDGToolbar
+        collapsible
+        toolbarCollapsedColumnToggles
+        showExport
+        showFilterToggle
+        showClearFilters
+      >
         {/* Children stay application-owned, next to the built-in actions. */}
         <button type="button" onClick={reload}>Reload</button>
       </RDGToolbar>
@@ -7054,6 +7060,23 @@ const columns: TypeColumns = [
               its children render separately on the right, so export, filter,
               and other application controls remain application-owned.
             </p>
+            <p>
+              Add <code>collapsible</code> on dense screens to replace the full
+              surface with one right-aligned disclosure until it is needed. No
+              empty card surface or spacing remains while closed; the complete
+              toolbar expands left and down from the button while its grid state
+              stays mounted.
+            </p>
+            <p>
+              At widths up to <code>1024px</code>, column buttons automatically
+              move into one compact dropdown. Add{" "}
+              <code>toolbarCollapsedColumnToggles</code> to keep that dropdown
+              at every width, or{" "}
+              <code>disableMobileAutoToolbarCollapsedColumns</code> to preserve
+              inline buttons on mobile. The menu keeps the same grid order and
+              visibility rules, and stays open while several columns are
+              toggled.
+            </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
               <p>
@@ -7906,11 +7929,32 @@ const columns: TypeColumns = [
                     "Supporting copy associated with the toolbar region and toggle group through aria-describedby; null suppresses it.",
                 },
                 {
+                  name: "RDGToolbar.collapsible",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Starts the complete toolbar surface closed behind one right-aligned disclosure button. Opening expands the existing controls in place without resetting grid state.",
+                },
+                {
                   name: "RDGToolbar.showColumnToggles",
                   type: "boolean",
                   defaultValue: "true",
                   description:
                     "Renders the column visibility toggle group. False leaves an actions-only toolbar.",
+                },
+                {
+                  name: "RDGToolbar.toolbarCollapsedColumnToggles",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Replaces the inline column visibility buttons with one dropdown containing the same hideable columns in grid order.",
+                },
+                {
+                  name: "RDGToolbar.disableMobileAutoToolbarCollapsedColumns",
+                  type: "boolean",
+                  defaultValue: "false",
+                  description:
+                    "Disables the automatic column dropdown at widths up to 1024px. An explicit toolbarCollapsedColumnToggles still forces the dropdown.",
                 },
                 {
                   name: "RDGToolbar.showExport",
@@ -7987,7 +8031,7 @@ const columns: TypeColumns = [
                   type: "Partial<RDGToolbarLabels>",
                   defaultValue: "English defaults",
                   description:
-                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
+                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, columns, showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
                 },
                 {
                   name: "RDGToolbar.children",

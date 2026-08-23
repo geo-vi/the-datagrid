@@ -145,6 +145,7 @@ function createOrders(): ExampleOrder[] {
 }
 
 function buildSnippet(config: {
+  disableMobileAutoToolbarCollapsedColumns: boolean;
   filteringOwner: FilteringOwner;
   formats: RDGToolbarExportFormat[];
   heading: boolean;
@@ -153,11 +154,18 @@ function buildSnippet(config: {
   showColumnToggles: boolean;
   showExport: boolean;
   showFilterToggle: boolean;
+  toolbarCollapsedColumnToggles: boolean;
 }): string {
   const toolbarProps = [
     config.heading ? null : "  title={null}",
     config.heading ? null : "  description={null}",
     config.showColumnToggles ? null : "  showColumnToggles={false}",
+    config.toolbarCollapsedColumnToggles
+      ? "  toolbarCollapsedColumnToggles"
+      : null,
+    config.disableMobileAutoToolbarCollapsedColumns
+      ? "  disableMobileAutoToolbarCollapsedColumns"
+      : null,
     config.showExport ? "  showExport" : null,
     config.showFilterToggle ? "  showFilterToggle" : null,
     config.showClearFilters ? "  showClearFilters" : null,
@@ -418,6 +426,10 @@ export default function ToolbarGridExample({
   const orders = useMemo(() => createOrders(), []);
 
   const [showColumnToggles, setShowColumnToggles] = useState(true);
+  const [toolbarCollapsedColumnToggles, setToolbarCollapsedColumnToggles] =
+    useState(false);
+  const [disableMobileAutoToolbarCollapsedColumns, setDisableMobileAuto] =
+    useState(false);
   const [showExport, setShowExport] = useState(true);
   const [showFilterToggle, setShowFilterToggle] = useState(true);
   const [showClearFilters, setShowClearFilters] = useState(true);
@@ -593,6 +605,7 @@ export default function ToolbarGridExample({
 
   const exportedRowCount = exportScope === "all" ? orders.length : filteredRows;
   const snippet = buildSnippet({
+    disableMobileAutoToolbarCollapsedColumns,
     exportScope,
     filteringOwner,
     formats,
@@ -601,6 +614,7 @@ export default function ToolbarGridExample({
     showColumnToggles,
     showExport,
     showFilterToggle,
+    toolbarCollapsedColumnToggles,
   });
 
   return (
@@ -656,6 +670,32 @@ export default function ToolbarGridExample({
               onClick={() => setShowColumnToggles((current) => !current)}
             >
               Column toggles {showColumnToggles ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={toolbarCollapsedColumnToggles ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={toolbarCollapsedColumnToggles}
+              disabled={!showColumnToggles}
+              onClick={() =>
+                setToolbarCollapsedColumnToggles((current) => !current)
+              }
+            >
+              Column dropdown {toolbarCollapsedColumnToggles ? "on" : "off"}
+            </Button>
+            <Button
+              type="button"
+              variant={
+                disableMobileAutoToolbarCollapsedColumns
+                  ? "outline"
+                  : "secondary"
+              }
+              size="sm"
+              aria-pressed={!disableMobileAutoToolbarCollapsedColumns}
+              onClick={() => setDisableMobileAuto((current) => !current)}
+            >
+              Mobile auto dropdown{" "}
+              {disableMobileAutoToolbarCollapsedColumns ? "off" : "on"}
             </Button>
             <Button
               type="button"
@@ -807,6 +847,10 @@ export default function ToolbarGridExample({
                 : null
             }
             showColumnToggles={showColumnToggles}
+            toolbarCollapsedColumnToggles={toolbarCollapsedColumnToggles}
+            disableMobileAutoToolbarCollapsedColumns={
+              disableMobileAutoToolbarCollapsedColumns
+            }
             showExport={showExport}
             showFilterToggle={showFilterToggle}
             showClearFilters={showClearFilters}

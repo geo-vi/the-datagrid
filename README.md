@@ -680,6 +680,7 @@ element, so a translation helper can supply all of them:
     showFilters: t("show_filters"),
     hideFilters: t("hide_filters"),
     clearFilters: t("clear_filters"),
+    columns: t("columns"),
 
     // Menu entry per format; an unnamed format keeps its own name.
     exportFormats: { csv: t("csv"), xlsx: t("excel") },
@@ -695,6 +696,40 @@ element, so a translation helper can supply all of them:
 `title`, `description` and `ariaLabel` are separate props and take the same
 treatment; column toggles read each column's `header`. The export menu is named
 after its own trigger, so a translated label needs no second string.
+
+At widths up to `1024px`, the toolbar automatically replaces the wrapping row
+of column buttons with one `Columns` dropdown. The menu contains the same
+hideable columns in grid order, stays open while several columns are toggled,
+and keeps the rule that the final visible column cannot be hidden. Set
+`toolbarCollapsedColumnToggles` to force the dropdown at every width, or set
+`disableMobileAutoToolbarCollapsedColumns` to keep the buttons inline on
+mobile. Override `labels.columns` to localize the trigger:
+
+```tsx
+<RDGToolbar toolbarCollapsedColumnToggles labels={{ columns: t("columns") }} />
+
+<RDGToolbar disableMobileAutoToolbarCollapsedColumns />
+```
+
+Set `collapsible` when a dense screen should show only one right-aligned control
+until the toolbar is needed. The card surface, border, shadow and spacing collapse
+fully into that disclosure button, then expand left and down from it; column,
+filter and export state remain mounted while it is closed. Override
+`labels.showToolbar` and
+`labels.hideToolbar` to localize the disclosure:
+
+```tsx
+<RDGToolbar
+  collapsible
+  showExport
+  showFilterToggle
+  showClearFilters
+  labels={{
+    showToolbar: t("show_table_controls"),
+    hideToolbar: t("hide_table_controls"),
+  }}
+/>
+```
 
 Export reads row values, never `render`, which returns React nodes. Columns
 describe their own exported shape:
@@ -815,8 +850,10 @@ a second part outranks it.
 ```
 
 Elements expose stable `data-slot` names (`rdg-toolbar`, `rdg-column-toggle`,
-`rdg-toolbar-actions`, `rdg-toolbar-export`, `rdg-toolbar-filter-toggle`, ...),
-and toggles expose `data-state` as `on` or `off`. `RDGToolbar` also accepts
+`rdg-toolbar-column-toggle-trigger`, `rdg-toolbar-actions`,
+`rdg-toolbar-export`, `rdg-toolbar-filter-toggle`, ...), and toggles expose
+`data-state` as `on` or `off`. Inline toggles expose `aria-pressed`; compact-menu
+toggles use `menuitemcheckbox` with `aria-checked`. `RDGToolbar` also accepts
 `className` for scoping overrides to a class of your own. The complete token
 table lives in
 [the toolbar styling reference](https://geo-vi.github.io/the-datagrid/docs/reference/toolbar#toolbar-styling).

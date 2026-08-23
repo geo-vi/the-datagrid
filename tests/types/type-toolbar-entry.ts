@@ -67,6 +67,7 @@ const gridElement = createElement(ReactDataGrid, gridProps);
 
 const toolbarLabels = {
   clearFilters: "Reset filters",
+  columns: "Choose columns",
   export: "Download",
   hideFilters: "Hide filter row",
   showFilters: "Show filter row",
@@ -78,7 +79,9 @@ const exportScope: RDGToolbarExportScope = "view";
 export const toolbarProps = {
   ariaLabel: "Account column toggles",
   children: createElement("button", { type: "button" }, "Reload"),
+  collapsible: true,
   description: "Choose fields shown in this table.",
+  disableMobileAutoToolbarCollapsedColumns: true,
   exportFileName: "accounts",
   exportFormats,
   exportScope,
@@ -93,6 +96,7 @@ export const toolbarProps = {
   showColumnToggles: true,
   showExport: true,
   showFilterToggle: true,
+  toolbarCollapsedColumnToggles: true,
   title: "Visible fields",
 } satisfies RDGToolbarProps;
 

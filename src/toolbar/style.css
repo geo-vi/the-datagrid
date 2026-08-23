@@ -209,6 +209,12 @@
   --tdg-toolbar-focus-ring-width: 1px;
   --tdg-toolbar-focus-ring-color: var(--tdg-toolbar-ring);
 
+  /* Optional compact disclosure. The closed panel starts to the right and
+   * slightly above its resting point, so opening moves it left and down. */
+  --tdg-toolbar-collapsible-duration: 200ms;
+  --tdg-toolbar-collapsible-offset-inline: 0.75rem;
+  --tdg-toolbar-collapsible-offset-block: -0.5rem;
+
   /* Export format menu */
   --tdg-toolbar-menu-fill: var(--tdg-toolbar-popover);
   --tdg-toolbar-menu-color: var(--tdg-toolbar-popover-foreground);
@@ -296,6 +302,136 @@
   color: var(--tdg-toolbar-color);
 }
 
+:where(.tdg-toolbar-root[data-collapsible="true"]) {
+  position: relative;
+  isolation: isolate;
+  gap: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: padding var(--tdg-toolbar-collapsible-duration) ease;
+}
+
+:where(.tdg-toolbar-root[data-collapsible="true"])::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: var(--tdg-toolbar-border-width) solid var(--tdg-toolbar-border-color);
+  border-radius: var(--tdg-toolbar-radius);
+  background: var(--tdg-toolbar-surface);
+  box-shadow: var(--tdg-toolbar-shadow);
+  content: "";
+  clip-path: inset(0 round var(--tdg-toolbar-radius));
+  opacity: 1;
+  pointer-events: none;
+  transform-origin: top right;
+  transition:
+    clip-path var(--tdg-toolbar-collapsible-duration) ease,
+    opacity var(--tdg-toolbar-collapsible-duration) ease,
+    box-shadow var(--tdg-toolbar-collapsible-duration) ease;
+}
+
+:where(.tdg-toolbar-root[data-collapsible="true"][data-state="closed"]) {
+  padding: 0;
+}
+
+:where(
+  .tdg-toolbar-root[data-collapsible="true"][data-state="closed"]
+)::before {
+  clip-path: inset(0 0 100% 100% round var(--tdg-toolbar-radius));
+  opacity: 0;
+  box-shadow: none;
+}
+
+:where(.tdg-toolbar-root[data-collapsible="true"]:dir(rtl)) {
+  --tdg-toolbar-collapsible-offset-inline: -0.75rem;
+}
+
+:where(
+  .tdg-toolbar-root[data-collapsible="true"][data-state="closed"]:dir(rtl)
+)::before {
+  clip-path: inset(0 100% 100% 0 round var(--tdg-toolbar-radius));
+  transform-origin: top left;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-header-row"] {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tdg-toolbar-gap);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-collapsible-heading"] {
+  min-width: 0;
+}
+
+:where(.tdg-toolbar-root[data-state="closed"])
+  [data-slot="rdg-toolbar-collapsible-heading"] {
+  display: none;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-disclosure-row"] {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-collapsible-panel"] {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transform: translate(0, 0);
+  transform-origin: top right;
+  transition:
+    grid-template-rows var(--tdg-toolbar-collapsible-duration) ease,
+    opacity var(--tdg-toolbar-collapsible-duration) ease,
+    transform var(--tdg-toolbar-collapsible-duration) ease,
+    visibility 0s linear 0s;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-collapsible-panel-inner"] {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--tdg-toolbar-gap);
+  padding-top: var(--tdg-toolbar-gap);
+  overflow: visible;
+  transition:
+    padding-top var(--tdg-toolbar-collapsible-duration) ease,
+    overflow 0s linear var(--tdg-toolbar-collapsible-duration);
+}
+
+:where(.tdg-toolbar-root[data-state="closed"])
+  [data-slot="rdg-toolbar-collapsible-panel"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(
+    var(--tdg-toolbar-collapsible-offset-inline),
+    var(--tdg-toolbar-collapsible-offset-block)
+  );
+  transition:
+    grid-template-rows var(--tdg-toolbar-collapsible-duration) ease,
+    opacity var(--tdg-toolbar-collapsible-duration) ease,
+    transform var(--tdg-toolbar-collapsible-duration) ease,
+    visibility 0s linear var(--tdg-toolbar-collapsible-duration);
+}
+
+:where(.tdg-toolbar-root[data-state="closed"])
+  [data-slot="rdg-toolbar-collapsible-panel-inner"] {
+  padding-top: 0;
+  overflow: hidden;
+  transition:
+    padding-top var(--tdg-toolbar-collapsible-duration) ease,
+    overflow 0s linear 0s;
+}
+
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-heading"] {
   display: flex;
   flex-direction: column;
@@ -359,9 +495,11 @@
  * outranks all of them. `!important` is never needed.
  */
 :where(.tdg-toolbar-root) [data-slot="rdg-column-toggle"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-trigger"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-disclosure"] {
   display: inline-flex;
   height: var(--tdg-toolbar-control-height);
   flex-shrink: 0;
@@ -394,14 +532,16 @@
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-trigger"],
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-filter-toggle"],
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"] {
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-clear-filters"],
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-disclosure"] {
   font-size: var(--tdg-toolbar-action-font-size);
 }
 
 /*
- * The export trigger is absent here on purpose: its `data-state` reports whether
- * the menu is open, not a grid setting, so closed leaves it a plain action.
+ * Menu triggers are absent here on purpose: their `data-state` reports whether
+ * a menu is open, not a grid setting, so closed leaves them plain actions.
  */
 :where(.tdg-toolbar-root)
   [data-state="off"]:where(
@@ -416,6 +556,7 @@
 :where(.tdg-toolbar-root)
   [data-state="on"]:where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
   ) {
@@ -429,9 +570,11 @@
 :where(.tdg-toolbar-root)
   :where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"],
-    [data-slot="rdg-toolbar-clear-filters"]
+    [data-slot="rdg-toolbar-clear-filters"],
+    [data-slot="rdg-toolbar-disclosure"]
   ):where(:enabled):hover {
   background: var(--tdg-toolbar-action-hover-fill);
   color: var(--tdg-toolbar-action-hover-color);
@@ -449,6 +592,7 @@
 :where(.tdg-toolbar-root)
   :where([data-state="on"]):where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
   ):where(:enabled):hover {
@@ -468,15 +612,21 @@
 :where(.tdg-toolbar-root)
   :where(
     [data-slot="rdg-column-toggle"],
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
     [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"],
-    [data-slot="rdg-toolbar-clear-filters"]
+    [data-slot="rdg-toolbar-clear-filters"],
+    [data-slot="rdg-toolbar-disclosure"]
   ):disabled {
   pointer-events: none;
   opacity: var(--tdg-toolbar-control-disabled-opacity);
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-wrapper"] {
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-wrapper"],
+    [data-slot="rdg-toolbar-export-wrapper"]
+  ) {
   position: relative;
   display: inline-flex;
 }
@@ -488,25 +638,101 @@
   pointer-events: none;
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-menu"] {
+:where(.tdg-toolbar-root) .tdg-toolbar-disclosure-chevron {
+  transition: transform var(--tdg-toolbar-collapsible-duration) ease;
+}
+
+:where(.tdg-toolbar-root) .tdg-toolbar-column-toggle-chevron {
+  transition: transform var(--tdg-toolbar-control-transition) ease;
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-disclosure"][data-state="open"]
+  .tdg-toolbar-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="on"]
+  .tdg-toolbar-column-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="on"] {
+  border-color: var(--tdg-toolbar-action-border-color);
+  background: var(--tdg-toolbar-action-hover-fill);
+  color: var(--tdg-toolbar-action-hover-color);
+}
+
+@keyframes tdg-toolbar-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.tdg-toolbar-root) {
+    --tdg-toolbar-collapsible-duration: 0s;
+  }
+
+  :where(.tdg-toolbar-root)
+    :where(
+      [data-slot="rdg-toolbar-column-toggle-menu"],
+      [data-slot="rdg-toolbar-export-menu"]
+    ) {
+    animation: none;
+  }
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-menu"],
+    [data-slot="rdg-toolbar-export-menu"]
+  ) {
   position: absolute;
   inset-inline-end: 0;
   top: 100%;
   z-index: 50;
   display: flex;
   min-width: var(--tdg-toolbar-menu-min-width);
+  max-width: min(20rem, calc(100vw - 2rem));
   flex-direction: column;
   margin-top: var(--tdg-toolbar-menu-offset);
   padding: var(--tdg-toolbar-menu-padding);
-  overflow: hidden;
+  max-height: min(20rem, 60vh);
+  overflow-y: auto;
   border: var(--tdg-toolbar-menu-border-width) solid
     var(--tdg-toolbar-menu-border-color);
   border-radius: var(--tdg-toolbar-menu-radius);
   background: var(--tdg-toolbar-menu-fill);
   box-shadow: var(--tdg-toolbar-menu-shadow);
   color: var(--tdg-toolbar-menu-color);
+  transform-origin: top right;
+  animation: tdg-toolbar-menu-in var(--tdg-toolbar-control-transition)
+    cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu"] {
+  min-width: max(12rem, var(--tdg-toolbar-menu-min-width));
+}
+
+:where(.tdg-toolbar-root:dir(rtl))
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-menu"],
+    [data-slot="rdg-toolbar-export-menu"]
+  ) {
+  transform-origin: top left;
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]),
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-format"] {
   display: flex;
   align-items: center;
@@ -518,6 +744,7 @@
   color: inherit;
   font: inherit;
   font-size: var(--tdg-toolbar-menu-item-font-size);
+  line-height: 1.25rem;
   white-space: nowrap;
   text-align: start;
   cursor: var(--tdg-toolbar-control-cursor);
@@ -526,7 +753,75 @@
 }
 
 :where(.tdg-toolbar-root)
-  :where([data-slot="rdg-toolbar-export-format"]):is(:hover, :focus-visible) {
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]) {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 2rem;
+  flex-shrink: 1;
+  justify-content: flex-start;
+  padding-inline-start: 2rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--tdg-toolbar-menu-item-font-size);
+  font-weight: 400;
+  text-align: start;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-indicator"] {
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  top: 50%;
+  display: inline-flex;
+  width: var(--tdg-toolbar-icon-size);
+  height: var(--tdg-toolbar-icon-size);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"][data-state="on"])
+  [data-slot="rdg-column-toggle-indicator"] {
+  opacity: 1;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-label"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu-label"] {
+  padding: var(--tdg-toolbar-menu-item-padding);
+  font-size: var(--tdg-toolbar-menu-item-font-size);
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-column-toggle-menu-separator"] {
+  height: 1px;
+  margin: 0.25rem -0.25rem;
+  background: var(--tdg-toolbar-menu-border-color);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu-group"] {
+  display: flex;
+  flex-direction: column;
+}
+
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]):is(
+    :hover,
+    :focus-visible
+  ),
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-export-format"]:is(:hover, :focus-visible) {
   background: var(--tdg-toolbar-menu-item-hover-fill);
   color: var(--tdg-toolbar-menu-item-hover-color);
 }
