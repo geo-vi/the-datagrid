@@ -185,7 +185,14 @@ export function GridContextMenuLayer({
         align={placement.align}
         collisionBoundary={collisionBoundary}
         avoidCollisions={constrainTo !== false}
-        className="max-h-80 w-56 overflow-y-auto"
+        /*
+         * `max-h-80` alone would replace the menu's own available-height cap,
+         * since both are `max-h-*` and the later one wins the class merge -
+         * leaving the menu free to run past the edge of the window it was
+         * measured against. Keeping the smaller of the two caps holds the
+         * compact height without ever outgrowing the room reported for it.
+         */
+        className="max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] w-56 overflow-y-auto"
         aria-label={ariaLabel}
         onCloseAutoFocus={(event) => {
           event.preventDefault();

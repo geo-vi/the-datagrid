@@ -2041,7 +2041,14 @@
 .tdg-root
   .tdg-dropdown-content.inovua-react-toolkit-menu.inovua-react-toolkit-menu {
   display: block !important;
-  overflow: hidden !important;
+  /*
+   * Only the inline axis is clipped, so the rounded corners still cut off a
+   * wide row. Clipping the block axis too left a menu taller than its own
+   * `max-height` with no way to reach the rest of itself: the last entries of
+   * a long list, and the Back entry that leaves a drilled-in view, simply sat
+   * outside the box. The menu asks for `overflow-y: auto`; this now lets it.
+   */
+  overflow-x: hidden !important;
   padding: 0.25rem !important;
   border-style: solid !important;
   border-width: 1px !important;
@@ -2112,8 +2119,16 @@
   border: 0 !important;
 }
 
+/*
+ * A checkbox row's tick sits in the row rather than over it, so the cell has to
+ * leave the `absolute`/`left` pairing its class list carries behind completely.
+ * Overriding the position alone let the inset through as a relative offset,
+ * shifting the tick 8px right of its own box - which closed the gap after it
+ * and doubled the space before it. The radio shell is excluded because it is
+ * genuinely absolute, and the rule below keeps its row's room for it.
+ */
 .tdg-root .tdg-dropdown-indicator-cell:not(.tdg-dropdown-radio-shell) {
-  position: relative !important;
+  position: static !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -2122,6 +2137,15 @@
   padding: 0 !important;
   background: transparent !important;
   gap: 0 !important;
+}
+
+/*
+ * With that tick back in the flow, the row no longer needs the 2rem of lead
+ * padding its class list reserves for an overlaid one - that space is now the
+ * tick's own. Radio rows keep theirs.
+ */
+.tdg-root [data-slot="dropdown-menu-checkbox-item"] {
+  padding-inline-start: 0.5rem !important;
 }
 
 .tdg-root .tdg-dropdown-label {
