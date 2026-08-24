@@ -7077,6 +7077,15 @@ const columns: TypeColumns = [
               visibility rules, and stays open while several columns are
               toggled.
             </p>
+            <p>
+              As one control rather than a row of them, the dropdown joins the
+              action buttons instead of leading the toolbar: it becomes the
+              first of them, on their row. The menu itself is the same one the
+              mobile card layout uses for its column picker, so it hangs from
+              its own button, flips side or edge to stay on screen, takes
+              type-ahead and arrow keys, and closes on Escape or on focus
+              leaving it.
+            </p>
             <CodeBlock code={toolbarSnippet} language="tsx" />
             <Callout title="Using search and visibility together">
               <p>
@@ -7814,6 +7823,18 @@ const columns: TypeColumns = [
               <code>rdg-toolbar-clear-filters</code>. Toggle buttons and the
               filter toggle also expose <code>data-state</code> as{" "}
               <code>on</code> or <code>off</code>.
+            </p>
+            <p>
+              Inside a menu, <code>data-state</code> is the menu's own: a
+              trigger reads <code>open</code> or <code>closed</code>, and a
+              column row <code>checked</code> or <code>unchecked</code>, with{" "}
+              <code>aria-checked</code> carrying the same answer. The open menu
+              marks its active row <code>data-highlighted</code> and a
+              non-hideable one <code>data-disabled</code>, since a menu row is
+              not a form control and cannot be <code>:disabled</code>. Menus
+              render inside <code>rdg-toolbar</code>, positioned rather than
+              placed, so a rule of your own must not give them a{" "}
+              <code>position</code>.
             </p>
           </div>
         ),

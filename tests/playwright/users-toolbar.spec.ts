@@ -281,6 +281,9 @@ test.describe("external toolbar controls", () => {
 
     await actions.getByRole("button", { name: "Export" }).click();
     await expect(exportMenuItem(page, "csv")).toBeVisible();
+    // Opened by pointer, the menu takes focus itself and highlights nothing;
+    // an arrow key is what moves onto the first format.
+    await page.keyboard.press("ArrowDown");
     await expect(exportMenuItem(page, "csv")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(exportMenuItem(page, "csv")).toHaveCount(0);

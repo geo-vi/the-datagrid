@@ -6,7 +6,6 @@ import type { TypeColumn } from "../types";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useStableId } from "../hooks/useStableId";
 import {
-  CheckIcon,
   ChevronDownIcon,
   ColumnsIcon,
   ExportIcon,
@@ -28,6 +27,7 @@ import {
   type RDGToolbarExportResult,
   type RDGToolbarExportScope,
 } from "./export";
+import { getCoreMenuRuntime } from "./runtime";
 import { useRDGToolbarSnapshot, useRDGToolbarStore } from "./store";
 
 // Declared in ./export, where the shared export path can reach them.
@@ -131,6 +131,9 @@ const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
     "The grid owns its filter row through the enableFiltering prop.",
 };
 
+/** Keeps an open menu clear of the edges it is measured against. */
+const MENU_VIEWPORT_MARGIN = 8;
+
 function getColumnLabel(column: TypeColumn): React.ReactNode {
   if (typeof column.header === "string" && column.header.trim()) {
     return column.header;
@@ -165,6 +168,18 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     className,
   } = props;
   const [exporting, setExporting] = React.useState(false);
+  const menu = getCoreMenuRuntime();
+  /*
+   * Menus portal into the toolbar's own root rather than the document body:
+   * `toolbar.css` is scoped to that root, so a menu anywhere else would render
+   * unstyled. The root is not a clipping ancestor, and the menu positions
+   * itself fixed, so this costs none of what portalling is for.
+   */
+  const [portalContainer, setPortalContainer] =
+    React.useState<HTMLDivElement | null>(null);
+  const attachRoot = React.useCallback((node: HTMLDivElement | null) => {
+    setPortalContainer(node);
+  }, []);
   const store = useRDGToolbarStore();
   const titleId = useStableId("tdg-toolbar-title");
   const descriptionId = useStableId("tdg-toolbar-description");
@@ -292,46 +307,62 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       </div>
     ) : null;
 
+  /*
+   * The dropdown is one control, so it belongs with the other controls rather
+   * than in the leading slot the inline toggle list occupies: on a narrow
+   * toolbar a lone `Columns` button on its own row would otherwise sit a full
+   * body gap below a single action button. The inline list still leads,
+   * because it wraps to several rows and would push the actions far down.
+   */
+  const collapsedColumnToggles =
+    showColumnToggles && columnTogglesCollapsed ? (
+      <ColumnToggleDropdown
+        ariaLabel={ariaLabel}
+        descriptionId={description != null ? descriptionId : undefined}
+        items={columnToggleItems}
+        label={resolvedLabels.columns}
+      />
+    ) : null;
+
   const toolbarBody = (
-    <div data-slot="rdg-toolbar-body">
-      {showColumnToggles ? (
-        columnTogglesCollapsed ? (
-          <ColumnToggleDropdown
-            ariaLabel={ariaLabel}
-            descriptionId={description != null ? descriptionId : undefined}
-            items={columnToggleItems}
-            label={resolvedLabels.columns}
-          />
-        ) : (
-          <div
-            role="group"
-            aria-label={ariaLabel}
-            aria-describedby={description != null ? descriptionId : undefined}
-            data-slot="rdg-column-toggle-list"
-          >
-            {columnToggleItems.map((item) => (
-              <button
-                key={item.columnId}
-                type="button"
-                aria-pressed={item.visible}
-                disabled={item.disabled}
-                data-state={item.visible ? "on" : "off"}
-                data-slot="rdg-column-toggle"
-                data-column-id={item.columnId}
-                onClick={item.onToggle}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        )
+    <div
+      data-slot="rdg-toolbar-body"
+      data-leading={
+        showColumnToggles && !columnTogglesCollapsed ? "toggles" : "none"
+      }
+    >
+      {showColumnToggles && !columnTogglesCollapsed ? (
+        <div
+          role="group"
+          aria-label={ariaLabel}
+          aria-describedby={description != null ? descriptionId : undefined}
+          data-slot="rdg-column-toggle-list"
+        >
+          {columnToggleItems.map((item) => (
+            <button
+              key={item.columnId}
+              type="button"
+              aria-pressed={item.visible}
+              disabled={item.disabled}
+              data-state={item.visible ? "on" : "off"}
+              data-slot="rdg-column-toggle"
+              data-column-id={item.columnId}
+              onClick={item.onToggle}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       ) : null}
 
-      {showExport ||
+      {collapsedColumnToggles != null ||
+      showExport ||
       showFilterToggle ||
       showClearFilters ||
       children != null ? (
         <div data-slot="rdg-toolbar-actions">
+          {collapsedColumnToggles}
+
           {showExport ? (
             <ExportControl
               disabled={exportDisabled || exporting}
@@ -393,6 +424,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
 
   return (
     <div
+      ref={attachRoot}
       className={
         className ? `tdg-toolbar-root ${className}` : "tdg-toolbar-root"
       }
@@ -405,44 +437,50 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       aria-labelledby={title != null ? titleId : undefined}
       aria-describedby={description != null ? descriptionId : undefined}
     >
-      {collapsible ? (
-        <>
-          <div data-slot="rdg-toolbar-header-row">
-            {toolbarHeading != null ? (
-              <div data-slot="rdg-toolbar-collapsible-heading">
-                {toolbarHeading}
+      <menu.ThemeProvider
+        theme={theme}
+        themeBase={themeBase}
+        portalContainer={portalContainer}
+      >
+        {collapsible ? (
+          <>
+            <div data-slot="rdg-toolbar-header-row">
+              {toolbarHeading != null ? (
+                <div data-slot="rdg-toolbar-collapsible-heading">
+                  {toolbarHeading}
+                </div>
+              ) : null}
+              <div data-slot="rdg-toolbar-disclosure-row">
+                <button
+                  type="button"
+                  aria-controls={collapsiblePanelId}
+                  aria-expanded={expanded}
+                  data-state={expanded ? "open" : "closed"}
+                  data-slot="rdg-toolbar-disclosure"
+                  onClick={() => setExpanded((current) => !current)}
+                >
+                  <ToolbarSettingsIcon />
+                  {expanded
+                    ? resolvedLabels.hideToolbar
+                    : resolvedLabels.showToolbar}
+                  <ChevronDownIcon className="tdg-toolbar-disclosure-chevron" />
+                </button>
               </div>
-            ) : null}
-            <div data-slot="rdg-toolbar-disclosure-row">
-              <button
-                type="button"
-                aria-controls={collapsiblePanelId}
-                aria-expanded={expanded}
-                data-state={expanded ? "open" : "closed"}
-                data-slot="rdg-toolbar-disclosure"
-                onClick={() => setExpanded((current) => !current)}
-              >
-                <ToolbarSettingsIcon />
-                {expanded
-                  ? resolvedLabels.hideToolbar
-                  : resolvedLabels.showToolbar}
-                <ChevronDownIcon className="tdg-toolbar-disclosure-chevron" />
-              </button>
             </div>
-          </div>
-          <div
-            id={collapsiblePanelId}
-            aria-hidden={!expanded}
-            data-slot="rdg-toolbar-collapsible-panel"
-          >
-            <div data-slot="rdg-toolbar-collapsible-panel-inner">
-              {toolbarBody}
+            <div
+              id={collapsiblePanelId}
+              aria-hidden={!expanded}
+              data-slot="rdg-toolbar-collapsible-panel"
+            >
+              <div data-slot="rdg-toolbar-collapsible-panel-inner">
+                {toolbarBody}
+              </div>
             </div>
-          </div>
-        </>
-      ) : (
-        toolbarContent
-      )}
+          </>
+        ) : (
+          toolbarContent
+        )}
+      </menu.ThemeProvider>
     </div>
   );
 }
@@ -462,166 +500,78 @@ type ColumnToggleDropdownProps = {
   label: React.ReactNode;
 };
 
-/** A dependency-free, multi-select menu that keeps column state in the grid. */
+/**
+ * The grid's own multi-select menu, driving column state through the toolbar
+ * store. Placement, collision handling, focus and typeahead all belong to the
+ * menu; this only names the parts and keeps the toolbar's `data-slot` contract
+ * on them, so consumer styles written against those names still land.
+ */
 function ColumnToggleDropdown(
   props: ColumnToggleDropdownProps
 ): React.ReactElement {
   const { ariaLabel, descriptionId, items, label } = props;
-  const [open, setOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
-  const menuId = useStableId("tdg-toolbar-column-toggle-menu");
-  const firstEnabledIndex = items.findIndex((item) => !item.disabled);
-
-  React.useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: PointerEvent | MouseEvent) => {
-      const container = containerRef.current;
-      if (container && !container.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () =>
-      document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [open]);
-
-  const closeAndRestoreFocus = React.useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
-
-  const getEnabledItems = React.useCallback(
-    () =>
-      Array.from(
-        containerRef.current?.querySelectorAll<HTMLButtonElement>(
-          '[data-slot="rdg-column-toggle"][data-layout="menu"]:not(:disabled)'
-        ) ?? []
-      ),
-    []
-  );
-
-  const focusItem = React.useCallback(
-    (index: number) => {
-      const menuItems = getEnabledItems();
-      if (menuItems.length === 0) return;
-      menuItems[(index + menuItems.length) % menuItems.length]?.focus();
-    },
-    [getEnabledItems]
-  );
-
-  const moveFocus = React.useCallback(
-    (from: HTMLElement, delta: number) => {
-      const menuItems = getEnabledItems();
-      if (menuItems.length === 0) return;
-      const currentIndex = menuItems.indexOf(from as HTMLButtonElement);
-      const nextIndex =
-        currentIndex < 0
-          ? 0
-          : (currentIndex + delta + menuItems.length) % menuItems.length;
-      menuItems[nextIndex]?.focus();
-    },
-    [getEnabledItems]
-  );
+  const menu = getCoreMenuRuntime();
 
   return (
-    <div data-slot="rdg-toolbar-column-toggle-wrapper" ref={containerRef}>
-      <button
-        type="button"
-        ref={triggerRef}
-        data-slot="rdg-toolbar-column-toggle-trigger"
-        data-state={open ? "on" : "off"}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-describedby={descriptionId}
-        disabled={items.length === 0}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        <ColumnsIcon data-icon="inline-start" />
-        {label}
-        <ChevronDownIcon
-          className="tdg-toolbar-column-toggle-chevron"
-          data-icon="inline-end"
-        />
-      </button>
+    <div data-slot="rdg-toolbar-column-toggle-wrapper">
+      {/*
+       * Not modal: a modal menu marks the rest of the page `aria-hidden` and
+       * locks its scrolling, which is the wrong trade for choosing columns
+       * against the grid the choice is changing.
+       */}
+      <menu.Root modal={false}>
+        <menu.Trigger
+          data-slot="rdg-toolbar-column-toggle-trigger"
+          aria-describedby={descriptionId}
+          disabled={items.length === 0}
+        >
+          <ColumnsIcon data-icon="inline-start" />
+          {label}
+          <ChevronDownIcon
+            className="tdg-toolbar-column-toggle-chevron"
+            data-icon="inline-end"
+          />
+        </menu.Trigger>
 
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
+        <menu.Content
+          align="start"
+          loop
+          // The gap is a documented token the stylesheet applies, so the menu
+          // itself contributes none of its own.
+          sideOffset={0}
+          collisionPadding={MENU_VIEWPORT_MARGIN}
+          // The menu labels itself after its trigger by default, which would
+          // quietly outrank the toolbar's own `ariaLabel` - `aria-labelledby`
+          // wins over `aria-label` wherever both are present.
+          aria-labelledby={undefined}
           aria-label={ariaLabel}
           aria-describedby={descriptionId}
           data-slot="rdg-toolbar-column-toggle-menu"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              closeAndRestoreFocus();
-              return;
-            }
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              moveFocus(event.target as HTMLElement, 1);
-              return;
-            }
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              moveFocus(event.target as HTMLElement, -1);
-              return;
-            }
-            if (event.key === "Home") {
-              event.preventDefault();
-              focusItem(0);
-              return;
-            }
-            if (event.key === "End") {
-              event.preventDefault();
-              focusItem(-1);
-              return;
-            }
-            if (event.key === "Tab") setOpen(false);
-          }}
         >
-          <div data-slot="rdg-toolbar-column-toggle-menu-label">{label}</div>
-          <div
-            role="separator"
-            data-slot="rdg-toolbar-column-toggle-menu-separator"
-          />
-          <div role="group" data-slot="rdg-toolbar-column-toggle-menu-group">
-            {items.map((item, index) => (
-              <button
+          <menu.Label data-slot="rdg-toolbar-column-toggle-menu-label">
+            {label}
+          </menu.Label>
+          <menu.Separator data-slot="rdg-toolbar-column-toggle-menu-separator" />
+          <menu.Group data-slot="rdg-toolbar-column-toggle-menu-group">
+            {items.map((item) => (
+              <menu.CheckboxItem
                 key={item.columnId}
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={item.visible}
-                autoFocus={index === firstEnabledIndex}
+                checked={item.visible}
                 disabled={item.disabled}
-                data-state={item.visible ? "on" : "off"}
                 data-slot="rdg-column-toggle"
                 data-layout="menu"
                 data-column-id={item.columnId}
-                onClick={item.onToggle}
+                // Several columns are usually toggled in one visit, so the menu
+                // outlives each choice instead of closing on the first.
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={item.onToggle}
               >
-                <span
-                  aria-hidden="true"
-                  data-slot="rdg-column-toggle-indicator"
-                >
-                  <CheckIcon />
-                </span>
                 <span data-slot="rdg-column-toggle-label">{item.label}</span>
-              </button>
+              </menu.CheckboxItem>
             ))}
-          </div>
-        </div>
-      ) : null}
+          </menu.Group>
+        </menu.Content>
+      </menu.Root>
     </div>
   );
 }
@@ -635,56 +585,14 @@ type ExportControlProps = {
   onExport: (format: RDGToolbarExportFormat) => void | Promise<void>;
 };
 
-/**
- * A dependency-free format menu. The optional entry stays inside its bundle
- * boundary, so this deliberately does not reach for a popover library.
- */
+/** The same menu again, offering one download per configured format. */
 function ExportControl(props: ExportControlProps): React.ReactElement {
   const { disabled, formats, label, formatLabels, singleLabels, onExport } =
     props;
-  const [open, setOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
-  const menuId = useStableId("tdg-toolbar-export-menu");
-  const triggerId = useStableId("tdg-toolbar-export-trigger");
+  const menu = getCoreMenuRuntime();
   const singleFormat = formats.length === 1 ? formats[0] : null;
   const formatLabel = (format: RDGToolbarExportFormat): React.ReactNode =>
     formatLabels[format] ?? RDG_TOOLBAR_EXPORT_FORMATS[format].label;
-
-  React.useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: PointerEvent | MouseEvent) => {
-      const container = containerRef.current;
-      if (container && !container.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () =>
-      document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [open]);
-
-  const closeAndRestoreFocus = React.useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
-
-  const moveFocus = (from: HTMLElement, delta: number) => {
-    const items = Array.from(
-      containerRef.current?.querySelectorAll<HTMLButtonElement>(
-        '[data-slot="rdg-toolbar-export-format"]'
-      ) ?? []
-    );
-    if (items.length === 0) return;
-    const currentIndex = items.indexOf(from as HTMLButtonElement);
-    const nextIndex =
-      currentIndex < 0
-        ? 0
-        : (currentIndex + delta + items.length) % items.length;
-    items[nextIndex]?.focus();
-  };
 
   if (singleFormat) {
     return (
@@ -708,72 +616,37 @@ function ExportControl(props: ExportControlProps): React.ReactElement {
   }
 
   return (
-    <div data-slot="rdg-toolbar-export-wrapper" ref={containerRef}>
-      <button
-        type="button"
-        ref={triggerRef}
-        id={triggerId}
-        data-slot="rdg-toolbar-export"
-        data-state={open ? "on" : "off"}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        <ExportIcon />
-        {label}
-      </button>
+    <div data-slot="rdg-toolbar-export-wrapper">
+      <menu.Root modal={false}>
+        <menu.Trigger data-slot="rdg-toolbar-export" disabled={disabled}>
+          <ExportIcon />
+          {label}
+        </menu.Trigger>
 
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          // Names the menu after the trigger's own text rather than a second
-          // copy of it, so a translated (or element) label needs no string form.
-          aria-labelledby={triggerId}
+        <menu.Content
+          // Trailing control, so the menu opens inward from its own edge.
+          align="end"
+          loop
+          sideOffset={0}
+          collisionPadding={MENU_VIEWPORT_MARGIN}
+          // Named by its trigger, which the menu arranges itself - so a
+          // translated (or element) label needs no separate string form.
           data-slot="rdg-toolbar-export-menu"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              closeAndRestoreFocus();
-              return;
-            }
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              moveFocus(event.target as HTMLElement, 1);
-              return;
-            }
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              moveFocus(event.target as HTMLElement, -1);
-            }
-          }}
         >
-          {formats.map((format, index) => (
-            <button
+          {formats.map((format) => (
+            <menu.Item
               key={format}
-              type="button"
-              role="menuitem"
-              autoFocus={index === 0}
               data-slot="rdg-toolbar-export-format"
               data-export-format={format}
-              onClick={() => {
-                closeAndRestoreFocus();
+              onSelect={() => {
                 void onExport(format);
               }}
             >
               {formatLabel(format)}
-            </button>
+            </menu.Item>
           ))}
-        </div>
-      ) : null}
+        </menu.Content>
+      </menu.Root>
     </div>
   );
 }

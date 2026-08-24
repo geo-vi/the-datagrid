@@ -306,9 +306,10 @@ test("tells a pressed toggle from a released one by its border", async ({
   expect(await paint(filterToggle)).toEqual(released);
 
   // Export and clear-filters command rather than report: they keep a border even
-  // though export reports `data-state="off"` while its menu is closed.
+  // though export reports `data-state="closed"`, which is its menu's state and
+  // not a grid setting.
   const exportControl = bar.locator('[data-slot="rdg-toolbar-export"]');
-  await expect(exportControl).toHaveAttribute("data-state", "off");
+  await expect(exportControl).toHaveAttribute("data-state", "closed");
   const exportPaint = await paint(exportControl);
   const clearPaint = await paint(
     bar.locator('[data-slot="rdg-toolbar-clear-filters"]')

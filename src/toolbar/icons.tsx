@@ -105,15 +105,6 @@ export function ColumnsIcon(props: ToolbarIconProps): React.ReactElement {
   );
 }
 
-/** Check: marks a visible column inside the compact column menu. */
-export function CheckIcon(props: ToolbarIconProps): React.ReactElement {
-  return (
-    <ToolbarIcon {...props}>
-      <path d="m5 12 4 4L19 6" />
-    </ToolbarIcon>
-  );
-}
-
 /** Down chevron: rotates while the compact toolbar panel is expanded. */
 export function ChevronDownIcon(props: ToolbarIconProps): React.ReactElement {
   return (
