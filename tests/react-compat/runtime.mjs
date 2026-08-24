@@ -185,6 +185,26 @@ function createToolbarComposition() {
         key: "toolbar",
         showExport: true,
         showFilterToggle: true,
+        // jsdom's window is 1024px wide and `matchMedia` above answers
+        // accordingly, so the toolbar would collapse its toggles into the
+        // dropdown and this composition would have no inline buttons to check.
+        // The dropdown gets its own composition below.
+        disableMobileAutoToolbarCollapsedColumns: true,
+      }),
+      React.createElement(toolbarEntry.RDGToolbarTarget, {
+        key: "target",
+        children: createGrid({ enableFiltering: false }),
+      }),
+    ],
+  });
+}
+
+function createCollapsedToolbarComposition() {
+  return React.createElement(toolbarEntry.RDGToolbarProvider, {
+    children: [
+      React.createElement(toolbarEntry.RDGToolbar, {
+        key: "toolbar",
+        toolbarCollapsedColumnToggles: true,
       }),
       React.createElement(toolbarEntry.RDGToolbarTarget, {
         key: "target",
@@ -296,6 +316,24 @@ async function mount(element) {
   };
 }
 
+/*
+ * Radix menus open on `pointerdown` and read `pointerType` off the event, and
+ * jsdom ships no `PointerEvent` - so the MouseEvent standing in for one has to
+ * carry that property itself.
+ */
+function pressPointer(element) {
+  const pointerDown = new window.MouseEvent("pointerdown", {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+  });
+  Object.defineProperty(pointerDown, "pointerType", { value: "mouse" });
+  element.dispatchEvent(pointerDown);
+  element.dispatchEvent(
+    new window.MouseEvent("click", { bubbles: true, button: 0 })
+  );
+}
+
 async function assertComposition(name, element, assertions) {
   const mounted = await mount(element);
   try {
@@ -319,16 +357,7 @@ await assertComposition("core", createGrid(), async (container) => {
     "the core grid must render its Radix column-menu trigger"
   );
 
-  const pointerDown = new window.MouseEvent("pointerdown", {
-    bubbles: true,
-    button: 0,
-    cancelable: true,
-  });
-  Object.defineProperty(pointerDown, "pointerType", { value: "mouse" });
-  menuTrigger.dispatchEvent(pointerDown);
-  menuTrigger.dispatchEvent(
-    new window.MouseEvent("click", { bubbles: true, button: 0 })
-  );
+  pressPointer(menuTrigger);
   await settle();
   assert.ok(
     document.body.querySelector('[role="menu"]'),
@@ -381,6 +410,59 @@ await assertComposition(
       ),
       null,
       "the provider/toolbar/target composition must hide the real grid column"
+    );
+  }
+);
+
+/*
+ * The dropdown the toolbar shows at narrow widths is the grid's own menu,
+ * reached through a runtime symbol rather than a second bundled copy of it.
+ * Only the packed package proves that hand-off works - and this is the one
+ * suite that exercises it on the oldest React the package supports.
+ */
+await assertComposition(
+  "toolbar-collapsed",
+  createCollapsedToolbarComposition(),
+  async (container) => {
+    await settle();
+    assert.equal(
+      container.querySelector('[data-slot="rdg-column-toggle-list"]'),
+      null,
+      "the collapsed toolbar must not render inline column buttons"
+    );
+
+    const trigger = container.querySelector(
+      '[data-slot="rdg-toolbar-column-toggle-trigger"]'
+    );
+    assert.ok(
+      trigger,
+      "the collapsed toolbar must render its dropdown trigger"
+    );
+
+    pressPointer(trigger);
+    await settle();
+
+    const menu = container.querySelector(
+      '[data-slot="rdg-toolbar-column-toggle-menu"]'
+    );
+    assert.ok(menu, "the column menu must open inside the toolbar root");
+
+    const nameOption = menu.querySelector(
+      '[role="menuitemcheckbox"][data-column-id="name"]'
+    );
+    assert.ok(nameOption, "the Name column must expose a menu row");
+    assert.equal(nameOption.getAttribute("aria-checked"), "true");
+
+    nameOption.dispatchEvent(
+      new window.MouseEvent("click", { bubbles: true, button: 0 })
+    );
+    await settle();
+    assert.equal(
+      container.querySelector(
+        '[data-slot="grid-header-cell"][data-column-id="name"]'
+      ),
+      null,
+      "a menu row must hide the real grid column"
     );
   }
 );
