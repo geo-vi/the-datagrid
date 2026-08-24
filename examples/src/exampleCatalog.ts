@@ -68,7 +68,7 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
     label: "Editing",
     title: "Editing example",
     summary:
-      "One grid per editor: the built-in cell editor next to the packaged TextEditor, NumericEditor, DateEditor, and BoolEditor.",
+      "One column per editor: the built-in cell editor next to the packaged TextEditor, NumericEditor, DateEditor, and SelectEditor, plus a boolean column that toggles in place.",
     details:
       "Commits are confirmed live through a saved banner and an activity log. Shows column-level onEditComplete running before the grid-level handler, an async persist that the grid waits on, and why some editors and filters are imports while others are not.",
     sourcePath: "examples/src/EditingGridExample.tsx",

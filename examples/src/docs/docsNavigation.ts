@@ -101,6 +101,7 @@ export const docsNavigationSections: DocsNavigationSection[] = [
       navigationItem("reference", "number-filter", "Number filter"),
       navigationItem("reference", "select-filter", "Select filter"),
       navigationItem("reference", "text-input", "Text input"),
+      navigationItem("reference", "cell-editors", "Cell editors"),
       navigationItem("reference", "toolbar", "Grid toolbar"),
       navigationItem("reference", "checkbox", "Checkbox"),
     ],
