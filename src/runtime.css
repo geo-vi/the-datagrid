@@ -2041,7 +2041,14 @@
 .tdg-root
   .tdg-dropdown-content.inovua-react-toolkit-menu.inovua-react-toolkit-menu {
   display: block !important;
-  overflow: hidden !important;
+  /*
+   * Only the inline axis is clipped, so the rounded corners still cut off a
+   * wide row. Clipping the block axis too left a menu taller than its own
+   * `max-height` with no way to reach the rest of itself: the last entries of
+   * a long list, and the Back entry that leaves a drilled-in view, simply sat
+   * outside the box. The menu asks for `overflow-y: auto`; this now lets it.
+   */
+  overflow-x: hidden !important;
   padding: 0.25rem !important;
   border-style: solid !important;
   border-width: 1px !important;

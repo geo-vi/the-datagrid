@@ -144,6 +144,48 @@ test.describe("documentation shell UI", () => {
 });
 
 test.describe("grid interaction UI", () => {
+  test("keeps a drilled-in column menu scrollable to its last entry", async ({
+    page,
+  }) => {
+    // Short enough that the column list plus its Back entry outgrows the room
+    // the menu is given, which is the only state that exercises this.
+    await page.setViewportSize({ width: 1280, height: 620 });
+    await page.goto("/examples/columns");
+
+    await page
+      .getByRole("button", { name: "Column menu", exact: true })
+      .first()
+      .click();
+    const menu = page.getByRole("menu", { name: "Column menu" });
+    await menu.getByRole("menuitem", { name: "Columns", exact: true }).click();
+
+    const back = menu.getByRole("menuitem", { name: "Back" });
+    await expect(back).toBeVisible();
+
+    const box = await menu.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      bottom: element.getBoundingClientRect().bottom,
+    }));
+
+    // The menu never outgrows the room reported for it, and what does not fit
+    // is reachable rather than clipped away.
+    expect(box.bottom).toBeLessThanOrEqual(620 + 1);
+    expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+    expect(box.overflowY).toBe("auto");
+
+    await back.scrollIntoViewIfNeeded();
+    const [menuBox, backBox] = await Promise.all([
+      menu.boundingBox(),
+      back.boundingBox(),
+    ]);
+    expect(backBox!.y).toBeGreaterThanOrEqual(menuBox!.y - 1);
+    expect(backBox!.y + backBox!.height).toBeLessThanOrEqual(
+      menuBox!.y + menuBox!.height + 1
+    );
+  });
+
   test("restores a visible focus ring after closing a column menu", async ({
     page,
   }) => {
