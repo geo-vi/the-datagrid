@@ -469,6 +469,16 @@
     align-items: flex-start;
     justify-content: space-between;
   }
+
+  /*
+   * Without a leading toggle list the actions are the only child, and
+   * `space-between` would drop them at the start. They stay trailing, so the
+   * wide layout looks the same whether the toggles are inline or collapsed.
+   */
+  :where(.tdg-toolbar-root)
+    [data-slot="rdg-toolbar-body"][data-leading="none"] {
+    justify-content: flex-end;
+  }
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-list"] {
@@ -556,9 +566,12 @@
 :where(.tdg-toolbar-root)
   [data-state="on"]:where(
     [data-slot="rdg-column-toggle"],
-    [data-slot="rdg-toolbar-column-toggle-trigger"],
-    [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
+  ),
+:where(.tdg-toolbar-root)
+  [data-state="open"]:where(
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
+    [data-slot="rdg-toolbar-export"]
   ) {
   border-color: var(--tdg-toolbar-toggle-on-border-color);
   background: var(--tdg-toolbar-toggle-on-fill);
@@ -592,9 +605,12 @@
 :where(.tdg-toolbar-root)
   :where([data-state="on"]):where(
     [data-slot="rdg-column-toggle"],
-    [data-slot="rdg-toolbar-column-toggle-trigger"],
-    [data-slot="rdg-toolbar-export"],
     [data-slot="rdg-toolbar-filter-toggle"]
+  ):where(:enabled):hover,
+:where(.tdg-toolbar-root)
+  :where([data-state="open"]):where(
+    [data-slot="rdg-toolbar-column-toggle-trigger"],
+    [data-slot="rdg-toolbar-export"]
   ):where(:enabled):hover {
   background: var(--tdg-toolbar-toggle-on-hover-fill);
   color: var(--tdg-toolbar-toggle-on-hover-color);
@@ -627,8 +643,13 @@
     [data-slot="rdg-toolbar-column-toggle-wrapper"],
     [data-slot="rdg-toolbar-export-wrapper"]
   ) {
-  position: relative;
+  /*
+   * The menu anchors to the trigger itself, so this wrapper only has to hold
+   * the trigger: `fit-content` keeps it that wide even where it would otherwise
+   * be stretched, leaving no invisible full-width box in the row.
+   */
   display: inline-flex;
+  width: fit-content;
 }
 
 :where(.tdg-toolbar-root) svg {
@@ -653,13 +674,13 @@
 }
 
 :where(.tdg-toolbar-root)
-  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="on"]
+  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="open"]
   .tdg-toolbar-column-toggle-chevron {
   transform: rotate(180deg);
 }
 
 :where(.tdg-toolbar-root)
-  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="on"] {
+  [data-slot="rdg-toolbar-column-toggle-trigger"][data-state="open"] {
   border-color: var(--tdg-toolbar-action-border-color);
   background: var(--tdg-toolbar-action-hover-fill);
   color: var(--tdg-toolbar-action-hover-color);
@@ -691,22 +712,25 @@
   }
 }
 
+/*
+ * The menu below is the grid's own dropdown, portalled into this root so these
+ * rules reach it, and positioned by that menu's popper. Nothing here may set
+ * `position` or an inset: placement, side flipping and collision shifting all
+ * belong to the popper, which reports what it decided through the two
+ * `--radix-*` custom properties read below.
+ */
 :where(.tdg-toolbar-root)
   :where(
     [data-slot="rdg-toolbar-column-toggle-menu"],
     [data-slot="rdg-toolbar-export-menu"]
   ) {
-  position: absolute;
-  inset-inline-end: 0;
-  top: 100%;
   z-index: 50;
   display: flex;
   min-width: var(--tdg-toolbar-menu-min-width);
   max-width: min(20rem, calc(100vw - 2rem));
+  max-height: var(--radix-dropdown-menu-content-available-height, 20rem);
   flex-direction: column;
-  margin-top: var(--tdg-toolbar-menu-offset);
   padding: var(--tdg-toolbar-menu-padding);
-  max-height: min(20rem, 60vh);
   overflow-y: auto;
   border: var(--tdg-toolbar-menu-border-width) solid
     var(--tdg-toolbar-menu-border-color);
@@ -714,28 +738,57 @@
   background: var(--tdg-toolbar-menu-fill);
   box-shadow: var(--tdg-toolbar-menu-shadow);
   color: var(--tdg-toolbar-menu-color);
-  transform-origin: top right;
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
   animation: tdg-toolbar-menu-in var(--tdg-toolbar-control-transition)
     cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/*
+ * The trigger gap is a documented token, so the menu opens with `sideOffset: 0`
+ * and takes the distance from here instead, on whichever side the popper chose.
+ * `translate` rather than a margin: the popper's wrapper swallows a margin, and
+ * rather than `transform`, which the open animation below already owns - the
+ * two properties compose instead of overwriting one another.
+ */
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-menu"],
+    [data-slot="rdg-toolbar-export-menu"]
+  )[data-side="bottom"] {
+  translate: 0 var(--tdg-toolbar-menu-offset);
+}
+
+:where(.tdg-toolbar-root)
+  :where(
+    [data-slot="rdg-toolbar-column-toggle-menu"],
+    [data-slot="rdg-toolbar-export-menu"]
+  )[data-side="top"] {
+  translate: 0 calc(-1 * var(--tdg-toolbar-menu-offset));
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu"] {
   min-width: max(12rem, var(--tdg-toolbar-menu-min-width));
 }
 
-:where(.tdg-toolbar-root:dir(rtl))
-  :where(
-    [data-slot="rdg-toolbar-column-toggle-menu"],
-    [data-slot="rdg-toolbar-export-menu"]
-  ) {
-  transform-origin: top left;
+:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu-group"] {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
 }
 
+/*
+ * Menu rows are the dropdown's own elements, not buttons, so they inherit none
+ * of the control resets above and are described in full here.
+ */
 :where(.tdg-toolbar-root)
   [data-slot="rdg-column-toggle"]:where([data-layout="menu"]),
 :where(.tdg-toolbar-root) [data-slot="rdg-toolbar-export-format"] {
   display: flex;
+  width: 100%;
+  min-height: 2rem;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--tdg-toolbar-control-gap);
   padding: var(--tdg-toolbar-menu-item-padding);
   border: 0;
@@ -744,6 +797,7 @@
   color: inherit;
   font: inherit;
   font-size: var(--tdg-toolbar-menu-item-font-size);
+  font-weight: 400;
   line-height: 1.25rem;
   white-space: nowrap;
   text-align: start;
@@ -752,41 +806,59 @@
   outline: none;
 }
 
+/*
+ * `data-highlighted` is the menu's own idea of the active row, and it follows
+ * pointer and keyboard alike - which is why no `:hover` or `:focus` rule joins
+ * it. A disabled row reports `data-disabled` rather than the `:disabled`
+ * pseudo-class, which only ever matches a form control.
+ */
 :where(.tdg-toolbar-root)
-  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]) {
-  position: relative;
-  width: 100%;
-  height: auto;
-  min-height: 2rem;
-  flex-shrink: 1;
-  justify-content: flex-start;
-  padding-inline-start: 2rem;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: var(--tdg-toolbar-menu-item-font-size);
-  font-weight: 400;
-  text-align: start;
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"])[data-highlighted],
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-export-format"][data-highlighted] {
+  background: var(--tdg-toolbar-menu-item-hover-fill);
+  color: var(--tdg-toolbar-menu-item-hover-color);
 }
 
-:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-indicator"] {
-  position: absolute;
-  inset-inline-start: 0.5rem;
-  top: 50%;
-  display: inline-flex;
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-column-toggle"]:where([data-layout="menu"])[data-disabled],
+:where(.tdg-toolbar-root)
+  [data-slot="rdg-toolbar-export-format"][data-disabled] {
+  pointer-events: none;
+  opacity: var(--tdg-toolbar-control-disabled-opacity);
+}
+
+/*
+ * The two cells of a checkbox row. The indicator keeps its width whether or not
+ * a tick is in it, so the labels of checked and unchecked columns line up.
+ */
+:where(.tdg-toolbar-root) .tdg-dropdown-indicator-cell {
+  /*
+   * `static`, not `relative`. The menu's own class list pairs `absolute` with
+   * `left-2`, and taking the cell out of that pairing while leaving it
+   * positioned lets the stray inset through: the tick shifts 8px right of its
+   * layout box, closing the gap after it and doubling the space before it.
+   */
+  position: static;
+  display: flex;
   width: var(--tdg-toolbar-icon-size);
   height: var(--tdg-toolbar-icon-size);
-  flex-shrink: 0;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transform: translateY(-50%);
+  padding: 0;
+  background: transparent;
 }
 
-:where(.tdg-toolbar-root)
-  [data-slot="rdg-column-toggle"]:where([data-layout="menu"][data-state="on"])
-  [data-slot="rdg-column-toggle-indicator"] {
-  opacity: 1;
+:where(.tdg-toolbar-root) .tdg-dropdown-cell:not(.tdg-dropdown-indicator-cell) {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--tdg-toolbar-control-gap);
+  padding: 0;
+  background: transparent;
+  color: inherit;
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-label"] {
@@ -808,22 +880,6 @@
   height: 1px;
   margin: 0.25rem -0.25rem;
   background: var(--tdg-toolbar-menu-border-color);
-}
-
-:where(.tdg-toolbar-root) [data-slot="rdg-toolbar-column-toggle-menu-group"] {
-  display: flex;
-  flex-direction: column;
-}
-
-:where(.tdg-toolbar-root)
-  [data-slot="rdg-column-toggle"]:where([data-layout="menu"]):is(
-    :hover,
-    :focus-visible
-  ),
-:where(.tdg-toolbar-root)
-  [data-slot="rdg-toolbar-export-format"]:is(:hover, :focus-visible) {
-  background: var(--tdg-toolbar-menu-item-hover-fill);
-  color: var(--tdg-toolbar-menu-item-hover-color);
 }
 
 /*

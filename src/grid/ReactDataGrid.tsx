@@ -93,6 +93,10 @@ import {
   getDataGridSearchRuntime,
 } from "./searchRuntime";
 import {
+  DATA_GRID_MENU_RUNTIME_SYMBOL,
+  getDataGridMenuRuntime,
+} from "./menuRuntime";
+import {
   EMPTY_COLUMN_GROUPS,
   REACT_DATA_GRID_DEFAULT_PROPS,
   plugins,
@@ -3705,6 +3709,14 @@ Object.defineProperty(
   ReactDataGridWithDefaultProps,
   DATA_GRID_SEARCH_RUNTIME_SYMBOL,
   { get: getDataGridSearchRuntime }
+);
+
+// The same arrangement for the dropdown menu the mobile column picker uses, so
+// the optional toolbar renders that menu rather than a lookalike of its own.
+Object.defineProperty(
+  ReactDataGridWithDefaultProps,
+  DATA_GRID_MENU_RUNTIME_SYMBOL,
+  { get: getDataGridMenuRuntime }
 );
 
 export { ReactDataGridWithDefaultProps as ReactDataGrid };

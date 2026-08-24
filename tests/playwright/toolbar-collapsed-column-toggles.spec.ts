@@ -105,7 +105,7 @@ test("supports menu keyboard navigation and click-outside dismissal", async ({
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
-test("uses shadcn popover and checkbox-item geometry", async ({ page }) => {
+test("paints the menu with the toolbar's own tokens", async ({ page }) => {
   const scope = fixture(page);
   const bar = toolbar(scope);
   await bar.getByRole("button", { name: "Choose columns" }).click();
@@ -118,6 +118,12 @@ test("uses shadcn popover and checkbox-item geometry", async ({ page }) => {
   await expect(
     menu.locator('[data-slot="rdg-toolbar-column-toggle-menu-separator"]')
   ).toBeVisible();
+
+  // The menu portals, and the toolbar's stylesheet is scoped to its root: it
+  // lands inside that root, or it arrives with none of the paint below.
+  await expect(
+    menu.locator("xpath=ancestor::*[@data-slot='rdg-toolbar']")
+  ).toHaveCount(1);
   await expect
     .poll(() => menu.evaluate((element) => getComputedStyle(element).opacity))
     .toBe("1");
@@ -132,7 +138,7 @@ test("uses shadcn popover and checkbox-item geometry", async ({ page }) => {
           boxShadow: style.boxShadow,
           height: Number.parseFloat(style.height),
           lineHeight: Number.parseFloat(style.lineHeight),
-          paddingInlineStart: Number.parseFloat(style.paddingInlineStart),
+          position: style.position,
           width: Number.parseFloat(style.width),
         };
       })
@@ -144,9 +150,44 @@ test("uses shadcn popover and checkbox-item geometry", async ({ page }) => {
   expect(menuStyle.borderRadius).toBeGreaterThanOrEqual(6);
   expect(menuStyle.background).not.toBe("rgba(0, 0, 0, 0)");
   expect(menuStyle.boxShadow).not.toBe("none");
+  // Placement belongs to the menu's popper, which moves the wrapper around it.
+  expect(menuStyle.position).toBe("static");
   expect(itemStyle.height).toBeGreaterThanOrEqual(32);
-  expect(itemStyle.paddingInlineStart).toBeGreaterThanOrEqual(32);
   expect(itemStyle.lineHeight).toBeGreaterThanOrEqual(20);
+});
+
+test("lines every column label up behind its tick", async ({ page }) => {
+  const scope = fixture(page);
+  const bar = toolbar(scope);
+  await bar.getByRole("button", { name: "Choose columns" }).click();
+
+  const menu = columnMenu(bar);
+  // `id` is visible and `city` is not, so these are a checked and an unchecked
+  // row: the indicator holds its width either way, as the grid's own menu does.
+  const [checked, unchecked] = await Promise.all(
+    ["id", "city"].map((columnId) =>
+      columnOption(menu, columnId)
+        .locator('[data-slot="rdg-column-toggle-label"]')
+        .boundingBox()
+    )
+  );
+
+  expect(checked!.x).toBeCloseTo(unchecked!.x, 0);
+
+  /*
+   * The tick keeps its own space in the row rather than being nudged across it.
+   * The menu pairs `absolute` with a `left` inset on that cell, so a positioned
+   * cell would drift 8px to the right - swallowing the gap after the tick and
+   * doubling the one before it.
+   */
+  const [row, tick] = await Promise.all([
+    columnOption(menu, "id").boundingBox(),
+    columnOption(menu, "id")
+      .locator(".tdg-dropdown-indicator-cell")
+      .boundingBox(),
+  ]);
+  expect(tick!.x - row!.x).toBeLessThanOrEqual(8);
+  expect(checked!.x - (tick!.x + tick!.width)).toBeGreaterThanOrEqual(6);
 });
 
 test("keeps the column menu inside a narrow viewport", async ({ page }) => {
@@ -161,9 +202,13 @@ test("keeps the column menu inside a narrow viewport", async ({ page }) => {
   const menu = columnMenu(scope);
   await expect(menu).toBeVisible();
 
-  const menuBox = await menu.boundingBox();
+  const [triggerBox, menuBox] = await Promise.all(
+    [trigger, menu].map((locator) => locator.boundingBox())
+  );
   expect(menuBox).not.toBeNull();
-  expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+  // Stacked, the button leads its row, so the menu opens from the same edge.
+  await expect(menu).toHaveAttribute("data-align", "start");
+  expect(menuBox!.x).toBeCloseTo(triggerBox!.x, 0);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
 
   const overflow = await page.evaluate(() => ({
@@ -171,6 +216,70 @@ test("keeps the column menu inside a narrow viewport", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+});
+
+test("anchors the column menu to its trigger, not to the toolbar's edge", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 844 });
+
+  const bar = toolbar(fixture(page));
+  const trigger = bar.getByRole("button", { name: "Choose columns" });
+  await trigger.click();
+
+  const menu = columnMenu(bar);
+  await expect(menu).toBeVisible();
+
+  /*
+   * This toolbar is more than a thousand pixels wider than either the button or
+   * the menu, and the button is not at its edge, so an anchored edge is the only
+   * way the two can line up. Which edge is the popper's call - it flips on a
+   * collision - so read that back rather than fixing a side here.
+   */
+  const [triggerBox, menuBox, barBox] = await Promise.all(
+    [trigger, menu, bar].map((locator) => locator.boundingBox())
+  );
+  const alignment = await menu.getAttribute("data-align");
+
+  expect(barBox!.width).toBeGreaterThan(menuBox!.width + 200);
+  if (alignment === "end") {
+    expect(menuBox!.x + menuBox!.width).toBeCloseTo(
+      triggerBox!.x + triggerBox!.width,
+      0
+    );
+  } else {
+    expect(menuBox!.x).toBeCloseTo(triggerBox!.x, 0);
+  }
+});
+
+test("groups the column dropdown with the other action controls", async ({
+  page,
+}) => {
+  // Under 1024px, so the dropdown replaces the inline toggles; wide enough that
+  // the four action controls still share one row.
+  await page.setViewportSize({ width: 900, height: 844 });
+  await page.goto("/examples/toolbar");
+
+  const bar = toolbar(page.getByTestId("toolbar-playground"));
+  const actions = bar.locator('[data-slot="rdg-toolbar-actions"]');
+  const controls = actions.locator("> *");
+
+  // Leading the actions rather than sitting in the toggle list's slot: one
+  // button on a row of its own would otherwise trail a whole body gap behind.
+  await expect(bar.locator('[data-slot="rdg-toolbar-body"]')).toHaveAttribute(
+    "data-leading",
+    "none"
+  );
+  await expect(controls.first()).toHaveAttribute(
+    "data-slot",
+    "rdg-toolbar-column-toggle-wrapper"
+  );
+
+  const [firstBox, lastBox] = await Promise.all([
+    controls.first().boundingBox(),
+    controls.last().boundingBox(),
+  ]);
+  expect(firstBox!.y).toBeCloseTo(lastBox!.y, 0);
 });
 
 test("automatically switches between inline and dropdown toggles at 1024px", async ({

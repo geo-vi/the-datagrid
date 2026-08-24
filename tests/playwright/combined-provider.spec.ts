@@ -161,7 +161,10 @@ test.describe("combined provider", () => {
     await expect(firstCard.getByText("City", { exact: true })).toHaveCount(0);
     await expect(firstCard.getByText("London", { exact: true })).toHaveCount(0);
 
+    // Typing in the search box moves focus out of the menu, which dismisses it
+    // the way any menu does; the picker has to be reopened to toggle again.
     await search.fill("Paris");
+    await expect(cityToggle).toHaveCount(0);
 
     const parisCard = grid.locator('article[data-row-id="combined-3"]');
     await expect(grid.locator("article[data-row-id]")).toHaveCount(1);
@@ -172,6 +175,7 @@ test.describe("combined provider", () => {
     await expect(parisCard.getByText("City", { exact: true })).toHaveCount(0);
     await expect(parisCard.getByText("Paris", { exact: true })).toHaveCount(0);
 
+    await columnTrigger.click();
     await cityToggle.click();
 
     await expect(cityToggle).toHaveAttribute("aria-checked", "true");
