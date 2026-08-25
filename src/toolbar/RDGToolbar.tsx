@@ -2,74 +2,31 @@
 
 import * as React from "react";
 
-import type { TypeColumn } from "../types";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useStableId } from "../hooks/useStableId";
+import { ChevronDownIcon, ToolbarSettingsIcon } from "./icons";
+import { useToolbarSurfaceRoot } from "./controlHooks";
 import {
-  ChevronDownIcon,
-  ColumnsIcon,
-  ExportIcon,
-  FilterIcon,
-  FilterOffIcon,
-  ResetIcon,
-  ToolbarSettingsIcon,
-} from "./icons";
-import { normalizeThemeName, resolveThemeBase } from "../theme/context";
-import { getColumnId, orderColumns } from "./columns";
+  RDGClearFiltersButton,
+  RDGColumnsButton,
+  RDGColumnToggleList,
+  RDGExportButton,
+  RDGFilterToggleButton,
+} from "./controls";
 import {
   DEFAULT_TOOLBAR_EXPORT_FORMATS,
-  mergeExportSettings,
-  performExport,
-  RDG_TOOLBAR_EXPORT_FORMATS,
-  resolveExportColumns,
   type RDGToolbarExportFormat,
   type RDGToolbarExportInfo,
   type RDGToolbarExportResult,
   type RDGToolbarExportScope,
 } from "./export";
-import { getCoreMenuRuntime } from "./runtime";
-import { useRDGToolbarSnapshot, useRDGToolbarStore } from "./store";
+import { resolveToolbarLabels, type RDGToolbarLabels } from "./labels";
 
 // Declared in ./export, where the shared export path can reach them.
 export type { RDGToolbarExportInfo, RDGToolbarExportResult };
-
-/**
- * Every string the toolbar renders itself. Values are `ReactNode`, so a
- * translation helper that returns an element works as well as one that returns
- * a string; `filteringControlledHint` is the exception and is noted below.
- *
- * The four always-available action labels are required, because a toolbar that
- * renders one of those buttons needs a word for it. The compact disclosure,
- * column-menu and format labels refine opt-in controls, so existing translation
- * objects remain valid when a consumer enables none of those features.
- */
-export type RDGToolbarLabels = {
-  export: React.ReactNode;
-  showFilters: React.ReactNode;
-  hideFilters: React.ReactNode;
-  clearFilters: React.ReactNode;
-  /** Trigger text for the compact column visibility dropdown. */
-  columns?: React.ReactNode;
-  showToolbar?: React.ReactNode;
-  hideToolbar?: React.ReactNode;
-  /**
-   * Export menu entry per format, defaulting to the format's own name. Naming
-   * one format leaves the rest untouched: `{ xlsx: t("excel") }`.
-   */
-  exportFormats?: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
-  /**
-   * Whole text of the export button when `exportFormats` offers exactly one
-   * format. The default joins `export` and the format name in that fixed order
-   * ("Export CSV"), which no translation file can reorder - set this where the
-   * verb trails the noun, as in "CSV exportieren".
-   */
-  exportSingle?: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
-  /**
-   * Tooltip on a filter toggle the grid owns through its own `enableFiltering`
-   * prop. Stays a `string`: it renders as a `title` attribute.
-   */
-  filteringControlledHint?: string;
-};
+// Declared in ./labels, which the standalone controls also read their defaults
+// from. Re-exported here because this is the documented import path.
+export type { RDGToolbarLabels };
 
 export type RDGToolbarProps = {
   children?: React.ReactNode;
@@ -115,33 +72,6 @@ export type RDGToolbarProps = {
   className?: string;
 };
 
-// Required, so a label added to the type above must be given a default here
-// rather than silently resolving to undefined at the point it is rendered.
-const DEFAULT_LABELS: Required<RDGToolbarLabels> = {
-  export: "Export",
-  showFilters: "Show filters",
-  hideFilters: "Hide filters",
-  clearFilters: "Clear filters",
-  columns: "Columns",
-  showToolbar: "Columns and filters",
-  hideToolbar: "Hide columns and filters",
-  exportFormats: {},
-  exportSingle: {},
-  filteringControlledHint:
-    "The grid owns its filter row through the enableFiltering prop.",
-};
-
-/** Keeps an open menu clear of the edges it is measured against. */
-const MENU_VIEWPORT_MARGIN = 8;
-
-function getColumnLabel(column: TypeColumn): React.ReactNode {
-  if (typeof column.header === "string" && column.header.trim()) {
-    return column.header;
-  }
-  if (typeof column.header === "number") return column.header;
-  return getColumnId(column);
-}
-
 export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const {
     children,
@@ -167,20 +97,7 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     labels,
     className,
   } = props;
-  const [exporting, setExporting] = React.useState(false);
-  const menu = getCoreMenuRuntime();
-  /*
-   * Menus portal into the toolbar's own root rather than the document body:
-   * `toolbar.css` is scoped to that root, so a menu anywhere else would render
-   * unstyled. The root is not a clipping ancestor, and the menu positions
-   * itself fixed, so this costs none of what portalling is for.
-   */
-  const [portalContainer, setPortalContainer] =
-    React.useState<HTMLDivElement | null>(null);
-  const attachRoot = React.useCallback((node: HTMLDivElement | null) => {
-    setPortalContainer(node);
-  }, []);
-  const store = useRDGToolbarStore();
+  const { rootProps, wrap } = useToolbarSurfaceRoot();
   const titleId = useStableId("tdg-toolbar-title");
   const descriptionId = useStableId("tdg-toolbar-description");
   const collapsiblePanelId = useStableId("tdg-toolbar-collapsible-panel");
@@ -189,102 +106,11 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
   const columnTogglesCollapsed =
     toolbarCollapsedColumnToggles ||
     (isMobileViewport && !disableMobileAutoToolbarCollapsedColumns);
-  const snapshot = useRDGToolbarSnapshot();
-  const theme = normalizeThemeName(snapshot.theme);
-  const themeBase = resolveThemeBase(theme);
-  const resolvedLabels = React.useMemo<Required<RDGToolbarLabels>>(
-    () => ({
-      ...DEFAULT_LABELS,
-      ...labels,
-      // A caller passing `exportFormats: undefined` out of a conditional would
-      // otherwise defeat the spread and leave the lookups below without a map.
-      exportFormats: labels?.exportFormats ?? DEFAULT_LABELS.exportFormats,
-      exportSingle: labels?.exportSingle ?? DEFAULT_LABELS.exportSingle,
-      filteringControlledHint:
-        labels?.filteringControlledHint ??
-        DEFAULT_LABELS.filteringControlledHint,
-    }),
+  const resolvedLabels = React.useMemo(
+    () => resolveToolbarLabels(labels),
     [labels]
   );
-  const orderedColumns = React.useMemo(
-    () => orderColumns(snapshot.columns, snapshot.columnOrder),
-    [snapshot.columnOrder, snapshot.columns]
-  );
-  const toggleColumns = React.useMemo(
-    () => orderedColumns.filter((column) => column.hideable !== false),
-    [orderedColumns]
-  );
-  const visibleColumnCount = orderedColumns.reduce(
-    (count, column) =>
-      count +
-      (snapshot.columnVisibilityMap[getColumnId(column)] === false ? 0 : 1),
-    0
-  );
-  const columnToggleItems = toggleColumns.map((column) => {
-    const columnId = getColumnId(column);
-    const visible = snapshot.columnVisibilityMap[columnId] !== false;
-
-    return {
-      columnId,
-      disabled: visible && visibleColumnCount <= 1,
-      label: getColumnLabel(column),
-      onToggle: () => snapshot.setColumnVisible(columnId, !visible),
-      visible,
-    };
-  });
-
-  const availableFormats = React.useMemo(
-    () =>
-      exportFormats.filter(
-        (format) => RDG_TOOLBAR_EXPORT_FORMATS[format] != null
-      ),
-    [exportFormats]
-  );
-  const exportColumnCount = React.useMemo(
-    () => (showExport ? resolveExportColumns(snapshot).length : 0),
-    [showExport, snapshot]
-  );
-  const exportDisabled =
-    exportColumnCount === 0 || availableFormats.length === 0;
-
-  const runExport = React.useCallback(
-    async (format: RDGToolbarExportFormat) => {
-      setExporting(true);
-      try {
-        // Read now, not at render: the provider sets its defaults in an effect.
-        const result = await performExport(
-          snapshot,
-          format,
-          mergeExportSettings(
-            {
-              scope: exportScope,
-              fileName: exportFileName,
-              dateFormat: exportDateFormat,
-              sheetName: exportSheetName,
-            },
-            store.getExportDefaults()
-          )
-        );
-
-        if (result) onExportSuccess?.(result);
-      } catch (error) {
-        onExportError?.(error);
-        if (!onExportError) console.error(error);
-      } finally {
-        setExporting(false);
-      }
-    },
-    [
-      exportDateFormat,
-      exportFileName,
-      exportScope,
-      exportSheetName,
-      onExportError,
-      onExportSuccess,
-      snapshot,
-      store,
-    ]
-  );
+  const describedById = description != null ? descriptionId : undefined;
 
   const toolbarHeading =
     title != null || description != null ? (
@@ -316,10 +142,9 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
    */
   const collapsedColumnToggles =
     showColumnToggles && columnTogglesCollapsed ? (
-      <ColumnToggleDropdown
+      <RDGColumnsButton
         ariaLabel={ariaLabel}
-        descriptionId={description != null ? descriptionId : undefined}
-        items={columnToggleItems}
+        describedById={describedById}
         label={resolvedLabels.columns}
       />
     ) : null;
@@ -332,27 +157,10 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       }
     >
       {showColumnToggles && !columnTogglesCollapsed ? (
-        <div
-          role="group"
-          aria-label={ariaLabel}
-          aria-describedby={description != null ? descriptionId : undefined}
-          data-slot="rdg-column-toggle-list"
-        >
-          {columnToggleItems.map((item) => (
-            <button
-              key={item.columnId}
-              type="button"
-              aria-pressed={item.visible}
-              disabled={item.disabled}
-              data-state={item.visible ? "on" : "off"}
-              data-slot="rdg-column-toggle"
-              data-column-id={item.columnId}
-              onClick={item.onToggle}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <RDGColumnToggleList
+          ariaLabel={ariaLabel}
+          describedById={describedById}
+        />
       ) : null}
 
       {collapsedColumnToggles != null ||
@@ -364,49 +172,30 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
           {collapsedColumnToggles}
 
           {showExport ? (
-            <ExportControl
-              disabled={exportDisabled || exporting}
-              formats={availableFormats}
+            <RDGExportButton
+              formats={exportFormats}
+              scope={exportScope}
+              fileName={exportFileName}
+              dateFormat={exportDateFormat}
+              sheetName={exportSheetName}
               label={resolvedLabels.export}
               formatLabels={resolvedLabels.exportFormats}
               singleLabels={resolvedLabels.exportSingle}
-              onExport={runExport}
+              onExportSuccess={onExportSuccess}
+              onExportError={onExportError}
             />
           ) : null}
 
           {showFilterToggle ? (
-            <button
-              type="button"
-              aria-pressed={snapshot.filteringEnabled}
-              data-state={snapshot.filteringEnabled ? "on" : "off"}
-              data-slot="rdg-toolbar-filter-toggle"
-              disabled={!snapshot.canToggleFiltering}
-              title={
-                snapshot.canToggleFiltering
-                  ? undefined
-                  : resolvedLabels.filteringControlledHint
-              }
-              onClick={() =>
-                snapshot.setFilteringEnabled(!snapshot.filteringEnabled)
-              }
-            >
-              {snapshot.filteringEnabled ? <FilterOffIcon /> : <FilterIcon />}
-              {snapshot.filteringEnabled
-                ? resolvedLabels.hideFilters
-                : resolvedLabels.showFilters}
-            </button>
+            <RDGFilterToggleButton
+              showFiltersLabel={resolvedLabels.showFilters}
+              hideFiltersLabel={resolvedLabels.hideFilters}
+              controlledHint={resolvedLabels.filteringControlledHint}
+            />
           ) : null}
 
           {showClearFilters ? (
-            <button
-              type="button"
-              data-slot="rdg-toolbar-clear-filters"
-              disabled={!snapshot.filtered}
-              onClick={() => snapshot.clearAllFilters()}
-            >
-              <ResetIcon />
-              {resolvedLabels.clearFilters}
-            </button>
+            <RDGClearFiltersButton label={resolvedLabels.clearFilters} />
           ) : null}
 
           {children}
@@ -415,34 +204,21 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
     </div>
   );
 
-  const toolbarContent = (
-    <>
-      {toolbarHeading}
-      {toolbarBody}
-    </>
-  );
-
   return (
     <div
-      ref={attachRoot}
+      {...rootProps}
       className={
         className ? `tdg-toolbar-root ${className}` : "tdg-toolbar-root"
       }
       data-slot="rdg-toolbar"
       data-collapsible={collapsible ? "true" : undefined}
       data-state={collapsible ? (expanded ? "open" : "closed") : undefined}
-      data-theme={theme}
-      data-theme-base={themeBase}
       role={title != null ? "region" : undefined}
       aria-labelledby={title != null ? titleId : undefined}
-      aria-describedby={description != null ? descriptionId : undefined}
+      aria-describedby={describedById}
     >
-      <menu.ThemeProvider
-        theme={theme}
-        themeBase={themeBase}
-        portalContainer={portalContainer}
-      >
-        {collapsible ? (
+      {wrap(
+        collapsible ? (
           <>
             <div data-slot="rdg-toolbar-header-row">
               {toolbarHeading != null ? (
@@ -478,175 +254,12 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
             </div>
           </>
         ) : (
-          toolbarContent
-        )}
-      </menu.ThemeProvider>
-    </div>
-  );
-}
-
-type ColumnToggleItem = {
-  columnId: string;
-  disabled: boolean;
-  label: React.ReactNode;
-  onToggle: () => void;
-  visible: boolean;
-};
-
-type ColumnToggleDropdownProps = {
-  ariaLabel: string;
-  descriptionId?: string;
-  items: readonly ColumnToggleItem[];
-  label: React.ReactNode;
-};
-
-/**
- * The grid's own multi-select menu, driving column state through the toolbar
- * store. Placement, collision handling, focus and typeahead all belong to the
- * menu; this only names the parts and keeps the toolbar's `data-slot` contract
- * on them, so consumer styles written against those names still land.
- */
-function ColumnToggleDropdown(
-  props: ColumnToggleDropdownProps
-): React.ReactElement {
-  const { ariaLabel, descriptionId, items, label } = props;
-  const menu = getCoreMenuRuntime();
-
-  return (
-    <div data-slot="rdg-toolbar-column-toggle-wrapper">
-      {/*
-       * Not modal: a modal menu marks the rest of the page `aria-hidden` and
-       * locks its scrolling, which is the wrong trade for choosing columns
-       * against the grid the choice is changing.
-       */}
-      <menu.Root modal={false}>
-        <menu.Trigger
-          data-slot="rdg-toolbar-column-toggle-trigger"
-          aria-describedby={descriptionId}
-          disabled={items.length === 0}
-        >
-          <ColumnsIcon data-icon="inline-start" />
-          {label}
-          <ChevronDownIcon
-            className="tdg-toolbar-column-toggle-chevron"
-            data-icon="inline-end"
-          />
-        </menu.Trigger>
-
-        <menu.Content
-          align="start"
-          loop
-          // The gap is a documented token the stylesheet applies, so the menu
-          // itself contributes none of its own.
-          sideOffset={0}
-          collisionPadding={MENU_VIEWPORT_MARGIN}
-          // The menu labels itself after its trigger by default, which would
-          // quietly outrank the toolbar's own `ariaLabel` - `aria-labelledby`
-          // wins over `aria-label` wherever both are present.
-          aria-labelledby={undefined}
-          aria-label={ariaLabel}
-          aria-describedby={descriptionId}
-          data-slot="rdg-toolbar-column-toggle-menu"
-        >
-          <menu.Label data-slot="rdg-toolbar-column-toggle-menu-label">
-            {label}
-          </menu.Label>
-          <menu.Separator data-slot="rdg-toolbar-column-toggle-menu-separator" />
-          <menu.Group data-slot="rdg-toolbar-column-toggle-menu-group">
-            {items.map((item) => (
-              <menu.CheckboxItem
-                key={item.columnId}
-                checked={item.visible}
-                disabled={item.disabled}
-                data-slot="rdg-column-toggle"
-                data-layout="menu"
-                data-column-id={item.columnId}
-                // Several columns are usually toggled in one visit, so the menu
-                // outlives each choice instead of closing on the first.
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={item.onToggle}
-              >
-                <span data-slot="rdg-column-toggle-label">{item.label}</span>
-              </menu.CheckboxItem>
-            ))}
-          </menu.Group>
-        </menu.Content>
-      </menu.Root>
-    </div>
-  );
-}
-
-type ExportControlProps = {
-  disabled: boolean;
-  formats: readonly RDGToolbarExportFormat[];
-  label: React.ReactNode;
-  formatLabels: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
-  singleLabels: Partial<Record<RDGToolbarExportFormat, React.ReactNode>>;
-  onExport: (format: RDGToolbarExportFormat) => void | Promise<void>;
-};
-
-/** The same menu again, offering one download per configured format. */
-function ExportControl(props: ExportControlProps): React.ReactElement {
-  const { disabled, formats, label, formatLabels, singleLabels, onExport } =
-    props;
-  const menu = getCoreMenuRuntime();
-  const singleFormat = formats.length === 1 ? formats[0] : null;
-  const formatLabel = (format: RDGToolbarExportFormat): React.ReactNode =>
-    formatLabels[format] ?? RDG_TOOLBAR_EXPORT_FORMATS[format].label;
-
-  if (singleFormat) {
-    return (
-      <button
-        type="button"
-        data-slot="rdg-toolbar-export"
-        data-export-format={singleFormat}
-        disabled={disabled}
-        onClick={() => {
-          void onExport(singleFormat);
-        }}
-      >
-        <ExportIcon />
-        {singleLabels[singleFormat] ?? (
           <>
-            {label} {formatLabel(singleFormat)}
+            {toolbarHeading}
+            {toolbarBody}
           </>
-        )}
-      </button>
-    );
-  }
-
-  return (
-    <div data-slot="rdg-toolbar-export-wrapper">
-      <menu.Root modal={false}>
-        <menu.Trigger data-slot="rdg-toolbar-export" disabled={disabled}>
-          <ExportIcon />
-          {label}
-        </menu.Trigger>
-
-        <menu.Content
-          // Trailing control, so the menu opens inward from its own edge.
-          align="end"
-          loop
-          sideOffset={0}
-          collisionPadding={MENU_VIEWPORT_MARGIN}
-          // Named by its trigger, which the menu arranges itself - so a
-          // translated (or element) label needs no separate string form.
-          data-slot="rdg-toolbar-export-menu"
-        >
-          {formats.map((format) => (
-            <menu.Item
-              key={format}
-              data-slot="rdg-toolbar-export-format"
-              data-export-format={format}
-              onSelect={() => {
-                void onExport(format);
-              }}
-            >
-              {formatLabel(format)}
-            </menu.Item>
-          ))}
-        </menu.Content>
-      </menu.Root>
+        )
+      )}
     </div>
   );
 }

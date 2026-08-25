@@ -12,8 +12,13 @@ import ReactDataGrid, {
   type TypeShowCellBorders,
 } from "../../src/main";
 import {
+  RDGClearFiltersButton,
+  RDGColumnsButton,
+  RDGExportButton,
+  RDGFilterToggleButton,
   RDGToolbar,
   RDGToolbarProvider,
+  RDGToolbarSurface,
   RDGToolbarTarget,
   useRDGToolbarApiState,
   type RDGToolbarApi,
@@ -230,6 +235,32 @@ function OrdersPage() {
   );
 }`;
 
+const composedSnippet = `import {
+  RDGToolbarProvider,
+  RDGToolbarSurface,
+  RDGColumnsButton,
+  RDGExportButton,
+  RDGFilterToggleButton,
+  RDGClearFiltersButton,
+} from "@geovi/the-datagrid/toolbar";
+
+// No RDGToolbar: the buttons are yours to place. The surface is still needed -
+// toolbar.css is scoped to it, and the menus portal into it.
+<RDGToolbarProvider exportDefaults={{ fileName: "orders" }}>
+  <RDGToolbarSurface bare className="my-toolbar">
+    <div className="my-own-row">
+      <h2>Orders</h2>
+      <RDGFilterToggleButton showFiltersLabel="Filters" />
+      <RDGClearFiltersButton label="Reset" />
+      <RDGColumnsButton label="Fields" />
+      <RDGExportButton formats={["csv"]} singleLabels={{ csv: "Download CSV" }} />
+      <MyOwnButton />
+    </div>
+  </RDGToolbarSurface>
+
+  <ReactDataGrid idProperty="orderId" columns={columns} dataSource={orders} />
+</RDGToolbarProvider>`;
+
 /**
  * One captioned card of playground controls. The panel configures three
  * unrelated things - which parts render, what the export writes, and who owns
@@ -380,6 +411,70 @@ type ApiGridCardProps = {
 };
 
 /** Stands in for a shared wrapper: it owns the provider and forwards one ref. */
+type ComposedGridCardProps = ApiGridCardProps;
+
+/*
+ * The same controls `RDGToolbar` renders, in an order and a layout this page
+ * chose. `RDGToolbarSurface bare` contributes only what they need - the
+ * stylesheet's scope, the grid's theme, and the node their menus portal into.
+ */
+function ComposedToolbarCard({
+  columns,
+  dataSource,
+  defaultFilterValue,
+  theme,
+  i18n,
+  resizable,
+  showCellBorders,
+}: Omit<ComposedGridCardProps, "apiRef">) {
+  return (
+    <RDGToolbarProvider exportDefaults={{ fileName: "orders" }}>
+      <RDGToolbarSurface bare>
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-2"
+          data-testid="toolbar-composed-bar"
+        >
+          <span className="mr-auto text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Orders
+          </span>
+          <RDGFilterToggleButton
+            showFiltersLabel="Filters"
+            hideFiltersLabel="Filters off"
+          />
+          <RDGClearFiltersButton label="Reset" />
+          <RDGColumnsButton label="Fields" />
+          <RDGExportButton
+            formats={["csv"]}
+            singleLabels={{ csv: "Download CSV" }}
+          />
+        </div>
+      </RDGToolbarSurface>
+
+      <div
+        className="mt-3 h-80 min-h-0"
+        data-testid="toolbar-composed-viewport"
+      >
+        <RDGToolbarTarget>
+          <ReactDataGrid
+            theme={theme}
+            idProperty="orderId"
+            columns={columns}
+            dataSource={dataSource}
+            defaultFilterValue={defaultFilterValue}
+            enableColumnFilterContextMenu
+            resizable={resizable}
+            showCellBorders={showCellBorders}
+            i18n={i18n}
+            showColumnMenuTool={false}
+            virtualized
+            columnUserSelect
+          />
+        </RDGToolbarTarget>
+      </div>
+    </RDGToolbarProvider>
+  );
+}
+
 function ApiGridCard({
   apiRef,
   columns,
@@ -905,6 +1000,48 @@ export default function ToolbarGridExample({
         <div className="space-y-2">
           <h3 className="text-sm font-medium">Matching props</h3>
           <CopyableCodeBlock code={snippet} language="tsx" label="tsx" />
+        </div>
+      </section>
+
+      <section
+        className="flex flex-col gap-4 rounded-2xl border bg-background/95 p-4 shadow-sm"
+        data-testid="toolbar-composed-demo"
+      >
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">
+            Compose the buttons yourself
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Each control is exported on its own, so a toolbar can carry them in
+            any order, beside anything of your own, inside your own container -
+            without accepting <code>RDGToolbar</code>&apos;s layout. They read
+            the same store, so they behave identically to the toolbar above.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <code>RDGToolbarSurface</code> is still required:{" "}
+            <code>toolbar.css</code> is scoped to it and the dropdown menus
+            portal into it. <code>bare</code> drops the card so your own
+            container owns the layout.
+          </p>
+        </div>
+
+        <ComposedToolbarCard
+          columns={columns}
+          dataSource={orders}
+          defaultFilterValue={defaultFilterValue}
+          theme={theme}
+          i18n={i18n}
+          resizable={resizable}
+          showCellBorders={showCellBorders}
+        />
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Matching props</h3>
+          <CopyableCodeBlock
+            code={composedSnippet}
+            language="tsx"
+            label="tsx"
+          />
         </div>
       </section>
 

@@ -441,6 +441,32 @@ const columns: TypeColumns = [
   { name: "size", header: "Size", exportValue: ({ value }) => filesize(value) },
 ];`;
 
+const toolbarComposeSnippet = `import {
+  RDGToolbarProvider,
+  RDGToolbarSurface,
+  RDGColumnsButton,
+  RDGColumnToggleList,
+  RDGExportButton,
+  RDGFilterToggleButton,
+  RDGClearFiltersButton,
+} from "@geovi/the-datagrid/toolbar";
+
+// No RDGToolbar here: the controls are yours to order and place.
+<RDGToolbarProvider exportDefaults={{ fileName: "orders" }}>
+  <RDGToolbarSurface bare className="my-toolbar">
+    <div className="flex items-center gap-2">
+      <h2>Orders</h2>
+      <MyOwnButton />
+      <RDGFilterToggleButton showFiltersLabel="Filters" />
+      <RDGClearFiltersButton label="Reset" />
+      <RDGColumnsButton label="Fields" />
+      <RDGExportButton formats={["csv", "xlsx"]} scope="all" />
+    </div>
+  </RDGToolbarSurface>
+
+  <ReactDataGrid idProperty="orderId" columns={columns} dataSource={orders} />
+</RDGToolbarProvider>`;
+
 const toolbarTokenSnippet = `/* Any ancestor works; the toolbar root is the narrowest scope. */
 .tdg-toolbar-root {
   --tdg-toolbar-padding: 0;
@@ -7894,6 +7920,96 @@ const columns: TypeColumns = [
               then <code>exportDefaults</code>, then the library defaults. One
               wrapper can name the file for every grid it renders while an
               individual export still overrides the scope or the name.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "toolbar-compose-controls",
+        title: "Compose the controls yourself",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Every control the toolbar renders is exported on its own, so a
+              toolbar can carry them in any order, beside anything of your own,
+              inside your own container - without accepting{" "}
+              <code>RDGToolbar</code>&apos;s layout. They read the same store,
+              so behaviour, disabled states and the export path are identical.
+            </p>
+            <CodeBlock code={toolbarComposeSnippet} language="tsx" />
+            <Callout title="The controls need a surface around them">
+              <p>
+                <code>toolbar.css</code> is scoped to{" "}
+                <code>.tdg-toolbar-root</code>, and a dropdown portals into that
+                node and reads its theme from it. A control rendered outside any
+                surface still works, but arrives unstyled with an unstyled menu.{" "}
+                <code>RDGToolbar</code> is one such surface;{" "}
+                <code>RDGToolbarSurface</code> is the bare one.{" "}
+                <code>bare</code> drops the card - padding, border, background,
+                shadow and column flow - and keeps the palette, the theme and
+                the portal host.
+              </p>
+            </Callout>
+            <ReferenceTable
+              sectionId="toolbar-compose-controls"
+              rows={[
+                {
+                  name: "RDGToolbarSurface",
+                  type: "bare, className, style, ariaLabel",
+                  defaultValue: "-",
+                  description:
+                    "The scoped, themed container the controls live in. Renders the toolbar card unless bare is set.",
+                },
+                {
+                  name: "RDGColumnToggleList",
+                  type: "ariaLabel, describedById, className",
+                  defaultValue: "-",
+                  description:
+                    "Inline on/off button per hideable column, in the grid's own column order.",
+                },
+                {
+                  name: "RDGColumnsButton",
+                  type: "label, ariaLabel, describedById, className",
+                  defaultValue: 'label "Columns"',
+                  description: "The same toggles behind one dropdown menu.",
+                },
+                {
+                  name: "RDGExportButton",
+                  type: "formats, scope, fileName, dateFormat, sheetName, label, formatLabels, singleLabels, onExportSuccess, onExportError, className",
+                  defaultValue: 'formats ["csv", "json", "xlsx"]',
+                  description:
+                    "One button per format, or a menu when more than one is offered. Falls back to the provider's exportDefaults.",
+                },
+                {
+                  name: "RDGFilterToggleButton",
+                  type: "showFiltersLabel, hideFiltersLabel, controlledHint, className",
+                  defaultValue: '"Show filters" / "Hide filters"',
+                  description:
+                    "Shows or hides the filter row. Disabled, with controlledHint as its title, when the grid owns enableFiltering.",
+                },
+                {
+                  name: "RDGClearFiltersButton",
+                  type: "label, className",
+                  defaultValue: 'label "Clear filters"',
+                  description:
+                    "Clears every column filter. Disabled while nothing is filtered.",
+                },
+                {
+                  name: "useRDGColumnToggleItems()",
+                  type: "hook",
+                  defaultValue: "-",
+                  description:
+                    "The column entries the two column controls render - id, label, visible, disabled, onToggle - for a list of your own design.",
+                },
+              ]}
+            />
+            <p>
+              Styling is the same contract as the built-in toolbar: each control
+              keeps its <code>data-slot</code> name, so the{" "}
+              <code>--tdg-toolbar-*</code> tokens and any override you have
+              already written apply unchanged. <code>className</code> is
+              appended to the built-in one rather than replacing it, so a class
+              of your own outranks the defaults without <code>!important</code>.
             </p>
           </div>
         ),
