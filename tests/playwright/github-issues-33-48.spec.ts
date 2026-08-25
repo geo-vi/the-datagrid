@@ -1552,6 +1552,124 @@ test("GitHub issue #41: packaged editors complete on blur and preserve backwards
   await expect(events).toContainText("complete:2026-08-01");
 });
 
+test("GitHub issue #41: column-level edit callbacks run with (value, cellProps) before the grid handlers", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=column-callbacks");
+  const nameCell = scope.locator(
+    '[data-slot="grid-row"][data-row-id="row-1"] [data-column-id="name"]'
+  );
+
+  await nameCell.dblclick();
+  const editor = nameCell.locator('[data-slot="text-editor"]');
+  await expect(editor).toHaveValue("Ada Lovelace");
+  await editor.fill("  Ada Byron  ");
+  await editor.press("Enter");
+  await expect(editor).toHaveCount(0);
+
+  const events = scope.getByTestId("issue-41-edit-events");
+  const recorded = JSON.parse((await events.textContent()) ?? "[]") as string[];
+
+  // The editor trims and `getEditCompleteValue` appends "!"; both completion
+  // callbacks must observe the same transformed value.
+  expect(recorded).toContain("col-complete:row-1:Ada Byron!");
+  expect(recorded).toContain("complete:Ada Byron!");
+  expect(recorded).toContain("col-start:row-1:Ada Lovelace");
+  expect(recorded).toContain("col-change:  Ada Byron  ");
+  expect(recorded).toContain("col-stop:Ada Byron!");
+
+  // Column handlers precede their grid-level counterparts.
+  expect(recorded.indexOf("col-start:row-1:Ada Lovelace")).toBeLessThan(
+    recorded.indexOf("start:row-1:Ada Lovelace")
+  );
+  expect(recorded.indexOf("col-stop:Ada Byron!")).toBeLessThan(
+    recorded.indexOf("stop:Ada Byron!")
+  );
+  expect(recorded.indexOf("col-complete:row-1:Ada Byron!")).toBeLessThan(
+    recorded.indexOf("complete:Ada Byron!")
+  );
+});
+
+test("GitHub issue #41: TextEditor completes on blur and cancels on Escape", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=column-callbacks");
+  const nameCell = scope.locator(
+    '[data-slot="grid-row"][data-row-id="row-1"] [data-column-id="name"]'
+  );
+  const events = scope.getByTestId("issue-41-edit-events");
+
+  await nameCell.dblclick();
+  await nameCell.locator('[data-slot="text-editor"]').fill("Blurred");
+  await scope.getByTestId("issue-41-blur-target").click();
+  await expect(nameCell.locator('[data-slot="text-editor"]')).toHaveCount(0);
+  await expect(events).toContainText("col-complete:row-1:Blurred!");
+
+  await nameCell.dblclick();
+  await nameCell.locator('[data-slot="text-editor"]').fill("Discarded");
+  await nameCell.locator('[data-slot="text-editor"]').press("Escape");
+  await expect(nameCell.locator('[data-slot="text-editor"]')).toHaveCount(0);
+  await expect(events).toContainText("col-cancel:row-1");
+  const recorded = JSON.parse((await events.textContent()) ?? "[]") as string[];
+  expect(recorded).not.toContain("col-complete:row-1:Discarded!");
+
+  // An editor cancels with `onCancel(event)`; the cancelled cell must resolve
+  // from the live session, not from that event.
+  expect(recorded).toContain("col-stop:Discarded");
+  expect(recorded).toContain("stop:Discarded");
+  expect(recorded).toContain("cancel:row-1");
+});
+
+test("GitHub issue #41: SelectEditor commits only values from its dataSource", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=modules");
+  const row = scope.locator(
+    '[data-slot="grid-row"][data-row-id="editor-row-1"]'
+  );
+  const tierCell = row.locator('[data-column-id="tier"]');
+
+  await tierCell.dblclick();
+  await expect(tierCell.locator('[data-slot="select-editor"]')).toBeVisible();
+
+  await page.getByRole("option", { name: "Premium" }).click();
+  await expect(tierCell.locator('[data-slot="select-editor"]')).toHaveCount(0);
+  await expect(scope.getByTestId("issue-41-edit-events")).toContainText(
+    "complete:premium"
+  );
+});
+
+test("GitHub issue #41: the seamless prop puts an editor on the cell surface", async ({
+  page,
+}) => {
+  const scope = await openIssue(page, 41, "editingMode=column-callbacks");
+  const seamlessCell = scope.locator(
+    '[data-slot="grid-row"][data-row-id="row-1"] [data-column-id="name"]'
+  );
+
+  // The column-callbacks name column opts in via editorProps.
+  await seamlessCell.dblclick();
+  await expect(seamlessCell.locator('[data-slot="text-editor"]')).toBeVisible();
+  await expect(seamlessCell).toHaveAttribute(
+    "data-editor-surface",
+    "seamless"
+  );
+  await seamlessCell.locator('[data-slot="text-editor"]').press("Escape");
+
+  // The modules scenario leaves the packaged editors on the default surface.
+  const plainScope = await openIssue(page, 41, "editingMode=modules");
+  const amountCell = plainScope.locator(
+    '[data-slot="grid-row"][data-row-id="editor-row-1"] [data-column-id="amount"]'
+  );
+  await amountCell.dblclick();
+  await expect(
+    amountCell.locator('[data-slot="numeric-editor"]')
+  ).toBeVisible();
+  // The default surface is still marked: "shell" is what stops the cell
+  // clipping and positioning an editor that is out of flow.
+  await expect(amountCell).toHaveAttribute("data-editor-surface", "shell");
+});
+
 test("GitHub issue #42: rowHeights applies a stable per-row override map", async ({
   page,
 }) => {

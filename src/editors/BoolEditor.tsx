@@ -4,7 +4,11 @@ import * as React from "react";
 
 import { Checkbox } from "../components/ui/checkbox";
 import { cn } from "../lib/utils";
-import type { TypeCommunityEditorProps } from "./editorTypes";
+import {
+  editorSurfaceClass,
+  toDomEditorProps,
+  type TypeCommunityEditorProps,
+} from "./editorTypes";
 
 export type BoolEditorProps = Omit<
   TypeCommunityEditorProps<boolean | null>,
@@ -25,6 +29,7 @@ export default function BoolEditor({
   disabled,
   readOnly,
   rtl,
+  seamless,
   className,
   style,
   editorProps,
@@ -44,6 +49,7 @@ export default function BoolEditor({
     <div
       className={cn(
         "flex h-full min-h-8 w-full items-center justify-center",
+        editorSurfaceClass(seamless),
         className
       )}
       style={style}
@@ -51,7 +57,7 @@ export default function BoolEditor({
       data-slot="bool-editor"
     >
       <Checkbox
-        {...editorProps}
+        {...toDomEditorProps(editorProps, ["emptyValue"])}
         ref={buttonRef}
         checked={value === true}
         disabled={disabled || readOnly}

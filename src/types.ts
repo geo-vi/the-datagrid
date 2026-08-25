@@ -613,6 +613,19 @@ export interface IColumn {
   editor?: React.ElementType<any> | React.ReactElement<any>;
   editorProps?: Record<string, unknown>;
   getEditStartValue?: (value: any, cellProps: CellProps) => any | Promise<any>;
+  /** Synchronously transforms the draft before either completion callback sees it. */
+  getEditCompleteValue?: (value: any, cellProps: CellProps) => any;
+
+  /*
+   * Column-level edit lifecycle. Inovua merges the column into the cell props,
+   * so these are called as `handler(value, cellProps)` and run before their
+   * grid-level `TypeDataGridProps` counterparts, which take a `TypeEditInfo`.
+   */
+  onEditStart?: (value: any, cellProps: CellProps) => void;
+  onEditStop?: (value: any, cellProps: CellProps) => void;
+  onEditComplete?: (value: any, cellProps: CellProps) => void | Promise<any>;
+  onEditCancel?: (cellProps: CellProps) => void;
+  onEditValueChange?: (value: any, cellProps: CellProps) => void;
   /**
    * Keeps a consumer-rendered editor mounted through `column.render`.
    * The render callback receives lifecycle-aware `cellProps.editProps`.

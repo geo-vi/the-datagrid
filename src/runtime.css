@@ -465,6 +465,17 @@
   --tdg-row-active-border-color: var(--tdg-color-ring);
   --tdg-row-active-color: var(--tdg-color-foreground);
   --tdg-field-active-bg: var(--tdg-row-selected-bg);
+  /*
+   * Editor surface geometry. `padding` is the inline padding a text editor
+   * uses; it defaults to the cell's own 0.5rem so the text does not shift when
+   * the editor mounts. The bordered shell subtracts its inset and border from
+   * it to land on the same place, so changing the inset alone keeps the text
+   * put. The cell's padding is a layout class, not this token — raising this
+   * one on its own moves the editor's text off the cell's.
+   */
+  --tdg-cell-editor-padding: 0.5rem;
+  --tdg-cell-editor-inset: 3px;
+  --tdg-cell-editor-border-width: 1px;
   --tdg-column-header-resizer-constrained-color: var(--tdg-color-accent);
 
   --tdg-input-bg: var(--tdg-color-background);
@@ -1787,7 +1798,65 @@
   min-height: 0 !important;
   margin: 0 !important;
   border: 0 !important;
+  /*
+   * The shell's focus ring and drop shadow are box-shadows, so clearing the
+   * border alone still leaves a rounded outline hugging the cell. The cell's
+   * own active background and underline are the focus affordance here.
+   */
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
   background: transparent !important;
+  text-align: inherit !important;
+}
+
+/*
+ * Only the text editor is expected to line up with what it replaces: it stands
+ * in for plain text, so any horizontal shift on mount reads as the text
+ * jumping. The other editors are controls with a shape of their own and keep
+ * their natural padding.
+ *
+ * Seamless matches the cell's 8px padding directly. The shell reaches the same
+ * 8px as 3px inset + 1px border + 4px padding.
+ */
+.tdg-root .tdg-text-editor.InovuaReactDataGrid__cell__editor {
+  padding-inline: var(--tdg-cell-editor-padding) !important;
+}
+
+.tdg-root
+  .tdg-text-editor.tdg-cell-editor-shell.tdg-cell-editor-shell {
+  padding-inline: calc(
+    var(--tdg-cell-editor-padding) - var(--tdg-cell-editor-inset) -
+      var(--tdg-cell-editor-border-width)
+  ) !important;
+}
+
+/*
+ * Cells place their content with `justify-content` on the content wrapper,
+ * because a flex item hugs itself and `text-align` has no room to act. An
+ * editor is positioned against the cell rather than that wrapper, so it needs
+ * the column's alignment handed to it directly, or a right-aligned column's
+ * text jumps to the left edge the moment the editor mounts. A wrapper editor's
+ * inner input needs it too — it does not inherit `text-align` from the shell.
+ */
+.tdg-root
+  .InovuaReactDataGrid__cell[data-text-align="end"]
+  :is(.tdg-cell-editor, .InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell),
+.tdg-root
+  .InovuaReactDataGrid__cell[data-text-align="end"]
+  :is(.InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell)
+  input {
+  text-align: right !important;
+}
+
+.tdg-root
+  .InovuaReactDataGrid__cell[data-text-align="center"]
+  :is(.tdg-cell-editor, .InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell),
+.tdg-root
+  .InovuaReactDataGrid__cell[data-text-align="center"]
+  :is(.InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell)
+  input {
+  text-align: center !important;
 }
 
 /*
@@ -1803,9 +1872,36 @@
 
 .tdg-root
   .InovuaReactDataGrid__cell[data-editing="true"][data-editor-surface="seamless"]
+  > .tdg-cell-content,
+.tdg-root
+  .InovuaReactDataGrid__cell[data-editing="true"][data-editor-surface="shell"]
   > .tdg-cell-content {
   position: static !important;
   overflow: visible !important;
+}
+
+/*
+ * The bordered alternative to the seamless surface. Also out of flow, so
+ * mounting it cannot change the height of the row it opens in, and inset from
+ * the cell edge so its border does not sit on the cell's own. One border, not
+ * a border plus a focus ring drawn at the same width.
+ *
+ * The class is doubled to reach the field armour's specificity; the armour
+ * sets border-radius and box-shadow with !important and would otherwise win.
+ */
+.tdg-root .tdg-cell-editor-shell.tdg-cell-editor-shell {
+  box-sizing: border-box !important;
+  text-align: inherit !important;
+  position: absolute !important;
+  inset: var(--tdg-cell-editor-inset) !important;
+  z-index: 1 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border-radius: var(--tdg-radius-sm) !important;
+  box-shadow: none !important;
 }
 
 /*
@@ -1826,7 +1922,7 @@
   min-width: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
-  padding: 0.5rem !important;
+  padding: var(--tdg-cell-editor-padding) !important;
   border: 0 !important;
   border-radius: 0 !important;
   outline: 0 !important;
@@ -1909,6 +2005,37 @@
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus-visible {
   border-color: var(--tdg-select-shell-border-color) !important;
+}
+
+/*
+ * The armour above matches at the same specificity as the seamless editor
+ * block but sits later in this file, so an in-cell select needs its own
+ * override. Sized by the cell rather than by the standalone control's fixed
+ * height, or a bordered select editor grows the row it opens in.
+ */
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.tdg-cell-editor-shell {
+  position: absolute !important;
+  inset: var(--tdg-cell-editor-inset) !important;
+  /* The armour pins width to 100%, which anchored at inset overflows right. */
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  border-radius: var(--tdg-radius-sm) !important;
+  box-shadow: none !important;
+}
+
+.tdg-root
+  .tdg-select-trigger.inovua-react-toolkit-combo-box.InovuaReactDataGrid__cell__editor {
+  position: absolute !important;
+  inset: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .tdg-root

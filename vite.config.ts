@@ -277,6 +277,14 @@ export default defineConfig(({ command, mode }) => {
       name: "NumericEditor",
       source: "./src/editors/NumericEditor.tsx",
     },
+    "library-select-editor": {
+      name: "SelectEditor",
+      source: "./src/editors/SelectEditor.tsx",
+    },
+    "library-text-editor": {
+      name: "TextEditor",
+      source: "./src/editors/TextEditor.tsx",
+    },
     "library-string-filter": {
       name: "StringFilter",
       source: "./src/filters/editors/StringFilter.tsx",

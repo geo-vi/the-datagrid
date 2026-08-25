@@ -48,6 +48,12 @@ import DateEditor, {
 import NumericEditor, {
   type NumericEditorProps,
 } from "@geovi/the-datagrid/NumericEditor";
+import SelectEditor, {
+  type SelectEditorProps,
+} from "@geovi/the-datagrid/SelectEditor";
+import TextEditor, {
+  type TextEditorProps,
+} from "@geovi/the-datagrid/TextEditor";
 import StringFilter, {
   type StringFilterProps,
 } from "@geovi/the-datagrid/StringFilter";
@@ -85,6 +91,8 @@ export const communityModuleTypes = {
   BoolEditor,
   DateEditor,
   NumericEditor,
+  SelectEditor,
+  TextEditor,
   StringFilter,
   BoolFilter,
   DateFilter,
@@ -115,6 +123,17 @@ export const numericEditorProps = {
   value: 42,
   min: 0,
 } satisfies NumericEditorProps;
+
+export const selectEditorProps = {
+  value: "Triage",
+  dataSource: [{ id: "Triage", label: "Triage" }],
+} satisfies SelectEditorProps;
+
+export const textEditorProps = {
+  value: "Ada",
+  maxLength: 120,
+  trim: true,
+} satisfies TextEditorProps;
 
 export const stringFilterProps = {
   filterValue: {

@@ -8,7 +8,9 @@ import ReactDataGrid, {
   NumberFilter,
   NumericEditor,
   SelectFilter,
+  SelectEditor,
   StringFilter,
+  TextEditor,
   plugins,
   type CellProps,
   type TypeColumns,
@@ -888,17 +890,45 @@ function Issue41EditStartValue() {
         active: true,
         amount: 42,
         date: "2026-07-29",
+        tier: "basic",
       },
       {
         id: "editor-row-2",
         active: false,
         amount: 84,
         date: "2026-07-30",
+        tier: "premium",
       },
     ],
     []
   );
   const columns = React.useMemo<TypeColumns>(() => {
+    if (mode === "column-callbacks") {
+      // These run with `(value, cellProps)` ahead of the grid-level handlers.
+      const log = (entry: string) =>
+        setEvents((current) => [...current, entry]);
+      return [
+        { name: "id", header: "ID", editable: false },
+        {
+          name: "name",
+          header: "Name",
+          editable: true,
+          editor: TextEditor,
+          editorProps: { trim: true, seamless: true },
+          getEditCompleteValue: (value: unknown) => `${String(value)}!`,
+          onEditStart: (value: unknown, cellProps: CellProps) =>
+            log(`col-start:${String(cellProps.rowId)}:${String(value)}`),
+          onEditValueChange: (value: unknown) =>
+            log(`col-change:${String(value)}`),
+          onEditStop: (value: unknown) => log(`col-stop:${String(value)}`),
+          onEditComplete: (value: unknown, cellProps: CellProps) =>
+            log(`col-complete:${String(cellProps.rowId)}:${String(value)}`),
+          onEditCancel: (cellProps: CellProps) =>
+            log(`col-cancel:${String(cellProps.rowId)}`),
+        },
+      ];
+    }
+
     if (mode === "modules") {
       return [
         { name: "id", header: "ID", editable: false },
@@ -919,6 +949,18 @@ function Issue41EditStartValue() {
           header: "Date",
           editable: true,
           editor: DateEditor,
+        },
+        {
+          name: "tier",
+          header: "Tier",
+          editable: true,
+          editor: SelectEditor,
+          editorProps: {
+            dataSource: [
+              { id: "basic", label: "Basic" },
+              { id: "premium", label: "Premium" },
+            ],
+          },
         },
       ];
     }
@@ -987,7 +1029,7 @@ function Issue41EditStartValue() {
           dataSource={mode === "modules" ? editorModuleRows : baseRows}
           columnOrder={
             mode === "modules"
-              ? ["id", "active", "amount", "date"]
+              ? ["id", "active", "amount", "date", "tier"]
               : ["id", "name"]
           }
           virtualized={false}

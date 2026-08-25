@@ -2083,6 +2083,21 @@ function createInovuaStatusPage(): DocsPage {
   };
 }
 
+const columnEditLifecycleSnippet = `import { TextEditor, type TypeColumns } from "@geovi/the-datagrid";
+
+const columns: TypeColumns = [
+  {
+    name: "comment",
+    editable: (_value, cellProps) => cellProps.data.ownerId === currentUserId,
+    editor: TextEditor,
+    editorProps: { trim: true },
+    onEditComplete: async (value, cellProps) => {
+      if (value === cellProps.data.comment) return;
+      await saveComment(cellProps.data.id, value);
+    },
+  },
+];`;
+
 const columnSections: ReferenceSection[] = [
   {
     id: "compatibility-status",
@@ -2190,6 +2205,27 @@ const columnSections: ReferenceSection[] = [
   {
     id: "editing-fields",
     title: "Editing",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          A column carries the whole edit lifecycle, not only its editor. Inovua
+          merges the column definition into the cell&apos;s props, so a
+          column-scoped handler is invoked as{" "}
+          <code>handler(value, cellProps)</code> rather than with a{" "}
+          <code>TypeEditInfo</code>, and it runs before its grid-level
+          counterpart. Use the column form to persist one field and the
+          grid-level prop of the same name for cross-column concerns; declaring
+          both is supported.
+        </p>
+        <CodeBlock code={columnEditLifecycleSnippet} />
+        <p>
+          Navigation waits for a promise returned by either handler and is
+          suppressed if either rejects. <code>getEditCompleteValue</code>{" "}
+          transforms the draft once, before either completion callback observes
+          it, so the column and the grid always agree on the value.
+        </p>
+      </div>
+    ),
     rows: [
       {
         name: "editable",
@@ -2218,6 +2254,48 @@ const columnSections: ReferenceSection[] = [
         defaultValue: "-",
         description:
           "Render-function alternative receiving the complete editor props, cell props, and compatibility cell instance. The editor field takes precedence when both are supplied.",
+      },
+      {
+        name: "onEditStart",
+        type: "(value, cellProps) => void",
+        defaultValue: "-",
+        description:
+          "Runs once the editor mounts, with the resolved start value, before the grid-level onEditStart.",
+      },
+      {
+        name: "onEditValueChange",
+        type: "(value, cellProps) => void",
+        defaultValue: "-",
+        description:
+          "Runs on every draft change while the editor is open, before the grid-level onEditValueChange.",
+      },
+      {
+        name: "onEditStop",
+        type: "(value, cellProps) => void",
+        defaultValue: "-",
+        description:
+          "Runs when the editor stops, ahead of completion or cancellation and ahead of the grid-level onEditStop.",
+      },
+      {
+        name: "onEditComplete",
+        type: "(value, cellProps) => void | Promise<any>",
+        defaultValue: "-",
+        description:
+          "Runs after the editor stops and reports the accepted value. Called before the grid-level onEditComplete; navigation waits for both and a rejection from either suppresses it.",
+      },
+      {
+        name: "onEditCancel",
+        type: "(cellProps) => void",
+        defaultValue: "-",
+        description:
+          "Runs on Escape, before the grid-level onEditCancel. No value is reported; cellProps identifies the cancelled cell.",
+      },
+      {
+        name: "getEditCompleteValue",
+        type: "(value, cellProps) => any",
+        defaultValue: "-",
+        description:
+          "Transforms the draft before either completion callback observes it. A throwing transform falls back to the untransformed draft rather than stranding the edit session.",
       },
     ],
   },
@@ -3481,6 +3559,123 @@ const checkboxRows: ReferenceRow[] = [
     type: "string / React.CSSProperties",
     defaultValue: "-",
     description: "Styling hooks forwarded to the underlying Radix checkbox.",
+  },
+];
+
+const cellEditorSnippet = `import {
+  BoolEditor,
+  DateEditor,
+  NumericEditor,
+  SelectEditor,
+  TextEditor,
+} from "@geovi/the-datagrid";
+// or: import TextEditor from "@geovi/the-datagrid/TextEditor";
+
+const columns = [
+  { name: "task", header: "Task", editable: true },
+  {
+    name: "owner",
+    header: "Owner",
+    editable: true,
+    editor: TextEditor,
+    editorProps: { trim: true, maxLength: 60, enableClearButton: true },
+  },
+  {
+    name: "estimate",
+    header: "Estimate",
+    editable: true,
+    editor: NumericEditor,
+    editorProps: { min: 0, max: 40, step: 1 },
+  },
+  {
+    name: "status",
+    header: "Status",
+    editable: true,
+    editor: SelectEditor,
+    editorProps: {
+      dataSource: [
+        { id: "todo", label: "To do" },
+        { id: "doing", label: "In progress" },
+        { id: "done", label: "Done" },
+      ],
+    },
+  },
+];`;
+
+const cellEditorSurfaceSnippet = `{
+  name: "owner",
+  editable: true,
+  editor: TextEditor,
+  editorProps: { seamless: true },
+}`;
+
+const textEditorRows: ReferenceRow[] = [
+  {
+    name: "maxLength / minLength",
+    type: "number",
+    defaultValue: "-",
+    description: "Length bounds the built-in editor cannot express.",
+  },
+  {
+    name: "placeholder",
+    type: "string",
+    defaultValue: "-",
+    description: "Placeholder shown while the field is empty.",
+  },
+  {
+    name: "trim",
+    type: "boolean",
+    defaultValue: "false",
+    description:
+      "Reports the trimmed draft on completion. Typing is left untouched, so no normalized value is echoed back mid-keystroke and the caret stays put.",
+  },
+  {
+    name: "emptyValue",
+    type: "string | null",
+    defaultValue: '""',
+    description: "Value reported on completion for an empty field.",
+  },
+  {
+    name: "enableClearButton",
+    type: "boolean",
+    defaultValue: "false",
+    description:
+      "Adds the inline clear affordance the standalone TextInput has. Clearing empties the field without ending the edit.",
+  },
+  {
+    name: "seamless",
+    type: "boolean",
+    defaultValue: "false",
+    description:
+      "Picks the editor surface. See Editor surfaces below; every packaged editor accepts it.",
+  },
+];
+
+const selectEditorRows: ReferenceRow[] = [
+  {
+    name: "dataSource",
+    type: "ReadonlyArray<{ id, label } | value>",
+    defaultValue: "[]",
+    description:
+      "Inovua's option list, the same shape SelectFilter takes. Bare values work too; label falls back to the value.",
+  },
+  {
+    name: "options",
+    type: "ReadonlyArray<{ id, label } | value>",
+    defaultValue: "-",
+    description: "Alias for dataSource, matching the filter editors.",
+  },
+  {
+    name: "placeholder",
+    type: "string",
+    defaultValue: "-",
+    description: "Trigger text shown when the cell has no value.",
+  },
+  {
+    name: "seamless",
+    type: "boolean",
+    defaultValue: "false",
+    description: "Picks the editor surface, as on the other editors.",
   },
 ];
 
@@ -7016,9 +7211,219 @@ const columns: TypeColumns = [
         ),
       },
       {
+        id: "textinput-not-an-editor",
+        title: "Not a cell editor",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <code>TextInput</code> speaks a value-first <code>onChange</code>{" "}
+              and has no <code>onComplete</code>, <code>onCancel</code>, or{" "}
+              <code>onTabNavigation</code>, so handing it to{" "}
+              <code>column.editor</code> means writing the editor lifecycle by
+              hand. Use <code>TextEditor</code> for an editable column.
+            </p>
+            <DocsRouteLink
+              group="reference"
+              slug="cell-editors"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Cell editors reference
+            </DocsRouteLink>
+          </div>
+        ),
+      },
+      {
         id: "textinput-props",
         title: "Props and instance API",
         rows: textInputRows,
+      },
+    ],
+  },
+  {
+    group: "reference",
+    slug: "cell-editors",
+    title: "Cell editors",
+    summary:
+      "TextEditor, SelectEditor, NumericEditor, DateEditor, and BoolEditor — the editors a column can point editor at, and the two surfaces they render on.",
+    description:
+      "A column with no editor keeps the grid's built-in text editor. The packaged editors cover the cases it cannot: configured text, a closed option list, numbers, dates, and booleans. All of them complete on blur, cancel on Escape, and move with Tab.",
+    tags: ["Reference", "Editing", "Editors", "TextEditor", "SelectEditor"],
+    sections: [
+      {
+        id: "cell-editors-overview",
+        title: "The packaged editors",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <code>BoolEditor</code>, <code>DateEditor</code>,{" "}
+              <code>NumericEditor</code>, <code>SelectEditor</code>, and{" "}
+              <code>TextEditor</code> are exported from the package root and
+              from their own subpaths. Point <code>column.editor</code> at one
+              and configure it through <code>column.editorProps</code>.
+            </p>
+            <CodeBlock code={cellEditorSnippet} />
+            <p>
+              Every packaged editor takes itself out of flow, so opening one
+              never changes the height of the row it opens in, and none of them
+              put their own configuration on a DOM node.
+            </p>
+            <Callout title="Enter completes without navigating">
+              <p>
+                The Inovua default editor paired completion with{" "}
+                <code>onEnterNavigation</code>, so a held Enter walked the
+                editor down the column one row at a time. These editors do not.
+                Call <code>onEnterNavigation</code> from <code>onKeyDown</code>{" "}
+                to opt back in.
+              </p>
+            </Callout>
+            <p>
+              The editing example runs one column per editor with a live
+              activity log of what the grid reported, a toggle between the two
+              surfaces, and buttons driving <code>startEdit</code>/
+              <code>completeEdit</code>/<code>cancelEdit</code> from outside the
+              grid.
+            </p>
+            <Link
+              to="/examples/editing"
+              className="inline-flex rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60"
+            >
+              Open the editing example
+            </Link>
+          </div>
+        ),
+      },
+      {
+        id: "cell-editors-texteditor",
+        title: "TextEditor",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              The built-in editor is the right default for free text until one
+              thing is needed from it — a length limit, trimming, a clear
+              button. <code>TextEditor</code> is that editor with those knobs.
+              Its text sits where the cell&apos;s text sat, so committing and
+              cancelling do not move it.
+            </p>
+            <Callout title="TextInput is not an editor" tone="warning">
+              <p>
+                The exported <code>TextInput</code> is the Inovua-toolkit input:
+                a value-first <code>onChange</code> and no{" "}
+                <code>onComplete</code>, <code>onCancel</code>, or{" "}
+                <code>onTabNavigation</code>. Wiring it into{" "}
+                <code>column.editor</code> means hand-mapping blur and keys onto
+                the editor lifecycle, which is what <code>TextEditor</code>{" "}
+                already does.
+              </p>
+            </Callout>
+          </div>
+        ),
+        rows: textEditorRows,
+      },
+      {
+        id: "cell-editors-selecteditor",
+        title: "SelectEditor",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              A column with a closed vocabulary — a status, a priority, a
+              category — falls back to the built-in text editor, which cannot
+              know the list exists and so commits anything typed into it.{" "}
+              <code>SelectEditor</code> takes the same <code>dataSource</code>{" "}
+              as <code>SelectFilter</code> and commits on pick, so there is no
+              way to enter a value outside the list.
+            </p>
+          </div>
+        ),
+        rows: selectEditorRows,
+      },
+      {
+        id: "cell-editors-surfaces",
+        title: "Editor surfaces",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Each packaged editor renders on one of two surfaces. Both are out
+              of flow; they differ in whether the editor fills the cell or sits
+              inside it as a control. The default is the bordered shell, so
+              adding an editor to a column does not change how it looks.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "seamless: true",
+                  type: "full-cell overlay",
+                  defaultValue: "-",
+                  description:
+                    "Fills the cell, as the built-in editor does. The cell takes --tdg-field-active-bg and an inset underline; the editor itself has no border, radius, or focus ring.",
+                },
+                {
+                  name: "seamless: false",
+                  type: "bordered control",
+                  defaultValue: "default",
+                  description:
+                    "A control inset a few pixels from the cell edge, with a single 1px border and no focus ring stacked on top of it.",
+                },
+              ]}
+            />
+            <CodeBlock code={cellEditorSurfaceSnippet} />
+            <p>
+              The prop picks which class goes on the editor root.{" "}
+              <code>SEAMLESS_EDITOR_CLASS</code> is exported from the package
+              root, so a custom editor can carry it and get the same treatment.
+              The grid watches for either class and marks the cell{" "}
+              <code>data-editor-surface</code>, which stops it clipping and
+              positioning its content.
+            </p>
+            <p>
+              Colours come from the existing field tokens —{" "}
+              <code>--tdg-input-*</code> for the text, numeric, and date
+              editors, <code>--tdg-select-shell-*</code> for the select,{" "}
+              <code>--tdg-checkbox-*</code> for the boolean one, and{" "}
+              <code>--tdg-field-active-bg</code> for the cell under a seamless
+              editor — so theming those themes the editors too. The surface
+              geometry has its own tokens:
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "--tdg-cell-editor-padding",
+                  type: "length",
+                  defaultValue: "0.5rem",
+                  description:
+                    "Inline padding of a text editor. Defaults to the cell's own padding so the text does not shift on mount.",
+                },
+                {
+                  name: "--tdg-cell-editor-inset",
+                  type: "length",
+                  defaultValue: "3px",
+                  description:
+                    "How far the bordered shell sits inside the cell. The shell subtracts this and its border from the padding above, so changing the inset keeps the text put.",
+                },
+                {
+                  name: "--tdg-cell-editor-border-width",
+                  type: "length",
+                  defaultValue: "1px",
+                  description:
+                    "Border width of the bordered shell, used in the same calculation.",
+                },
+              ]}
+            />
+            <Callout
+              title="Restyling an in-cell editor needs three-class specificity"
+              tone="warning"
+            >
+              <p>
+                The field armour — <code>.inovua-react-toolkit-text-input</code>
+                , <code>.tdg-select-trigger</code> — sets{" "}
+                <code>border-radius</code>, <code>box-shadow</code>,{" "}
+                <code>width</code>, and <code>height</code> with{" "}
+                <code>!important</code> at three-class specificity, after the
+                surface rules. A two-class rule silently applies its positioning
+                and loses everything the armour also sets.
+              </p>
+            </Callout>
+          </div>
+        ),
       },
     ],
   },

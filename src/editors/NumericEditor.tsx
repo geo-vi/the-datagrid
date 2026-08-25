@@ -4,7 +4,11 @@ import * as React from "react";
 
 import { Input } from "../components/ui/input";
 import { cn } from "../lib/utils";
-import type { TypeCommunityEditorProps } from "./editorTypes";
+import {
+  editorSurfaceClass,
+  toDomEditorProps,
+  type TypeCommunityEditorProps,
+} from "./editorTypes";
 
 export type NumericEditorValue = number | string | null;
 
@@ -33,6 +37,7 @@ export default function NumericEditor({
   disabled,
   readOnly,
   rtl,
+  seamless,
   className,
   style,
   editorProps,
@@ -51,7 +56,7 @@ export default function NumericEditor({
 
   return (
     <Input
-      {...editorProps}
+      {...toDomEditorProps(editorProps)}
       type="number"
       value={draft}
       min={min ?? editorProps?.min}
@@ -61,7 +66,12 @@ export default function NumericEditor({
       disabled={disabled}
       readOnly={readOnly}
       dir={rtl ? "rtl" : "ltr"}
-      className={cn("h-full min-h-8 w-full", editorProps?.className, className)}
+      className={cn(
+        "h-full min-h-8 w-full",
+        editorSurfaceClass(seamless),
+        editorProps?.className,
+        className
+      )}
       style={{ ...editorProps?.style, ...style }}
       data-slot="numeric-editor"
       onChange={(event) => {

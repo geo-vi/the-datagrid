@@ -2,6 +2,7 @@ export type ExampleId =
   | "actions"
   | "basic"
   | "columns"
+  | "editing"
   | "inovua-parity"
   | "mobile-transform"
   | "selection"
@@ -59,6 +60,19 @@ export const exampleCatalog: ExampleCatalogEntry[] = [
       "Combines typed renderers, filter metadata, bounded widths, numeric alignment, hidden fields, controlled reordering, and virtualization.",
     sourcePath: "examples/src/ColumnsGridExample.tsx",
     tags: ["Columns", "Rendering", "Filtering", "Virtualized"],
+  },
+  {
+    id: "editing",
+    to: "/examples/editing",
+    legacyTo: "/editing",
+    label: "Editing",
+    title: "Editing example",
+    summary:
+      "One column per editor: the built-in cell editor next to the packaged TextEditor, NumericEditor, DateEditor, and SelectEditor, plus a boolean column that toggles in place.",
+    details:
+      "Commits are confirmed live through a saved banner and an activity log. Shows column-level onEditComplete running before the grid-level handler, an async persist that the grid waits on, and why some editors and filters are imports while others are not.",
+    sourcePath: "examples/src/EditingGridExample.tsx",
+    tags: ["Editing", "Editors", "Filtering"],
   },
   {
     id: "inovua-parity",
