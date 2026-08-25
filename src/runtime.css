@@ -479,6 +479,8 @@
   --tdg-input-border-color: var(--tdg-color-input);
   --tdg-input-border-color-hover: var(--tdg-input-border-color);
   --tdg-input-border-color-focus: var(--tdg-input-border-color);
+  --tdg-input-clear-size: 1.25rem;
+  --tdg-input-clear-color: inherit;
 
   --tdg-select-bg: var(--tdg-color-background);
   --tdg-select-color: var(--tdg-color-foreground);
@@ -1828,6 +1830,44 @@
     var(--tdg-cell-editor-padding) - var(--tdg-cell-editor-inset) -
       var(--tdg-cell-editor-border-width)
   ) !important;
+}
+
+/*
+ * The utility classes on `TextEditor`'s clear button place and fade it but
+ * reset nothing, so a host's own `button` rules dressed it in a border and a
+ * background. Armoured like the standalone `TextInput`'s clear button; the
+ * hover fade stays with the utility class.
+ */
+.tdg-root .tdg-text-editor__clear {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: var(--tdg-input-clear-size) !important;
+  height: var(--tdg-input-clear-size) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  margin-inline-start: 0.25rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: var(--tdg-radius-sm) !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--tdg-input-clear-color) !important;
+  cursor: pointer !important;
+}
+
+/* Half the button, so the hit area survives a size change. */
+.tdg-root .tdg-text-editor__clear svg {
+  display: block !important;
+  width: calc(var(--tdg-input-clear-size) / 2) !important;
+  height: calc(var(--tdg-input-clear-size) / 2) !important;
 }
 
 /*
