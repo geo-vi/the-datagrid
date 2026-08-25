@@ -2284,6 +2284,60 @@ test("lets cell content override the grid typography", async ({ page }) => {
   });
 });
 
+// `.tdg-root` used to assert its own font family, so the grid ignored the font of
+// the element it sat in. It inherits now, and `--tdg-font-family` pins it.
+//
+// The broad-host-css test below already covers the regression of re-hardcoding a
+// family on the root: the grid would stop following the host and its font
+// assertion would fail. This covers the token, and the button, whose own reset
+// used to restate a family rather than inherit one.
+test("inherits the host font and honours --tdg-font-family", async ({
+  page,
+}) => {
+  await page.goto("/basic");
+  const grid = page.locator(".InovuaReactDataGrid.tdg-root").first();
+  await expect(grid.locator("tbody td").first()).toBeVisible();
+
+  const fonts = await grid.evaluate((root) => {
+    const familyOf = (element: Element | null) =>
+      element
+        ? getComputedStyle(element)
+            .fontFamily.split(",")[0]!
+            .trim()
+            .replace(/^["']|["']$/g, "")
+        : null;
+    const probe = () => ({
+      root: familyOf(root),
+      cell: familyOf(root.querySelector("tbody td")),
+      button: familyOf(root.querySelector(".tdg-button")),
+    });
+
+    // Set on the parent rather than through a stylesheet, so the result cannot
+    // depend on what the example page happens to put between body and grid.
+    const parent = root.parentElement as HTMLElement;
+    const restore = parent.style.fontFamily;
+    parent.style.fontFamily = '"Georgia", serif';
+    const inherited = probe();
+
+    (root as HTMLElement).style.setProperty(
+      "--tdg-font-family",
+      '"Courier New", monospace'
+    );
+    const pinned = probe();
+
+    (root as HTMLElement).style.removeProperty("--tdg-font-family");
+    parent.style.fontFamily = restore;
+    return { inherited, pinned };
+  });
+
+  for (const [probe, family] of Object.entries(fonts.inherited)) {
+    expect(family, `${probe} follows the host font`).toBe("Georgia");
+  }
+  for (const [probe, family] of Object.entries(fonts.pinned)) {
+    expect(family, `${probe} takes the pinned font`).toBe("Courier New");
+  }
+});
+
 test("keeps grid-owned structure under broad host css overrides", async ({
   page,
 }) => {
@@ -2415,7 +2469,12 @@ test("keeps grid-owned structure under broad host css overrides", async ({
     });
 
   expect(snapshot).not.toBeNull();
-  expect(snapshot?.rootFontFamily).not.toContain("Times New Roman");
+  // Structure is what this test protects. The font is deliberately not part of
+  // it: the grid inherits its family so it reads as part of the page, which
+  // means a host rule this broad reaches it. The flag could not prevent that
+  // anyway — the same rule styles the grid's ancestors, and an inherited value
+  // follows them. A grid that needs its own font sets `--tdg-font-family`.
+  expect(snapshot?.rootFontFamily).toContain("Times New Roman");
   expect(snapshot?.frameDisplay).toBe("flex");
   expect(snapshot?.surfaceDisplay).toBe("flex");
   expect(snapshot?.tableDisplay).toBe("table");

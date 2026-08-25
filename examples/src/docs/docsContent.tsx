@@ -5185,6 +5185,15 @@ pnpm add @geovi/the-datagrid`}
               interaction patterns internally. The <code>theme</code> prop is a
               hook, not a second styling system.
             </p>
+            <p>
+              The grid <strong>inherits its font family</strong> from the
+              element it is placed in, so it takes the page&apos;s font without
+              being told. Set <code>--tdg-font-family</code> on the grid, or
+              anywhere above it, to pin a font of its own instead. Font size is
+              separate and does not inherit: it stays at{" "}
+              <code>--tdg-font-size</code> (0.875rem), because row heights are
+              measured against it.
+            </p>
             <ReferenceTable
               rows={[
                 {

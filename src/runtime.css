@@ -11,14 +11,10 @@
   z-index: 50 !important;
   display: block !important;
   pointer-events: none !important;
-  font-family: var(
-    --font-sans,
-    ui-sans-serif,
-    system-ui,
-    sans-serif,
-    "Apple Color Emoji",
-    "Segoe UI Emoji"
-  ) !important;
+  /* Portalled to the body, so it cannot inherit from the grid. It follows the
+     page for the same reason the grid does, and honours the same pin — which
+     has to be set at document scope to reach out here. */
+  font-family: var(--tdg-font-family, inherit);
   font-size: 0.875rem !important;
   line-height: 1.5 !important;
   color: var(--foreground, oklch(0.145 0 0)) !important;
@@ -701,16 +697,18 @@
   border-color: var(--tdg-color-border);
 }
 
+/* The family inherits, so the grid reads as part of the page it sits in rather
+   than announcing its own font. Everything inside already resolves to `inherit`,
+   so this is the one declaration that decides it. `--tdg-font-family` pins the
+   grid to a font of its own without needing a wrapper element.
+
+   It carries no !important, per the rule the cell resets set: structure is
+   armoured, typography is not. The flag could not buy resistance here anyway —
+   a host rule hostile enough to reach `.tdg-root` reaches its ancestors too,
+   and an inherited value follows them. */
 .tdg-root {
   isolation: isolate;
-  font-family: var(
-    --font-sans,
-    ui-sans-serif,
-    system-ui,
-    sans-serif,
-    "Apple Color Emoji",
-    "Segoe UI Emoji"
-  ) !important;
+  font-family: var(--tdg-font-family, inherit);
   font-size: var(--tdg-font-size, 0.875rem) !important;
   line-height: 1.5 !important;
   text-align: start !important;
@@ -1453,10 +1451,12 @@
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
-  font-family: var(
-    --default-font-family,
-    var(--font-sans, ui-sans-serif, system-ui, sans-serif)
-  ) !important;
+  /* Follows the grid rather than restating a family of its own, so a pinned or
+     inherited font reaches the grid's controls too. A button does not inherit
+     its font from the UA, which is the whole reason this is stated at all;
+     beating that default needs no !important, and the class already outranks a
+     host `button` rule. */
+  font-family: inherit;
   font-style: normal !important;
   text-align: center !important;
   text-decoration: none !important;
@@ -1823,8 +1823,7 @@
   padding-inline: var(--tdg-cell-editor-padding) !important;
 }
 
-.tdg-root
-  .tdg-text-editor.tdg-cell-editor-shell.tdg-cell-editor-shell {
+.tdg-root .tdg-text-editor.tdg-cell-editor-shell.tdg-cell-editor-shell {
   padding-inline: calc(
     var(--tdg-cell-editor-padding) - var(--tdg-cell-editor-inset) -
       var(--tdg-cell-editor-border-width)
@@ -1841,7 +1840,11 @@
  */
 .tdg-root
   .InovuaReactDataGrid__cell[data-text-align="end"]
-  :is(.tdg-cell-editor, .InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell),
+  :is(
+    .tdg-cell-editor,
+    .InovuaReactDataGrid__cell__editor,
+    .tdg-cell-editor-shell
+  ),
 .tdg-root
   .InovuaReactDataGrid__cell[data-text-align="end"]
   :is(.InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell)
@@ -1851,7 +1854,11 @@
 
 .tdg-root
   .InovuaReactDataGrid__cell[data-text-align="center"]
-  :is(.tdg-cell-editor, .InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell),
+  :is(
+    .tdg-cell-editor,
+    .InovuaReactDataGrid__cell__editor,
+    .tdg-cell-editor-shell
+  ),
 .tdg-root
   .InovuaReactDataGrid__cell[data-text-align="center"]
   :is(.InovuaReactDataGrid__cell__editor, .tdg-cell-editor-shell)
