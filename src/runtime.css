@@ -461,14 +461,10 @@
   --tdg-row-active-border-color: var(--tdg-color-ring);
   --tdg-row-active-color: var(--tdg-color-foreground);
   --tdg-field-active-bg: var(--tdg-row-selected-bg);
-  /*
-   * Editor surface geometry. `padding` is the inline padding a text editor
-   * uses; it defaults to the cell's own 0.5rem so the text does not shift when
-   * the editor mounts. The bordered shell subtracts its inset and border from
-   * it to land on the same place, so changing the inset alone keeps the text
-   * put. The cell's padding is a layout class, not this token — raising this
-   * one on its own moves the editor's text off the cell's.
-   */
+  /* Editor surface geometry. `padding` defaults to the cell's own 0.5rem so the
+     text does not shift on mount, and the shell subtracts its inset and border
+     from it to land on the same place. The cell's own padding is a layout
+     class, so raising this alone moves the editor's text off the cell's. */
   --tdg-cell-editor-padding: 0.5rem;
   --tdg-cell-editor-inset: 3px;
   --tdg-cell-editor-border-width: 1px;
@@ -479,6 +475,13 @@
   --tdg-input-border-color: var(--tdg-color-input);
   --tdg-input-border-color-hover: var(--tdg-input-border-color);
   --tdg-input-border-color-focus: var(--tdg-input-border-color);
+  /* The rest of the field's box: the armour below pins each with !important,
+     so these tokens are the only way a consumer reaches them. */
+  --tdg-input-border-width: 1px;
+  --tdg-input-radius: var(--tdg-radius-md);
+  --tdg-input-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --tdg-input-shadow-focus:
+    0 0 0 1px var(--tdg-color-ring), var(--tdg-input-shadow);
   --tdg-input-clear-size: 1.25rem;
   --tdg-input-clear-color: inherit;
 
@@ -1757,16 +1760,40 @@
   align-items: center !important;
   margin: 0 !important;
   border-style: solid !important;
-  border-width: 1px !important;
+  border-width: var(--tdg-input-border-width) !important;
   border-color: var(--tdg-input-border-color) !important;
-  border-radius: var(--tdg-radius-md) !important;
+  border-radius: var(--tdg-input-radius) !important;
   background: var(--tdg-input-bg) !important;
   color: var(--tdg-input-color) !important;
   font: inherit !important;
-  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  box-shadow:
-    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
-    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow) !important;
+  box-shadow: var(--tdg-input-shadow) !important;
+}
+
+/*
+ * Own rules because the armour above pins `border-color` with !important,
+ * which no non-important state utility can beat — so these tokens (and the
+ * `$INOVUA_TEXT_INPUT_BORDER_COLOR_HOVER` / `_FOCUSED` mapping the docs
+ * publish for them) were consumed by nothing. Both default to the resting
+ * colour. The bordered in-cell shell takes them too.
+ */
+.tdg-root
+  .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input:hover {
+  border-color: var(--tdg-input-border-color-hover) !important;
+}
+
+.tdg-root
+  .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input:focus-within {
+  border-color: var(--tdg-input-border-color-focus) !important;
+}
+
+/* The ring is for standalone fields only: an in-cell editor keeps one border
+   and no ring, on either surface. */
+.tdg-root
+  .inovua-react-toolkit-text-input.inovua-react-toolkit-text-input:not(
+    .tdg-cell-editor-shell,
+    .InovuaReactDataGrid__cell__editor
+  ):focus-within {
+  box-shadow: var(--tdg-input-shadow-focus) !important;
 }
 
 .tdg-root .inovua-react-toolkit-text-input__input {
@@ -1784,11 +1811,8 @@
   line-height: inherit !important;
 }
 
-/*
- * Inovua editors are full-cell overlays. Keep that compatibility positioning
- * separate from the native-input reset below so wrapper editors retain their
- * own internal flex layout and controls.
- */
+/* Inovua editors are full-cell overlays. Kept separate from the native-input
+   reset below so wrapper editors keep their own internal layout. */
 .tdg-root .InovuaReactDataGrid__cell__editor.InovuaReactDataGrid__cell__editor {
   box-sizing: border-box !important;
   position: absolute !important;
@@ -1812,15 +1836,9 @@
   text-align: inherit !important;
 }
 
-/*
- * Only the text editor is expected to line up with what it replaces: it stands
- * in for plain text, so any horizontal shift on mount reads as the text
- * jumping. The other editors are controls with a shape of their own and keep
- * their natural padding.
- *
- * Seamless matches the cell's 8px padding directly. The shell reaches the same
- * 8px as 3px inset + 1px border + 4px padding.
- */
+/* Only the text editor stands in for plain text, so only it has to land on the
+   cell's own 8px text inset — seamless directly, the shell as
+   3px inset + 1px border + 4px padding. Other editors keep their own shape. */
 .tdg-root .tdg-text-editor.InovuaReactDataGrid__cell__editor {
   padding-inline: var(--tdg-cell-editor-padding) !important;
 }
@@ -1870,14 +1888,10 @@
   height: calc(var(--tdg-input-clear-size) / 2) !important;
 }
 
-/*
- * Cells place their content with `justify-content` on the content wrapper,
- * because a flex item hugs itself and `text-align` has no room to act. An
- * editor is positioned against the cell rather than that wrapper, so it needs
- * the column's alignment handed to it directly, or a right-aligned column's
- * text jumps to the left edge the moment the editor mounts. A wrapper editor's
- * inner input needs it too — it does not inherit `text-align` from the shell.
- */
+/* An editor is positioned against the cell, not the content wrapper whose
+   `justify-content` places everything else, so alignment has to be handed to
+   it directly — and to a wrapper editor's inner input, which does not inherit
+   it from the shell. */
 .tdg-root
   .InovuaReactDataGrid__cell[data-text-align="end"]
   :is(
@@ -1906,11 +1920,8 @@
   text-align: center !important;
 }
 
-/*
- * Only marked/Inovua-shaped editors take over the cell surface. Unmarked
- * custom editors keep the ordinary padded content layout. The cell height is
- * frozen internally for natural rows while this overlay is mounted.
- */
+/* Only marked editors take over the cell surface; unmarked custom ones keep
+   the padded content layout. */
 .tdg-root
   .InovuaReactDataGrid__cell[data-editing="true"][data-editor-surface="seamless"] {
   background: var(--tdg-field-active-bg) !important;
@@ -1927,15 +1938,10 @@
   overflow: visible !important;
 }
 
-/*
- * The bordered alternative to the seamless surface. Also out of flow, so
- * mounting it cannot change the height of the row it opens in, and inset from
- * the cell edge so its border does not sit on the cell's own. One border, not
- * a border plus a focus ring drawn at the same width.
- *
- * The class is doubled to reach the field armour's specificity; the armour
- * sets border-radius and box-shadow with !important and would otherwise win.
- */
+/* The bordered surface: out of flow so mounting cannot change the row height,
+   inset so its border does not sit on the cell's, and one border rather than a
+   border plus a ring at the same width. Class doubled to out-specify the field
+   armour's !important border-radius and box-shadow. */
 .tdg-root .tdg-cell-editor-shell.tdg-cell-editor-shell {
   box-sizing: border-box !important;
   text-align: inherit !important;
@@ -1951,10 +1957,8 @@
   box-shadow: none !important;
 }
 
-/*
- * The explicit marker opts a native text input into the seamless treatment.
- * Its padding replaces the cell padding; it does not add a second text inset.
- */
+/* The marker opts a native input into the seamless treatment: its padding
+   replaces the cell's rather than adding a second inset. */
 .tdg-root .tdg-cell-editor[data-slot="cell-editor"] {
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
@@ -2034,16 +2038,19 @@
     color 0.2s ease;
 }
 
+/* Same defect as the text field above: these three pinned the resting colour
+   with !important, leaving `--tdg-select-shell-border-color-hover` / `-focus`
+   defined and consumed by nothing. Both chain back to the resting colour. */
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box:hover:not(
     .inovua-react-toolkit-combo-box--disabled
   ) {
-  border-color: var(--tdg-select-shell-border-color) !important;
+  border-color: var(--tdg-select-shell-border-color-hover) !important;
 }
 
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box--focus {
-  border-color: var(--tdg-select-shell-border-color) !important;
+  border-color: var(--tdg-select-shell-border-color-focus) !important;
   background: var(--tdg-select-shell-bg) !important;
 }
 
@@ -2051,7 +2058,7 @@
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus,
 .tdg-root
   .tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box:focus-visible {
-  border-color: var(--tdg-select-shell-border-color) !important;
+  border-color: var(--tdg-select-shell-border-color-focus) !important;
 }
 
 /*

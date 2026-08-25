@@ -3617,6 +3617,25 @@ const cellEditorSurfaceSnippet = `{
   editorProps: { seamless: true },
 }`;
 
+const legacyFieldLookSnippet = `/* The whole box of every text field the grid renders: filter row, search
+   box, and the bordered in-cell editor. Values here are the legacy
+   toolkit's — square corners, a flat border, no drop shadow. */
+.tdg-root {
+  --tdg-input-bg: #ffffff;
+  --tdg-input-color: #555e68;
+  --tdg-input-border-color: #d5d5d5;
+  --tdg-input-border-color-hover: #b0b0b0;
+  --tdg-input-border-color-focus: #7986cb;
+  --tdg-input-border-width: 1px;
+  --tdg-input-radius: 2px;
+  --tdg-input-shadow: none;
+  --tdg-input-shadow-focus: 0 0 0 1px #7986cb;
+
+  /* the inline clear button TextEditor draws for enableClearButton */
+  --tdg-input-clear-size: 1.25rem;
+  --tdg-input-clear-color: currentColor;
+}`;
+
 const textEditorRows: ReferenceRow[] = [
   {
     name: "maxLength / minLength",
@@ -5508,14 +5527,24 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
               </li>
               <li>
                 <strong>Inputs and selects follow the grid border.</strong>{" "}
-                Control borders intentionally use the grid&apos;s border chrome
-                rather than the legacy toolkit&apos;s own control border, so a
-                theme cannot quietly take over hover and focus rings. Set{" "}
+                Control borders default to the grid&apos;s border chrome rather
+                than the legacy toolkit&apos;s own control border. Set{" "}
                 <code>--tdg-input-border-color</code> /{" "}
                 <code>--tdg-select-border-color</code> to your grid border color
-                unless you deliberately want them to differ.
+                unless you deliberately want them to differ. The hover and focus
+                colors are separate tokens that default to the resting one, so a
+                field only changes on interaction if your theme says it should.
               </li>
             </ul>
+            <p className="font-medium text-foreground">Text fields, in full</p>
+            <p>
+              A field&apos;s whole box comes from tokens, because every
+              declaration on it is armoured with <code>!important</code> against
+              host stylesheets &mdash; the tokens are the way in, not a
+              convenience. This is the set, at the values that reproduce the
+              legacy toolkit&apos;s field:
+            </p>
+            <CodeBlock code={legacyFieldLookSnippet} language="css" />
             <p className="font-medium text-foreground">
               Base theme defaults (copy to start a new theme)
             </p>
@@ -7426,8 +7455,73 @@ const columns: TypeColumns = [
                 },
               ]}
             />
+            <p>
+              The rest of the field&apos;s box &mdash; what a bordered editor, a
+              filter-row field and the search box all share &mdash; is tokens
+              too. Only the bordered shell paints them; the seamless overlay
+              deliberately has no box of its own.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "--tdg-input-border-width",
+                  type: "length",
+                  defaultValue: "1px",
+                  description: "Border width of a field.",
+                },
+                {
+                  name: "--tdg-input-radius",
+                  type: "length",
+                  defaultValue: "var(--tdg-radius-md)",
+                  description:
+                    "Corner radius of a field. Set it to 2px for the legacy toolkit's near-square field.",
+                },
+                {
+                  name: "--tdg-input-shadow",
+                  type: "box-shadow",
+                  defaultValue: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+                  description:
+                    "Resting shadow. none removes the hairline drop shadow entirely.",
+                },
+                {
+                  name: "--tdg-input-shadow-focus",
+                  type: "box-shadow",
+                  defaultValue:
+                    "0 0 0 1px var(--tdg-color-ring), var(--tdg-input-shadow)",
+                  description:
+                    "Focus ring, on the standalone fields only. An in-cell editor keeps one border and no ring on either surface.",
+                },
+                {
+                  name: "--tdg-input-border-color-hover",
+                  type: "color",
+                  defaultValue: "var(--tdg-input-border-color)",
+                  description:
+                    "Border under the pointer. Applies to the bordered in-cell editor too.",
+                },
+                {
+                  name: "--tdg-input-border-color-focus",
+                  type: "color",
+                  defaultValue: "var(--tdg-input-border-color)",
+                  description: "Border while the field holds focus.",
+                },
+                {
+                  name: "--tdg-input-clear-size",
+                  type: "length",
+                  defaultValue: "1.25rem",
+                  description:
+                    "Hit area of TextEditor's clear button. Its glyph is half of it.",
+                },
+                {
+                  name: "--tdg-input-clear-color",
+                  type: "color",
+                  defaultValue: "inherit",
+                  description:
+                    "Clear glyph color. Inherits the field's text color by default.",
+                },
+              ]}
+            />
             <Callout
-              title="Restyling an in-cell editor needs three-class specificity"
+              title="Reach for the tokens; a rule of your own needs three-class specificity"
               tone="warning"
             >
               <p>
@@ -7437,7 +7531,10 @@ const columns: TypeColumns = [
                 <code>width</code>, and <code>height</code> with{" "}
                 <code>!important</code> at three-class specificity, after the
                 surface rules. A two-class rule silently applies its positioning
-                and loses everything the armour also sets.
+                and loses everything the armour also sets &mdash; measured: a{" "}
+                <code>.my-app .inovua-react-toolkit-text-input</code> rule
+                changes nothing even with <code>!important</code> on every
+                declaration. The tokens above go through that armour by design.
               </p>
             </Callout>
           </div>

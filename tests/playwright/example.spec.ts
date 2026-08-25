@@ -2570,8 +2570,10 @@ test("supports real ikarus-dark theme imports for legacy inputs, selects, and me
       color: "rgb(255, 255, 255)",
       borderColor: "rgb(56, 56, 56)",
       borderRadius: "10px",
-      boxShadow:
-        "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+      // The four transparent Tailwind ring layers are gone: the field's shadow
+      // is `--tdg-input-shadow` now, and the focus ring its own token. Same
+      // pixels at rest.
+      boxShadow: "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
     });
 
   const selectTrigger = page
