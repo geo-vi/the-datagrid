@@ -25,15 +25,10 @@ export type TextEditorProps = TypeCommunityEditorProps<TextEditorValue> & {
 };
 
 /**
- * Single-line text editor.
- *
- * Enter completes without navigating: the Inovua default editor paired
- * completion with `onEnterNavigation`, so a held Enter walked the editor down
- * the column one row at a time. Call `onEnterNavigation` from `onKeyDown` to
- * opt back in.
- *
- * `trim` and `emptyValue` apply only on completion, so a normalized value is
- * never echoed back mid-keystroke and the caret stays put.
+ * Single-line text editor. Enter completes without navigating, unlike the
+ * Inovua default where a held Enter walked down the column; call
+ * `onEnterNavigation` from `onKeyDown` to opt back in. `trim` and `emptyValue`
+ * apply on completion only, so the caret never moves mid-keystroke.
  */
 export default function TextEditor({
   value = "",
