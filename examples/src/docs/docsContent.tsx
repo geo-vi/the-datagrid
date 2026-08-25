@@ -974,6 +974,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Root sizing fallbacks used only when the corresponding column-level width/defaultWidth/minWidth/maxWidth is absent.",
       },
       {
+        name: "columnDefaultHeaderAlign",
+        type: '"start" | "end" | "left" | "right" | "center"',
+        defaultValue: '"start"',
+        description:
+          "Root alignment fallback for header text, so a grid can centre or end-align every header without repeating the field on each column. Used only when a column sets neither headerAlign nor textAlign; the checkbox column keeps its own alignment.",
+      },
+      {
         name: "shareSpaceOnResize",
         type: "boolean",
         defaultValue: "false",
@@ -2529,7 +2536,8 @@ const columnSections: ReferenceSection[] = [
         name: "headerAlign",
         type: '"start" | "end" | "left" | "right" | "center"',
         defaultValue: '"start"',
-        description: "Header alignment.",
+        description:
+          "Header alignment. Falls back to this column's textAlign, then to the grid's columnDefaultHeaderAlign.",
       },
       {
         name: "className",
@@ -4476,6 +4484,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   resizable: true,
   liveColumnResize: false,
   columnDefaultWidth: 150,
+  columnDefaultHeaderAlign: "start",
   columnMinWidth: 40,
   columnMaxWidth: null,
   shareSpaceOnResize: false,

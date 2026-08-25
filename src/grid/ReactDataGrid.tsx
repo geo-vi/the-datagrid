@@ -201,6 +201,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
     liveColumnResize = REACT_DATA_GRID_DEFAULT_PROPS.liveColumnResize,
     columnDefaultWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultWidth,
+    columnDefaultHeaderAlign = REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultHeaderAlign,
     columnMinWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMinWidth,
     columnMaxWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMaxWidth,
     shareSpaceOnResize = REACT_DATA_GRID_DEFAULT_PROPS.shareSpaceOnResize,
@@ -3287,6 +3288,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           sortable={sortable}
                           sortFunctions={sortFunctions}
                           renderSortTool={renderSortTool}
+                          columnDefaultHeaderAlign={columnDefaultHeaderAlign}
                           showColumnMenuTool={showColumnMenuTool}
                           openColumnContextMenuColumnId={
                             showColumnMenuLayer ? contextMenuColumnId : null

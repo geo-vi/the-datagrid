@@ -48,6 +48,8 @@ export type GridHeaderProps = {
   sortFunctions?: TypeSortFunctions | null;
   renderSortTool?: TypeRenderSortTool;
 
+  columnDefaultHeaderAlign?: TypeDataGridProps["columnDefaultHeaderAlign"];
+
   showColumnMenuTool: boolean;
   openColumnContextMenuColumnId?: string | null;
   onOpenColumnContextMenu: (
@@ -139,7 +141,9 @@ function ColumnFillerHeader(props: {
       aria-hidden="true"
       data-slot="grid-filler-cell"
       data-filler-variant={props.variant}
-      data-horizontal-borders={props.showHorizontalCellBorders ? "true" : "false"}
+      data-horizontal-borders={
+        props.showHorizontalCellBorders ? "true" : "false"
+      }
       className={cn(
         "tdg-filler-cell pointer-events-none !p-0",
         `tdg-filler-cell--${props.variant}`
@@ -213,6 +217,7 @@ export function GridHeader(props: GridHeaderProps) {
     sortable,
     sortFunctions,
     renderSortTool,
+    columnDefaultHeaderAlign,
     showColumnMenuTool,
     openColumnContextMenuColumnId,
     onOpenColumnContextMenu,
@@ -422,7 +427,9 @@ export function GridHeader(props: GridHeaderProps) {
                 columnIndex={columnIndex}
                 width={width}
                 isLeadingEdge={colId === columnRenderEdges.leadingEdgeColumnId}
-                isTrailingEdge={colId === columnRenderEdges.trailingEdgeColumnId}
+                isTrailingEdge={
+                  colId === columnRenderEdges.trailingEdgeColumnId
+                }
                 lockedLayout={lockedColumnLayout[colId]}
                 headerHeight={headerHeight}
                 sortInfo={sortInfo}
@@ -452,6 +459,7 @@ export function GridHeader(props: GridHeaderProps) {
                 theme={theme}
                 rtl={rtl}
                 isCheckboxColumn={checkboxEnabled && colId === checkboxColId}
+                columnDefaultHeaderAlign={columnDefaultHeaderAlign}
               />
             );
           })}

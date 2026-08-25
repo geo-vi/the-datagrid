@@ -10,6 +10,7 @@ import ActionsGridExample from "./ActionsGridExample";
 import BasicGridExample from "./BasicGridExample";
 import ColumnsGridExample from "./ColumnsGridExample";
 import EditingGridExample from "./EditingGridExample";
+import ColumnDefaultHeaderAlignPage from "./ColumnDefaultHeaderAlignPage";
 import ToolbarCompatPage from "./ToolbarCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
@@ -486,6 +487,12 @@ const compatIssue58RowStyleColorRoute = createRoute({
   component: Issue58RowStyleColorCompatPage,
 });
 
+const compatColumnDefaultHeaderAlignRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/column-default-header-align",
+  component: ColumnDefaultHeaderAlignPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -512,6 +519,7 @@ const routeTree = rootRoute.addChildren([
   compatIssue48Route,
   compatIssue58RowStyleColorRoute,
   compatMemorySafetyRoute,
+  compatColumnDefaultHeaderAlignRoute,
   compatSearchDataSourceRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
