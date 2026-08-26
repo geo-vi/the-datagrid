@@ -34,6 +34,7 @@ import MobileTransformExample from "./MobileTransformExample";
 import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
 import SelectionGridExample from "./SelectionGridExample";
 import StackedColumnsExample from "./StackedColumnsExample";
+import TallHeaderCompatPage from "./TallHeaderCompatPage";
 import StackedColumnsExamplePage from "./StackedColumnsExamplePage";
 import ToolbarGridExample from "./ToolbarGridExample";
 import UsersGridExample from "./UsersGridExample";
@@ -499,6 +500,12 @@ const compatSearchDataSourceRoute = createRoute({
   component: SearchDataSourceCompatPage,
 });
 
+const compatTallHeaderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/tall-header",
+  component: TallHeaderCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
@@ -521,6 +528,7 @@ const routeTree = rootRoute.addChildren([
   compatMemorySafetyRoute,
   compatColumnDefaultHeaderAlignRoute,
   compatSearchDataSourceRoute,
+  compatTallHeaderRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,
