@@ -201,6 +201,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     resizable = REACT_DATA_GRID_DEFAULT_PROPS.resizable,
     liveColumnResize = REACT_DATA_GRID_DEFAULT_PROPS.liveColumnResize,
     columnDefaultWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultWidth,
+    columnDefaultHeaderAlign = REACT_DATA_GRID_DEFAULT_PROPS.columnDefaultHeaderAlign,
     columnMinWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMinWidth,
     columnMaxWidth = REACT_DATA_GRID_DEFAULT_PROPS.columnMaxWidth,
     shareSpaceOnResize = REACT_DATA_GRID_DEFAULT_PROPS.shareSpaceOnResize,
@@ -1817,9 +1818,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [spanVirtualizationIntervals.columnIntervals]
   );
   const headerGroupCount = columnGroupModel.depth + 1;
-  const stickyHeaderOffset =
+  const nominalHeaderOffset =
     (showHeader ? headerGroupCount * headerHeight : 0) +
     (showHeader && effectiveEnableFiltering ? filterRowHeight : 0);
+  // `headerHeight` is a floor, not a ceiling: the header is a table, so a row
+  // whose content wraps grows past it. The header layer is sticky and
+  // zero-height, so everything below reserves space from this offset alone --
+  // left nominal, a grown header paints over the first row.
+  const [measuredHeaderOffset, setMeasuredHeaderOffset] = React.useState<
+    number | null
+  >(null);
+  React.useLayoutEffect(() => {
+    const headerViewport = headerScrollRef.current;
+    if (!showHeader || !headerViewport) {
+      setMeasuredHeaderOffset(null);
+      return;
+    }
+
+    const measure = () => {
+      const nextOffset = Math.ceil(
+        headerViewport.getBoundingClientRect().height
+      );
+      setMeasuredHeaderOffset((current) =>
+        current === nextOffset ? current : nextOffset
+      );
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerViewport);
+    return () => observer.disconnect();
+  }, [mobileTransformActive, showHeader]);
+  const stickyHeaderOffset =
+    measuredHeaderOffset == null
+      ? nominalHeaderOffset
+      : Math.max(nominalHeaderOffset, measuredHeaderOffset);
   const computedMinRowHeight =
     typeof minRowHeight === "number" &&
     Number.isFinite(minRowHeight) &&
@@ -3287,6 +3322,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           sortable={sortable}
                           sortFunctions={sortFunctions}
                           renderSortTool={renderSortTool}
+                          columnDefaultHeaderAlign={columnDefaultHeaderAlign}
                           showColumnMenuTool={showColumnMenuTool}
                           openColumnContextMenuColumnId={
                             showColumnMenuLayer ? contextMenuColumnId : null

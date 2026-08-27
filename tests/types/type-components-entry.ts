@@ -40,6 +40,13 @@ type ComponentsRuntimeExport =
   | "RDGToolbarTarget"
   | "RDGToolbar"
   | "useRDGToolbarApi"
+  | "RDGToolbarSurface"
+  | "RDGColumnToggleList"
+  | "RDGColumnsButton"
+  | "RDGExportButton"
+  | "RDGFilterToggleButton"
+  | "RDGClearFiltersButton"
+  | "useRDGColumnToggleItems"
   | "useRDGToolbarApiState";
 
 export type ComponentsEntryHasNoPublicInternals = AssertNever<

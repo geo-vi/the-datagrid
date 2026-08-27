@@ -9,9 +9,16 @@ export {
   RDGSearchTarget,
 } from "../search/index";
 export {
+  RDGClearFiltersButton,
+  RDGColumnsButton,
+  RDGColumnToggleList,
+  RDGExportButton,
+  RDGFilterToggleButton,
   RDGToolbar,
   RDGToolbarProvider,
+  RDGToolbarSurface,
   RDGToolbarTarget,
+  useRDGColumnToggleItems,
   useRDGToolbarApi,
   useRDGToolbarApiState,
 } from "../toolbar/index";
@@ -24,6 +31,11 @@ export type {
   RDGSearchTargetProps,
 } from "../search/index";
 export type {
+  RDGClearFiltersButtonProps,
+  RDGColumnsButtonProps,
+  RDGColumnToggleListProps,
+  RDGExportButtonProps,
+  RDGFilterToggleButtonProps,
   RDGToolbarApi,
   RDGToolbarExportFormat,
   RDGToolbarExportInfo,
@@ -34,5 +46,6 @@ export type {
   RDGToolbarProps,
   RDGToolbarProviderProps,
   RDGToolbarState,
+  RDGToolbarSurfaceProps,
   RDGToolbarTargetProps,
 } from "../toolbar/index";

@@ -47,10 +47,9 @@ export function editorSurfaceClass(seamless?: boolean): string {
 }
 
 /**
- * The grid exposes `column.editorProps` both as top-level editor props and as
- * the nested `editorProps` object, so that object still carries the editor's
- * own configuration. Drop those keys before spreading the rest onto a DOM
- * node, or React warns about unknown attributes.
+ * `column.editorProps` arrives both as top-level props and as the nested
+ * object, so it still carries the editor's own config. Drop those keys before
+ * spreading the rest onto a DOM node, or React warns about unknown attributes.
  */
 export function toDomEditorProps(
   editorProps: object | null | undefined,

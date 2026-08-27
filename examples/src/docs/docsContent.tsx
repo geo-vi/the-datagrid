@@ -441,6 +441,32 @@ const columns: TypeColumns = [
   { name: "size", header: "Size", exportValue: ({ value }) => filesize(value) },
 ];`;
 
+const toolbarComposeSnippet = `import {
+  RDGToolbarProvider,
+  RDGToolbarSurface,
+  RDGColumnsButton,
+  RDGColumnToggleList,
+  RDGExportButton,
+  RDGFilterToggleButton,
+  RDGClearFiltersButton,
+} from "@geovi/the-datagrid/toolbar";
+
+// No RDGToolbar here: the controls are yours to order and place.
+<RDGToolbarProvider exportDefaults={{ fileName: "orders" }}>
+  <RDGToolbarSurface bare className="my-toolbar">
+    <div className="flex items-center gap-2">
+      <h2>Orders</h2>
+      <MyOwnButton />
+      <RDGFilterToggleButton showFiltersLabel="Filters" />
+      <RDGClearFiltersButton label="Reset" />
+      <RDGColumnsButton label="Fields" />
+      <RDGExportButton formats={["csv", "xlsx"]} scope="all" />
+    </div>
+  </RDGToolbarSurface>
+
+  <ReactDataGrid idProperty="orderId" columns={columns} dataSource={orders} />
+</RDGToolbarProvider>`;
+
 const toolbarTokenSnippet = `/* Any ancestor works; the toolbar root is the narrowest scope. */
 .tdg-toolbar-root {
   --tdg-toolbar-padding: 0;
@@ -972,6 +998,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
         defaultValue: "150 / 40 / null",
         description:
           "Root sizing fallbacks used only when the corresponding column-level width/defaultWidth/minWidth/maxWidth is absent.",
+      },
+      {
+        name: "columnDefaultHeaderAlign",
+        type: '"start" | "end" | "left" | "right" | "center"',
+        defaultValue: '"start"',
+        description:
+          "Root alignment fallback for header text, so a grid can centre or end-align every header without repeating the field on each column. Used only when a column sets neither headerAlign nor textAlign; the checkbox column keeps its own alignment.",
       },
       {
         name: "shareSpaceOnResize",
@@ -2529,7 +2562,8 @@ const columnSections: ReferenceSection[] = [
         name: "headerAlign",
         type: '"start" | "end" | "left" | "right" | "center"',
         defaultValue: '"start"',
-        description: "Header alignment.",
+        description:
+          "Header alignment. Falls back to this column's textAlign, then to the grid's columnDefaultHeaderAlign.",
       },
       {
         name: "className",
@@ -3609,6 +3643,25 @@ const cellEditorSurfaceSnippet = `{
   editorProps: { seamless: true },
 }`;
 
+const legacyFieldLookSnippet = `/* The whole box of every text field the grid renders: filter row, search
+   box, and the bordered in-cell editor. Values here are the legacy
+   toolkit's — square corners, a flat border, no drop shadow. */
+.tdg-root {
+  --tdg-input-bg: #ffffff;
+  --tdg-input-color: #555e68;
+  --tdg-input-border-color: #d5d5d5;
+  --tdg-input-border-color-hover: #b0b0b0;
+  --tdg-input-border-color-focus: #7986cb;
+  --tdg-input-border-width: 1px;
+  --tdg-input-radius: 2px;
+  --tdg-input-shadow: none;
+  --tdg-input-shadow-focus: 0 0 0 1px #7986cb;
+
+  /* the inline clear button TextEditor draws for enableClearButton */
+  --tdg-input-clear-size: 1.25rem;
+  --tdg-input-clear-color: currentColor;
+}`;
+
 const textEditorRows: ReferenceRow[] = [
   {
     name: "maxLength / minLength",
@@ -4476,6 +4529,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   resizable: true,
   liveColumnResize: false,
   columnDefaultWidth: 150,
+  columnDefaultHeaderAlign: "start",
   columnMinWidth: 40,
   columnMaxWidth: null,
   shareSpaceOnResize: false,
@@ -5176,6 +5230,15 @@ pnpm add @geovi/the-datagrid`}
               interaction patterns internally. The <code>theme</code> prop is a
               hook, not a second styling system.
             </p>
+            <p>
+              The grid <strong>inherits its font family</strong> from the
+              element it is placed in, so it takes the page&apos;s font without
+              being told. Set <code>--tdg-font-family</code> on the grid, or
+              anywhere above it, to pin a font of its own instead. Font size is
+              separate and does not inherit: it stays at{" "}
+              <code>--tdg-font-size</code> (0.875rem), because row heights are
+              measured against it.
+            </p>
             <ReferenceTable
               rows={[
                 {
@@ -5490,14 +5553,24 @@ $INOVUA_DATAGRID_ROW_EVEN_BG_COLOR: #343434;
               </li>
               <li>
                 <strong>Inputs and selects follow the grid border.</strong>{" "}
-                Control borders intentionally use the grid&apos;s border chrome
-                rather than the legacy toolkit&apos;s own control border, so a
-                theme cannot quietly take over hover and focus rings. Set{" "}
+                Control borders default to the grid&apos;s border chrome rather
+                than the legacy toolkit&apos;s own control border. Set{" "}
                 <code>--tdg-input-border-color</code> /{" "}
                 <code>--tdg-select-border-color</code> to your grid border color
-                unless you deliberately want them to differ.
+                unless you deliberately want them to differ. The hover and focus
+                colors are separate tokens that default to the resting one, so a
+                field only changes on interaction if your theme says it should.
               </li>
             </ul>
+            <p className="font-medium text-foreground">Text fields, in full</p>
+            <p>
+              A field&apos;s whole box comes from tokens, because every
+              declaration on it is armoured with <code>!important</code> against
+              host stylesheets &mdash; the tokens are the way in, not a
+              convenience. This is the set, at the values that reproduce the
+              legacy toolkit&apos;s field:
+            </p>
+            <CodeBlock code={legacyFieldLookSnippet} language="css" />
             <p className="font-medium text-foreground">
               Base theme defaults (copy to start a new theme)
             </p>
@@ -7408,8 +7481,73 @@ const columns: TypeColumns = [
                 },
               ]}
             />
+            <p>
+              The rest of the field&apos;s box &mdash; what a bordered editor, a
+              filter-row field and the search box all share &mdash; is tokens
+              too. Only the bordered shell paints them; the seamless overlay
+              deliberately has no box of its own.
+            </p>
+            <ReferenceTable
+              rows={[
+                {
+                  name: "--tdg-input-border-width",
+                  type: "length",
+                  defaultValue: "1px",
+                  description: "Border width of a field.",
+                },
+                {
+                  name: "--tdg-input-radius",
+                  type: "length",
+                  defaultValue: "var(--tdg-radius-md)",
+                  description:
+                    "Corner radius of a field. Set it to 2px for the legacy toolkit's near-square field.",
+                },
+                {
+                  name: "--tdg-input-shadow",
+                  type: "box-shadow",
+                  defaultValue: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+                  description:
+                    "Resting shadow. none removes the hairline drop shadow entirely.",
+                },
+                {
+                  name: "--tdg-input-shadow-focus",
+                  type: "box-shadow",
+                  defaultValue:
+                    "0 0 0 1px var(--tdg-color-ring), var(--tdg-input-shadow)",
+                  description:
+                    "Focus ring, on the standalone fields only. An in-cell editor keeps one border and no ring on either surface.",
+                },
+                {
+                  name: "--tdg-input-border-color-hover",
+                  type: "color",
+                  defaultValue: "var(--tdg-input-border-color)",
+                  description:
+                    "Border under the pointer. Applies to the bordered in-cell editor too.",
+                },
+                {
+                  name: "--tdg-input-border-color-focus",
+                  type: "color",
+                  defaultValue: "var(--tdg-input-border-color)",
+                  description: "Border while the field holds focus.",
+                },
+                {
+                  name: "--tdg-input-clear-size",
+                  type: "length",
+                  defaultValue: "1.25rem",
+                  description:
+                    "Hit area of TextEditor's clear button. Its glyph is half of it.",
+                },
+                {
+                  name: "--tdg-input-clear-color",
+                  type: "color",
+                  defaultValue: "inherit",
+                  description:
+                    "Clear glyph color. Inherits the field's text color by default.",
+                },
+              ]}
+            />
             <Callout
-              title="Restyling an in-cell editor needs three-class specificity"
+              title="Reach for the tokens; a rule of your own needs three-class specificity"
               tone="warning"
             >
               <p>
@@ -7419,7 +7557,10 @@ const columns: TypeColumns = [
                 <code>width</code>, and <code>height</code> with{" "}
                 <code>!important</code> at three-class specificity, after the
                 surface rules. A two-class rule silently applies its positioning
-                and loses everything the armour also sets.
+                and loses everything the armour also sets &mdash; measured: a{" "}
+                <code>.my-app .inovua-react-toolkit-text-input</code> rule
+                changes nothing even with <code>!important</code> on every
+                declaration. The tokens above go through that armour by design.
               </p>
             </Callout>
           </div>
@@ -7779,6 +7920,96 @@ const columns: TypeColumns = [
               then <code>exportDefaults</code>, then the library defaults. One
               wrapper can name the file for every grid it renders while an
               individual export still overrides the scope or the name.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "toolbar-compose-controls",
+        title: "Compose the controls yourself",
+        body: (
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Every control the toolbar renders is exported on its own, so a
+              toolbar can carry them in any order, beside anything of your own,
+              inside your own container - without accepting{" "}
+              <code>RDGToolbar</code>&apos;s layout. They read the same store,
+              so behaviour, disabled states and the export path are identical.
+            </p>
+            <CodeBlock code={toolbarComposeSnippet} language="tsx" />
+            <Callout title="The controls need a surface around them">
+              <p>
+                <code>toolbar.css</code> is scoped to{" "}
+                <code>.tdg-toolbar-root</code>, and a dropdown portals into that
+                node and reads its theme from it. A control rendered outside any
+                surface still works, but arrives unstyled with an unstyled menu.{" "}
+                <code>RDGToolbar</code> is one such surface;{" "}
+                <code>RDGToolbarSurface</code> is the bare one.{" "}
+                <code>bare</code> drops the card - padding, border, background,
+                shadow and column flow - and keeps the palette, the theme and
+                the portal host.
+              </p>
+            </Callout>
+            <ReferenceTable
+              sectionId="toolbar-compose-controls"
+              rows={[
+                {
+                  name: "RDGToolbarSurface",
+                  type: "bare, className, style, ariaLabel",
+                  defaultValue: "-",
+                  description:
+                    "The scoped, themed container the controls live in. Renders the toolbar card unless bare is set.",
+                },
+                {
+                  name: "RDGColumnToggleList",
+                  type: "ariaLabel, describedById, className",
+                  defaultValue: "-",
+                  description:
+                    "Inline on/off button per hideable column, in the grid's own column order.",
+                },
+                {
+                  name: "RDGColumnsButton",
+                  type: "label, ariaLabel, describedById, className",
+                  defaultValue: 'label "Columns"',
+                  description: "The same toggles behind one dropdown menu.",
+                },
+                {
+                  name: "RDGExportButton",
+                  type: "formats, scope, fileName, dateFormat, sheetName, label, formatLabels, singleLabels, onExportSuccess, onExportError, className",
+                  defaultValue: 'formats ["csv", "json", "xlsx"]',
+                  description:
+                    "One button per format, or a menu when more than one is offered. Falls back to the provider's exportDefaults.",
+                },
+                {
+                  name: "RDGFilterToggleButton",
+                  type: "showFiltersLabel, hideFiltersLabel, controlledHint, className",
+                  defaultValue: '"Show filters" / "Hide filters"',
+                  description:
+                    "Shows or hides the filter row. Disabled, with controlledHint as its title, when the grid owns enableFiltering.",
+                },
+                {
+                  name: "RDGClearFiltersButton",
+                  type: "label, className",
+                  defaultValue: 'label "Clear filters"',
+                  description:
+                    "Clears every column filter. Disabled while nothing is filtered.",
+                },
+                {
+                  name: "useRDGColumnToggleItems()",
+                  type: "hook",
+                  defaultValue: "-",
+                  description:
+                    "The column entries the two column controls render - id, label, visible, disabled, onToggle - for a list of your own design.",
+                },
+              ]}
+            />
+            <p>
+              Styling is the same contract as the built-in toolbar: each control
+              keeps its <code>data-slot</code> name, so the{" "}
+              <code>--tdg-toolbar-*</code> tokens and any override you have
+              already written apply unchanged. <code>className</code> is
+              appended to the built-in one rather than replacing it, so a class
+              of your own outranks the defaults without <code>!important</code>.
             </p>
           </div>
         ),

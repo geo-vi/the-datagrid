@@ -164,6 +164,12 @@ const SEAMLESS_CELL_EDITOR_SELECTOR =
   '.tdg-cell-editor[data-slot="cell-editor"], .InovuaReactDataGrid__cell__editor';
 const SHELL_CELL_EDITOR_SELECTOR = ".tdg-cell-editor-shell";
 
+/**
+ * Marks the editing cell with the surface its editor asked for. Mount beside
+ * the cells, never inside one: layout effects run before the cell's own ref
+ * callback registers it in `cellNodesRef`, so the lookup would find nothing.
+ * StrictMode's second effect pass hides that in dev, not in a build.
+ */
 function CellEditorSurfaceSync(props: {
   cellKey: string;
   cellNodesRef: React.MutableRefObject<Map<string, HTMLTableCellElement>>;
@@ -1233,6 +1239,14 @@ export function GridBody(props: GridBodyProps) {
         : undefined;
 
     const allCells = row.getVisibleCells();
+    // Resolved per row, not per cell, so the sync mounts beside the cells.
+    const editingCellKeyInRow =
+      editingCell != null &&
+      String(editingCell.rowId) ===
+        String(getCompatRowId(row, rowStyleMetadata.getItemId))
+        ? `${String(row.id)}\u0000${editingCell.columnId}`
+        : null;
+
     return (
       <>
         {columnRenderItems.map((renderItem, renderItemIndex) => {
@@ -1664,13 +1678,7 @@ export function GridBody(props: GridBodyProps) {
                 style={contentStyle}
               >
                 {editor != null ? (
-                  <>
-                    <CellEditorSurfaceSync
-                      cellKey={cellKey}
-                      cellNodesRef={cellNodesRef}
-                    />
-                    {editor}
-                  </>
+                  editor
                 ) : (
                   <>
                     {renderCellContent()}
@@ -1693,6 +1701,12 @@ export function GridBody(props: GridBodyProps) {
             </TableCell>
           );
         })}
+        {editingCellKeyInRow ? (
+          <CellEditorSurfaceSync
+            cellKey={editingCellKeyInRow}
+            cellNodesRef={cellNodesRef}
+          />
+        ) : null}
       </>
     );
   }

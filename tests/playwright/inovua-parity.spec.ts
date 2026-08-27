@@ -1265,6 +1265,14 @@ test.describe("Inovua Community parity", () => {
     await verifySeamlessEditor(page, "editing-custom");
   });
 
+  // The two above run on the dev server, where StrictMode's second layout-effect
+  // pass hides a marker that never lands on the first. Tagged to run on a build.
+  test("keeps the editor seamless in a production build @production-performance", async ({
+    page,
+  }) => {
+    await verifySeamlessEditor(page, "editing-default");
+  });
+
   test("tracks a custom editor marker without changing the editor DOM parent", async ({
     page,
   }) => {

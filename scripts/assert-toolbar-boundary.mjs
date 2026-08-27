@@ -109,6 +109,12 @@ const publicRuntimeExports = [
   "RDGToolbarProvider",
   "RDGToolbar",
   "RDGToolbarTarget",
+  "RDGToolbarSurface",
+  "RDGColumnToggleList",
+  "RDGColumnsButton",
+  "RDGExportButton",
+  "RDGFilterToggleButton",
+  "RDGClearFiltersButton",
 ];
 const missingRuntimeExports = publicRuntimeExports.filter(
   (name) => !runtime.includes(name)

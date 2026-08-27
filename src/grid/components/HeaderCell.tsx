@@ -134,6 +134,7 @@ export type HeaderCellProps = {
   theme: string;
   rtl: boolean;
   isCheckboxColumn: boolean;
+  columnDefaultHeaderAlign?: TypeDataGridProps["columnDefaultHeaderAlign"];
   /**
    * Drives the resize-handle clamp. Separate flags rather than one union: a
    * single-column grid is both edges at once.
@@ -188,6 +189,7 @@ export function HeaderCell(props: HeaderCellProps) {
     theme,
     rtl,
     isCheckboxColumn,
+    columnDefaultHeaderAlign,
     isLeadingEdge,
     isTrailingEdge,
   } = props;
@@ -219,7 +221,18 @@ export function HeaderCell(props: HeaderCellProps) {
       : sortIcon(dir)
     : null;
 
-  const headerAlign = col?.headerAlign ?? col?.textAlign;
+  // A column that states either field wins; the root default only fills in for
+  // one that states neither.
+  //
+  // The checkbox column opts out. Its header holds an affordance, not heading
+  // text, and it already centres itself in a flex box that `text-align` cannot
+  // reach — so this changes no geometry today. What it keeps honest is the
+  // emitted `--align-*` class, which consumers style against: a column the
+  // prop does not place should not claim to be placed.
+  const headerAlign =
+    col?.headerAlign ??
+    col?.textAlign ??
+    (isCheckboxColumn ? undefined : columnDefaultHeaderAlign);
   const alignsEnd = headerAlign === "right" || headerAlign === "end";
   const alignsCenter = headerAlign === "center";
   const headerAlignClass = alignsEnd

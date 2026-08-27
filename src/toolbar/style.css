@@ -302,6 +302,21 @@
   color: var(--tdg-toolbar-color);
 }
 
+/*
+ * `RDGToolbarSurface bare`: the consumer owns the layout, so the card - padding,
+ * border, background, shadow, column flow - goes. The palette, the theme and the
+ * menus' portal host stay, which is what the controls inside actually need.
+ */
+:where(.tdg-toolbar-root[data-bare="true"]) {
+  display: block;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 :where(.tdg-toolbar-root[data-collapsible="true"]) {
   position: relative;
   isolation: isolate;

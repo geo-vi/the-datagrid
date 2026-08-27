@@ -140,13 +140,13 @@ function DocsSidebarNavigation(props: {
                   aria-controls={contentId}
                   className={
                     sectionContainsActiveItem
-                      ? "h-8 w-full justify-start gap-2 rounded-lg px-2.5 text-xs font-semibold text-foreground hover:bg-accent/70"
-                      : "h-8 w-full justify-start gap-2 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+                      ? "h-8 w-full justify-start! gap-2 rounded-lg px-2.5 text-xs font-semibold text-foreground hover:bg-accent/70"
+                      : "h-8 w-full justify-start! gap-2 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                   }
                   onClick={() => toggleSection(section.id)}
                 >
                   <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate text-left">
+                  <span className="mx-2 min-w-0 flex-1 truncate text-left">
                     {section.label}
                   </span>
                   <ChevronDown
@@ -220,7 +220,7 @@ function MobileDocsNavigation(props: { pathname: string }) {
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full justify-between rounded-xl border-border/80 bg-background/95 px-3.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85"
+            className="h-12 w-full justify-between! rounded-xl border-border/80 bg-background/95 px-3.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85"
             aria-label="Open documentation navigation"
           >
             <span className="flex min-w-0 items-center gap-3 text-left">

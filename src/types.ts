@@ -1601,6 +1601,13 @@ export type TypeDataGridProps = {
   resizable?: boolean;
   /** Root fallback used when a column has no width/defaultWidth. */
   columnDefaultWidth?: number;
+  /**
+   * Root fallback used when a column sets neither `headerAlign` nor
+   * `textAlign`, so a grid can centre or end-align every header without
+   * repeating the field on each column definition. A column that sets either
+   * one still wins, and the checkbox column is left alone.
+   */
+  columnDefaultHeaderAlign?: "start" | "end" | "left" | "right" | "center";
   /** Root fallback used when a column has no minWidth. */
   columnMinWidth?: number;
   /** Root fallback used when a column has no maxWidth. */

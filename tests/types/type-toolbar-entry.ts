@@ -30,7 +30,14 @@ type ToolbarRuntimeExport =
   | "RDGToolbarTarget"
   | "RDGToolbar"
   | "useRDGToolbarApi"
-  | "useRDGToolbarApiState";
+  | "useRDGToolbarApiState"
+  | "RDGToolbarSurface"
+  | "RDGColumnToggleList"
+  | "RDGColumnsButton"
+  | "RDGExportButton"
+  | "RDGFilterToggleButton"
+  | "RDGClearFiltersButton"
+  | "useRDGColumnToggleItems";
 
 export type ToolbarEntryHasNoPublicInternals = AssertNever<
   Exclude<keyof typeof ToolbarEntry, ToolbarRuntimeExport>
