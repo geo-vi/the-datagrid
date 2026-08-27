@@ -201,7 +201,6 @@ export function HeaderCell(props: HeaderCellProps) {
   );
   const dir = getSortDir(sortInfo, sortColumn);
   const columnSortInfo = getColumnSortInfo(sortInfo, sortColumn);
-  const [hovered, setHovered] = React.useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -361,7 +360,6 @@ export function HeaderCell(props: HeaderCellProps) {
         canSort
           ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
           : "",
-        hovered ? "InovuaReactDataGrid__column-header--over" : "",
         showVerticalCellBorders
           ? "InovuaReactDataGrid__column-header--show-border-right"
           : "",
@@ -495,8 +493,6 @@ export function HeaderCell(props: HeaderCellProps) {
       }}
       onPointerUp={cancelLongPress}
       onPointerCancel={cancelLongPress}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div className="tdg-header-cell__inner relative flex h-full items-stretch">
         <div
