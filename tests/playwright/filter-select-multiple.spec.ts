@@ -84,3 +84,27 @@ test("a multiple select filter opens and toggles its options", async ({
   await menu.getByRole("menuitem", { name: "Yes" }).click();
   await expect(trigger).toHaveText("No");
 });
+
+// The tick is a lucide svg inside a DropdownMenuItem, whose
+// `[&_svg:not([class*='text-'])]:text-muted-foreground` paints any unclassed
+// icon it contains. That set the colour on the svg itself, beating the
+// currentColor the checkbox hands down from `--tdg-checkbox-checked-color`.
+test("the tick in a multiple select filter follows --tdg-checkbox-checked-color", async ({
+  page,
+}) => {
+  await page.goto("/examples/users");
+  await page.addStyleTag({
+    content: ".tdg-root { --tdg-checkbox-checked-color: rgb(255, 0, 0); }",
+  });
+
+  const trigger = page.locator(MULTIPLE).locator("button").first();
+  await trigger.click();
+  const menu = page.getByRole("menu");
+  await menu.getByRole("menuitem", { name: "Yes" }).click();
+
+  const tick = menu
+    .locator('[data-state="checked"].tdg-checkbox .tdg-checkbox__check-icon')
+    .first();
+  await expect(tick).toBeVisible();
+  await expect(tick).toHaveCSS("color", "rgb(255, 0, 0)");
+});
