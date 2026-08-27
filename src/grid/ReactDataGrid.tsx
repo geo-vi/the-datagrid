@@ -176,6 +176,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortable = REACT_DATA_GRID_DEFAULT_PROPS.sortable,
     sortFunctions = REACT_DATA_GRID_DEFAULT_PROPS.sortFunctions,
     renderSortTool,
+    sortIconVisibility = REACT_DATA_GRID_DEFAULT_PROPS.sortIconVisibility,
     scrollTopOnSort = REACT_DATA_GRID_DEFAULT_PROPS.scrollTopOnSort,
     scrollTopOnFilter = REACT_DATA_GRID_DEFAULT_PROPS.scrollTopOnFilter,
 
@@ -3322,6 +3323,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                           sortable={sortable}
                           sortFunctions={sortFunctions}
                           renderSortTool={renderSortTool}
+                          sortIconVisibility={sortIconVisibility}
                           columnDefaultHeaderAlign={columnDefaultHeaderAlign}
                           showColumnMenuTool={showColumnMenuTool}
                           openColumnContextMenuColumnId={

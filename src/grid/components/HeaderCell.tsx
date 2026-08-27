@@ -31,7 +31,7 @@ import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 import { Button } from "../../components/ui/button";
 import { TableHead } from "../../components/ui/table";
 
-function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
+function sortIcon(dir: 0 | 1 | -1, showUnsorted: boolean): React.ReactNode {
   if (dir === 1) {
     return (
       <span className="InovuaReactDataGrid__sort-icon-wrapper">
@@ -48,9 +48,13 @@ function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
     );
   }
 
+  // The wrapper is a fixed-width flex item, so keeping it empty holds the
+  // indicator's place and sorting a column shifts no header text.
   return (
     <span className="InovuaReactDataGrid__sort-icon-wrapper">
-      <IconArrowsSort className="InovuaReactDataGrid__sort-icon ml-1 size-3 opacity-60" />
+      {showUnsorted ? (
+        <IconArrowsSort className="InovuaReactDataGrid__sort-icon ml-1 size-3 opacity-60" />
+      ) : null}
     </span>
   );
 }
@@ -135,6 +139,7 @@ export type HeaderCellProps = {
   rtl: boolean;
   isCheckboxColumn: boolean;
   columnDefaultHeaderAlign?: TypeDataGridProps["columnDefaultHeaderAlign"];
+  sortIconVisibility: NonNullable<TypeDataGridProps["sortIconVisibility"]>;
   /**
    * Drives the resize-handle clamp. Separate flags rather than one union: a
    * single-column grid is both edges at once.
@@ -190,6 +195,7 @@ export function HeaderCell(props: HeaderCellProps) {
     rtl,
     isCheckboxColumn,
     columnDefaultHeaderAlign,
+    sortIconVisibility,
     isLeadingEdge,
     isTrailingEdge,
   } = props;
@@ -217,7 +223,7 @@ export function HeaderCell(props: HeaderCellProps) {
           sortInfo,
           headerCell: true,
         })
-      : sortIcon(dir)
+      : sortIcon(dir, sortIconVisibility === "always")
     : null;
 
   // A column that states either field wins; the root default only fills in for

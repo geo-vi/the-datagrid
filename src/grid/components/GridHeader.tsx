@@ -47,6 +47,7 @@ export type GridHeaderProps = {
   sortable: boolean;
   sortFunctions?: TypeSortFunctions | null;
   renderSortTool?: TypeRenderSortTool;
+  sortIconVisibility: NonNullable<TypeDataGridProps["sortIconVisibility"]>;
 
   columnDefaultHeaderAlign?: TypeDataGridProps["columnDefaultHeaderAlign"];
 
@@ -217,6 +218,7 @@ export function GridHeader(props: GridHeaderProps) {
     sortable,
     sortFunctions,
     renderSortTool,
+    sortIconVisibility,
     columnDefaultHeaderAlign,
     showColumnMenuTool,
     openColumnContextMenuColumnId,
@@ -460,6 +462,7 @@ export function GridHeader(props: GridHeaderProps) {
                 rtl={rtl}
                 isCheckboxColumn={checkboxEnabled && colId === checkboxColId}
                 columnDefaultHeaderAlign={columnDefaultHeaderAlign}
+                sortIconVisibility={sortIconVisibility}
               />
             );
           })}
