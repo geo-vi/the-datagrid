@@ -48,8 +48,8 @@ function sortIcon(dir: 0 | 1 | -1, showUnsorted: boolean): React.ReactNode {
     );
   }
 
-  // The wrapper is a fixed-width flex item, so keeping it empty holds the
-  // indicator's place and sorting a column shifts no header text.
+  // A fixed-width flex item, left empty so sorting a column shifts no header
+  // text.
   return (
     <span className="InovuaReactDataGrid__sort-icon-wrapper">
       {showUnsorted ? (

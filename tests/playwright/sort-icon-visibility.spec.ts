@@ -46,9 +46,8 @@ test('sortIconVisibility="sorted" shows the indicator only on the sorted column'
   await expect(wrapper(page, "sort-icon-sorted-grid", "name")).toHaveCount(1);
 });
 
-// A centred header is where a missing indicator would be seen: the label and
-// the indicator centre as one group, so dropping the indicator rather than
-// emptying it would slide the label sideways when the column becomes sorted.
+// Centred, because label and indicator are placed as one group: an indicator
+// that vanished rather than emptied would slide the label sideways.
 test("hiding the indicator reserves its width, so sorting shifts no header", async ({
   page,
 }) => {

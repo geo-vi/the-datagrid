@@ -1,9 +1,7 @@
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
 
-// Fixture for `sortIconVisibility`. Both grids below render the same columns
-// with the same initial sort, so the specs can diff one against the other:
-// `id` is sorted, `name` is sortable and unsorted, `city` is not sortable, and
-// `amount` brings its own `renderSortTool`, which the prop leaves alone.
+// The two grids differ only in `sortIconVisibility`, so a spec can diff one
+// against the other.
 const columns: TypeColumns = [
   { name: "id", header: "ID", width: 120 },
   { name: "name", header: "Name", width: 220 },

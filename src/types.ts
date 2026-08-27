@@ -1610,9 +1610,8 @@ export type TypeDataGridProps = {
   columnDefaultHeaderAlign?: "start" | "end" | "left" | "right" | "center";
   /**
    * Whether a sortable column shows the neutral sort indicator while it is not
-   * sorted. `"sorted"` leaves the indicator to the columns actually driving the
-   * order; the space it occupies is still reserved, so sorting a column shifts
-   * nothing. A column with its own `renderSortTool` is left alone.
+   * sorted. `"sorted"` reserves its space without drawing it, so sorting a
+   * column shifts nothing. A column with its own `renderSortTool` is left alone.
    */
   sortIconVisibility?: "always" | "sorted";
   /** Root fallback used when a column has no minWidth. */

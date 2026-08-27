@@ -85,10 +85,8 @@ test("a multiple select filter opens and toggles its options", async ({
   await expect(trigger).toHaveText("No");
 });
 
-// The tick is a lucide svg inside a DropdownMenuItem, whose
-// `[&_svg:not([class*='text-'])]:text-muted-foreground` paints any unclassed
-// icon it contains. That set the colour on the svg itself, beating the
-// currentColor the checkbox hands down from `--tdg-checkbox-checked-color`.
+// A DropdownMenuItem repaints any icon that does not name its own colour,
+// which is how the tick stopped following the token it inherits.
 test("the tick in a multiple select filter follows --tdg-checkbox-checked-color", async ({
   page,
 }) => {
