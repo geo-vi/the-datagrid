@@ -61,7 +61,7 @@ const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
-    className={cn("!table-row transition-colors", className)}
+    className={cn("!table-row", className)}
     {...props}
   />
 ))
