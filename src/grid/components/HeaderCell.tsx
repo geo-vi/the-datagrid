@@ -31,7 +31,7 @@ import type { TypeLockedColumnLayout } from "../utils/lockedColumns";
 import { Button } from "../../components/ui/button";
 import { TableHead } from "../../components/ui/table";
 
-function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
+function sortIcon(dir: 0 | 1 | -1, showUnsorted: boolean): React.ReactNode {
   if (dir === 1) {
     return (
       <span className="InovuaReactDataGrid__sort-icon-wrapper">
@@ -48,9 +48,13 @@ function sortIcon(dir: 0 | 1 | -1): React.ReactNode {
     );
   }
 
+  // A fixed-width flex item, left empty so sorting a column shifts no header
+  // text.
   return (
     <span className="InovuaReactDataGrid__sort-icon-wrapper">
-      <IconArrowsSort className="InovuaReactDataGrid__sort-icon ml-1 size-3 opacity-60" />
+      {showUnsorted ? (
+        <IconArrowsSort className="InovuaReactDataGrid__sort-icon ml-1 size-3 opacity-60" />
+      ) : null}
     </span>
   );
 }
@@ -135,6 +139,7 @@ export type HeaderCellProps = {
   rtl: boolean;
   isCheckboxColumn: boolean;
   columnDefaultHeaderAlign?: TypeDataGridProps["columnDefaultHeaderAlign"];
+  sortIconVisibility: NonNullable<TypeDataGridProps["sortIconVisibility"]>;
   /**
    * Drives the resize-handle clamp. Separate flags rather than one union: a
    * single-column grid is both edges at once.
@@ -190,6 +195,7 @@ export function HeaderCell(props: HeaderCellProps) {
     rtl,
     isCheckboxColumn,
     columnDefaultHeaderAlign,
+    sortIconVisibility,
     isLeadingEdge,
     isTrailingEdge,
   } = props;
@@ -201,7 +207,6 @@ export function HeaderCell(props: HeaderCellProps) {
   );
   const dir = getSortDir(sortInfo, sortColumn);
   const columnSortInfo = getColumnSortInfo(sortInfo, sortColumn);
-  const [hovered, setHovered] = React.useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -218,7 +223,7 @@ export function HeaderCell(props: HeaderCellProps) {
           sortInfo,
           headerCell: true,
         })
-      : sortIcon(dir)
+      : sortIcon(dir, sortIconVisibility === "always")
     : null;
 
   // A column that states either field wins; the root default only fills in for
@@ -361,7 +366,6 @@ export function HeaderCell(props: HeaderCellProps) {
         canSort
           ? "cursor-default select-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
           : "",
-        hovered ? "InovuaReactDataGrid__column-header--over" : "",
         showVerticalCellBorders
           ? "InovuaReactDataGrid__column-header--show-border-right"
           : "",
@@ -495,8 +499,6 @@ export function HeaderCell(props: HeaderCellProps) {
       }}
       onPointerUp={cancelLongPress}
       onPointerCancel={cancelLongPress}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div className="tdg-header-cell__inner relative flex h-full items-stretch">
         <div

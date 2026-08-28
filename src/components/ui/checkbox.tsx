@@ -35,14 +35,14 @@ const Checkbox = React.forwardRef<
       <CheckboxPrimitive.Indicator className="tdg-checkbox__icon-wrapper inovua-react-toolkit-checkbox__icon-wrapper grid place-content-center text-current">
         {checked === "indeterminate" ? (
           <svg
-            className="tdg-checkbox__indeterminate-icon h-4 w-4"
+            className="tdg-checkbox__indeterminate-icon h-4 w-4 text-current"
             viewBox="0 0 16 16"
             aria-hidden="true"
           >
             <rect width="10" height="2" x="3" y="7" rx="1" fill="currentColor" />
           </svg>
         ) : (
-          <Check className="tdg-checkbox__check-icon h-4 w-4" />
+          <Check className="tdg-checkbox__check-icon h-4 w-4 text-current" />
         )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>

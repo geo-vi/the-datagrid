@@ -402,7 +402,6 @@ export function GridBody(props: GridBodyProps) {
     onEditStop,
     onEditCancel,
   } = props;
-  const [hoveredCellId, setHoveredCellId] = React.useState<string | null>(null);
   const draggingCellSelectionRef = React.useRef(false);
   const rowLongPressTimerRef = React.useRef<ReturnType<
     typeof setTimeout
@@ -1581,9 +1580,6 @@ export function GridBody(props: GridBodyProps) {
                   ? "InovuaReactDataGrid__cell--show-border-right"
                   : "",
                 isLastCell ? "InovuaReactDataGrid__cell--last" : "",
-                showHoverRows && hoveredCellId === cell.id
-                  ? "InovuaReactDataGrid__cell--over"
-                  : "",
                 cellIsSelected ? "tdg-cell--selected bg-accent/50" : "",
                 cellIsActive
                   ? "tdg-cell--active outline outline-2 -outline-offset-2 outline-ring"
@@ -1655,7 +1651,6 @@ export function GridBody(props: GridBodyProps) {
               onMouseEnter={(event) => {
                 rootCellDOMProps.onMouseEnter?.(event);
                 columnCellDOMProps.onMouseEnter?.(event);
-                if (showHoverRows) setHoveredCellId(cell.id);
                 if (draggingCellSelectionRef.current) {
                   onCellSelectionPointer(rowIndex, cellIndex, {
                     button: 0,
@@ -1668,9 +1663,6 @@ export function GridBody(props: GridBodyProps) {
               onMouseLeave={(event) => {
                 rootCellDOMProps.onMouseLeave?.(event);
                 columnCellDOMProps.onMouseLeave?.(event);
-                setHoveredCellId((current) =>
-                  current === cell.id ? null : current
-                );
               }}
             >
               <div

@@ -1608,6 +1608,12 @@ export type TypeDataGridProps = {
    * one still wins, and the checkbox column is left alone.
    */
   columnDefaultHeaderAlign?: "start" | "end" | "left" | "right" | "center";
+  /**
+   * Whether a sortable column shows the neutral sort indicator while it is not
+   * sorted. `"sorted"` reserves its space without drawing it, so sorting a
+   * column shifts nothing. A column with its own `renderSortTool` is left alone.
+   */
+  sortIconVisibility?: "always" | "sorted";
   /** Root fallback used when a column has no minWidth. */
   columnMinWidth?: number;
   /** Root fallback used when a column has no maxWidth. */

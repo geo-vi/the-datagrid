@@ -145,6 +145,7 @@ export type ReactDataGridDefaultPropName =
   | "liveColumnResize"
   | "columnDefaultWidth"
   | "columnDefaultHeaderAlign"
+  | "sortIconVisibility"
   | "columnMinWidth"
   | "columnMaxWidth"
   | "shareSpaceOnResize"
@@ -211,6 +212,7 @@ export const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
   liveColumnResize: false,
   columnDefaultWidth: 150,
   columnDefaultHeaderAlign: "start",
+  sortIconVisibility: "always",
   columnMinWidth: 40,
   columnMaxWidth: null,
   shareSpaceOnResize: false,

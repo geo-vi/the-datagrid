@@ -185,6 +185,7 @@ export default function ColumnsGridExample() {
   const [columnOrder, setColumnOrder] = useState(() => [...initialColumnOrder]);
   const [filteredRows, setFilteredRows] = useState(workItems.length);
   const [naturalHeight, setNaturalHeight] = useState(false);
+  const [sortIconsWhenSorted, setSortIconsWhenSorted] = useState(false);
   const displayedWorkItems = useMemo(
     () => (naturalHeight ? workItems.slice(0, 3) : workItems),
     [naturalHeight]
@@ -347,6 +348,18 @@ export default function ColumnsGridExample() {
             type="button"
             variant="outline"
             size="sm"
+            aria-pressed={sortIconsWhenSorted}
+            data-testid="columns-sort-icon-toggle"
+            onClick={() => setSortIconsWhenSorted((current) => !current)}
+          >
+            {sortIconsWhenSorted
+              ? "Show every sort icon"
+              : "Sort icons only when sorted"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             disabled={!orderHasChanged}
             onClick={() => setColumnOrder([...initialColumnOrder])}
           >
@@ -411,14 +424,16 @@ export default function ColumnsGridExample() {
           showCellBorders={showCellBorders}
           i18n={i18n}
           showColumnMenuTool
+          sortIconVisibility={sortIconsWhenSorted ? "sorted" : "always"}
         />
       </div>
 
       <p className="text-xs text-muted-foreground">
         Drag headers to reorder them, resize from a column edge, or double-click
         the edge to autosize. Switch to natural height to see the same grid fit
-        three rows without a fixed parent. The internal note column stays hidden
-        through its column definition.
+        three rows without a fixed parent. Toggle the sort icons to leave the
+        indicator only on the columns actually ordering the rows. The internal
+        note column stays hidden through its column definition.
       </p>
     </section>
   );

@@ -1000,6 +1000,13 @@ const reactDataGridPropSections: ReferenceSection[] = [
           "Root sizing fallbacks used only when the corresponding column-level width/defaultWidth/minWidth/maxWidth is absent.",
       },
       {
+        name: "sortIconVisibility",
+        type: '"always" | "sorted"',
+        defaultValue: '"always"',
+        description:
+          "Whether a sortable column shows the neutral sort indicator while it is not sorted. \"sorted\" leaves the indicator to the columns actually driving the order; its width stays reserved, so sorting a column shifts no header text. A column with its own renderSortTool is unaffected.",
+      },
+      {
         name: "columnDefaultHeaderAlign",
         type: '"start" | "end" | "left" | "right" | "center"',
         defaultValue: '"start"',
@@ -4530,6 +4537,7 @@ const implementedSurfaceSections: ReferenceSection[] = [
   liveColumnResize: false,
   columnDefaultWidth: 150,
   columnDefaultHeaderAlign: "start",
+  sortIconVisibility: "always",
   columnMinWidth: 40,
   columnMaxWidth: null,
   shareSpaceOnResize: false,

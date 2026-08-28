@@ -84,3 +84,25 @@ test("a multiple select filter opens and toggles its options", async ({
   await menu.getByRole("menuitem", { name: "Yes" }).click();
   await expect(trigger).toHaveText("No");
 });
+
+// A DropdownMenuItem repaints any icon that does not name its own colour,
+// which is how the tick stopped following the token it inherits.
+test("the tick in a multiple select filter follows --tdg-checkbox-checked-color", async ({
+  page,
+}) => {
+  await page.goto("/examples/users");
+  await page.addStyleTag({
+    content: ".tdg-root { --tdg-checkbox-checked-color: rgb(255, 0, 0); }",
+  });
+
+  const trigger = page.locator(MULTIPLE).locator("button").first();
+  await trigger.click();
+  const menu = page.getByRole("menu");
+  await menu.getByRole("menuitem", { name: "Yes" }).click();
+
+  const tick = menu
+    .locator('[data-state="checked"].tdg-checkbox .tdg-checkbox__check-icon')
+    .first();
+  await expect(tick).toBeVisible();
+  await expect(tick).toHaveCSS("color", "rgb(255, 0, 0)");
+});
