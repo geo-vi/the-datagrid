@@ -1004,7 +1004,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: '"always" | "sorted"',
         defaultValue: '"always"',
         description:
-          "Whether a sortable column shows the neutral sort indicator while it is not sorted. \"sorted\" leaves the indicator to the columns actually driving the order; its width stays reserved, so sorting a column shifts no header text. A column with its own renderSortTool is unaffected.",
+          'Whether a sortable column shows the neutral sort indicator while it is not sorted. "sorted" leaves the indicator to the columns actually driving the order; its width stays reserved, so sorting a column shifts no header text. A column with its own renderSortTool is unaffected.',
       },
       {
         name: "columnDefaultHeaderAlign",
@@ -1088,7 +1088,42 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "false",
         description:
-          "At widths up to 1024px, replaces the table with measured virtual cards, current-page search, single-sort tools, and a card-only hideable-column picker while preserving renderers, actions, and selection.",
+          "At widths up to 1024px, replaces the table with measured virtual cards, current-page search, single-sort tools, and a card-only hideable-column picker while preserving renderers, actions, and selection. Use mobileTransform to move the breakpoint or change how the layout scrolls and pages.",
+      },
+      {
+        name: "mobileTransform",
+        type: "TypeMobileTransformProps",
+        defaultValue: "{}",
+        description:
+          'Tunes the responsive layout: breakpoint (number, length, or raw media query), scroll ("container" keeps the grid\'s own scrollport, "page" virtualizes against the window with a measured scrollMargin so the rows scroll with the document), variant/defaultVariant plus a cards-or-list toggle, listRows ("divided" rules a line between list rows, "boxed" encloses the run in one bordered group with rounded end caps), listActions ("bottom" moves the controls of a list row onto their own line so the fields get the full width), chrome ("plain" drops the surrounding frame), showToolbar (false leaves only the rows), and overflow ("show-more", "pagination", or "both") with pageSize, pageSizes, and showMoreStep. The mobile row budget is independent of the grid\'s own pagination, and replaces the grid pager while it is active. The list rows read --tdg-mobile-list-border-color, --tdg-mobile-list-radius, and --tdg-mobile-list-bg, and carry data-first/data-last for restyling the end caps; the pager and Show more button read the --tdg-mobile-pagination-* and --tdg-mobile-show-more-* tokens. Every cell is a containing block marked [data-slot="mobile-cell"], so a renderer that fills its table cell with position: absolute; inset: 0 stays inside its own field; add the tdg-cell-fill class to such a renderer and the grid flattens it into normal flow here and hands it the cell as its containing block in the table.',
+      },
+      {
+        name: "flex",
+        type: "number | string",
+        defaultValue: "1 1 auto",
+        description:
+          "How the grid behaves as a flex item of its own parent — the other half of what a sizing wrapper provided. A number becomes `<n> 1 0%`. The root already carries width: 100% and min-width: 0, so flex plus height/minHeight usually replaces the wrapper outright. Dropped while the page-scrolling mobile layout is active, since a zero flex-basis would collapse it.",
+      },
+      {
+        name: "height",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Sizes the grid itself instead of requiring a fixed-height wrapper. Numbers are pixels, strings are used verbatim.",
+      },
+      {
+        name: "minHeight / maxHeight",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Bounds the grid's height. With maxHeight the grid grows with its rows and scrolls past the bound. Every height bound is dropped while the page-scrolling mobile layout is active.",
+      },
+      {
+        name: "width / minWidth / maxWidth",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Sizes the grid horizontally. Unlike the height bounds these apply in every layout.",
       },
       {
         name: "columnUserSelect",
@@ -2419,6 +2454,20 @@ const columnSections: ReferenceSection[] = [
           "Prevents hiding from the transformed-mobile column picker. The current desktop UI has no equivalent visibility picker.",
       },
       {
+        name: "mobileRender",
+        type: "(cellProps: CellProps) => ReactNode",
+        defaultValue: "falls back to render",
+        description:
+          "Replaces render in the mobile layout only, for a renderer built around a table cell's fixed geometry. Receives the same single CellProps argument as the object form of render. Prefer the tdg-cell-fill class when the renderer only needs its absolute fill flattened; reach for this when mobile wants different content.",
+      },
+      {
+        name: "mobileRole",
+        type: '"primary" | "detail" | "action" | "hidden"',
+        defaultValue: "inferred",
+        description:
+          'Where the column lands in the mobile layout. "primary" claims the row headline, "action" moves the cell into the action area of its row, "detail" forces a labelled field, and "hidden" drops it. Left unset, the layout infers: an id or header reading like an action (action, menu, tools, options, …) becomes an action, the first non-identifier column with a string value becomes the headline, and the rest become details.',
+      },
+      {
         name: "draggable",
         type: "boolean",
         defaultValue: "true",
@@ -3348,6 +3397,76 @@ const i18nSections: ReferenceSection[] = [
         "mobileApplySort",
         "Apply sort",
         "Action label for applying mobile sorting."
+      ),
+      stringI18nRow(
+        "mobileSortDirection",
+        "Sort direction",
+        "Accessible name for the ascending/descending button group."
+      ),
+      stringI18nRow(
+        "mobileSortColumnPlaceholder",
+        "Choose a column",
+        "Placeholder shown before a sort column is picked."
+      ),
+      stringI18nRow(
+        "mobileSortedBy",
+        "Sorted by",
+        "Prefix for the active-sort summary beside the result count."
+      ),
+      stringI18nRow(
+        "mobileResult",
+        "result",
+        "Singular noun in the result readout."
+      ),
+      stringI18nRow(
+        "mobileResults",
+        "results",
+        "Plural noun in the result readout."
+      ),
+      stringI18nRow(
+        "mobileResultsListLabel",
+        "Grid results",
+        "Accessible name for the mobile row list."
+      ),
+      stringI18nRow(
+        "mobileMoreField",
+        "more field",
+        "Singular label on a card's collapsed-fields summary."
+      ),
+      stringI18nRow(
+        "mobileMoreFields",
+        "more fields",
+        "Plural label on a card's collapsed-fields summary."
+      ),
+      i18nRow(
+        "mobileCardsView",
+        "Card view",
+        "Accessible label and title for the cards side of the presentation toggle."
+      ),
+      i18nRow(
+        "mobileListView",
+        "List view",
+        "Accessible label and title for the list side of the presentation toggle."
+      ),
+      i18nRow(
+        "mobileShowMore",
+        "Show more",
+        "Label on the button that reveals the next batch of mobile rows."
+      ),
+      stringI18nRow(
+        "mobilePagination",
+        "Pagination",
+        "Accessible name for the mobile pager."
+      ),
+      stringI18nRow(
+        "mobilePreviousPage",
+        "Previous page",
+        "Accessible label and title for the mobile pager's previous control."
+      ),
+      stringI18nRow(
+        "mobileNextPage",
+        "Next page",
+        "Accessible label and title for the mobile pager's next control."
       ),
     ],
   },

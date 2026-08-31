@@ -725,10 +725,12 @@
   padding: 0 !important;
   border: 0 !important;
   /* Keep the fill-parent default, while allowing the public root `style`
-     prop to provide an explicit height just like Inovua. */
+     prop to provide an explicit height just like Inovua. The custom properties
+     are how the `minHeight` and `flex` props get past these `!important`
+     declarations, so the grid can replace a sizing wrapper outright. */
   height: 100%;
-  min-height: 0 !important;
-  flex: 1 1 auto !important;
+  min-height: var(--tdg-min-height, 0) !important;
+  flex: var(--tdg-flex, 1 1 auto) !important;
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -2472,4 +2474,124 @@
  */
 .tdg-root .tdg-row--active-indicator > .tdg-filler-cell--trailing::after {
   content: none !important;
+}
+
+/* Page-scrolling mobile layout: the document scrolls, so every box between the
+   root and the list stops being a fixed-height, clipping flex column. */
+
+.tdg-root[data-mobile-scroll="page"] {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border-radius: 0;
+}
+
+.tdg-root[data-mobile-scroll="page"] .tdg-frame,
+.tdg-root[data-mobile-scroll="page"] .tdg-surface {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  border-radius: 0;
+}
+
+/* The grid's own frame reads as a second scroll boundary on a phone. */
+.tdg-root:has([data-slot="mobile-grid-list"][data-chrome="plain"]),
+.tdg-root:has([data-slot="mobile-grid-list"][data-chrome="plain"]) .tdg-frame,
+.tdg-root:has([data-slot="mobile-grid-list"][data-chrome="plain"])
+  .tdg-surface {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* A sizing wrapper would bound the page-scroll layout, which is what this mode
+   exists to escape. Opt out per element with `data-tdg-keep-height`. */
+:has(> .tdg-root[data-mobile-release-height="true"]):not(
+    [data-tdg-keep-height]
+  ):not(body):not(html) {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Themable without reaching into the classes. */
+.tdg-mobile-pagination {
+  color: var(--tdg-mobile-pagination-color, inherit);
+  font-size: var(--tdg-mobile-pagination-font-size, 0.75rem);
+  padding: var(--tdg-mobile-pagination-padding, 0);
+}
+
+.tdg-mobile-pagination__button {
+  border-radius: var(--tdg-mobile-pagination-button-radius, 0.375rem);
+  border-color: var(
+    --tdg-mobile-pagination-button-border-color,
+    var(--tdg-grid-border-color)
+  );
+  background: var(--tdg-mobile-pagination-button-bg, transparent);
+  color: var(--tdg-mobile-pagination-button-color, inherit);
+}
+
+.tdg-mobile-show-more {
+  border-radius: var(--tdg-mobile-show-more-radius, 0.5rem);
+  border-color: var(
+    --tdg-mobile-show-more-border-color,
+    var(--tdg-grid-border-color)
+  );
+  background: var(--tdg-mobile-show-more-bg, transparent);
+  color: var(--tdg-mobile-show-more-color, inherit);
+  font-weight: var(--tdg-mobile-show-more-font-weight, 500);
+}
+
+/* An auto height clamped by `max-height` is not a definite size, so a
+   `height: 100%` scrollport resolves against its own content and never scrolls.
+   Clamping does cascade through the flex chain, so the scrollport becomes a flex
+   item: `flex-basis: auto` keeps it contributing content height on the way out,
+   `min-height: 0` lets the clamp shrink it on the way back in. */
+.tdg-root[data-height-bound="true"]
+  [data-slot="scroll-area"]:has(> .tdg-body-viewport) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tdg-root[data-height-bound="true"] .tdg-body-viewport {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Without a containing block per cell, a renderer that fills its table cell with
+   `position: absolute; inset: 0` would resolve against the virtual row wrapper
+   and stretch across the whole card. */
+.tdg-mobile-cell {
+  position: relative;
+}
+
+/* Cards only: absolute content contributes no height, so the cell needs some
+   reserved. A list row shares one baseline, which a taller box would break. */
+.tdg-mobile[data-variant="cards"]
+  .tdg-mobile-cell:not([data-cell-role="action"]) {
+  min-height: var(--tdg-mobile-cell-min-height, 1.5rem);
+}
+
+/* `tdg-cell-fill` is opt-in because computed position is not selectable: a
+   renderer must name itself for the grid to adapt it rather than just contain it.
+
+   `.tdg-cell-content` is a relative, clipping box with no height of its own, so
+   an `inset: 0` child collapses and is then clipped. Standing it down hands the
+   containing block to the cell, which has the row's height — the same move the
+   editing surfaces above make. */
+.tdg-root .tdg-cell-content:has(> .tdg-cell-fill) {
+  position: static !important;
+  overflow: visible !important;
+}
+
+/* No row height to fill on mobile, so it flattens back into the normal flow it
+   was emulating; its own flex arrangement survives. */
+.tdg-mobile-cell .tdg-cell-fill {
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+  width: 100% !important;
 }

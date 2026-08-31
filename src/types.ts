@@ -604,6 +604,17 @@ export interface IColumn {
    */
   render?: TypeColumnRenderFn;
 
+  /**
+   * Replaces `render` in the mobile layout only. Reach for it when a cell
+   * renderer is built for a table cell's fixed geometry — one that fills the
+   * cell with `position: absolute; inset: 0`, for instance — and so has nothing
+   * to size against once the row becomes a card or a list line.
+   *
+   * Receives the same single `CellProps` argument as the object form of
+   * `render`. Columns without it fall back to `render`.
+   */
+  mobileRender?: (cellProps: CellProps) => React.ReactNode;
+
   editable?:
     | boolean
     | ((
@@ -657,6 +668,19 @@ export interface IColumn {
   hideable?: boolean;
   draggable?: boolean;
   resizable?: boolean;
+
+  /**
+   * Where this column lands in the mobile layout, overriding the heuristics.
+   * `"primary"` is the row's headline (the last column to claim it wins),
+   * `"action"` moves the cell into the row's action area, `"detail"` forces a
+   * labelled field, and `"hidden"` drops it from the mobile layout entirely.
+   *
+   * Left unset, the mobile layout guesses: a column whose id or header reads
+   * like an action (`action`, `menu`, `tools`, `options`, …) becomes an action,
+   * the first non-identifier column with a string value becomes the headline,
+   * and everything else becomes a detail.
+   */
+  mobileRole?: TypeMobileColumnRole;
   /**
    * Keeps the column visible at a horizontal edge.
    *
@@ -1518,6 +1542,124 @@ export type TypeLoadMaskProps = {
 
 export type TypeShowCellBorders = true | false | "vertical" | "horizontal";
 
+/** Where a column lands in the mobile layout. */
+export type TypeMobileColumnRole = "primary" | "detail" | "action" | "hidden";
+
+/** Presentation the mobile layout uses for each row. */
+export type TypeMobileTransformVariant = "cards" | "list";
+
+/** How the mobile list variant draws its row edges. */
+export type TypeMobileListRows = "divided" | "boxed";
+
+/** Where the mobile list variant puts a row's action cells. */
+export type TypeMobileListActions = "inline" | "bottom";
+
+/** Which element the mobile layout virtualizes against. */
+export type TypeMobileTransformScroll = "container" | "page";
+
+/** How the mobile layout bounds the number of rows it renders. */
+export type TypeMobileTransformOverflow =
+  | "none"
+  | "pagination"
+  | "show-more"
+  | "both";
+
+export type TypeMobileTransformProps = {
+  /** Overrides `allowMobileTransform` when set. */
+  enabled?: boolean;
+
+  /**
+   * When the layout takes over. A number is a max-width in pixels, a bare
+   * length (`"48rem"`) becomes a max-width, and anything else is used as a raw
+   * media query. Defaults to `1024`.
+   */
+  breakpoint?: number | string;
+
+  /**
+   * `"container"` (default) virtualizes inside the grid's own scrollport, so
+   * the grid still honours a fixed-height wrapper. `"page"` virtualizes
+   * against the window: the rows scroll with the document, which reads far
+   * better on a phone but means the wrapper's height no longer bounds them.
+   */
+  scroll?: TypeMobileTransformScroll;
+
+  /** Controlled row presentation. */
+  variant?: TypeMobileTransformVariant;
+
+  /** Initial row presentation when `variant` is uncontrolled. Defaults to `"cards"`. */
+  defaultVariant?: TypeMobileTransformVariant;
+
+  /**
+   * How the `"list"` variant draws its rows. `"divided"` (default) rules a line
+   * between them; `"boxed"` encloses the run in a single bordered group, with
+   * the first and last rows rounding the group's corners.
+   *
+   * Both read `--tdg-mobile-list-border-color`, `--tdg-mobile-list-radius`, and
+   * `--tdg-mobile-list-bg`, and every row carries `data-first` / `data-last` so
+   * a consumer can restyle the edges without forking the component.
+   */
+  listRows?: TypeMobileListRows;
+
+  /**
+   * Where the `"list"` variant puts a row's action cells. `"inline"` (default)
+   * keeps them on the trailing edge beside the content; `"bottom"` moves them
+   * onto their own line underneath, which gives the fields the row's full width
+   * and is the only thing that fits once a row carries more than one control.
+   *
+   * The card variant always footers its actions, so this does not apply there.
+   */
+  listActions?: TypeMobileListActions;
+
+  /** Fires whenever the viewer flips the cards/list toggle. */
+  onVariantChange?: (variant: TypeMobileTransformVariant) => void;
+
+  /** Shows the cards/list toggle in the mobile toolbar. Defaults to `true`. */
+  showVariantToggle?: boolean;
+
+  /**
+   * Renders the mobile toolbar — search box, cards/list toggle, sort, column
+   * picker, and the result readout. `false` leaves only the rows, for a grid
+   * embedded in a surface that already provides those controls. Defaults to
+   * `true`.
+   */
+  showToolbar?: boolean;
+
+  /**
+   * Bounds how many rows the page-scrolling layout renders, independently of
+   * the grid's own `pagination`. Defaults to `"show-more"` when
+   * `scroll: "page"` and the grid is not already paginated, `"none"`
+   * otherwise. `"both"` reveals a page in `showMoreStep` chunks and then
+   * offers the pager for the next page.
+   */
+  overflow?: TypeMobileTransformOverflow;
+
+  /** Rows per mobile page, and the first `"show-more"` batch. Defaults to `25`. */
+  pageSize?: number;
+
+  /** Page sizes offered by the mobile pager. Defaults to `[10, 25, 50, 100]`. */
+  pageSizes?: number[];
+
+  /** Rows each "Show more" press adds. Defaults to `pageSize`. */
+  showMoreStep?: number;
+
+  /**
+   * `"plain"` drops the surrounding border, background, and padding so the
+   * search bar and rows sit directly on the page. Defaults to `"plain"` for
+   * `scroll: "page"` and `"card"` otherwise.
+   */
+  chrome?: "card" | "plain";
+
+  /**
+   * Lets the page-scrolling layout escape a height bound. The grid's own
+   * `height`/`maxHeight` props are dropped either way; this additionally
+   * relaxes the height of an immediate wrapper element, which is what a
+   * consumer sizing the grid from the outside ends up with. Defaults to `true`
+   * when `scroll: "page"`. Add `data-tdg-keep-height` to a wrapper to exempt
+   * it, or prefer the grid's own sizing props over a wrapper altogether.
+   */
+  releaseHeightConstraint?: boolean;
+};
+
 /**
  * Checkbox column compat surface.
  */
@@ -1738,6 +1880,13 @@ export type TypeDataGridProps = {
   /** Transform the grid into a responsive virtual list at widths up to 1024px. */
   allowMobileTransform?: boolean;
 
+  /**
+   * Tunes the responsive layout `allowMobileTransform` switches on: when it
+   * activates, whether it scrolls inside the grid or with the page, how the
+   * rows are presented, and how many of them render at once.
+   */
+  mobileTransform?: TypeMobileTransformProps;
+
   columnUserSelect?: true | false | "text" | "none";
   /**
    * Defaults to `true`, which renders both horizontal and vertical separators.
@@ -1885,6 +2034,31 @@ export type TypeDataGridProps = {
   handle?: (
     gridApiRef: React.MutableRefObject<TypeComputedProps | null> | null
   ) => void;
+
+  /**
+   * Sizes the grid itself instead of requiring a wrapper element. Numbers are
+   * pixels; strings are used verbatim, so `"70vh"` and `"clamp(20rem, 60vh, 40rem)"`
+   * both work. `maxHeight` is what most consumers actually want: the grid grows
+   * with its rows up to that bound and scrolls past it.
+   *
+   * The page-scrolling mobile layout ignores every height bound here, since its
+   * whole point is to scroll with the document.
+   */
+  height?: number | string;
+  minHeight?: number | string;
+  maxHeight?: number | string;
+  width?: number | string;
+  minWidth?: number | string;
+  maxWidth?: number | string;
+
+  /**
+   * How the grid behaves as a flex item of its own parent — the other half of
+   * what a sizing wrapper used to provide. A number becomes `<n> 1 0%`; a
+   * string is used verbatim. The root already carries `width: 100%` and
+   * `min-width: 0`, so `flex` plus `height`/`minHeight` is usually the whole
+   * wrapper.
+   */
+  flex?: number | string;
 
   className?: string;
   style?: React.CSSProperties;

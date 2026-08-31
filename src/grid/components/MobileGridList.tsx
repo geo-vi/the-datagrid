@@ -1,11 +1,24 @@
 import * as React from "react";
-import { flexRender, type Row } from "@tanstack/react-table";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
+import { flexRender, type Cell, type Row } from "@tanstack/react-table";
+import { useVirtualizer, useWindowVirtualizer } from "@tanstack/react-virtual";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Columns3,
+  LayoutGrid,
+  Rows3,
+} from "lucide-react";
 
 import type {
+  CellProps,
   TypeColumn,
   TypeDataGridProps,
+  TypeMobileListActions,
+  TypeMobileListRows,
+  TypeMobileTransformOverflow,
+  TypeMobileTransformScroll,
+  TypeMobileTransformVariant,
   TypeSortFunctions,
   TypeSortInfo,
 } from "../../types";
@@ -37,6 +50,7 @@ import {
   DataGridSearchBar,
   type DataGridSearchBarChange,
 } from "./DataGridSearchBar";
+import { MobileGridPagination } from "./MobileGridPagination";
 import {
   buildDataGridSearchIndex,
   filterDataGridSearchIndex,
@@ -44,8 +58,11 @@ import {
   type DataGridSearchIndex,
 } from "../utils/search";
 
+type GridRow = Row<Record<string, unknown>>;
+type GridCell = Cell<Record<string, unknown>, unknown>;
+
 type MobileGridListProps = {
-  rows: Row<Record<string, unknown>>[];
+  rows: GridRow[];
   columns: TypeColumn[];
   searchColumns: TypeColumn[];
   checkboxColumnId: string;
@@ -75,6 +92,23 @@ type MobileGridListProps = {
   scrollProps: NonNullable<TypeDataGridProps["scrollProps"]>;
   rtl: boolean;
   onScroll?: TypeDataGridProps["onScroll"];
+  /** Which element the rows virtualize against. */
+  scrollMode: TypeMobileTransformScroll;
+  /** Drops the surrounding border/background so rows sit directly on the page. */
+  chrome: "card" | "plain";
+  variant?: TypeMobileTransformVariant;
+  defaultVariant: TypeMobileTransformVariant;
+  listRows: TypeMobileListRows;
+  listActions: TypeMobileListActions;
+  showVariantToggle: boolean;
+  showToolbar: boolean;
+  onVariantChange?: (variant: TypeMobileTransformVariant) => void;
+  overflow: TypeMobileTransformOverflow;
+  pageSize: number;
+  pageSizes: number[];
+  showMoreStep: number;
+  estimatedCardHeight: number;
+  estimatedListHeight: number;
   onRowClick: (
     id: string,
     data: Record<string, unknown>,
@@ -93,6 +127,9 @@ type MobileGridListProps = {
 const ACTION_COLUMN =
   /(^|[-_\s])(action|actions|menu|tool|tools|command|commands|option|options)($|[-_\s])/i;
 const ID_COLUMN = /(^|[-_\s])(id|uuid|key|code|number|no)($|[-_\s])/i;
+
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
 
 function labelForColumn(column: TypeColumn): string {
   if (typeof column.header === "string") return column.header;
@@ -130,6 +167,21 @@ export function MobileGridList({
   scrollProps,
   rtl,
   onScroll,
+  scrollMode,
+  chrome,
+  variant: controlledVariant,
+  defaultVariant,
+  listRows,
+  listActions,
+  showVariantToggle,
+  showToolbar,
+  onVariantChange,
+  overflow,
+  pageSize: pageSizeProp,
+  pageSizes,
+  showMoreStep,
+  estimatedCardHeight,
+  estimatedListHeight,
   onRowClick,
   onRowContextMenu,
 }: MobileGridListProps): React.ReactElement {
@@ -140,8 +192,17 @@ export function MobileGridList({
   const [draftSortDirection, setDraftSortDirection] = React.useState<1 | -1>(
     defaultSortDirection
   );
+  const [uncontrolledVariant, setUncontrolledVariant] =
+    React.useState<TypeMobileTransformVariant>(defaultVariant);
+  const activeVariant = controlledVariant ?? uncontrolledVariant;
+  const pageScroll = scrollMode === "page";
+  const plainChrome = chrome === "plain";
+  const boxedListRows = listRows === "boxed";
+  const bottomListActions = listActions === "bottom";
   const deferredQuery = useDeferredValueCompat(committedQuery);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const toolbarRef = React.useRef<HTMLDivElement | null>(null);
+  const listRef = React.useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -149,8 +210,8 @@ export function MobileGridList({
   const suppressClickUntilRef = React.useRef(0);
   const searchIndexCache = React.useRef<{
     columns: TypeColumn[];
-    index: DataGridSearchIndex<Row<Record<string, unknown>>>;
-    rows: Row<Record<string, unknown>>[];
+    index: DataGridSearchIndex<GridRow>;
+    rows: GridRow[];
   } | null>(null);
   const sortPanelId = useStableId("tdg-mobile-sort-panel");
   const [hiddenMobileColumnIds, setHiddenMobileColumnIds] = React.useState<
@@ -215,6 +276,43 @@ export function MobileGridList({
     },
     []
   );
+
+  /** ---------------- row budget ---------------- */
+
+  const paginationEnabled = overflow === "pagination" || overflow === "both";
+  const showMoreEnabled = overflow === "show-more" || overflow === "both";
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(pageSizeProp);
+  React.useEffect(() => setPageSize(pageSizeProp), [pageSizeProp]);
+
+  const pageCount = paginationEnabled
+    ? Math.max(1, Math.ceil(filteredRows.length / pageSize) || 1)
+    : 1;
+  const safePageIndex = Math.min(Math.max(0, pageIndex), pageCount - 1);
+  React.useEffect(() => {
+    if (pageIndex !== safePageIndex) setPageIndex(safePageIndex);
+  }, [pageIndex, safePageIndex]);
+  const pageStart = paginationEnabled ? safePageIndex * pageSize : 0;
+  const pageRows = React.useMemo(
+    () =>
+      paginationEnabled
+        ? filteredRows.slice(pageStart, pageStart + pageSize)
+        : filteredRows,
+    [filteredRows, pageSize, pageStart, paginationEnabled]
+  );
+
+  // Without a pager alongside it, the first batch is a full page.
+  const initialReveal = paginationEnabled ? showMoreStep : pageSize;
+  const [revealed, setRevealed] = React.useState(initialReveal);
+  React.useEffect(() => {
+    setRevealed(initialReveal);
+  }, [deferredQuery, initialReveal, safePageIndex, sortInfo]);
+  const visibleRows = React.useMemo(
+    () => (showMoreEnabled ? pageRows.slice(0, revealed) : pageRows),
+    [pageRows, revealed, showMoreEnabled]
+  );
+  const canShowMore = showMoreEnabled && revealed < pageRows.length;
+
   const visibleDisplayColumnCount = displayColumns.reduce(
     (count, column) =>
       count + (hiddenMobileColumnIds.has(getColumnId(column)) ? 0 : 1),
@@ -313,11 +411,18 @@ export function MobileGridList({
       sortableColumns[0],
     [activeSortColumn, sortableColumns]
   );
+  const label = (key: string, fallback: string) => {
+    const value = t(i18n, key, fallback);
+    return typeof value === "string" ? value : fallback;
+  };
   const mobileSortValue = t(i18n, "mobileSort", "Sort");
   const mobileColumnsValue = t(i18n, "mobileColumns", "Display columns");
   const mobileSortByValue = t(i18n, "mobileSortBy", "Sort by");
   const mobileSortAscValue = t(i18n, "mobileSortAsc", "Ascending");
   const mobileSortDescValue = t(i18n, "mobileSortDesc", "Descending");
+  const mobileCardsValue = t(i18n, "mobileCardsView", "Card view");
+  const mobileListValue = t(i18n, "mobileListView", "List view");
+  const mobileShowMoreValue = t(i18n, "mobileShowMore", "Show more");
   const mobileSortLabel =
     typeof mobileSortValue === "string" ? mobileSortValue : "Sort";
   const mobileColumnsLabel =
@@ -332,6 +437,14 @@ export function MobileGridList({
     typeof mobileSortDescValue === "string"
       ? mobileSortDescValue
       : "Descending";
+  const mobileCardsLabel =
+    typeof mobileCardsValue === "string" ? mobileCardsValue : "Card view";
+  const mobileListLabel =
+    typeof mobileListValue === "string" ? mobileListValue : "List view";
+  const resultsLabel = label(
+    displayedResultCount === 1 ? "mobileResult" : "mobileResults",
+    displayedResultCount === 1 ? "result" : "results"
+  );
   const activeSortSummary = activeSortColumn
     ? `${labelForColumn(activeSortColumn)} ${activeSort?.dir === -1 ? mobileSortDescLabel : mobileSortAscLabel}`
     : null;
@@ -378,222 +491,837 @@ export function MobileGridList({
     onSortInfoChange(Array.isArray(sortInfo) ? [] : null);
     closeSortPanel();
   };
-  const virtualizer = useVirtualizer({
-    count: filteredRows.length,
+
+  const selectVariant = (next: TypeMobileTransformVariant) => {
+    if (next === activeVariant) return;
+    if (controlledVariant === undefined) setUncontrolledVariant(next);
+    onVariantChange?.(next);
+  };
+
+  /** ---------------- virtualization ---------------- */
+
+  const hasActionColumns = React.useMemo(
+    () =>
+      columns.some((column) => {
+        if (column.mobileRole) return column.mobileRole === "action";
+        const columnId = getColumnId(column);
+        return ACTION_COLUMN.test(`${columnId} ${labelForColumn(column)}`);
+      }),
+    [columns]
+  );
+  const estimatedRowHeight =
+    activeVariant === "list"
+      ? estimatedListHeight + (bottomListActions && hasActionColumns ? 48 : 0)
+      : estimatedCardHeight;
+
+  // The window virtualizer positions items in document space, so it needs the
+  // list's document offset. Only the toolbar can change that without the list
+  // moving, so it is what gets observed.
+  const [scrollMargin, setScrollMargin] = React.useState(0);
+  useIsomorphicLayoutEffect(() => {
+    if (!pageScroll) return;
+    const list = listRef.current;
+    if (!list) return;
+
+    const measure = () => {
+      const next = Math.round(
+        list.getBoundingClientRect().top + window.scrollY
+      );
+      setScrollMargin((current) => (current === next ? current : next));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    const toolbar = toolbarRef.current;
+    const observer =
+      typeof ResizeObserver === "undefined" || !toolbar
+        ? null
+        : new ResizeObserver(measure);
+    if (toolbar) observer?.observe(toolbar);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [pageScroll, sortPanelOpen, activeVariant, plainChrome, visibleRows]);
+
+  const containerVirtualizer = useVirtualizer({
+    count: visibleRows.length,
+    enabled: !pageScroll,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 224,
+    estimateSize: () => estimatedRowHeight,
     overscan: 5,
   });
+  const windowVirtualizer = useWindowVirtualizer({
+    count: visibleRows.length,
+    enabled: pageScroll,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 5,
+    scrollMargin,
+  });
+  const virtualizer = pageScroll ? windowVirtualizer : containerVirtualizer;
+  const virtualOffset = pageScroll ? scrollMargin : 0;
 
   React.useEffect(() => {
-    virtualizer.scrollToOffset(0);
-  }, [deferredQuery, virtualizer]);
+    if (pageScroll) return;
+    containerVirtualizer.scrollToOffset(0);
+  }, [containerVirtualizer, deferredQuery, pageScroll]);
 
+  // Deferred to after the rows swap in: measured against the outgoing page, the
+  // smooth scroll aims at the wrong offset and is then cut short.
+  const pendingPageScrollRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!pendingPageScrollRef.current) return;
+    pendingPageScrollRef.current = false;
+    if (!pageScroll) {
+      containerVirtualizer.scrollToOffset(0);
+      return;
+    }
+    const list = listRef.current;
+    if (!list) return;
+    window.scrollTo({
+      top: Math.max(0, list.getBoundingClientRect().top + window.scrollY - 16),
+      behavior: "smooth",
+    });
+  }, [containerVirtualizer, pageScroll, safePageIndex]);
+
+  // Guarded because focusing the grid activates a row on its own: without it,
+  // revealing more rows yanks the page back to the already-active one.
+  const scrolledToActiveIndexRef = React.useRef(-1);
   React.useLayoutEffect(() => {
     if (!gridFocused || activeIndex < 0) return;
-    const displayIndex = filteredRows.findIndex(
+    if (scrolledToActiveIndexRef.current === activeIndex) return;
+    const displayIndex = visibleRows.findIndex(
       (row) => row.index === activeIndex
     );
-    if (displayIndex >= 0) {
-      virtualizer.scrollToIndex(displayIndex, { align: "auto" });
-    }
-  }, [activeIndex, filteredRows, gridFocused, virtualizer]);
+    if (displayIndex < 0) return;
+    scrolledToActiveIndexRef.current = activeIndex;
+    virtualizer.scrollToIndex(displayIndex, { align: "auto" });
+  }, [activeIndex, visibleRows, gridFocused, virtualizer]);
 
   const emptyContent =
     !loading && filteredRows.length === 0
       ? resolveEmptyText(emptyText, i18n)
       : null;
 
-  return (
-    <div
-      className="tdg-mobile flex min-h-0 flex-1 flex-col bg-muted/30"
-      data-slot="mobile-grid-list"
-      onKeyDown={(event) => {
-        if (
-          event.key !== "Escape" ||
-          event.defaultPrevented ||
-          !sortPanelOpen
-        ) {
-          return;
-        }
+  /** ---------------- rows ---------------- */
 
+  const splitRowCells = (row: GridRow) => {
+    const cells = row.getVisibleCells() as GridCell[];
+    const checkboxCell = cells.find(
+      (cell) => cell.column.id === checkboxColumnId
+    );
+    const roleOf = (cell: GridCell) =>
+      columnMap.get(cell.column.id)?.mobileRole;
+    const dataCells = cells.filter(
+      (cell) =>
+        cell.column.id !== checkboxColumnId &&
+        !hiddenMobileColumnIds.has(cell.column.id) &&
+        roleOf(cell) !== "hidden"
+    );
+    const actionCells = dataCells.filter((cell) => {
+      const role = roleOf(cell);
+      if (role) return role === "action";
+      return ACTION_COLUMN.test(
+        `${cell.column.id} ${labelForColumn(columnMap.get(cell.column.id) ?? ({ name: cell.column.id } as TypeColumn))}`
+      );
+    });
+    const contentCells = dataCells.filter(
+      (cell) => !actionCells.includes(cell)
+    );
+    // Reversed so the last explicit "primary" wins.
+    const primaryCell =
+      [...contentCells].reverse().find((cell) => roleOf(cell) === "primary") ??
+      contentCells.find(
+        (cell) =>
+          roleOf(cell) !== "detail" &&
+          !ID_COLUMN.test(cell.column.id) &&
+          typeof cell.getValue() === "string"
+      ) ??
+      contentCells.find((cell) => roleOf(cell) !== "detail") ??
+      contentCells[0];
+    const detailCells = contentCells.filter((cell) => cell !== primaryCell);
+    return { actionCells, checkboxCell, detailCells, primaryCell };
+  };
+
+  const cellLabel = (cell: GridCell) =>
+    labelForColumn(
+      columnMap.get(cell.column.id) ?? ({ name: cell.column.id } as TypeColumn)
+    );
+
+  // `mobileRender` is the escape for renderers built around a table cell's
+  // geometry; everything else reuses the renderer TanStack has cached.
+  const renderCellContent = (cell: GridCell) => {
+    const column = columnMap.get(cell.column.id);
+    const mobileRender = column?.mobileRender;
+    if (!mobileRender) {
+      return flexRender(cell.column.columnDef.cell, cell.getContext());
+    }
+
+    return mobileRender({
+      value: cell.getValue(),
+      data: cell.row.original,
+      rowIndex: cell.row.index,
+      column,
+      columnId: cell.column.id,
+      cellProps:
+        typeof column.cellProps === "object" && column.cellProps !== null
+          ? (column.cellProps as Record<string, unknown>)
+          : {},
+    } as CellProps);
+  };
+
+  const renderDetailList = (cells: GridCell[], className: string) => (
+    <dl
+      className={cn(
+        "grid grid-cols-1 gap-x-5 gap-y-3 min-[540px]:grid-cols-2",
+        className
+      )}
+    >
+      {cells.map((cell) => (
+        <div key={cell.id} className="min-w-0">
+          <dt className="text-xs font-medium text-muted-foreground">
+            {cellLabel(cell)}
+          </dt>
+          <dd
+            className={cn(
+              "tdg-mobile-cell mt-0.5 min-w-0 break-words text-sm [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal",
+              typeof cell.getValue() === "number" && "tabular-nums"
+            )}
+            data-slot="mobile-cell"
+            data-cell-role="detail"
+          >
+            {renderCellContent(cell)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+
+  const renderRow = (virtualIndex: number) => {
+    const row = visibleRows[virtualIndex]!;
+    // Separators sit between rows, so the last one carries no rule.
+    const isFirstRow = virtualIndex === 0;
+    const isLastRow = virtualIndex === visibleRows.length - 1;
+    const rowIndex = row.index;
+    const rowIsDisabled = isRowDisabled(rowIndex);
+    const rowIsSelected = Boolean(selectedMap[row.id]);
+    const rowIsActive = rowIndex === activeIndex;
+    const { actionCells, checkboxCell, detailCells, primaryCell } =
+      splitRowCells(row);
+    const visibleDetailCells = detailCells.slice(0, 6);
+    const overflowDetailCells = detailCells.slice(6);
+    const listDetailCells = detailCells.slice(0, 3);
+
+    const stateClassName = cn(
+      rowIsSelected && "ring-2 ring-ring",
+      rowIsActive && "tdg-row--active InovuaReactDataGrid__row--active",
+      rowIsActive &&
+        gridFocused &&
+        cn(
+          "tdg-row--focused InovuaReactDataGrid__row--focused",
+          rowFocusClassName,
+          showActiveRowIndicator &&
+            "outline outline-2 outline-offset-[-2px] outline-ring",
+          showActiveRowIndicator ? activeRowIndicatorClassName : ""
+        ),
+      rowIsDisabled &&
+        "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
+    );
+
+    const rowHandlers = {
+      onClick: rowIsDisabled
+        ? undefined
+        : (event: React.MouseEvent) =>
+            onRowClick(row.id, row.original, rowIndex, event),
+      onContextMenu: onRowContextMenu
+        ? (event: React.MouseEvent<HTMLElement>) => {
+            onRowContextMenu(row.id, row.original, rowIndex, event, {
+              left: event.clientX,
+              top: event.clientY,
+            });
+          }
+        : undefined,
+      onClickCapture: (event: React.MouseEvent) => {
+        if (Date.now() > suppressClickUntilRef.current) return;
+        suppressClickUntilRef.current = 0;
         event.preventDefault();
         event.stopPropagation();
-        closeSortPanel();
-      }}
-    >
-      <div className="shrink-0 border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]">
-        <div className="flex items-center gap-2">
-          {searchEnabled ? (
-            <DataGridSearchBar
-              value={query}
-              columns={searchColumns}
-              onValueChange={setMobileSearchValue}
-            />
-          ) : (
-            <div className="min-w-0 flex-1" aria-hidden="true" />
-          )}
-          {sortableColumns.length ? (
-            <Button
-              ref={sortButtonRef}
-              type="button"
-              variant={sortPanelOpen ? "secondary" : "outline"}
-              size="icon"
-              className="h-10 w-10 shrink-0"
-              aria-expanded={sortPanelOpen}
-              aria-controls={sortPanelId}
-              aria-label={
-                activeSortSummary
-                  ? `${mobileSortLabel}: ${activeSortSummary}`
-                  : mobileSortLabel
-              }
-              title={
-                activeSortSummary
-                  ? `${mobileSortLabel}: ${activeSortSummary}`
-                  : mobileSortLabel
-              }
-              onClick={toggleSortPanel}
-            >
-              <ArrowUpDown />
-            </Button>
-          ) : null}
-          {columnPickerEnabled && displayColumns.length ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 data-[state=open]:bg-secondary"
-                  aria-label={mobileColumnsLabel}
-                  title={mobileColumnsLabel}
-                >
-                  <Columns3 />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>{mobileColumnsValue}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {displayColumns.map((column) => {
-                  const columnId = getColumnId(column);
-                  const displayed = !hiddenMobileColumnIds.has(columnId);
-                  const disableHidingLastColumn =
-                    displayed && visibleDisplayColumnCount <= 1;
+      },
+      onPointerDown: onRowContextMenu
+        ? (event: React.PointerEvent<HTMLElement>) => {
+            if (event.pointerType !== "touch") return;
+            event.persist();
+            cancelLongPress();
+            suppressClickUntilRef.current = 0;
+            longPressStartRef.current = { x: event.clientX, y: event.clientY };
+            const currentTarget = event.currentTarget;
+            longPressTimerRef.current = setTimeout(() => {
+              longPressTimerRef.current = null;
+              suppressClickUntilRef.current = Date.now() + 800;
+              onRowContextMenu(row.id, row.original, rowIndex, event, {
+                left: event.clientX,
+                top: event.clientY,
+              });
+              currentTarget.focus?.({ preventScroll: true });
+            }, 500);
+          }
+        : undefined,
+      onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+        const start = longPressStartRef.current;
+        if (
+          start &&
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8
+        ) {
+          cancelLongPress();
+        }
+      },
+      onPointerUp: cancelLongPress,
+      onPointerCancel: cancelLongPress,
+    };
 
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={columnId}
-                      checked={displayed}
-                      disabled={
-                        column.hideable === false || disableHidingLastColumn
-                      }
-                      onCheckedChange={(checked) =>
-                        setMobileColumnDisplayed(columnId, checked === true)
-                      }
-                      onSelect={(event) => event.preventDefault()}
+    const rowAttributes = {
+      id: `${rowIdPrefix}-${rowIndex}`,
+      "data-slot": "grid-row",
+      "data-row-id": row.id,
+      "data-row-index": rowIndex,
+      "data-selected": rowIsSelected ? "true" : "false",
+      "data-active": rowIsActive ? "true" : "false",
+      "data-first": isFirstRow ? "true" : undefined,
+      "data-last": isLastRow ? "true" : undefined,
+      "data-disabled": rowIsDisabled ? "true" : undefined,
+      "aria-disabled": rowIsDisabled || undefined,
+      "aria-current": rowIsActive ? "true" : undefined,
+      "aria-selected": selectionEnabled ? rowIsSelected : undefined,
+    } as const;
+
+    if (activeVariant === "list") {
+      return (
+        <article
+          className={cn(
+            "tdg-mobile-row min-w-0 px-3 py-3",
+            bottomListActions
+              ? "flex flex-col gap-2"
+              : "flex items-center gap-3",
+            "[border-color:var(--tdg-mobile-list-border-color,var(--tdg-grid-border-color))]",
+            boxedListRows
+              ? "border-x border-b bg-[var(--tdg-mobile-list-bg,var(--tdg-grid-bg))]"
+              : cn(
+                  !isLastRow && "border-b",
+                  plainChrome
+                    ? "bg-[var(--tdg-mobile-list-bg,transparent)]"
+                    : "bg-[var(--tdg-mobile-list-bg,var(--tdg-grid-bg))]"
+                ),
+            boxedListRows &&
+              isFirstRow &&
+              "rounded-t-[var(--tdg-mobile-list-radius,0.5rem)] border-t",
+            boxedListRows &&
+              isLastRow &&
+              "rounded-b-[var(--tdg-mobile-list-radius,0.5rem)]",
+            stateClassName
+          )}
+          {...rowAttributes}
+          {...rowHandlers}
+        >
+          <div
+            className={cn(
+              "flex min-w-0 items-center gap-3",
+              bottomListActions ? "w-full" : "contents"
+            )}
+          >
+            {checkboxCell ? (
+              <div className="shrink-0">
+                {flexRender(
+                  checkboxCell.column.columnDef.cell,
+                  checkboxCell.getContext()
+                )}
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              {primaryCell ? (
+                <div
+                  className="tdg-mobile-cell min-w-0 truncate text-sm font-semibold text-foreground"
+                  data-slot="mobile-cell"
+                  data-cell-role="primary"
+                >
+                  {renderCellContent(primaryCell)}
+                </div>
+              ) : null}
+              {listDetailCells.length ? (
+                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  {listDetailCells.map((cell) => (
+                    <span
+                      key={cell.id}
+                      className="inline-flex min-w-0 items-center gap-1 truncate"
+                    >
+                      <span className="shrink-0 opacity-70">
+                        {cellLabel(cell)}
+                      </span>
+                      <span
+                        className="tdg-mobile-cell min-w-0 truncate text-foreground/80"
+                        data-slot="mobile-cell"
+                        data-cell-role="detail"
+                      >
+                        {renderCellContent(cell)}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {actionCells.length ? (
+            <div
+              className={cn(
+                "tdg-mobile-row-actions flex items-center gap-1",
+                bottomListActions ? "w-full flex-wrap justify-end" : "shrink-0"
+              )}
+            >
+              {actionCells.map((cell) => (
+                <div
+                  key={cell.id}
+                  className="tdg-mobile-cell"
+                  data-slot="mobile-cell"
+                  data-cell-role="action"
+                >
+                  {renderCellContent(cell)}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </article>
+      );
+    }
+
+    return (
+      <article
+        className={cn(
+          "tdg-mobile-card rounded-md border bg-background p-4 shadow-sm [border-color:var(--tdg-grid-border-color)]",
+          stateClassName
+        )}
+        {...rowAttributes}
+        {...rowHandlers}
+      >
+        <header className="flex min-w-0 items-start gap-3">
+          {checkboxCell ? (
+            <div className="mt-0.5 shrink-0">
+              {flexRender(
+                checkboxCell.column.columnDef.cell,
+                checkboxCell.getContext()
+              )}
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            {primaryCell ? (
+              <>
+                <div className="text-xs font-medium text-muted-foreground">
+                  {cellLabel(primaryCell)}
+                </div>
+                <div
+                  className="tdg-mobile-cell min-w-0 break-words text-base font-semibold text-foreground"
+                  data-slot="mobile-cell"
+                  data-cell-role="primary"
+                >
+                  {renderCellContent(primaryCell)}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </header>
+        {detailCells.length
+          ? renderDetailList(visibleDetailCells, "mt-4")
+          : null}
+        {overflowDetailCells.length ? (
+          <details
+            className="mt-3 border-t pt-3 [border-color:var(--tdg-grid-border-color)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              {overflowDetailCells.length}{" "}
+              {label(
+                overflowDetailCells.length === 1
+                  ? "mobileMoreField"
+                  : "mobileMoreFields",
+                overflowDetailCells.length === 1 ? "more field" : "more fields"
+              )}
+            </summary>
+            {renderDetailList(overflowDetailCells, "mt-3")}
+          </details>
+        ) : null}
+        {actionCells.length ? (
+          <footer className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3 [border-color:var(--tdg-grid-border-color)]">
+            {actionCells.map((cell) => (
+              <div
+                key={cell.id}
+                className="tdg-mobile-cell"
+                data-slot="mobile-cell"
+                data-cell-role="action"
+              >
+                {renderCellContent(cell)}
+              </div>
+            ))}
+          </footer>
+        ) : null}
+      </article>
+    );
+  };
+
+  const listBody =
+    visibleRows.length === 0 ? (
+      loading || emptyContent == null ? null : (
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          {emptyContent}
+        </div>
+      )
+    ) : (
+      <div
+        ref={listRef}
+        className="tdg-mobile-list relative w-full"
+        style={{ height: virtualizer.getTotalSize() }}
+        role="list"
+        aria-label={label("mobileResultsListLabel", "Grid results")}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={visibleRows[virtualRow.index]!.id}
+            ref={virtualizer.measureElement}
+            data-index={virtualRow.index}
+            className={cn(
+              "absolute left-0 top-0 w-full",
+              activeVariant === "list"
+                ? boxedListRows && !plainChrome
+                  ? "px-3"
+                  : ""
+                : plainChrome
+                  ? "py-1.5"
+                  : "px-3 py-1.5"
+            )}
+            style={{
+              transform: `translateY(${virtualRow.start - virtualOffset}px)`,
+            }}
+            role="listitem"
+          >
+            {renderRow(virtualRow.index)}
+          </div>
+        ))}
+      </div>
+    );
+
+  const overflowControls =
+    (canShowMore || paginationEnabled) && filteredRows.length > 0 ? (
+      <div
+        className={cn(
+          "tdg-mobile-overflow flex shrink-0 flex-col gap-3",
+          plainChrome
+            ? "pt-3"
+            : "border-t bg-background p-3 [border-color:var(--tdg-grid-border-color)]"
+        )}
+        data-slot="mobile-overflow"
+      >
+        {canShowMore ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="tdg-mobile-show-more h-11 w-full"
+            onClick={() =>
+              setRevealed((current) =>
+                Math.min(current + showMoreStep, pageRows.length)
+              )
+            }
+          >
+            {mobileShowMoreValue}
+            <span className="ml-1 tabular-nums opacity-70">
+              ({Math.min(showMoreStep, pageRows.length - revealed)})
+            </span>
+          </Button>
+        ) : null}
+        {paginationEnabled ? (
+          <MobileGridPagination
+            pageIndex={safePageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            pageSizes={pageSizes}
+            rangeStart={pageStart}
+            rangeEnd={Math.min(
+              pageStart + pageRows.length,
+              filteredRows.length
+            )}
+            total={filteredRows.length}
+            i18n={i18n}
+            onPageIndexChange={(next) => {
+              pendingPageScrollRef.current = true;
+              setPageIndex(next);
+            }}
+            onPageSizeChange={(next) => {
+              pendingPageScrollRef.current = true;
+              setPageSize(next);
+              setPageIndex(0);
+            }}
+          />
+        ) : null}
+      </div>
+    ) : null;
+
+  const toolbar = !showToolbar ? null : (
+    <div
+      ref={toolbarRef}
+      className={cn(
+        "tdg-mobile-toolbar shrink-0",
+        plainChrome
+          ? "pb-3"
+          : "border-b bg-background p-3 [border-color:var(--tdg-grid-border-color)]",
+        pageScroll &&
+          "sticky top-[var(--tdg-mobile-toolbar-top,0px)] z-20 bg-[var(--tdg-mobile-toolbar-bg,var(--tdg-grid-bg))]",
+        pageScroll && plainChrome && "pt-3"
+      )}
+      data-slot="mobile-toolbar"
+    >
+      <div className="flex items-center gap-2">
+        {searchEnabled ? (
+          <DataGridSearchBar
+            value={query}
+            columns={searchColumns}
+            onValueChange={setMobileSearchValue}
+          />
+        ) : (
+          <div className="min-w-0 flex-1" aria-hidden="true" />
+        )}
+        {showVariantToggle ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="tdg-mobile-variant-toggle h-10 w-10 shrink-0"
+            aria-label={
+              activeVariant === "cards" ? mobileListLabel : mobileCardsLabel
+            }
+            title={
+              activeVariant === "cards" ? mobileListLabel : mobileCardsLabel
+            }
+            data-variant={activeVariant}
+            onClick={() =>
+              selectVariant(activeVariant === "cards" ? "list" : "cards")
+            }
+          >
+            {activeVariant === "cards" ? <Rows3 /> : <LayoutGrid />}
+          </Button>
+        ) : null}
+        {sortableColumns.length ? (
+          <Button
+            ref={sortButtonRef}
+            type="button"
+            variant={sortPanelOpen ? "secondary" : "outline"}
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            aria-expanded={sortPanelOpen}
+            aria-controls={sortPanelId}
+            aria-label={
+              activeSortSummary
+                ? `${mobileSortLabel}: ${activeSortSummary}`
+                : mobileSortLabel
+            }
+            title={
+              activeSortSummary
+                ? `${mobileSortLabel}: ${activeSortSummary}`
+                : mobileSortLabel
+            }
+            onClick={toggleSortPanel}
+          >
+            <ArrowUpDown />
+          </Button>
+        ) : null}
+        {columnPickerEnabled && displayColumns.length ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 data-[state=open]:bg-secondary"
+                aria-label={mobileColumnsLabel}
+                title={mobileColumnsLabel}
+              >
+                <Columns3 />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>{mobileColumnsValue}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {displayColumns.map((column) => {
+                const columnId = getColumnId(column);
+                const displayed = !hiddenMobileColumnIds.has(columnId);
+                const disableHidingLastColumn =
+                  displayed && visibleDisplayColumnCount <= 1;
+
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={columnId}
+                    checked={displayed}
+                    disabled={
+                      column.hideable === false || disableHidingLastColumn
+                    }
+                    onCheckedChange={(checked) =>
+                      setMobileColumnDisplayed(columnId, checked === true)
+                    }
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {labelForColumn(column)}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+      <div className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-muted-foreground">
+        <output className="shrink-0 tabular-nums" aria-live="polite">
+          {displayedResultCount} {resultsLabel}
+        </output>
+        {activeSortSummary ? (
+          <span className="min-w-0 truncate text-right">
+            {label("mobileSortedBy", "Sorted by")} {activeSortSummary}
+          </span>
+        ) : null}
+      </div>
+      {sortPanelOpen ? (
+        <div
+          id={sortPanelId}
+          className="mt-3 rounded-md border bg-muted/30 p-3 [border-color:var(--tdg-grid-border-color)]"
+          data-slot="mobile-sort-panel"
+        >
+          <div className="grid gap-3 min-[540px]:grid-cols-[minmax(0,1fr)_auto] min-[540px]:items-end">
+            <label className="grid min-w-0 gap-1.5 text-xs font-medium text-muted-foreground">
+              {mobileSortByValue}
+              <Select
+                value={draftSortColumnId}
+                onValueChange={setDraftSortColumnId}
+              >
+                <SelectTrigger aria-label={mobileSortByLabel}>
+                  <SelectValue
+                    placeholder={label(
+                      "mobileSortColumnPlaceholder",
+                      "Choose a column"
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortableColumns.map((column) => (
+                    <SelectItem
+                      key={getColumnId(column)}
+                      value={getColumnId(column)}
                     >
                       {labelForColumn(column)}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </div>
-        <div className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-muted-foreground">
-          <output className="shrink-0 tabular-nums" aria-live="polite">
-            {displayedResultCount}{" "}
-            {displayedResultCount === 1 ? "result" : "results"}
-          </output>
-          {activeSortSummary ? (
-            <span className="min-w-0 truncate text-right">
-              Sorted by {activeSortSummary}
-            </span>
-          ) : null}
-        </div>
-        {sortPanelOpen ? (
-          <div
-            id={sortPanelId}
-            className="mt-3 rounded-md border bg-muted/30 p-3 [border-color:var(--tdg-grid-border-color)]"
-            data-slot="mobile-sort-panel"
-          >
-            <div className="grid gap-3 min-[540px]:grid-cols-[minmax(0,1fr)_auto] min-[540px]:items-end">
-              <label className="grid min-w-0 gap-1.5 text-xs font-medium text-muted-foreground">
-                {mobileSortByValue}
-                <Select
-                  value={draftSortColumnId}
-                  onValueChange={setDraftSortColumnId}
-                >
-                  <SelectTrigger aria-label={mobileSortByLabel}>
-                    <SelectValue placeholder="Choose a column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortableColumns.map((column) => (
-                      <SelectItem
-                        key={getColumnId(column)}
-                        value={getColumnId(column)}
-                      >
-                        {labelForColumn(column)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <div
-                className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
-                role="group"
-                aria-label="Sort direction"
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={draftSortDirection === 1 ? "secondary" : "ghost"}
-                  className="h-10 px-3"
-                  aria-pressed={draftSortDirection === 1}
-                  onClick={() => setDraftSortDirection(1)}
-                >
-                  <ArrowUp />
-                  {mobileSortAscValue}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={draftSortDirection === -1 ? "secondary" : "ghost"}
-                  className="h-10 px-3"
-                  aria-pressed={draftSortDirection === -1}
-                  onClick={() => setDraftSortDirection(-1)}
-                >
-                  <ArrowDown />
-                  {mobileSortDescValue}
-                </Button>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
-              {activeSort ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 flex-1 min-[540px]:flex-none"
-                  onClick={clearMobileSort}
-                >
-                  {t(i18n, "mobileClearSort", "Clear sort")}
-                </Button>
-              ) : null}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+              role="group"
+              aria-label={label("mobileSortDirection", "Sort direction")}
+            >
               <Button
                 type="button"
                 size="sm"
-                className="h-10 flex-1 min-[540px]:flex-none"
-                disabled={!draftSortColumn}
-                onClick={applyMobileSort}
+                variant={draftSortDirection === 1 ? "secondary" : "ghost"}
+                className="h-10 px-3"
+                aria-pressed={draftSortDirection === 1}
+                onClick={() => setDraftSortDirection(1)}
               >
-                {t(i18n, "mobileApplySort", "Apply sort")}
+                <ArrowUp />
+                {mobileSortAscValue}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={draftSortDirection === -1 ? "secondary" : "ghost"}
+                className="h-10 px-3"
+                aria-pressed={draftSortDirection === -1}
+                onClick={() => setDraftSortDirection(-1)}
+              >
+                <ArrowDown />
+                {mobileSortDescValue}
               </Button>
             </div>
           </div>
-        ) : null}
-      </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            {activeSort ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-10 flex-1 min-[540px]:flex-none"
+                onClick={clearMobileSort}
+              >
+                {t(i18n, "mobileClearSort", "Clear sort")}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              className="h-10 flex-1 min-[540px]:flex-none"
+              disabled={!draftSortColumn}
+              onClick={applyMobileSort}
+            >
+              {t(i18n, "mobileApplySort", "Apply sort")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 
+  const handleEscape = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Escape" || event.defaultPrevented || !sortPanelOpen) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeSortPanel();
+  };
+
+  if (pageScroll) {
+    return (
+      <div
+        className={cn(
+          "tdg-mobile tdg-mobile--page-scroll flex w-full flex-col",
+          plainChrome ? "" : "bg-muted/30"
+        )}
+        data-slot="mobile-grid-list"
+        data-scroll-mode="page"
+        data-chrome={chrome}
+        data-variant={activeVariant}
+        data-list-rows={listRows}
+        data-list-actions={listActions}
+        onKeyDown={handleEscape}
+      >
+        {/* Scopes the sticky toolbar to the rows, so it slides away with the
+            last one instead of overlaying the controls beneath. */}
+        <div className="relative flex w-full flex-col">
+          {toolbar}
+          {listBody}
+        </div>
+        {overflowControls}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "tdg-mobile flex min-h-0 flex-1 flex-col",
+        plainChrome ? "" : "bg-muted/30"
+      )}
+      data-slot="mobile-grid-list"
+      data-scroll-mode="container"
+      data-chrome={chrome}
+      data-variant={activeVariant}
+      data-list-rows={listRows}
+      data-list-actions={listActions}
+      onKeyDown={handleEscape}
+    >
+      {toolbar}
       <ScrollArea
         className="min-h-0 flex-1"
         viewportRef={scrollRef}
@@ -603,272 +1331,12 @@ export function MobileGridList({
         dir={rtl ? "rtl" : "ltr"}
         viewportProps={{
           dir: rtl ? "rtl" : "ltr",
-          role: "list",
-          "aria-label": "Grid results",
           onScroll,
         }}
       >
-        {filteredRows.length === 0 ? (
-          loading || emptyContent == null ? null : (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              {emptyContent}
-            </div>
-          )
-        ) : (
-          <div
-            className="relative w-full"
-            style={{ height: virtualizer.getTotalSize() }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = filteredRows[virtualRow.index]!;
-              const rowIndex = row.index;
-              const rowIsDisabled = isRowDisabled(rowIndex);
-              const rowIsSelected = Boolean(selectedMap[row.id]);
-              const rowIsActive = rowIndex === activeIndex;
-              const cells = row.getVisibleCells();
-              const checkboxCell = cells.find(
-                (cell) => cell.column.id === checkboxColumnId
-              );
-              const dataCells = cells.filter(
-                (cell) =>
-                  cell.column.id !== checkboxColumnId &&
-                  !hiddenMobileColumnIds.has(cell.column.id)
-              );
-              const actionCells = dataCells.filter((cell) =>
-                ACTION_COLUMN.test(
-                  `${cell.column.id} ${labelForColumn(columnMap.get(cell.column.id) ?? ({ name: cell.column.id } as TypeColumn))}`
-                )
-              );
-              const contentCells = dataCells.filter(
-                (cell) => !actionCells.includes(cell)
-              );
-              const primaryCell =
-                contentCells.find(
-                  (cell) =>
-                    !ID_COLUMN.test(cell.column.id) &&
-                    typeof cell.getValue() === "string"
-                ) ?? contentCells[0];
-              const detailCells = contentCells.filter(
-                (cell) => cell !== primaryCell
-              );
-              const visibleDetailCells = detailCells.slice(0, 6);
-              const overflowDetailCells = detailCells.slice(6);
-
-              return (
-                <div
-                  key={row.id}
-                  ref={virtualizer.measureElement}
-                  data-index={virtualRow.index}
-                  className="absolute left-0 top-0 w-full px-3 py-1.5"
-                  style={{ transform: `translateY(${virtualRow.start}px)` }}
-                  role="listitem"
-                >
-                  <article
-                    className={cn(
-                      "rounded-md border bg-background p-4 shadow-sm [border-color:var(--tdg-grid-border-color)]",
-                      rowIsSelected && "ring-2 ring-ring",
-                      rowIsActive &&
-                        "tdg-row--active InovuaReactDataGrid__row--active",
-                      rowIsActive &&
-                        gridFocused &&
-                        cn(
-                          "tdg-row--focused InovuaReactDataGrid__row--focused",
-                          rowFocusClassName,
-                          showActiveRowIndicator &&
-                            "outline outline-2 outline-offset-[-2px] outline-ring",
-                          showActiveRowIndicator
-                            ? activeRowIndicatorClassName
-                            : ""
-                        ),
-                      rowIsDisabled &&
-                        "tdg-row--disabled InovuaReactDataGrid__row--disabled pointer-events-none opacity-50"
-                    )}
-                    id={`${rowIdPrefix}-${rowIndex}`}
-                    data-slot="grid-row"
-                    data-row-id={row.id}
-                    data-row-index={rowIndex}
-                    data-selected={rowIsSelected ? "true" : "false"}
-                    data-active={rowIsActive ? "true" : "false"}
-                    data-disabled={rowIsDisabled ? "true" : undefined}
-                    aria-disabled={rowIsDisabled || undefined}
-                    aria-current={rowIsActive ? "true" : undefined}
-                    aria-selected={selectionEnabled ? rowIsSelected : undefined}
-                    onClick={
-                      rowIsDisabled
-                        ? undefined
-                        : (event) =>
-                            onRowClick(row.id, row.original, rowIndex, event)
-                    }
-                    onContextMenu={
-                      onRowContextMenu
-                        ? (event) => {
-                            onRowContextMenu(
-                              row.id,
-                              row.original,
-                              rowIndex,
-                              event,
-                              { left: event.clientX, top: event.clientY }
-                            );
-                          }
-                        : undefined
-                    }
-                    onClickCapture={(event) => {
-                      if (Date.now() > suppressClickUntilRef.current) return;
-                      suppressClickUntilRef.current = 0;
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                    onPointerDown={
-                      onRowContextMenu
-                        ? (event) => {
-                            if (event.pointerType !== "touch") return;
-                            event.persist();
-                            cancelLongPress();
-                            suppressClickUntilRef.current = 0;
-                            longPressStartRef.current = {
-                              x: event.clientX,
-                              y: event.clientY,
-                            };
-                            const currentTarget = event.currentTarget;
-                            longPressTimerRef.current = setTimeout(() => {
-                              longPressTimerRef.current = null;
-                              suppressClickUntilRef.current = Date.now() + 800;
-                              onRowContextMenu(
-                                row.id,
-                                row.original,
-                                rowIndex,
-                                event,
-                                {
-                                  left: event.clientX,
-                                  top: event.clientY,
-                                }
-                              );
-                              currentTarget.focus?.({ preventScroll: true });
-                            }, 500);
-                          }
-                        : undefined
-                    }
-                    onPointerMove={(event) => {
-                      const start = longPressStartRef.current;
-                      if (
-                        start &&
-                        Math.hypot(
-                          event.clientX - start.x,
-                          event.clientY - start.y
-                        ) > 8
-                      ) {
-                        cancelLongPress();
-                      }
-                    }}
-                    onPointerUp={cancelLongPress}
-                    onPointerCancel={cancelLongPress}
-                  >
-                    <header className="flex min-w-0 items-start gap-3">
-                      {checkboxCell ? (
-                        <div className="mt-0.5 shrink-0">
-                          {flexRender(
-                            checkboxCell.column.columnDef.cell,
-                            checkboxCell.getContext()
-                          )}
-                        </div>
-                      ) : null}
-                      <div className="min-w-0 flex-1">
-                        {primaryCell ? (
-                          <>
-                            <div className="text-xs font-medium text-muted-foreground">
-                              {labelForColumn(
-                                columnMap.get(primaryCell.column.id) ??
-                                  ({
-                                    name: primaryCell.column.id,
-                                  } as TypeColumn)
-                              )}
-                            </div>
-                            <div className="min-w-0 break-words text-base font-semibold text-foreground">
-                              {flexRender(
-                                primaryCell.column.columnDef.cell,
-                                primaryCell.getContext()
-                              )}
-                            </div>
-                          </>
-                        ) : null}
-                      </div>
-                    </header>
-                    {detailCells.length ? (
-                      <dl className="mt-4 grid grid-cols-1 gap-x-5 gap-y-3 min-[540px]:grid-cols-2">
-                        {visibleDetailCells.map((cell) => (
-                          <div key={cell.id} className="min-w-0">
-                            <dt className="text-xs font-medium text-muted-foreground">
-                              {labelForColumn(
-                                columnMap.get(cell.column.id) ??
-                                  ({ name: cell.column.id } as TypeColumn)
-                              )}
-                            </dt>
-                            <dd
-                              className={cn(
-                                "mt-0.5 min-w-0 break-words text-sm [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal",
-                                typeof cell.getValue() === "number" &&
-                                  "tabular-nums"
-                              )}
-                            >
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : null}
-                    {overflowDetailCells.length ? (
-                      <details
-                        className="mt-3 border-t pt-3 [border-color:var(--tdg-grid-border-color)]"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <summary className="cursor-pointer text-sm font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                          {overflowDetailCells.length} more{" "}
-                          {overflowDetailCells.length === 1
-                            ? "field"
-                            : "fields"}
-                        </summary>
-                        <dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 min-[540px]:grid-cols-2">
-                          {overflowDetailCells.map((cell) => (
-                            <div key={cell.id} className="min-w-0">
-                              <dt className="text-xs font-medium text-muted-foreground">
-                                {labelForColumn(
-                                  columnMap.get(cell.column.id) ??
-                                    ({ name: cell.column.id } as TypeColumn)
-                                )}
-                              </dt>
-                              <dd className="mt-0.5 min-w-0 break-words text-sm [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal">
-                                {flexRender(
-                                  cell.column.columnDef.cell,
-                                  cell.getContext()
-                                )}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </details>
-                    ) : null}
-                    {actionCells.length ? (
-                      <footer className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3 [border-color:var(--tdg-grid-border-color)]">
-                        {actionCells.map((cell) => (
-                          <div key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </div>
-                        ))}
-                      </footer>
-                    ) : null}
-                  </article>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {listBody}
       </ScrollArea>
+      {overflowControls}
     </div>
   );
 }
