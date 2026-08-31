@@ -3438,12 +3438,12 @@ const i18nSections: ReferenceSection[] = [
         "more fields",
         "Plural label on a card's collapsed-fields summary."
       ),
-      i18nRow(
+      stringI18nRow(
         "mobileCardsView",
         "Card view",
         "Accessible label and title for the cards side of the presentation toggle."
       ),
-      i18nRow(
+      stringI18nRow(
         "mobileListView",
         "List view",
         "Accessible label and title for the list side of the presentation toggle."

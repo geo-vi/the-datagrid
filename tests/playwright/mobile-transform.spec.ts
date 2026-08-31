@@ -272,7 +272,7 @@ test.describe("allowMobileTransform", () => {
         .getByText("Aurora Clinic ZX-9001")
     ).toBeVisible();
     await expect(page.getByText("1 result")).toBeVisible();
-    await page.getByRole("button", { name: "View" }).click();
+    await page.getByRole("button", { name: "View", exact: true }).click();
     await expect(page.getByTestId("mobile-action-output")).toHaveText(
       "Opened Aurora Clinic ZX-9001"
     );
@@ -384,23 +384,23 @@ test.describe("allowMobileTransform", () => {
     }
 
     const firstCard = page.locator('article[data-row-id="AC-00001"]');
-    await expect(firstCard.getByText("Notes", { exact: true })).toBeVisible();
+    await expect(firstCard.getByText("Owner", { exact: true })).toBeVisible();
 
     await columnsButton.click();
     const columnsMenu = page.getByRole("menu");
     await expect(columnsMenu.getByText("Display columns")).toBeVisible();
 
     const notesItem = columnsMenu.getByRole("menuitemcheckbox", {
-      name: "Notes",
+      name: "Owner",
     });
     await expect(notesItem).toHaveAttribute("aria-checked", "true");
     await notesItem.click();
     await expect(notesItem).toHaveAttribute("aria-checked", "false");
-    await expect(firstCard.getByText("Notes", { exact: true })).toHaveCount(0);
+    await expect(firstCard.getByText("Owner", { exact: true })).toHaveCount(0);
 
     await notesItem.click();
     await expect(notesItem).toHaveAttribute("aria-checked", "true");
-    await expect(firstCard.getByText("Notes", { exact: true })).toBeVisible();
+    await expect(firstCard.getByText("Owner", { exact: true })).toBeVisible();
   });
 
   test("uses two metadata columns on iPad widths", async ({ page }) => {

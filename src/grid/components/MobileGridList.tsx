@@ -584,19 +584,23 @@ export function MobileGridList({
     });
   }, [containerVirtualizer, pageScroll, safePageIndex]);
 
-  // Guarded because focusing the grid activates a row on its own: without it,
-  // revealing more rows yanks the page back to the already-active one.
-  const scrolledToActiveIndexRef = React.useRef(-1);
+  // Focusing the grid activates a row by itself, and page scroll would move the
+  // document to it — out from under the pointer that just did the focusing, so
+  // its mouseup lands elsewhere and the control is never actually clicked. Only
+  // a later change, which is real navigation, scrolls.
+  const scrolledToActiveIndexRef = React.useRef<number | null>(null);
   React.useLayoutEffect(() => {
     if (!gridFocused || activeIndex < 0) return;
-    if (scrolledToActiveIndexRef.current === activeIndex) return;
+    const previous = scrolledToActiveIndexRef.current;
+    scrolledToActiveIndexRef.current = activeIndex;
+    if (previous === activeIndex) return;
+    if (pageScroll && previous === null) return;
     const displayIndex = visibleRows.findIndex(
       (row) => row.index === activeIndex
     );
     if (displayIndex < 0) return;
-    scrolledToActiveIndexRef.current = activeIndex;
     virtualizer.scrollToIndex(displayIndex, { align: "auto" });
-  }, [activeIndex, visibleRows, gridFocused, virtualizer]);
+  }, [activeIndex, visibleRows, gridFocused, pageScroll, virtualizer]);
 
   const emptyContent =
     !loading && filteredRows.length === 0
@@ -965,22 +969,26 @@ export function MobileGridList({
     );
   };
 
-  const listBody =
-    visibleRows.length === 0 ? (
-      loading || emptyContent == null ? null : (
-        <div className="p-6 text-center text-sm text-muted-foreground">
-          {emptyContent}
-        </div>
-      )
-    ) : (
-      <div
-        ref={listRef}
-        className="tdg-mobile-list relative w-full"
-        style={{ height: virtualizer.getTotalSize() }}
-        role="list"
-        aria-label={label("mobileResultsListLabel", "Grid results")}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => (
+  // Rendered even when empty: it is the list landmark, and the page-scroll
+  // virtualizer measures its document offset through `listRef`.
+  const listBody = (
+    <div
+      ref={listRef}
+      className="tdg-mobile-list relative w-full"
+      style={
+        visibleRows.length ? { height: virtualizer.getTotalSize() } : undefined
+      }
+      role="list"
+      aria-label={label("mobileResultsListLabel", "Grid results")}
+    >
+      {visibleRows.length === 0 ? (
+        loading || emptyContent == null ? null : (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            {emptyContent}
+          </div>
+        )
+      ) : (
+        virtualizer.getVirtualItems().map((virtualRow) => (
           <div
             key={visibleRows[virtualRow.index]!.id}
             ref={virtualizer.measureElement}
@@ -1002,9 +1010,10 @@ export function MobileGridList({
           >
             {renderRow(virtualRow.index)}
           </div>
-        ))}
-      </div>
-    );
+        ))
+      )}
+    </div>
+  );
 
   const overflowControls =
     (canShowMore || paginationEnabled) && filteredRows.length > 0 ? (

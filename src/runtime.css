@@ -298,7 +298,11 @@
   stroke: currentColor !important;
 }
 
-.tdg-root {
+/* `tdg-tokens` carries the custom properties without the rest of a grid root,
+   so a datagrid control rendered outside one still paints itself. Adding
+   `tdg-root` instead would make it answer to `.tdg-root` selectors. */
+.tdg-root,
+.tdg-tokens {
   --tdg-radius-base: var(--radius, 0.625rem);
   --tdg-radius-sm: calc(var(--tdg-radius-base) - 4px);
   --tdg-radius-md: calc(var(--tdg-radius-base) - 2px);

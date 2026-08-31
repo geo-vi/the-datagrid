@@ -72,10 +72,10 @@ const FILL_CELL_STYLE: React.CSSProperties = {
   gap: "0.375rem",
 };
 
-// The datagrid's controls paint themselves from `--tdg-*` tokens declared on
-// `.tdg-root`, and the Select list portals to the body, outside any wrapper.
+// The datagrid's controls paint themselves from `--tdg-*` tokens, which
+// `tdg-tokens` carries outside a grid; the Select list portals to the body.
 const CONTROL_LIST_CLASS =
-  "tdg-root border border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)]";
+  "tdg-tokens border border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)]";
 
 function ControlField({
   label,
@@ -237,7 +237,7 @@ export default function MobileTransformExample() {
       data-testid="mobile-transform-example"
     >
       {/* A dashed panel so the harness never reads as part of the grid below. */}
-      <div className="tdg-root flex flex-col gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] p-3">
+      <div className="tdg-tokens flex flex-col gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] p-3">
         <div
           className="flex flex-wrap items-end gap-3 text-sm"
           data-testid="mobile-transform-controls"
