@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../src/components/ui/select";
+import { resolveThemeBase } from "../../src/theme/context";
 import { useExamplesUi } from "./App";
 
 const statuses = ["Active", "Review", "Paused"] as const;
@@ -94,6 +95,7 @@ function ControlField({
 
 export default function MobileTransformExample() {
   const { gridTheme, i18n, resizable, showCellBorders } = useExamplesUi();
+  const gridThemeBase = resolveThemeBase(gridTheme);
   const [lastAction, setLastAction] = useState("No action selected");
   const [scroll, setScroll] = useState<TypeMobileTransformScroll>("page");
   const [overflow, setOverflow] =
@@ -233,7 +235,23 @@ export default function MobileTransformExample() {
 
   return (
     <section
-      className="flex flex-col gap-3 rounded-2xl border bg-background/95 p-4 shadow-sm"
+      className={[
+        "flex flex-col gap-3 rounded-2xl border p-4 shadow-sm",
+        // The section is the surface the page-scrolling layout sits on, so it
+        // follows the grid's theme rather than the site's: the token for the
+        // exact colour, the class so the shadcn utilities inside it agree.
+        gridThemeBase === "default"
+          ? "bg-background/95"
+          : "tdg-tokens bg-[var(--tdg-color-background)]",
+        gridThemeBase === "dark" ? "dark" : "",
+        gridThemeBase === "light" ? "light" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-theme={gridThemeBase === "default" ? undefined : gridTheme}
+      data-theme-base={
+        gridThemeBase === "default" ? undefined : gridThemeBase
+      }
       data-testid="mobile-transform-example"
     >
       {/* A dashed panel so the harness never reads as part of the grid below. */}

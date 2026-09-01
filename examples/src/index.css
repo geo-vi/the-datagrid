@@ -35,7 +35,10 @@
   --color-ring: var(--ring);
 }
 
-:root {
+/* `.light` lets a subtree hold the light palette inside a dark document, which
+   is how an example section follows its grid's theme rather than the site's. */
+:root,
+.light {
   --radius: 0.75rem;
 
   --background: oklch(1 0 0);

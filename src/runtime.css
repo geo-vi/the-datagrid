@@ -300,7 +300,9 @@
 
 /* `tdg-tokens` carries the custom properties without the rest of a grid root,
    so a datagrid control rendered outside one still paints itself. Adding
-   `tdg-root` instead would make it answer to `.tdg-root` selectors. */
+   `tdg-root` instead would make it answer to `.tdg-root` selectors. It takes
+   `data-theme-base` alongside, which is how a host paints the surface a
+   plain-chrome grid is meant to blend into. */
 .tdg-root,
 .tdg-tokens {
   --tdg-radius-base: var(--radius, 0.625rem);
@@ -535,7 +537,8 @@
 /* Built-in light themes must not inherit a host application's dark shadcn
    variables. Keep the fixed base behind internal theme slots so a named
    custom theme can still override the documented --tdg-color-* hooks. */
-.tdg-root[data-theme-base="light"] {
+.tdg-root[data-theme-base="light"],
+.tdg-tokens[data-theme-base="light"] {
   --tdg-theme-color-background: oklch(1 0 0);
   --tdg-theme-color-foreground: oklch(0.145 0 0);
   --tdg-theme-color-card: oklch(1 0 0);
@@ -617,7 +620,8 @@
   --tdg-color-ring: var(--ring, oklch(0.556 0 0));
 }
 
-.tdg-root[data-theme-base="dark"] {
+.tdg-root[data-theme-base="dark"],
+.tdg-tokens[data-theme-base="dark"] {
   --tdg-theme-color-background: oklch(0.145 0 0);
   --tdg-theme-color-foreground: oklch(0.985 0 0);
   --tdg-theme-color-card: oklch(0.205 0 0);

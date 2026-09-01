@@ -2,7 +2,8 @@
 // (no @inovua import, no runtime bridge). Values reproduce the theme as it
 // rendered on Inovua's default-light preset plus the theme's own overrides
 // (flat rows, soft blue accent hover, #f0f3fb selection, #426dcd checkbox).
-.tdg-root[data-theme="hf-light"] {
+.tdg-root[data-theme="hf-light"],
+.tdg-tokens[data-theme="hf-light"] {
   --tdg-color-background: #fefefe;
   --tdg-color-foreground: #333333;
   --tdg-color-border: #e5e5e5;
