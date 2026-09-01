@@ -487,6 +487,50 @@ test.describe("allowMobileTransform", () => {
     await expect(grid).toHaveAttribute("data-active-index", "0");
   });
 
+  test("boxed list rows gutter both ends of a scrolling container", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    await page.getByTestId("mobile-scroll-mode").click();
+    await page.getByRole("option", { name: "Container scroll" }).click();
+    await page.getByTestId("mobile-list-rows").click();
+    await page.getByRole("option", { name: "Boxed" }).click();
+    await page.getByRole("button", { name: "List view" }).click();
+
+    const list = page.locator('[data-slot="mobile-grid-list"]');
+    await expect(list).toHaveAttribute("data-variant", "list");
+    await expect(list).toHaveAttribute("data-scroll-mode", "container");
+
+    const items = page.locator('[role="listitem"]');
+    await expect(items.first()).toHaveCSS("padding-top", "12px");
+
+    const viewport = page.locator(".tdg-body-viewport");
+    // Each pass measures more rows and grows the run, so one scroll to the
+    // bottom lands short of it.
+    await expect
+      .poll(async () => {
+        await viewport.evaluate((element) => {
+          element.scrollTop = element.scrollHeight;
+        });
+        return viewport.evaluate((element) =>
+          Math.round(
+            element.scrollHeight - element.clientHeight - element.scrollTop
+          )
+        );
+      })
+      .toBe(0);
+    await expect(items.last()).toHaveCSS("padding-bottom", "12px");
+
+    // Page scroll ends against the document, and divided rows have their own
+    // gaps — neither takes the gutters.
+    await page.getByTestId("mobile-scroll-mode").click();
+    await page.getByRole("option", { name: "Page scroll" }).click();
+    await expect(list).toHaveAttribute("data-scroll-mode", "page");
+    await expect(items.first()).toHaveCSS("padding-top", "0px");
+  });
+
   test("offers a recommended mobile sort and applies or clears it", async ({
     page,
   }) => {

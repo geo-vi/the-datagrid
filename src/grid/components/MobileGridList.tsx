@@ -199,6 +199,11 @@ export function MobileGridList({
   const plainChrome = chrome === "plain";
   const boxedListRows = listRows === "boxed";
   const bottomListActions = listActions === "bottom";
+  // A boxed group inside its own scrollport is cropped flush at both ends, so
+  // nothing reads as the start or the end of the run. Page scroll ends against
+  // the document instead, and the other row styles have their own gaps.
+  const boxedListEndGutters =
+    !pageScroll && activeVariant === "list" && boxedListRows && !plainChrome;
   const deferredQuery = useDeferredValueCompat(committedQuery);
   const sortButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const toolbarRef = React.useRef<HTMLDivElement | null>(null);
@@ -1001,7 +1006,11 @@ export function MobileGridList({
                   : ""
                 : plainChrome
                   ? "py-1.5"
-                  : "px-3 py-1.5"
+                  : "px-3 py-1.5",
+              boxedListEndGutters && virtualRow.index === 0 && "pt-3",
+              boxedListEndGutters &&
+                virtualRow.index === visibleRows.length - 1 &&
+                "pb-3"
             )}
             style={{
               transform: `translateY(${virtualRow.start - virtualOffset}px)`,
