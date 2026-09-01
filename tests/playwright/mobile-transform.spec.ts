@@ -465,6 +465,28 @@ test.describe("allowMobileTransform", () => {
     }
   });
 
+  test("toolbar controls do not claim a row", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    const grid = page.locator(".tdg-root");
+    await expect(grid).toHaveAttribute("data-layout", "mobile-list");
+    await expect(grid).toHaveAttribute("data-active-index", "none");
+
+    await page.getByRole("searchbox", { name: "Search all fields" }).click();
+    await expect(grid).toHaveAttribute("data-focused", "true");
+    await expect(grid).toHaveAttribute("data-active-index", "none");
+
+    await page.getByRole("button", { name: "Sort" }).click();
+    await expect(page.locator('[data-slot="mobile-sort-panel"]')).toBeVisible();
+    await expect(grid).toHaveAttribute("data-active-index", "none");
+
+    // Entry into the grid itself is what activateRowOnFocus serves.
+    await page.reload();
+    await grid.locator('[data-slot="grid-surface"]').focus();
+    await expect(grid).toHaveAttribute("data-active-index", "0");
+  });
+
   test("offers a recommended mobile sort and applies or clears it", async ({
     page,
   }) => {

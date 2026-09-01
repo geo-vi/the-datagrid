@@ -181,8 +181,19 @@ export function useGridKeyboardNavigation(
       pointerActivatesRowRef.current = false;
 
       setGridFocused(true);
+
+      // Chrome that lives inside the root — the mobile toolbar, header filters,
+      // pagination — is its own focus target. Only entry into the grid widget
+      // itself, or into a row, is navigation asking for an active row.
+      const target = event.target;
+      const focusEnteredRows =
+        target === surfaceRef.current ||
+        (target instanceof Element &&
+          Boolean(target.closest('[data-slot="grid-row"]')));
+
       if (
         !pressedRow &&
+        focusEnteredRows &&
         enableKeyboardNavigation &&
         activateRowOnFocus &&
         normalizedActiveIndex < 0 &&
@@ -210,6 +221,7 @@ export function useGridKeyboardNavigation(
       lastActiveIndexRef,
       rootRef,
       setGridFocused,
+      surfaceRef,
     ]
   );
 
