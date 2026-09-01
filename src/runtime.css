@@ -2510,6 +2510,15 @@
   box-shadow: none !important;
 }
 
+/* Page scroll has no frame of its own, so its chrome sits directly on the host's
+   surface. A field that paints the theme's own fill there reads as a patch cut
+   out of that surface — it takes what is behind it instead and keeps its border.
+   Container scroll owns the surface behind its fields and keeps the fills. */
+.tdg-root[data-mobile-scroll="page"] .tdg-mobile {
+  --tdg-input-bg: transparent;
+  --tdg-select-shell-bg: transparent;
+}
+
 /* A sizing wrapper would bound the page-scroll layout, which is what this mode
    exists to escape. Opt out per element with `data-tdg-keep-height`. */
 :has(> .tdg-root[data-mobile-release-height="true"]):not(

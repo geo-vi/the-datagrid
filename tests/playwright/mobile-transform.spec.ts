@@ -562,6 +562,42 @@ test.describe("allowMobileTransform", () => {
     expect(wider.width).toBeLessThan(100);
   });
 
+  test("page-scroll fields take the surface, container scroll keeps the fill", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+    // The only bundled theme whose field fill differs from its own surface, so
+    // it is the one where honouring or dropping it is visible.
+    await page.getByRole("button", { name: "Ikarus Dark", exact: true }).click();
+    await page.getByTestId("mobile-overflow-mode").click();
+    await page.getByRole("option", { name: "Pagination", exact: true }).click();
+
+    const backgroundOf = (selector: string) =>
+      page
+        .locator(selector)
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+    const TRANSPARENT = "rgba(0, 0, 0, 0)";
+
+    // Page scroll, the example's default: no frame of its own, so the fields
+    // take what the host paints rather than cutting a patch out of it.
+    expect(await backgroundOf('[data-slot="rdg-search-bar"]')).toBe(
+      TRANSPARENT
+    );
+    expect(await backgroundOf(".tdg-mobile-pagination__size")).toBe(TRANSPARENT);
+
+    await page.getByTestId("mobile-scroll-mode").click();
+    await page.getByRole("option", { name: "Container scroll" }).click();
+
+    // Container scroll owns the surface behind its fields, so the theme's fill
+    // stands again — and is its own colour, not the surface it sits on.
+    const searchBackground = await backgroundOf('[data-slot="rdg-search-bar"]');
+    expect(searchBackground).not.toBe(TRANSPARENT);
+    expect(searchBackground).not.toBe(
+      await backgroundOf('[data-slot="grid-surface"]')
+    );
+  });
+
   test("offers a recommended mobile sort and applies or clears it", async ({
     page,
   }) => {
