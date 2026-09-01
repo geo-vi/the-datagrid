@@ -101,7 +101,7 @@ export default function MobileTransformExample() {
   const [overflow, setOverflow] =
     useState<TypeMobileTransformOverflow>("show-more");
   // Uncontrolled: `defaultVariant` seeds it, `onVariantChange` only reports.
-  const [variant, setVariant] = useState<TypeMobileTransformVariant>("cards");
+  const [variant, setVariant] = useState<TypeMobileTransformVariant>("list");
   const [breakpoint, setBreakpoint] = useState(1024);
   const [showToolbar, setShowToolbar] = useState(true);
   const [listRows, setListRows] = useState<TypeMobileListRows>("divided");
@@ -410,7 +410,7 @@ export default function MobileTransformExample() {
             breakpoint,
             scroll,
             overflow,
-            defaultVariant: "cards",
+            defaultVariant: "list",
             onVariantChange: setVariant,
             listRows,
             listActions,

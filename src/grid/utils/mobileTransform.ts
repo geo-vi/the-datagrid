@@ -75,7 +75,7 @@ export function resolveMobileTransform(params: {
     mediaQuery: toMediaQuery(config.breakpoint),
     scroll,
     variant: config.variant,
-    defaultVariant: config.defaultVariant ?? "cards",
+    defaultVariant: config.defaultVariant ?? "list",
     listRows: config.listRows ?? "divided",
     listActions: config.listActions ?? "inline",
     showVariantToggle: config.showVariantToggle ?? true,

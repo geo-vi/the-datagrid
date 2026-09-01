@@ -1586,7 +1586,7 @@ export type TypeMobileTransformProps = {
   /** Controlled row presentation. Pair with `onVariantChange` to drive it. */
   variant?: TypeMobileTransformVariant;
 
-  /** Initial row presentation when `variant` is uncontrolled. Defaults to `"cards"`. */
+  /** Initial row presentation when `variant` is uncontrolled. Defaults to `"list"`. */
   defaultVariant?: TypeMobileTransformVariant;
 
   /**

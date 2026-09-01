@@ -383,6 +383,8 @@ test.describe("allowMobileTransform", () => {
       expect(Math.round(box?.height ?? 0)).toBe(40);
     }
 
+    // The card fields are the subject here, and the layout now starts in the list.
+    await page.getByRole("button", { name: "Card view" }).click();
     const firstCard = page.locator('article[data-row-id="AC-00001"]');
     await expect(firstCard.getByText("Owner", { exact: true })).toBeVisible();
 
@@ -410,6 +412,8 @@ test.describe("allowMobileTransform", () => {
       "data-layout",
       "mobile-list"
     );
+    // The two-column field grid is a card, and the layout now starts in the list.
+    await page.getByRole("button", { name: "Card view" }).click();
     const columns = await page
       .locator(".tdg-mobile dl")
       .first()
@@ -497,7 +501,6 @@ test.describe("allowMobileTransform", () => {
     await page.getByRole("option", { name: "Container scroll" }).click();
     await page.getByTestId("mobile-list-rows").click();
     await page.getByRole("option", { name: "Boxed" }).click();
-    await page.getByRole("button", { name: "List view" }).click();
 
     const list = page.locator('[data-slot="mobile-grid-list"]');
     await expect(list).toHaveAttribute("data-variant", "list");
