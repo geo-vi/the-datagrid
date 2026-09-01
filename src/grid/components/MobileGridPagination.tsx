@@ -97,7 +97,7 @@ export function MobileGridPagination({
             onValueChange={(value) => onPageSizeChange(Number(value))}
           >
             <SelectTrigger
-              className="tdg-mobile-pagination__size h-9 w-[4.75rem] shrink-0"
+              className="tdg-mobile-pagination__size h-9 w-fit shrink-0"
               aria-label={label("perPageText", "Rows")}
             >
               <SelectValue placeholder={`${pageSize}`} />

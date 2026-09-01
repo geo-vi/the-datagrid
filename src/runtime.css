@@ -2537,6 +2537,15 @@
   color: var(--tdg-mobile-pagination-button-color, inherit);
 }
 
+/* The select shell is armoured at `width: 100% !important`, which in the pager
+   stretches this across the whole trailing column. Overridden here rather than
+   by softening the armour, which every other trigger relies on to fill its
+   field. */
+.tdg-root
+  .tdg-mobile-pagination__size.tdg-select-trigger.inovua-react-toolkit-combo-box.inovua-react-toolkit-combo-box {
+  width: fit-content !important;
+}
+
 .tdg-mobile-show-more {
   border-radius: var(--tdg-mobile-show-more-radius, 0.5rem);
   border-color: var(

@@ -531,6 +531,37 @@ test.describe("allowMobileTransform", () => {
     await expect(items.first()).toHaveCSS("padding-top", "0px");
   });
 
+  test("sizes the mobile pager rows-per-page control to its content", async ({
+    page,
+  }) => {
+    // Wide enough to still be the mobile layout, where the trailing column is
+    // roomy enough for the armoured `width: 100%` to show.
+    await page.setViewportSize({ width: 900, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    await page.getByTestId("mobile-overflow-mode").click();
+    await page.getByRole("option", { name: "Pagination", exact: true }).click();
+
+    const size = page.locator(".tdg-mobile-pagination__size");
+    await expect(size).toBeVisible();
+    const measure = async () =>
+      size.evaluate((element) => ({
+        width: element.getBoundingClientRect().width,
+        columnWidth: element.parentElement!.getBoundingClientRect().width,
+      }));
+
+    const initial = await measure();
+    expect(initial.width).toBeLessThan(100);
+    expect(initial.columnWidth).toBeGreaterThan(200);
+
+    // Content-sized, not just capped: three digits take more room than two.
+    await size.click();
+    await page.getByRole("option", { name: "100", exact: true }).click();
+    const wider = await measure();
+    expect(wider.width).toBeGreaterThan(initial.width);
+    expect(wider.width).toBeLessThan(100);
+  });
+
   test("offers a recommended mobile sort and applies or clears it", async ({
     page,
   }) => {
