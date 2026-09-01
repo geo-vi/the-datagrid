@@ -112,3 +112,18 @@ body {
 
 @source "./**/*.{ts,tsx,scss}";
 @source "../../src/**/*.{ts,tsx,css}";
+
+/* The dialog shell is armoured at width: min(100%, 32rem) !important, which
+   wraps a type definition into a horizontal scrollbar. */
+.tdg-dialog-content.tdg-docs-type-dialog {
+  width: min(calc(100vw - 2rem), 60rem) !important;
+  max-width: none !important;
+  overflow-y: auto !important;
+}
+
+/* A long definition has to scroll inside the shell rather than out of it: the
+   shell is height-clamped with overflow visible, so the block spills past the
+   bottom of the modal and cannot be reached. */
+.tdg-dialog-content.tdg-docs-type-dialog pre {
+  max-height: min(60vh, 34rem);
+}
