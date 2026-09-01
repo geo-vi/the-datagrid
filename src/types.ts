@@ -1583,7 +1583,7 @@ export type TypeMobileTransformProps = {
    */
   scroll?: TypeMobileTransformScroll;
 
-  /** Controlled row presentation. */
+  /** Controlled row presentation. Pair with `onVariantChange` to drive it. */
   variant?: TypeMobileTransformVariant;
 
   /** Initial row presentation when `variant` is uncontrolled. Defaults to `"cards"`. */
@@ -1613,7 +1613,11 @@ export type TypeMobileTransformProps = {
   /** Fires whenever the viewer flips the cards/list toggle. */
   onVariantChange?: (variant: TypeMobileTransformVariant) => void;
 
-  /** Shows the cards/list toggle in the mobile toolbar. Defaults to `true`. */
+  /**
+   * Shows the cards/list toggle in the mobile toolbar. Defaults to `true`.
+   * `false` pins the layout to `variant` / `defaultVariant`, which is how a
+   * grid offers cards only.
+   */
   showVariantToggle?: boolean;
 
   /**
