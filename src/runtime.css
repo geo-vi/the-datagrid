@@ -2523,16 +2523,6 @@
   --tdg-select-shell-bg: transparent;
 }
 
-/* A sizing wrapper would bound the page-scroll layout, which is what this mode
-   exists to escape. Opt out per element with `data-tdg-keep-height`. */
-:has(> .tdg-root[data-mobile-release-height="true"]):not(
-    [data-tdg-keep-height]
-  ):not(body):not(html) {
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-}
-
 /* Themable without reaching into the classes. */
 .tdg-mobile-pagination {
   color: var(--tdg-mobile-pagination-color, inherit);

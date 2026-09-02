@@ -25,7 +25,6 @@ export type ResolvedMobileTransform = {
   pageSizes: number[];
   showMoreStep: number;
   chrome: "card" | "plain";
-  releaseHeightConstraint: boolean;
   estimatedCardHeight: number;
   estimatedListHeight: number;
 };
@@ -86,8 +85,6 @@ export function resolveMobileTransform(params: {
     pageSizes: normalizePageSizes(config.pageSizes, pageSize),
     showMoreStep: Math.max(1, Math.floor(config.showMoreStep ?? pageSize)),
     chrome: config.chrome ?? (scroll === "page" ? "plain" : "card"),
-    releaseHeightConstraint:
-      config.releaseHeightConstraint ?? scroll === "page",
     estimatedCardHeight: 224,
     estimatedListHeight: 76,
   };

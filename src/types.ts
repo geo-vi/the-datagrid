@@ -1579,7 +1579,13 @@ export type TypeMobileTransformProps = {
    * `"container"` (default) virtualizes inside the grid's own scrollport, so
    * the grid still honours a fixed-height wrapper. `"page"` virtualizes
    * against the window: the rows scroll with the document, which reads far
-   * better on a phone but means the wrapper's height no longer bounds them.
+   * better on a phone but means the grid's own height bounds are dropped.
+   *
+   * Size the grid through its own props rather than a wrapper. Page scroll
+   * asks two things of whatever contains the grid, and the grid does not
+   * reach out to enforce them: the container has to be free to grow, and it
+   * must not be a scroll container, since the rows are virtualized against
+   * the window and an ancestor that scrolls in its place leaves them behind.
    */
   scroll?: TypeMobileTransformScroll;
 
@@ -1652,16 +1658,6 @@ export type TypeMobileTransformProps = {
    * `scroll: "page"` and `"card"` otherwise.
    */
   chrome?: "card" | "plain";
-
-  /**
-   * Lets the page-scrolling layout escape a height bound. The grid's own
-   * `height`/`maxHeight` props are dropped either way; this additionally
-   * relaxes the height of an immediate wrapper element, which is what a
-   * consumer sizing the grid from the outside ends up with. Defaults to `true`
-   * when `scroll: "page"`. Add `data-tdg-keep-height` to a wrapper to exempt
-   * it, or prefer the grid's own sizing props over a wrapper altogether.
-   */
-  releaseHeightConstraint?: boolean;
 };
 
 /**

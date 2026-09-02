@@ -698,11 +698,6 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
   // on the host's own surface. Default "plain" under page scroll,
   // "card" otherwise.
   chrome?: "card" | "plain";
-
-  // Lets the page-scrolling layout escape a height-bound wrapper. Add
-  // data-tdg-keep-height to a wrapper to exempt it. Default true under
-  // page scroll.
-  releaseHeightConstraint?: boolean;
 };`;
 
 /**
@@ -3504,6 +3499,18 @@ type TypeSize = { width: number; height: number };`}
           stays inside its own field. Give such a renderer the{" "}
           <code>tdg-cell-fill</code> class and the grid flattens it into normal
           flow here, and hands it the cell as its containing block in the table.
+        </p>
+        <p>
+          Page scroll drops the grid's own height bounds and virtualizes against
+          the window, so it asks two things of whatever contains the grid, and
+          the grid does not reach out to enforce them: the container must be
+          free to grow, and it must not be a scroll container. An ancestor with{" "}
+          <code>overflow: auto</code> scrolls in the document's place, and rows
+          virtualized against the window stay where they were. Size the grid
+          through <code>height</code>, <code>minHeight</code>,{" "}
+          <code>maxHeight</code> or <code>flex</code> rather than through a
+          wrapper: one container that is free to grow then serves both scroll
+          modes, because the grid decides its own height in each.
         </p>
         <p>
           The list rows read <code>--tdg-mobile-list-border-color</code>,{" "}

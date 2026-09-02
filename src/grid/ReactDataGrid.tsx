@@ -3230,11 +3230,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
        * never scroll. CSS swaps it for an absolutely positioned one.
        */
       data-height-bound={gridSizingStyle.height === "auto" ? "true" : undefined}
-      data-mobile-release-height={
-        mobilePageScroll && mobileTransformConfig.releaseHeightConstraint
-          ? "true"
-          : undefined
-      }
       data-focused={gridFocused ? "true" : "false"}
       data-native-scroll={nativeScroll ? "true" : "false"}
       data-direction={rtl ? "rtl" : "ltr"}
