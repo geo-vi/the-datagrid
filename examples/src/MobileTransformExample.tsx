@@ -100,6 +100,7 @@ export default function MobileTransformExample() {
   const [scroll, setScroll] = useState<TypeMobileTransformScroll>("page");
   const [overflow, setOverflow] =
     useState<TypeMobileTransformOverflow>("show-more");
+  const [gridPagination, setGridPagination] = useState(false);
   // Uncontrolled: `defaultVariant` seeds it, `onVariantChange` only reports.
   const [variant, setVariant] = useState<TypeMobileTransformVariant>("list");
   const [breakpoint, setBreakpoint] = useState(1024);
@@ -381,6 +382,14 @@ export default function MobileTransformExample() {
             />
             Mobile toolbar
           </label>
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <Checkbox
+              checked={gridPagination}
+              data-testid="mobile-grid-pagination-toggle"
+              onCheckedChange={(checked) => setGridPagination(checked === true)}
+            />
+            Grid pagination
+          </label>
           <output
             className="ml-auto pb-2 text-xs text-muted-foreground"
             data-testid="mobile-variant-output"
@@ -404,6 +413,8 @@ export default function MobileTransformExample() {
           columns={columns}
           dataSource={rows}
           allowMobileTransform
+          pagination={gridPagination}
+          defaultLimit={25}
           minHeight={300}
           maxHeight={680}
           mobileTransform={{

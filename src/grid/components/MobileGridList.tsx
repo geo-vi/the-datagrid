@@ -50,7 +50,10 @@ import {
   DataGridSearchBar,
   type DataGridSearchBarChange,
 } from "./DataGridSearchBar";
-import { MobileGridPagination } from "./MobileGridPagination";
+import {
+  MobileGridPagination,
+  type MobileGridPaginationProps,
+} from "./MobileGridPagination";
 import {
   buildDataGridSearchIndex,
   filterDataGridSearchIndex,
@@ -104,6 +107,8 @@ type MobileGridListProps = {
   showToolbar: boolean;
   onVariantChange?: (variant: TypeMobileTransformVariant) => void;
   overflow: TypeMobileTransformOverflow;
+  /** The grid's own paging, rendered in place of a budget over one page of it. */
+  gridPaging?: Omit<MobileGridPaginationProps, "i18n">;
   pageSize: number;
   pageSizes: number[];
   showMoreStep: number;
@@ -177,6 +182,7 @@ export function MobileGridList({
   showToolbar,
   onVariantChange,
   overflow,
+  gridPaging,
   pageSize: pageSizeProp,
   pageSizes,
   showMoreStep,
@@ -317,6 +323,8 @@ export function MobileGridList({
     [pageRows, revealed, showMoreEnabled]
   );
   const canShowMore = showMoreEnabled && revealed < pageRows.length;
+  // Whichever pager is on screen, its page is what the scroll effect follows.
+  const pagerPageIndex = gridPaging ? gridPaging.pageIndex : safePageIndex;
 
   const visibleDisplayColumnCount = displayColumns.reduce(
     (count, column) =>
@@ -587,7 +595,7 @@ export function MobileGridList({
       top: Math.max(0, list.getBoundingClientRect().top + window.scrollY - 16),
       behavior: "smooth",
     });
-  }, [containerVirtualizer, pageScroll, safePageIndex]);
+  }, [containerVirtualizer, pageScroll, pagerPageIndex]);
 
   // Focusing the grid activates a row by itself, and page scroll would move the
   // document to it — out from under the pointer that just did the focusing, so
@@ -1025,7 +1033,8 @@ export function MobileGridList({
   );
 
   const overflowControls =
-    (canShowMore || paginationEnabled) && filteredRows.length > 0 ? (
+    (canShowMore || paginationEnabled || gridPaging) &&
+    filteredRows.length > 0 ? (
       <div
         className={cn(
           "tdg-mobile-overflow flex shrink-0 flex-col gap-3",
@@ -1052,7 +1061,20 @@ export function MobileGridList({
             </span>
           </Button>
         ) : null}
-        {paginationEnabled ? (
+        {gridPaging ? (
+          <MobileGridPagination
+            {...gridPaging}
+            i18n={i18n}
+            onPageIndexChange={(next) => {
+              pendingPageScrollRef.current = true;
+              gridPaging.onPageIndexChange(next);
+            }}
+            onPageSizeChange={(next) => {
+              pendingPageScrollRef.current = true;
+              gridPaging.onPageSizeChange(next);
+            }}
+          />
+        ) : paginationEnabled ? (
           <MobileGridPagination
             pageIndex={safePageIndex}
             pageCount={pageCount}

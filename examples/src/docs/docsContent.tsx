@@ -680,9 +680,10 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
   // Default true.
   showToolbar?: boolean;
 
-  // Bounds how many rows render, independently of the grid's own
-  // pagination, which stands down while this is active. Default
-  // "show-more" under page scroll on an unpaginated grid, else "none".
+  // Bounds how many rows render on a grid that is not paginated.
+  // Default "show-more" under page scroll, else "none". A paginated
+  // grid ignores this and the layout renders the grid's own pager,
+  // which is the only one that can reach past the loaded page.
   overflow?: "none" | "pagination" | "show-more" | "both";
 
   // Rows per mobile page, and the first "show more" batch. Default 25.

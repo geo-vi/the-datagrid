@@ -71,7 +71,10 @@ import { GridBody } from "./components/GridBody";
 import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
-import { resolveMobileTransform } from "./utils/mobileTransform";
+import {
+  normalizePageSizes,
+  resolveMobileTransform,
+} from "./utils/mobileTransform";
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
@@ -439,9 +442,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
    */
   const mobilePageScroll =
     mobileTransformActive && mobileTransformConfig.scroll === "page";
-  /** The mobile layout brings its own row budget, so the grid's pager stands down. */
-  const mobileOwnsPaging =
-    mobileTransformActive && mobileTransformConfig.overflow !== "none";
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
   const gridIdRef = React.useRef<number>(allocateGridId());
@@ -871,6 +871,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const paginationMode = props.pagination ?? false;
   const paginationEnabled = paginationMode !== false;
+  /*
+   * Either the mobile layout budgets the rows itself, on an unpaginated grid,
+   * or it renders the grid's paging. Both replace the pagination shell, which
+   * hides half of its controls below `md`.
+   */
+  const mobileOwnsPaging =
+    mobileTransformActive &&
+    (paginationEnabled || mobileTransformConfig.overflow !== "none");
   const remoteDataSource = !Array.isArray(dataSource);
   const remotePagination =
     paginationMode === "remote" ||
@@ -2213,7 +2221,6 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const safeLimit = Math.max(1, limit);
   const pageIndex = Math.floor(loadSkip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
-
   const canPrev = loadSkip > 0;
   const canNext = loadSkip + safeLimit < count;
 
@@ -2595,6 +2602,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     gotoFirstPage,
     gotoLastPage,
     gotoNextPage,
+    gotoPage,
     gotoPrevPage,
     hasNextPage,
     hasPrevPage,
@@ -2627,6 +2635,43 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSortInfo,
     themeName,
   });
+
+  /*
+   * `rowModel` is one page, so the mobile layout is handed the paging that can
+   * reach the rest: the grid's own skip/limit and its authoritative count,
+   * which for a remote source is the only count that knows the total.
+   */
+  const mobilePaging = React.useMemo(
+    () =>
+      mobileTransformActive && paginationEnabled
+        ? {
+            pageIndex,
+            pageCount,
+            pageSize: safeLimit,
+            // `pageSizes` need not contain `limit`, and the trigger renders
+            // whichever option matches its value.
+            pageSizes: normalizePageSizes(pageSizes, safeLimit),
+            rangeStart: loadSkip,
+            rangeEnd: Math.min(loadSkip + rowModel.length, count),
+            total: count,
+            onPageIndexChange: (next: number) => gotoPage(next + 1),
+            onPageSizeChange: setLimitAndResetPage,
+          }
+        : undefined,
+    [
+      count,
+      gotoPage,
+      loadSkip,
+      mobileTransformActive,
+      pageCount,
+      pageIndex,
+      pageSizes,
+      paginationEnabled,
+      rowModel.length,
+      safeLimit,
+      setLimitAndResetPage,
+    ]
+  );
 
   const {
     clearColumnFilterCompat,
@@ -3325,6 +3370,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 showToolbar={mobileTransformConfig.showToolbar}
                 onVariantChange={mobileTransformConfig.onVariantChange}
                 overflow={mobileTransformConfig.overflow}
+                gridPaging={mobilePaging}
                 pageSize={mobileTransformConfig.pageSize}
                 pageSizes={mobileTransformConfig.pageSizes}
                 showMoreStep={mobileTransformConfig.showMoreStep}

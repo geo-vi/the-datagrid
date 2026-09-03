@@ -534,6 +534,41 @@ test.describe("allowMobileTransform", () => {
     await expect(items.first()).toHaveCSS("padding-top", "0px");
   });
 
+  test("hands a paginated grid's own paging to the mobile pager", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    // Asking for the mobile row budget as well: the grid's paging still wins,
+    // because the rows the layout receives are one page of it.
+    await page.getByTestId("mobile-overflow-mode").click();
+    await page.getByRole("option", { name: "Pagination", exact: true }).click();
+    await page.getByTestId("mobile-grid-pagination-toggle").click();
+
+    const pager = page.locator('[data-slot="mobile-pagination"]');
+    await expect(pager).toHaveCount(1);
+    await expect(pager).toContainText(/1.25 of 10000/);
+    await expect(pager.locator(".tdg-mobile-pagination__size")).toContainText(
+      "25"
+    );
+    await expect(page.locator(".tdg-pagination-shell")).toHaveCount(0);
+
+    await pager.getByRole("button", { name: "Next page" }).click();
+    await expect(pager).toContainText(/26.50 of 10000/);
+
+    // Pressing the pager scrolls it into view, so the window virtualizer is
+    // mounting further down the page than the row the skip now starts at.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(
+      page.locator('[data-slot="mobile-grid-list"] [role="listitem"]').first()
+    ).toContainText("AC-00026");
+
+    await pager.locator(".tdg-mobile-pagination__size").click();
+    await page.getByRole("option", { name: "50", exact: true }).click();
+    await expect(pager).toContainText(/1.50 of 10000/);
+  });
+
   test("sizes the mobile pager rows-per-page control to its content", async ({
     page,
   }) => {

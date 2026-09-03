@@ -42,7 +42,10 @@ function toMediaQuery(breakpoint: number | string | undefined): string {
   return `(max-width: ${trimmed})`;
 }
 
-function normalizePageSizes(pageSizes: number[] | undefined, pageSize: number) {
+export function normalizePageSizes(
+  pageSizes: number[] | undefined,
+  pageSize: number
+) {
   const candidates = (pageSizes ?? [10, 25, 50, 100])
     .filter((size) => Number.isFinite(size) && size > 0)
     .map((size) => Math.floor(size));
@@ -63,11 +66,15 @@ export function resolveMobileTransform(params: {
     Math.floor(config.pageSize ?? MOBILE_TRANSFORM_DEFAULT_PAGE_SIZE)
   );
 
-  // Container scrolling bounds the rows with its own scrollport, and a grid that
-  // already pages the data needs no second pager.
-  const overflow: TypeMobileTransformOverflow =
-    config.overflow ??
-    (scroll === "page" && !gridPaginationEnabled ? "show-more" : "none");
+  /*
+   * A budget of its own could only walk the page the grid already loaded, while
+   * the pager holding `skip`/`limit` and the authoritative count is the grid's.
+   * So a paginated grid keeps that pager and the mobile layout renders it.
+   * Container scrolling bounds the rows with its own scrollport either way.
+   */
+  const overflow: TypeMobileTransformOverflow = gridPaginationEnabled
+    ? "none"
+    : (config.overflow ?? (scroll === "page" ? "show-more" : "none"));
 
   return {
     enabled: config.enabled ?? allowMobileTransform,

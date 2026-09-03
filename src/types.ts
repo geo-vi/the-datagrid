@@ -1635,11 +1635,15 @@ export type TypeMobileTransformProps = {
   showToolbar?: boolean;
 
   /**
-   * Bounds how many rows the page-scrolling layout renders, independently of
-   * the grid's own `pagination`. Defaults to `"show-more"` when
-   * `scroll: "page"` and the grid is not already paginated, `"none"`
+   * Bounds how many rows the mobile layout renders on a grid that is not
+   * paginated. Defaults to `"show-more"` under `scroll: "page"`, `"none"`
    * otherwise. `"both"` reveals a page in `showMoreStep` chunks and then
    * offers the pager for the next page.
+   *
+   * A paginated grid ignores this. The rows it hands the layout are a single
+   * page, so only its own pager can reach the rest: the layout renders that
+   * pager, driven by the grid's `skip`/`limit` and its authoritative `count`,
+   * and `pageSize`/`pageSizes` give way to the grid's `limit`/`pageSizes`.
    */
   overflow?: TypeMobileTransformOverflow;
 
