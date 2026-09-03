@@ -569,6 +569,29 @@ test.describe("allowMobileTransform", () => {
     await expect(pager).toContainText(/1.50 of 10000/);
   });
 
+  test("offers the active page size in the desktop pager too", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/examples/mobile-transform");
+    await page.getByTestId("mobile-grid-pagination-toggle").click();
+
+    // `pageSizes` defaults to [10, 50, 100, 1000] against a grid limited to 25.
+    // A select falls back to its placeholder only for an empty value, so an
+    // unmatched one renders nothing at all.
+    const trigger = page.locator("#rows-per-page");
+    await expect(trigger).toHaveText("25");
+
+    await trigger.click();
+    await expect(page.getByRole("option")).toHaveText([
+      "10",
+      "25",
+      "50",
+      "100",
+      "1000",
+    ]);
+  });
+
   test("sizes the mobile pager rows-per-page control to its content", async ({
     page,
   }) => {

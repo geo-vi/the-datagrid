@@ -2219,6 +2219,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- pagination derived ---------------- */
 
   const safeLimit = Math.max(1, limit);
+  /*
+   * A `limit` outside `pageSizes` is ordinary, and both pagers render the
+   * option matching their value: Radix falls back to the placeholder only for
+   * an empty value, so an unmatched one leaves the control blank.
+   */
+  const offeredPageSizes = React.useMemo(
+    () => normalizePageSizes(pageSizes, safeLimit),
+    [pageSizes, safeLimit]
+  );
   const pageIndex = Math.floor(loadSkip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
   const canPrev = loadSkip > 0;
@@ -2620,7 +2629,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     localPagination,
     pageCount,
     pageIndex,
-    pageSizes,
+    pageSizes: offeredPageSizes,
     paginationEnabled,
     reload,
     remotePagination,
@@ -2648,9 +2657,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
             pageIndex,
             pageCount,
             pageSize: safeLimit,
-            // `pageSizes` need not contain `limit`, and the trigger renders
-            // whichever option matches its value.
-            pageSizes: normalizePageSizes(pageSizes, safeLimit),
+            pageSizes: offeredPageSizes,
             rangeStart: loadSkip,
             rangeEnd: Math.min(loadSkip + rowModel.length, count),
             total: count,
@@ -2663,9 +2670,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       gotoPage,
       loadSkip,
       mobileTransformActive,
+      offeredPageSizes,
       pageCount,
       pageIndex,
-      pageSizes,
       paginationEnabled,
       rowModel.length,
       safeLimit,
@@ -3175,7 +3182,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         pageCount={pageCount}
         canPrev={canPrev}
         canNext={canNext}
-        pageSizes={pageSizes}
+        pageSizes={offeredPageSizes}
         setSkip={setSkip}
         setLimit={setLimitAndResetPage}
         i18n={i18n}
