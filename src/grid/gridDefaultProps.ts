@@ -136,6 +136,13 @@ export const plugins: readonly TypeCommunityPlugin[] = [
 ] as const;
 
 export type ReactDataGridDefaultPropName =
+  | "nodesProperty"
+  | "nodePathSeparator"
+  | "generateIdFromPath"
+  | "treeNestingSize"
+  | "collapseChildrenRecursive"
+  | "rowExpandHeight"
+  | "multiRowExpand"
   | "idProperty"
   | "theme"
   | "enableColumnFilterContextMenu"
@@ -203,6 +210,13 @@ export type ReactDataGridDefaultProps = Required<
 >;
 
 export const REACT_DATA_GRID_DEFAULT_PROPS: ReactDataGridDefaultProps = {
+  nodesProperty: "nodes",
+  nodePathSeparator: "/",
+  generateIdFromPath: true,
+  treeNestingSize: 22,
+  collapseChildrenRecursive: true,
+  rowExpandHeight: 80,
+  multiRowExpand: true,
   idProperty: "id",
   theme: "default-light",
   enableColumnFilterContextMenu: true,

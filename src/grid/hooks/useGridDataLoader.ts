@@ -16,6 +16,11 @@ import {
   resolveFilterValueForColumns,
 } from "../../filters/utils";
 import { applyLocalSort } from "../../sorting/utils";
+import {
+  countTreeRecords,
+  processTreeData,
+  type TreeRecord,
+} from "../hierarchy/treeData";
 import { stripFromOrder } from "../utils/gridUtils";
 import { createLoadingStore } from "../utils/loadingStore";
 import type { InternalSearchController } from "../internalProps";
@@ -51,6 +56,10 @@ type LoadDataOptions = {
 };
 
 export type UseGridDataLoaderParams = {
+  treeEnabled: boolean;
+  nodesProperty: string;
+  detailColumnId?: string;
+  setTreeRevealNodes: (nodes: ReadonlySet<TreeRecord>) => void;
   activeLocalFilter: boolean;
   apiRef: React.MutableRefObject<TypeComputedProps | null>;
   checkboxColId: string;
@@ -98,6 +107,10 @@ export type UseGridDataLoaderParams = {
  */
 export function useGridDataLoader(params: UseGridDataLoaderParams) {
   const {
+    treeEnabled,
+    nodesProperty,
+    detailColumnId,
+    setTreeRevealNodes,
     activeLocalFilter,
     apiRef,
     checkboxColId,
@@ -164,10 +177,13 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
   );
 
   const columnsForDs = React.useMemo(() => {
-    return checkboxEnabled
+    const columns = checkboxEnabled
       ? orderedColumns.filter((c) => getColumnId(c) !== checkboxColId)
       : orderedColumns;
-  }, [checkboxColId, checkboxEnabled, orderedColumns]);
+    return detailColumnId
+      ? columns.filter((c) => getColumnId(c) !== detailColumnId)
+      : columns;
+  }, [checkboxColId, checkboxEnabled, orderedColumns, detailColumnId]);
   const computedFilterForFetch = React.useMemo(
     () => resolveFilterValueForColumns(filterValue, columnsForDs),
     [columnsForDs, filterValue]
@@ -175,229 +191,288 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
   const computedSortForFetch = sortInfo;
 
   const columnOrderForDs = React.useMemo(() => {
-    return checkboxEnabled
+    const order = checkboxEnabled
       ? stripFromOrder(effectiveColumnOrder, checkboxColId)
       : effectiveColumnOrder;
-  }, [checkboxColId, checkboxEnabled, effectiveColumnOrder]);
+    return detailColumnId ? stripFromOrder(order, detailColumnId) : order;
+  }, [checkboxColId, checkboxEnabled, effectiveColumnOrder, detailColumnId]);
   const dataSourceColumnOrder = React.useMemo(
     () => columnsForDs.map((column) => getColumnId(column)),
     [columnsForDs]
   );
 
-  const loadData = React.useCallback(async (options?: LoadDataOptions) => {
-    if (!loadMountedRef.current) return;
+  const loadData = React.useCallback(
+    async (options?: LoadDataOptions) => {
+      if (!loadMountedRef.current) return;
 
-    const requestId = ++loadRequestIdRef.current;
-    loadAbortControllerRef.current?.abort();
-    const requestAbortController =
-      remoteDataSource && typeof AbortController !== "undefined"
-        ? new AbortController()
-        : null;
-    loadAbortControllerRef.current = requestAbortController;
+      const requestId = ++loadRequestIdRef.current;
+      loadAbortControllerRef.current?.abort();
+      const requestAbortController =
+        remoteDataSource && typeof AbortController !== "undefined"
+          ? new AbortController()
+          : null;
+      loadAbortControllerRef.current = requestAbortController;
 
-    if (remoteDataSource) {
-      setInternalLoading(true);
-    } else {
-      setInternalLoading(false);
-    }
-
-    try {
-      if (Array.isArray(dataSource)) {
-        let data = dataSource;
-
-        if (searchActive && searchFilterRows) {
-          data = searchFilterRows(data, inputColumns);
-        }
-
-        if (activeLocalFilter) {
-          data = applyLocalFilter(data, localFilterValue, {
-            filterTypes,
-            columns: orderedColumns,
-          });
-        }
-        if (localSortInfo) {
-          data = applyLocalSort(
-            data,
-            localSortInfo,
-            orderedColumns,
-            sortFunctions
-          );
-        }
-
-        const totalCount = data.length;
-
-        const sliced = localPagination
-          ? data.slice(loadSkip, loadSkip + limit)
-          : data;
-
-        if (options?.bypassLocalRowReuse) {
-          setRows(sliced);
-        } else {
-          setRows((previous) => reuseRowsIfUnchanged(previous, sliced));
-        }
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
-        return;
-      }
-
-      const ds = dataSource;
-
-      const dsIsFn = typeof ds === "function";
-      const dsArg: TypeDataSourceArgs = {
-        ...(remotePagination && dsIsFn ? { skip: loadSkip, limit } : {}),
-        sortInfo: computedSortForFetch,
-        filterValue: computedFilterForFetch,
-        columnOrder: dataSourceColumnOrder,
-        columns: columnsForDs,
-        idProperty,
-        theme: functionDataSourceTheme ?? themeNameRef.current,
-        ...(searchConnected ? { searchValue } : {}),
-      };
-      if (requestAbortController) {
-        // Preserve the long-standing enumerable request-key contract while
-        // exposing cancellation as an opt-in extension.
-        Object.defineProperty(dsArg, "signal", {
-          configurable: true,
-          enumerable: false,
-          value: requestAbortController.signal,
-        });
-      }
-
-      let result: any;
-
-      try {
-        result = dsIsFn ? ds(dsArg) : ds;
-
-        if (result && typeof result.then === "function") {
-          result = await result;
-        }
-      } catch {
-        // Remote data-source failures have no public error callback. Preserve
-        // the last committed rows and contain the rejected request here.
-        return;
-      }
-
-      if (!loadMountedRef.current || requestId !== loadRequestIdRef.current) {
-        return;
-      }
-
-      const transformStaticPromiseRows = <Row>(snapshot: Row[]): Row[] => {
-        // A bare static Promise can still act as a locally composable snapshot
-        // when pagination is disabled or explicitly local. With
-        // pagination=true/"remote", all Promise/function results are
-        // authoritative remote pages and must not be transformed or sliced.
-        if (
-          dsIsFn ||
-          (paginationMode !== false && paginationMode !== "local")
-        ) {
-          return snapshot;
-        }
-
-        let data = snapshot;
-
-        if (searchActive && searchFilterRows) {
-          data = searchFilterRows(data, inputColumns);
-        }
-        if (activeLocalFilter) {
-          data = applyLocalFilter(data, localFilterValue, {
-            filterTypes,
-            columns: orderedColumns,
-          });
-        }
-        if (localSortInfo) {
-          data = applyLocalSort(
-            data,
-            localSortInfo,
-            orderedColumns,
-            sortFunctions
-          );
-        }
-
-        return data;
-      };
-
-      if (result && typeof result === "object" && Array.isArray(result.data)) {
-        // A count-bearing Promise payload represents an authoritative remote
-        // page unless pagination is explicitly local.
-        const resultData = dsIsFn
-          ? result.data
-          : localPagination
-            ? transformStaticPromiseRows(result.data)
-            : result.data;
-        const staticPromiseHasLocalPredicate =
-          !dsIsFn && localPagination && (searchActive || activeLocalFilter);
-        const reportedCount = Number(
-          staticPromiseHasLocalPredicate
-            ? resultData.length
-            : (result.count ?? resultData.length)
-        );
-        const totalCount = Number.isFinite(reportedCount)
-          ? reportedCount
-          : resultData.length;
-        const nextRows = localPagination
-          ? resultData.slice(loadSkip, loadSkip + limit)
-          : resultData;
-
-        setRows(nextRows);
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
-      } else if (Array.isArray(result)) {
-        const resultData = transformStaticPromiseRows(result);
-        const totalCount = resultData.length;
-        const nextRows = localPagination
-          ? resultData.slice(loadSkip, loadSkip + limit)
-          : resultData;
-
-        setRows(nextRows);
-        setCount(totalCount);
-        notifyFilteredRowsCount(totalCount);
+      if (remoteDataSource) {
+        setInternalLoading(true);
       } else {
-        setRows([]);
-        setCount(0);
-        notifyFilteredRowsCount(0);
-      }
-    } finally {
-      if (
-        remoteDataSource &&
-        loadMountedRef.current &&
-        requestId === loadRequestIdRef.current
-      ) {
-        loadAbortControllerRef.current = null;
         setInternalLoading(false);
       }
-    }
-  }, [
-    dataSource,
-    functionDataSourceTheme,
-    activeLocalFilter,
-    computedFilterForFetch,
-    computedSortForFetch,
-    localSortInfo,
-    notifyFilteredRowsCount,
-    idProperty,
-    inputColumns,
-    limit,
-    localPagination,
-    loadSkip,
-    orderedColumns,
-    paginationMode,
-    remoteDataSource,
-    remotePagination,
-    dataSourceColumnOrder,
-    columnsForDs,
-    filterTypes,
-    localFilterValue,
-    searchActive,
-    searchConnected,
-    searchFilterRows,
-    searchValue,
-    setInternalLoading,
-    sortFunctions,
-    loadAbortControllerRef,
-    loadRequestIdRef,
-    setCount,
-    setRows,
-  ]);
+
+      try {
+        if (Array.isArray(dataSource)) {
+          let data = dataSource;
+
+          if (treeEnabled) {
+            const result = processTreeData(data as TreeRecord[], {
+              nodesProperty,
+              filterValue: activeLocalFilter ? localFilterValue : null,
+              filterTypes,
+              columns: orderedColumns,
+              sortInfo: localSortInfo,
+              sortFunctions,
+              search:
+                searchActive && searchFilterRows
+                  ? (rows) => searchFilterRows(rows, inputColumns)
+                  : undefined,
+            });
+            const nextRows = localPagination
+              ? result.data.slice(loadSkip, loadSkip + limit)
+              : result.data;
+            setTreeRevealNodes(result.revealNodes);
+            setRows((previous) => reuseRowsIfUnchanged(previous, nextRows));
+            setCount(result.data.length);
+            notifyFilteredRowsCount(result.count);
+            return;
+          }
+
+          if (searchActive && searchFilterRows) {
+            data = searchFilterRows(data, inputColumns);
+          }
+
+          if (activeLocalFilter) {
+            data = applyLocalFilter(data, localFilterValue, {
+              filterTypes,
+              columns: orderedColumns,
+            });
+          }
+          if (localSortInfo) {
+            data = applyLocalSort(
+              data,
+              localSortInfo,
+              orderedColumns,
+              sortFunctions
+            );
+          }
+
+          const totalCount = data.length;
+
+          const sliced = localPagination
+            ? data.slice(loadSkip, loadSkip + limit)
+            : data;
+
+          if (options?.bypassLocalRowReuse) {
+            setRows(sliced);
+          } else {
+            setRows((previous) => reuseRowsIfUnchanged(previous, sliced));
+          }
+          setCount(totalCount);
+          notifyFilteredRowsCount(totalCount);
+          return;
+        }
+
+        const ds = dataSource;
+
+        const dsIsFn = typeof ds === "function";
+        const dsArg: TypeDataSourceArgs = {
+          ...(remotePagination && dsIsFn ? { skip: loadSkip, limit } : {}),
+          sortInfo: computedSortForFetch,
+          filterValue: computedFilterForFetch,
+          columnOrder: dataSourceColumnOrder,
+          columns: columnsForDs,
+          idProperty,
+          theme: functionDataSourceTheme ?? themeNameRef.current,
+          ...(searchConnected ? { searchValue } : {}),
+        };
+        if (requestAbortController) {
+          // Preserve the long-standing enumerable request-key contract while
+          // exposing cancellation as an opt-in extension.
+          Object.defineProperty(dsArg, "signal", {
+            configurable: true,
+            enumerable: false,
+            value: requestAbortController.signal,
+          });
+        }
+
+        let result: any;
+
+        try {
+          result = dsIsFn ? ds(dsArg) : ds;
+
+          if (result && typeof result.then === "function") {
+            result = await result;
+          }
+        } catch {
+          // Remote data-source failures have no public error callback. Preserve
+          // the last committed rows and contain the rejected request here.
+          return;
+        }
+
+        if (!loadMountedRef.current || requestId !== loadRequestIdRef.current) {
+          return;
+        }
+
+        const transformStaticPromiseRows = <Row>(snapshot: Row[]): Row[] => {
+          // A bare static Promise can still act as a locally composable snapshot
+          // when pagination is disabled or explicitly local. With
+          // pagination=true/"remote", all Promise/function results are
+          // authoritative remote pages and must not be transformed or sliced.
+          if (
+            dsIsFn ||
+            (paginationMode !== false && paginationMode !== "local")
+          ) {
+            return snapshot;
+          }
+
+          let data = snapshot;
+
+          if (treeEnabled) {
+            const result = processTreeData(data as TreeRecord[], {
+              nodesProperty,
+              filterValue: activeLocalFilter ? localFilterValue : null,
+              filterTypes,
+              columns: orderedColumns,
+              sortInfo: localSortInfo,
+              sortFunctions,
+              search:
+                searchActive && searchFilterRows
+                  ? (rows) => searchFilterRows(rows, inputColumns)
+                  : undefined,
+            });
+            setTreeRevealNodes(result.revealNodes);
+            return result.data as Row[];
+          }
+
+          if (searchActive && searchFilterRows) {
+            data = searchFilterRows(data, inputColumns);
+          }
+          if (activeLocalFilter) {
+            data = applyLocalFilter(data, localFilterValue, {
+              filterTypes,
+              columns: orderedColumns,
+            });
+          }
+          if (localSortInfo) {
+            data = applyLocalSort(
+              data,
+              localSortInfo,
+              orderedColumns,
+              sortFunctions
+            );
+          }
+
+          return data;
+        };
+
+        if (
+          result &&
+          typeof result === "object" &&
+          Array.isArray(result.data)
+        ) {
+          // A count-bearing Promise payload represents an authoritative remote
+          // page unless pagination is explicitly local.
+          const resultData = dsIsFn
+            ? result.data
+            : localPagination
+              ? transformStaticPromiseRows(result.data)
+              : result.data;
+          const staticPromiseHasLocalPredicate =
+            !dsIsFn && localPagination && (searchActive || activeLocalFilter);
+          const reportedCount = Number(
+            staticPromiseHasLocalPredicate
+              ? resultData.length
+              : (result.count ?? resultData.length)
+          );
+          const totalCount = Number.isFinite(reportedCount)
+            ? reportedCount
+            : resultData.length;
+          const nextRows = localPagination
+            ? resultData.slice(loadSkip, loadSkip + limit)
+            : resultData;
+
+          setRows(nextRows);
+          setCount(totalCount);
+          notifyFilteredRowsCount(
+            treeEnabled && !dsIsFn && localPagination
+              ? countTreeRecords(resultData, nodesProperty)
+              : totalCount
+          );
+        } else if (Array.isArray(result)) {
+          const resultData = transformStaticPromiseRows(result);
+          const totalCount = resultData.length;
+          const nextRows = localPagination
+            ? resultData.slice(loadSkip, loadSkip + limit)
+            : resultData;
+
+          setRows(nextRows);
+          setCount(totalCount);
+          notifyFilteredRowsCount(
+            treeEnabled
+              ? countTreeRecords(resultData, nodesProperty)
+              : totalCount
+          );
+        } else {
+          setRows([]);
+          setCount(0);
+          notifyFilteredRowsCount(0);
+        }
+      } finally {
+        if (
+          remoteDataSource &&
+          loadMountedRef.current &&
+          requestId === loadRequestIdRef.current
+        ) {
+          loadAbortControllerRef.current = null;
+          setInternalLoading(false);
+        }
+      }
+    },
+    [
+      treeEnabled,
+      nodesProperty,
+      setTreeRevealNodes,
+      dataSource,
+      functionDataSourceTheme,
+      activeLocalFilter,
+      computedFilterForFetch,
+      computedSortForFetch,
+      localSortInfo,
+      notifyFilteredRowsCount,
+      idProperty,
+      inputColumns,
+      limit,
+      localPagination,
+      loadSkip,
+      orderedColumns,
+      paginationMode,
+      remoteDataSource,
+      remotePagination,
+      dataSourceColumnOrder,
+      columnsForDs,
+      filterTypes,
+      localFilterValue,
+      searchActive,
+      searchConnected,
+      searchFilterRows,
+      searchValue,
+      setInternalLoading,
+      sortFunctions,
+      loadAbortControllerRef,
+      loadRequestIdRef,
+      setCount,
+      setRows,
+    ]
+  );
 
   React.useLayoutEffect(() => {
     loadMountedRef.current = true;

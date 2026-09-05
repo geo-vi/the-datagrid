@@ -29,6 +29,13 @@ Rules:
 2. Do not rely on consumers passing additional props “for styling” or “for layout”. Styling must be handled internally via Tailwind/shadcn conventions (see below).
 3. Maintain backward compatibility for the semantics of these props once released.
 
+Explicit API decision (2026-09-05): the maintainer requested Inovua-compatible
+tree-grid and master-detail support. The implemented `TypeTreeGridProps` and
+`TypeMasterDetailProps` extend the baseline above. See
+`docs/hierarchy-compatibility.md` for acceptance criteria and coverage, and
+`docs/research/inovua-hierarchy-sources.md` for recovered legacy contracts.
+Do not expose deferred legacy options as accepted but nonfunctional props.
+
 Canonical exported types (Inovua-aligned vocabulary)
 the-datagrid exposes a naming and conceptual model aligned with Inovua, even if the implementation is simplified:
 

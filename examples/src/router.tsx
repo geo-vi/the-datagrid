@@ -39,6 +39,7 @@ import TallHeaderCompatPage from "./TallHeaderCompatPage";
 import StackedColumnsExamplePage from "./StackedColumnsExamplePage";
 import ToolbarGridExample from "./ToolbarGridExample";
 import UsersGridExample from "./UsersGridExample";
+import HierarchyExamplePage from "./HierarchyExamplePage";
 import DocsHomePage from "./docs/DocsHomePage";
 import DocsIndexPage from "./docs/DocsIndexPage";
 import DocsLayout from "./docs/DocsLayout";
@@ -514,6 +515,11 @@ const compatTallHeaderRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "examples/hierarchy",
+    component: HierarchyExamplePage,
+  }),
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
   compatToolbarRoute,

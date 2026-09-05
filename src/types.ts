@@ -6,6 +6,24 @@
  */
 
 import type * as React from "react";
+import type {
+  TypeTreeGridProps,
+  TypeNodeProps,
+} from "./grid/hierarchy/treeTypes";
+import type { TypeMasterDetailProps } from "./grid/hierarchy/masterDetailTypes";
+export type {
+  TypeTreeGridProps,
+  TypeNodeProps,
+  TypeExpandedNodes,
+  TypeNodeEvent,
+  TypeNodeExpandChange,
+} from "./grid/hierarchy/treeTypes";
+export type {
+  TypeMasterDetailProps,
+  TypeRowDetailsInfo,
+  TypeExpandedRows,
+  TypeCollapsedRows,
+} from "./grid/hierarchy/masterDetailTypes";
 
 /**
  * Stable state passed to function-backed data sources.
@@ -129,6 +147,7 @@ export type TypeFilterValue = TypeSingleFilterValue[] | null;
  * the column aliases identify the filter that initiated the change.
  */
 export type TypeCellProps = {
+  nodeProps?: TypeNodeProps;
   rowIndex: number;
   columnIndex: number;
   computedVisibleIndex?: number;
@@ -793,6 +812,7 @@ export type TypeContextMenuItem =
 
 export type TypeRowProps = Partial<TypeRowStyleProps> &
   Pick<TypeRowStyleProps, "data" | "rowIndex"> & {
+    nodeProps?: TypeNodeProps;
     groupProps?: unknown;
     empty?: boolean;
     active?: boolean;
@@ -1555,343 +1575,346 @@ export type TypeCheckboxColumn =
       renderCheckbox?: TypeRenderCheckbox;
     });
 
-export type TypeDataGridProps = {
-  /**
-   * Built-ins:
-   * - "default-light": the Inovua-compatible default; forces light tokens
-   * - "default": follows the nearest `.dark` ancestor when present
-   * - "light": forces the light theme tokens
-   * - "dark": forces the dark theme tokens
-   *
-   * Named custom themes are exposed on the grid root via `data-theme="<name>"`.
-   * Custom theme names ending in `-dark`/`_dark` inherit the dark token base.
-   * Custom theme names ending in `-light`/`_light` inherit the light token base.
-   */
-  theme?: string;
-  /**
-   * Required by the raw Inovua-compatible props type. JSX consumers may omit
-   * it because `ReactDataGrid.defaultProps.idProperty` is `"id"`.
-   */
-  idProperty: string;
+export type TypeDataGridProps = TypeTreeGridProps &
+  TypeMasterDetailProps & {
+    /**
+     * Built-ins:
+     * - "default-light": the Inovua-compatible default; forces light tokens
+     * - "default": follows the nearest `.dark` ancestor when present
+     * - "light": forces the light theme tokens
+     * - "dark": forces the dark theme tokens
+     *
+     * Named custom themes are exposed on the grid root via `data-theme="<name>"`.
+     * Custom theme names ending in `-dark`/`_dark` inherit the dark token base.
+     * Custom theme names ending in `-light`/`_light` inherit the light token base.
+     */
+    theme?: string;
+    /**
+     * Required by the raw Inovua-compatible props type. JSX consumers may omit
+     * it because `ReactDataGrid.defaultProps.idProperty` is `"id"`.
+     */
+    idProperty: string;
 
-  columns: TypeColumns;
-  dataSource: TypeDataSource;
+    columns: TypeColumns;
+    dataSource: TypeDataSource;
 
-  /** Stacked and nested column-header descriptors. */
-  groups?: TypeColumnGroup[];
-  /**
-   * When false, leaf and group drag operations stay inside their existing
-   * group parent. The Inovua Community default is true.
-   */
-  allowGroupSplitOnReorder?: boolean;
+    /** Stacked and nested column-header descriptors. */
+    groups?: TypeColumnGroup[];
+    /**
+     * When false, leaf and group drag operations stay inside their existing
+     * group parent. The Inovua Community default is true.
+     */
+    allowGroupSplitOnReorder?: boolean;
 
-  columnOrder?: string[];
-  defaultColumnOrder?: string[];
-  onColumnOrderChange?: (columnOrder: string[]) => void;
-  onColumnVisibleChange?: (args: {
-    column: TypeColumn;
-    visible: boolean;
-  }) => void;
+    columnOrder?: string[];
+    defaultColumnOrder?: string[];
+    onColumnOrderChange?: (columnOrder: string[]) => void;
+    onColumnVisibleChange?: (args: {
+      column: TypeColumn;
+      visible: boolean;
+    }) => void;
 
-  /**
-   * In Inovua, `reorderColumns={false}` is common.
-   * We support it explicitly now.
-   */
-  reorderColumns?: boolean;
-  resizable?: boolean;
-  /** Root fallback used when a column has no width/defaultWidth. */
-  columnDefaultWidth?: number;
-  /**
-   * Root fallback used when a column sets neither `headerAlign` nor
-   * `textAlign`, so a grid can centre or end-align every header without
-   * repeating the field on each column definition. A column that sets either
-   * one still wins, and the checkbox column is left alone.
-   */
-  columnDefaultHeaderAlign?: "start" | "end" | "left" | "right" | "center";
-  /**
-   * Whether a sortable column shows the neutral sort indicator while it is not
-   * sorted. `"sorted"` reserves its space without drawing it, so sorting a
-   * column shifts nothing. A column with its own `renderSortTool` is left alone.
-   */
-  sortIconVisibility?: "always" | "sorted";
-  /** Root fallback used when a column has no minWidth. */
-  columnMinWidth?: number;
-  /** Root fallback used when a column has no maxWidth. */
-  columnMaxWidth?: number | null;
-  /**
-   * Resizes the adjacent visible column in the opposite direction so the
-   * pair keeps its total rendered width.
-   */
-  shareSpaceOnResize?: boolean;
-  /** Pointer target width, in pixels, for header resize handles. */
-  columnResizeHandleWidth?: number;
-  /** Rendered width, in pixels, of the deferred resize proxy. */
-  columnResizeProxyWidth?: number;
+    /**
+     * In Inovua, `reorderColumns={false}` is common.
+     * We support it explicitly now.
+     */
+    reorderColumns?: boolean;
+    resizable?: boolean;
+    /** Root fallback used when a column has no width/defaultWidth. */
+    columnDefaultWidth?: number;
+    /**
+     * Root fallback used when a column sets neither `headerAlign` nor
+     * `textAlign`, so a grid can centre or end-align every header without
+     * repeating the field on each column definition. A column that sets either
+     * one still wins, and the checkbox column is left alone.
+     */
+    columnDefaultHeaderAlign?: "start" | "end" | "left" | "right" | "center";
+    /**
+     * Whether a sortable column shows the neutral sort indicator while it is not
+     * sorted. `"sorted"` reserves its space without drawing it, so sorting a
+     * column shifts nothing. A column with its own `renderSortTool` is left alone.
+     */
+    sortIconVisibility?: "always" | "sorted";
+    /** Root fallback used when a column has no minWidth. */
+    columnMinWidth?: number;
+    /** Root fallback used when a column has no maxWidth. */
+    columnMaxWidth?: number | null;
+    /**
+     * Resizes the adjacent visible column in the opposite direction so the
+     * pair keeps its total rendered width.
+     */
+    shareSpaceOnResize?: boolean;
+    /** Pointer target width, in pixels, for header resize handles. */
+    columnResizeHandleWidth?: number;
+    /** Rendered width, in pixels, of the deferred resize proxy. */
+    columnResizeProxyWidth?: number;
 
-  /**
-   * When enabled, the rendered column follows the pointer while its resize
-   * handle is dragged. The default deferred mode keeps the lightweight resize
-   * proxy and applies the proposed width when the gesture completes.
-   *
-   * `onColumnResize` remains a completion callback in both modes.
-   */
-  liveColumnResize?: boolean;
+    /**
+     * When enabled, the rendered column follows the pointer while its resize
+     * handle is dragged. The default deferred mode keeps the lightweight resize
+     * proxy and applies the proposed width when the gesture completes.
+     *
+     * `onColumnResize` remains a completion callback in both modes.
+     */
+    liveColumnResize?: boolean;
 
-  enableColumnFilterContextMenu?: boolean;
+    enableColumnFilterContextMenu?: boolean;
 
-  enableColumnAutosize?: boolean;
-  skipHeaderOnAutoSize?: boolean;
+    enableColumnAutosize?: boolean;
+    skipHeaderOnAutoSize?: boolean;
 
-  /**
-   * Explicitly shows or hides the filter row. When omitted, a non-empty
-   * `filterValue` or `defaultFilterValue` makes the row visible.
-   *
-   * For local arrays, uncontrolled `defaultFilterValue` state performs the
-   * data transformation even when this row is hidden. Controlled
-   * `filterValue` is display/remote-request state and does not transform the
-   * supplied array, matching Inovua 5.10.2.
-   */
-  enableFiltering?: boolean;
-  filterValue?: TypeFilterValue;
-  defaultFilterValue?: TypeFilterValue;
-  onFilterValueChange?: (filterValue: TypeFilterValue) => void;
-  onColumnFilterValueChange?: (
-    columnFilterValue: TypeColumnFilterValueChangeArg
-  ) => void;
+    /**
+     * Explicitly shows or hides the filter row. When omitted, a non-empty
+     * `filterValue` or `defaultFilterValue` makes the row visible.
+     *
+     * For local arrays, uncontrolled `defaultFilterValue` state performs the
+     * data transformation even when this row is hidden. Controlled
+     * `filterValue` is display/remote-request state and does not transform the
+     * supplied array, matching Inovua 5.10.2.
+     */
+    enableFiltering?: boolean;
+    filterValue?: TypeFilterValue;
+    defaultFilterValue?: TypeFilterValue;
+    onFilterValueChange?: (filterValue: TypeFilterValue) => void;
+    onColumnFilterValueChange?: (
+      columnFilterValue: TypeColumnFilterValueChangeArg
+    ) => void;
 
-  filterTypes?: TypeFilterTypes;
-  scrollTopOnFilter?: boolean;
-  renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
-  columnFilterContextMenuAlignPositions?: string[];
-  columnFilterContextMenuConstrainTo?:
-    | boolean
-    | HTMLElement
-    | string
-    | ((...args: unknown[]) => HTMLElement | null);
-  columnFilterContextMenuPosition?: string;
-  updateMenuPositionOnScroll?: boolean;
-  renderColumnContextMenu?: TypeRenderColumnContextMenu;
-  columnContextMenuAlignPositions?: string[];
-  columnContextMenuConstrainTo?: TypeContextMenuConstrainTo;
-  columnContextMenuPosition?: string;
-  renderRowContextMenu?: TypeRenderRowContextMenu;
-  onRowContextMenu?: TypeOnRowContextMenu;
-  rowContextMenuAlignPositions?: string[];
-  rowContextMenuConstrainTo?: TypeContextMenuConstrainTo;
-  rowContextMenuPosition?: string;
-  updateMenuPositionOnColumnsChange?: boolean;
+    filterTypes?: TypeFilterTypes;
+    scrollTopOnFilter?: boolean;
+    renderColumnFilterContextMenu?: TypeRenderColumnFilterContextMenu;
+    columnFilterContextMenuAlignPositions?: string[];
+    columnFilterContextMenuConstrainTo?:
+      | boolean
+      | HTMLElement
+      | string
+      | ((...args: unknown[]) => HTMLElement | null);
+    columnFilterContextMenuPosition?: string;
+    updateMenuPositionOnScroll?: boolean;
+    renderColumnContextMenu?: TypeRenderColumnContextMenu;
+    columnContextMenuAlignPositions?: string[];
+    columnContextMenuConstrainTo?: TypeContextMenuConstrainTo;
+    columnContextMenuPosition?: string;
+    renderRowContextMenu?: TypeRenderRowContextMenu;
+    onRowContextMenu?: TypeOnRowContextMenu;
+    rowContextMenuAlignPositions?: string[];
+    rowContextMenuConstrainTo?: TypeContextMenuConstrainTo;
+    rowContextMenuPosition?: string;
+    updateMenuPositionOnColumnsChange?: boolean;
 
-  filteredRowsCount?: (filteredRows: number) => void;
+    filteredRowsCount?: (filteredRows: number) => void;
 
-  sortInfo?: TypeSortInfo;
-  defaultSortInfo?: TypeSortInfo;
-  onSortInfoChange?: (sortInfo: TypeSortInfo) => void;
-  sortable?: boolean;
-  sortFunctions?: TypeSortFunctions | null;
-  renderSortTool?: TypeRenderSortTool;
-  scrollTopOnSort?: boolean | "always";
-  allowUnsort?: boolean;
-  defaultSortingDirection?: "desc" | "asc";
+    sortInfo?: TypeSortInfo;
+    defaultSortInfo?: TypeSortInfo;
+    onSortInfoChange?: (sortInfo: TypeSortInfo) => void;
+    sortable?: boolean;
+    sortFunctions?: TypeSortFunctions | null;
+    renderSortTool?: TypeRenderSortTool;
+    scrollTopOnSort?: boolean | "always";
+    allowUnsort?: boolean;
+    defaultSortingDirection?: "desc" | "asc";
 
-  pagination?: TypePaginationMode;
-  skip?: number;
-  defaultSkip?: number;
-  limit?: number;
-  defaultLimit?: number;
-  onSkipChange?: (skip: number) => void;
-  onLimitChange?: (limit: number) => void;
-  pageSizes?: number[];
-  renderPaginationToolbar?: (
-    paginationProps: TypePaginationProps
-  ) => React.ReactNode;
+    pagination?: TypePaginationMode;
+    skip?: number;
+    defaultSkip?: number;
+    limit?: number;
+    defaultLimit?: number;
+    onSkipChange?: (skip: number) => void;
+    onLimitChange?: (limit: number) => void;
+    pageSizes?: number[];
+    renderPaginationToolbar?: (
+      paginationProps: TypePaginationProps
+    ) => React.ReactNode;
 
-  virtualized?: boolean;
+    virtualized?: boolean;
 
-  /**
-   * Uses the browser's visible scrollbars when true. The default false mode
-   * keeps native overflow semantics while rendering shadcn-compatible custom
-   * tracks and thumbs.
-   */
-  nativeScroll?: boolean;
-  scrollProps?: TypeScrollProps;
-  initialScrollTop?: number;
-  initialScrollLeft?: number;
-  onScroll?: React.UIEventHandler<HTMLDivElement>;
-  /** Mirrors horizontal layout and exposes logical scroll offsets. */
-  rtl?: boolean;
+    /**
+     * Uses the browser's visible scrollbars when true. The default false mode
+     * keeps native overflow semantics while rendering shadcn-compatible custom
+     * tracks and thumbs.
+     */
+    nativeScroll?: boolean;
+    scrollProps?: TypeScrollProps;
+    initialScrollTop?: number;
+    initialScrollLeft?: number;
+    onScroll?: React.UIEventHandler<HTMLDivElement>;
+    /** Mirrors horizontal layout and exposes logical scroll offsets. */
+    rtl?: boolean;
 
-  /**
-   * Enables horizontal column virtualization when the grid has at least this
-   * many visible columns. The boundary is inclusive and defaults to `15`.
-   * Column virtualization requires a fixed numeric `rowHeight`.
-   */
-  virtualizeColumnsThreshold?: number;
+    /**
+     * Enables horizontal column virtualization when the grid has at least this
+     * many visible columns. The boundary is inclusive and defaults to `15`.
+     * Column virtualization requires a fixed numeric `rowHeight`.
+     */
+    virtualizeColumnsThreshold?: number;
 
-  /**
-   * Explicitly enables or disables horizontal column virtualization,
-   * overriding `virtualizeColumnsThreshold`. A function-valued or natural
-   * `rowHeight` still disables column virtualization because those layouts
-   * cannot safely share a fixed horizontal render window.
-   */
-  virtualizeColumns?: boolean;
+    /**
+     * Explicitly enables or disables horizontal column virtualization,
+     * overriding `virtualizeColumnsThreshold`. A function-valued or natural
+     * `rowHeight` still disables column virtualization because those layouts
+     * cannot safely share a fixed horizontal render window.
+     */
+    virtualizeColumns?: boolean;
 
-  /** Transform the grid into a responsive virtual list at widths up to 1024px. */
-  allowMobileTransform?: boolean;
+    /** Transform the grid into a responsive virtual list at widths up to 1024px. */
+    allowMobileTransform?: boolean;
 
-  columnUserSelect?: true | false | "text" | "none";
-  /**
-   * Defaults to `true`, which renders both horizontal and vertical separators.
-   * Use `"horizontal"` to keep row dividers while disabling vertical separators.
-   */
-  showCellBorders?: TypeShowCellBorders;
+    columnUserSelect?: true | false | "text" | "none";
+    /**
+     * Defaults to `true`, which renders both horizontal and vertical separators.
+     * Use `"horizontal"` to keep row dividers while disabling vertical separators.
+     */
+    showCellBorders?: TypeShowCellBorders;
 
-  i18n?: TypeI18n;
+    i18n?: TypeI18n;
 
-  /**
-   * Content rendered when the current data view has no rows.
-   *
-   * String values are resolved as i18n keys before falling back to the
-   * supplied string. A function is invoked when the empty state is rendered;
-   * `null`, `false`, and an empty string suppress the empty-state content.
-   */
-  emptyText?: React.ReactNode | (() => React.ReactNode);
+    /**
+     * Content rendered when the current data view has no rows.
+     *
+     * String values are resolved as i18n keys before falling back to the
+     * supplied string. A function is invoked when the empty state is rendered;
+     * `null`, `false`, and an empty string suppress the empty-state content.
+     */
+    emptyText?: React.ReactNode | (() => React.ReactNode);
 
-  showColumnMenuTool?: boolean;
+    showColumnMenuTool?: boolean;
 
-  rowHeight?: number | ((rowIndex: number) => number) | null;
-  rowHeights?: TypeRowHeights;
-  defaultRowHeights?: TypeRowHeights;
-  onRowHeightsChange?: (rowHeights: TypeRowHeights) => void;
-  onUpdateRowHeights?: (
-    heights: { [rowIndex: number]: number },
-    computedProps: TypeComputedProps
-  ) => void;
-  minRowHeight?: number;
-  maxRowHeight?: number;
-  rowStyle?: TypeRowStyle;
-  rowProps?:
-    | TypeRowDOMProps
-    | ((rowProps: TypeRowProps) => TypeRowDOMProps | undefined);
-  rowClassName?: TypeRowClassName;
-  renderRow?: TypeRenderRow;
-  onRenderRow?: TypeOnRenderRow;
-  onRowClick?: TypeOnRowClick;
-  onRowDoubleClick?: TypeOnRowDoubleClick;
-  onCellClick?: TypeOnCellClick;
-  onCellDoubleClick?: TypeOnCellDoubleClick;
-  cellDOMProps?: TypeCellDOMPropsConfig;
-  headerDOMProps?: TypeHeaderDOMPropsConfig;
-  showHoverRows?: boolean;
-  showEmptyRows?: boolean;
-  showZebraRows?: boolean;
-  defaultShowZebraRows?: boolean;
+    rowHeight?: number | ((rowIndex: number) => number) | null;
+    rowHeights?: TypeRowHeights;
+    defaultRowHeights?: TypeRowHeights;
+    onRowHeightsChange?: (rowHeights: TypeRowHeights) => void;
+    onUpdateRowHeights?: (
+      heights: { [rowIndex: number]: number },
+      computedProps: TypeComputedProps
+    ) => void;
+    minRowHeight?: number;
+    maxRowHeight?: number;
+    rowStyle?: TypeRowStyle;
+    rowProps?:
+      | TypeRowDOMProps
+      | ((rowProps: TypeRowProps) => TypeRowDOMProps | undefined);
+    rowClassName?: TypeRowClassName;
+    renderRow?: TypeRenderRow;
+    onRenderRow?: TypeOnRenderRow;
+    onRowClick?: TypeOnRowClick;
+    onRowDoubleClick?: TypeOnRowDoubleClick;
+    onCellClick?: TypeOnCellClick;
+    onCellDoubleClick?: TypeOnCellDoubleClick;
+    cellDOMProps?: TypeCellDOMPropsConfig;
+    headerDOMProps?: TypeHeaderDOMPropsConfig;
+    showHoverRows?: boolean;
+    showEmptyRows?: boolean;
+    showZebraRows?: boolean;
+    defaultShowZebraRows?: boolean;
 
-  editable?: boolean;
-  editStartEvent?: string;
-  isStartEditKeyPressed?: (args: TypeStartEditKeyArgs) => boolean;
-  autoFocusOnEditComplete?: boolean;
-  autoFocusOnEditEscape?: boolean;
-  onEditStart?: (editInfo: TypeEditInfo) => void;
-  onEditStop?: (editInfo: TypeEditInfo) => void;
-  onEditComplete?: (editInfo: TypeEditInfo) => void | Promise<unknown>;
-  onEditCancel?: (editInfo: TypeEditInfo) => void;
-  onEditValueChange?: (editInfo: TypeEditInfo) => void;
+    editable?: boolean;
+    editStartEvent?: string;
+    isStartEditKeyPressed?: (args: TypeStartEditKeyArgs) => boolean;
+    autoFocusOnEditComplete?: boolean;
+    autoFocusOnEditEscape?: boolean;
+    onEditStart?: (editInfo: TypeEditInfo) => void;
+    onEditStop?: (editInfo: TypeEditInfo) => void;
+    onEditComplete?: (editInfo: TypeEditInfo) => void | Promise<unknown>;
+    onEditCancel?: (editInfo: TypeEditInfo) => void;
+    onEditValueChange?: (editInfo: TypeEditInfo) => void;
 
-  onColumnResize?: (
-    info: TypeColumnResizeInfo,
-    context: TypeColumnResizeContext
-  ) => void;
-  onBatchColumnResize?: (
-    info: TypeColumnResizeInfo[],
-    context: TypeColumnResizeContext
-  ) => void;
-  headerHeight?: number;
-  filterRowHeight?: number;
+    onColumnResize?: (
+      info: TypeColumnResizeInfo,
+      context: TypeColumnResizeContext
+    ) => void;
+    onBatchColumnResize?: (
+      info: TypeColumnResizeInfo[],
+      context: TypeColumnResizeContext
+    ) => void;
+    headerHeight?: number;
+    filterRowHeight?: number;
 
-  loading?: boolean;
-  loadingText?: React.ReactNode | (() => React.ReactNode);
-  renderLoadMask?: (loadMaskProps: TypeLoadMaskProps) => React.ReactNode | null;
-  /**
-   * Extension callback fired exactly once for each effective loading-state
-   * transition. This also observes a controlled `loading` prop.
-   */
-  onLoadingChange?: (loading: boolean) => void;
+    loading?: boolean;
+    loadingText?: React.ReactNode | (() => React.ReactNode);
+    renderLoadMask?: (
+      loadMaskProps: TypeLoadMaskProps
+    ) => React.ReactNode | null;
+    /**
+     * Extension callback fired exactly once for each effective loading-state
+     * transition. This also observes a controlled `loading` prop.
+     */
+    onLoadingChange?: (loading: boolean) => void;
 
-  /**
-   * Selection / checkbox column (Inovua-compatible).
-   */
-  checkboxColumn?: TypeCheckboxColumn;
+    /**
+     * Selection / checkbox column (Inovua-compatible).
+     */
+    checkboxColumn?: TypeCheckboxColumn;
 
-  /**
-   * Explicitly enables or disables row selection. When omitted, selection is
-   * inferred from `selected`, `defaultSelected`, or `checkboxColumn`.
-   */
-  enableSelection?: boolean;
+    /**
+     * Explicitly enables or disables row selection. When omitted, selection is
+     * inferred from `selected`, `defaultSelected`, or `checkboxColumn`.
+     */
+    enableSelection?: boolean;
 
-  selected?: TypeRowSelection;
-  defaultSelected?: TypeRowSelection;
-  unselected?: TypeBoolMap;
-  defaultUnselected?: TypeBoolMap;
-  onSelectionChange?: (config: TypeOnSelectionChangeArg) => void;
+    selected?: TypeRowSelection;
+    defaultSelected?: TypeRowSelection;
+    unselected?: TypeBoolMap;
+    defaultUnselected?: TypeBoolMap;
+    onSelectionChange?: (config: TypeOnSelectionChangeArg) => void;
 
-  multiSelect?: boolean;
-  checkboxOnlyRowSelect?: boolean;
-  checkboxSelectEnableShiftKey?: boolean;
-  toggleRowSelectOnClick?: boolean;
+    multiSelect?: boolean;
+    checkboxOnlyRowSelect?: boolean;
+    checkboxSelectEnableShiftKey?: boolean;
+    toggleRowSelectOnClick?: boolean;
 
-  activeCell?: TypeActiveCell;
-  defaultActiveCell?: TypeActiveCell;
-  onActiveCellChange?: (activeCell: TypeActiveCell) => void;
-  activeCellThrottle?: number;
-  cellSelection?: TypeCellSelection;
-  defaultCellSelection?: TypeCellSelection;
-  onCellSelectionChange?: (cellSelection: TypeCellSelection) => void;
-  cellSelectionByIndex?: boolean;
-  toggleCellSelectOnClick?: boolean;
+    activeCell?: TypeActiveCell;
+    defaultActiveCell?: TypeActiveCell;
+    onActiveCellChange?: (activeCell: TypeActiveCell) => void;
+    activeCellThrottle?: number;
+    cellSelection?: TypeCellSelection;
+    defaultCellSelection?: TypeCellSelection;
+    onCellSelectionChange?: (cellSelection: TypeCellSelection) => void;
+    cellSelectionByIndex?: boolean;
+    toggleCellSelectOnClick?: boolean;
 
-  activeIndex?: number;
-  defaultActiveIndex?: number;
-  onActiveIndexChange?: (activeIndex: number) => void;
-  activeIndexThrottle?: number;
-  enableKeyboardNavigation?: boolean;
-  activateRowOnFocus?: boolean;
-  keyPageStep?: number;
-  allowRowTabNavigation?: boolean;
-  rowFocusClassName?: string;
-  focusedClassName?: string;
-  showActiveRowIndicator?: boolean;
-  activeRowIndicatorClassName?: string;
+    activeIndex?: number;
+    defaultActiveIndex?: number;
+    onActiveIndexChange?: (activeIndex: number) => void;
+    activeIndexThrottle?: number;
+    enableKeyboardNavigation?: boolean;
+    activateRowOnFocus?: boolean;
+    keyPageStep?: number;
+    allowRowTabNavigation?: boolean;
+    rowFocusClassName?: string;
+    focusedClassName?: string;
+    showActiveRowIndicator?: boolean;
+    activeRowIndicatorClassName?: string;
 
-  /**
-   * Disables pointer interaction for rows at the specified zero-based
-   * displayed indexes.
-   *
-   * This follows Inovua 5.10.2: indexes are resolved after local
-   * sorting/filtering/pagination, not from `idProperty`. Disabled rows remain
-   * eligible for controlled, header, and imperative selection.
-   */
-  disabledRows?: { [key: string]: boolean } | null;
+    /**
+     * Disables pointer interaction for rows at the specified zero-based
+     * displayed indexes.
+     *
+     * This follows Inovua 5.10.2: indexes are resolved after local
+     * sorting/filtering/pagination, not from `idProperty`. Disabled rows remain
+     * eligible for controlled, header, and imperative selection.
+     */
+    disabledRows?: { [key: string]: boolean } | null;
 
-  /**
-   * Invoked from the grid's mount effect after the imperative API has been
-   * hydrated and before `handle` / `onReady` are notified.
-   */
-  onDidMount?: (
-    computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
-  ) => void;
-  onReady?: (
-    computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
-  ) => void;
-  handle?: (
-    gridApiRef: React.MutableRefObject<TypeComputedProps | null> | null
-  ) => void;
+    /**
+     * Invoked from the grid's mount effect after the imperative API has been
+     * hydrated and before `handle` / `onReady` are notified.
+     */
+    onDidMount?: (
+      computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
+    ) => void;
+    onReady?: (
+      computedPropsRef: React.MutableRefObject<TypeComputedProps | null>
+    ) => void;
+    handle?: (
+      gridApiRef: React.MutableRefObject<TypeComputedProps | null> | null
+    ) => void;
 
-  className?: string;
-  style?: React.CSSProperties;
-  onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
-  onFocus?: React.FocusEventHandler<HTMLDivElement>;
-  onBlur?: React.FocusEventHandler<HTMLDivElement>;
-};
+    className?: string;
+    style?: React.CSSProperties;
+    onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
+    onFocus?: React.FocusEventHandler<HTMLDivElement>;
+    onBlur?: React.FocusEventHandler<HTMLDivElement>;
+  };
 
 /**
  * Executable descriptor for an internally implemented Community feature.

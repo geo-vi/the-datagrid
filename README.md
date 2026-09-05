@@ -17,6 +17,44 @@ shadcn-aligned interface.
 - Packaged styles with shadcn-compatible tokens—Tailwind and shadcn are not
   required in consumer apps.
 
+## Experimental tree-grid and master-detail
+
+This branch adds loaded tree rows and expandable detail panels using the legacy
+Inovua prop names. The [compatibility specification](docs/hierarchy-compatibility.md)
+lists supported behavior, acceptance checks, and remaining work. The
+[archived API inventory](docs/research/inovua-hierarchy-sources.md) records the
+recovered documentation and full legacy prop surface. Run `yarn dev` and open
+`/examples/hierarchy` for an interactive example.
+
+```tsx
+<ReactDataGrid
+  idProperty="id"
+  columns={[{ name: "name", header: "Team" }]}
+  dataSource={[{ id: "engineering", name: "Engineering", nodes: [
+    { id: "platform", name: "Platform" },
+  ] }]}
+  treeColumn="name"
+  defaultExpandedNodes={{}}
+  enableFiltering
+  defaultFilterValue={[{ name: "name", type: "string", operator: "contains", value: "" }]}
+/>
+
+<ReactDataGrid
+  idProperty="id"
+  columns={columns}
+  dataSource={rows}
+  rowExpandHeight={260}
+  renderRowDetails={({ data }) => <AccountDetails account={data} />}
+/>
+```
+
+Tree branches start collapsed. Uncontrolled local filters temporarily reveal
+paths to matching descendants; clearing the filter restores expansion state.
+`rowExpandHeight` is the **total expanded row height**, including its master
+row. `renderDetailsGrid` is also available for returning a nested grid.
+These extensions are a prototype; the coverage table explicitly lists deferred
+Inovua features.
+
 ## Install
 
 ```bash

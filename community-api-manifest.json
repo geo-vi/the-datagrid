@@ -1,6 +1,12 @@
 {
   "schemaVersion": 2,
-  "scope": "documented Community behavior",
+  "scope": "documented Community behavior with experimental hierarchy extensions",
+  "experimentalExtensions": {
+    "specification": "docs/hierarchy-compatibility.md",
+    "evidence": "docs/research/inovua-hierarchy-sources.md",
+    "tree-grid": "Loaded nested rows, path IDs, controlled expansion, sibling sorting, ancestor-preserving filters and temporary match reveal. Async loading, sticky nodes, recursive selection and tree reordering are deferred.",
+    "master-detail": "Row details and nested grid renderers, controlled expansion, callback vetoes and total-height virtualization. Detail cache, grid registration, width modes and automatic growth are deferred."
+  },
   "upstream": {
     "package": "@inovua/reactdatagrid-community",
     "version": "5.10.2",
@@ -13,12 +19,9 @@
     "license-key-validation",
     "live-pagination",
     "locked-rows",
-    "master-detail",
     "pivot",
-    "row-details",
     "row-reorder",
-    "row-resize",
-    "tree-grid"
+    "row-resize"
   ],
   "computedMethods": [
     "reload",

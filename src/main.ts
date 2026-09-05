@@ -11,6 +11,15 @@ export {
   TextEditor,
 } from "./editors";
 export type {
+  TypeNodeProps,
+  TypeExpandedNodes,
+  TypeTreeGridProps,
+  TypeMasterDetailProps,
+  TypeRowDetailsInfo,
+  TypeExpandedRows,
+  TypeCollapsedRows,
+} from "./types";
+export type {
   BoolEditorProps,
   DateEditorProps,
   DateEditorValue,

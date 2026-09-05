@@ -2,6 +2,13 @@
 export const communityTypesVersion = "5.10.2" as const;
 
 export type {
+  TypeNodeProps,
+  TypeExpandedNodes,
+  TypeTreeGridProps,
+  TypeMasterDetailProps,
+  TypeRowDetailsInfo,
+  TypeExpandedRows,
+  TypeCollapsedRows,
   CellProps,
   IColumn,
   RangeResultType,

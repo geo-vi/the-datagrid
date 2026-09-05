@@ -1,4 +1,6 @@
 import * as React from "react";
+import type { TreeGridController } from "../hierarchy/useTreeGrid";
+import type { UseMasterDetailResult } from "../hierarchy/useMasterDetail";
 import { flexRender, type Row } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
@@ -45,6 +47,9 @@ import {
 } from "../utils/search";
 
 type MobileGridListProps = {
+  tree: TreeGridController;
+  masterDetail: UseMasterDetailResult;
+  detailColumnId: string;
   rows: Row<Record<string, unknown>>[];
   columns: TypeColumn[];
   searchColumns: TypeColumn[];
@@ -100,6 +105,9 @@ function labelForColumn(column: TypeColumn): string {
 }
 
 export function MobileGridList({
+  tree,
+  masterDetail,
+  detailColumnId,
   rows,
   columns,
   searchColumns,
@@ -632,6 +640,7 @@ export function MobileGridList({
               const dataCells = cells.filter(
                 (cell) =>
                   cell.column.id !== checkboxColumnId &&
+                  cell.column.id !== detailColumnId &&
                   !hiddenMobileColumnIds.has(cell.column.id)
               );
               const actionCells = dataCells.filter((cell) =>
@@ -764,6 +773,10 @@ export function MobileGridList({
                     onPointerCancel={cancelLongPress}
                   >
                     <header className="flex min-w-0 items-start gap-3">
+                      {tree.renderToggle(row.original, rowIndex)}
+                      {masterDetail.showColumn
+                        ? masterDetail.renderToggle(row.original, rowIndex)
+                        : null}
                       {checkboxCell ? (
                         <div className="mt-0.5 shrink-0">
                           {flexRender(
@@ -861,6 +874,29 @@ export function MobileGridList({
                           </div>
                         ))}
                       </footer>
+                    ) : null}
+                    {masterDetail.isExpanded(row.original, rowIndex) ? (
+                      <div
+                        id={masterDetail.getPanelId(row.original, rowIndex)}
+                        data-slot="row-details"
+                        data-row-id={row.id}
+                        onClick={(event) => event.stopPropagation()}
+                        onDoubleClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        role="region"
+                        aria-label={`Details for ${row.id}`}
+                        className="mt-4 overflow-auto border-t border-border pt-3"
+                        style={{
+                          height: masterDetail.getDetailHeight(
+                            row.original,
+                            rowIndex,
+                            52
+                          ),
+                        }}
+                      >
+                        {masterDetail.renderDetails(row.original, rowIndex)}
+                      </div>
                     ) : null}
                   </article>
                 </div>

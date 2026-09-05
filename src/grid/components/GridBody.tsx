@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import type { TreeGridController } from "../hierarchy/useTreeGrid";
+import type { UseMasterDetailResult } from "../hierarchy/useMasterDetail";
+import type { TreeRecord } from "../hierarchy/treeData";
 import { flexRender } from "@tanstack/react-table";
 
 import type {
@@ -217,6 +220,10 @@ function CellEditorSurfaceSync(props: {
 }
 
 export type GridBodyProps = {
+  tree: TreeGridController;
+  treeColumn?: string;
+  masterDetail: UseMasterDetailResult;
+  detailColumnId: string;
   rowModel: any[];
   orderedColumns: TypeColumn[];
   columnWidths: Record<string, number>;
@@ -342,6 +349,10 @@ export type GridBodyProps = {
 
 export function GridBody(props: GridBodyProps) {
   const {
+    tree,
+    treeColumn,
+    masterDetail,
+    detailColumnId,
     rowModel,
     orderedColumns,
     columnWidths,
@@ -477,6 +488,7 @@ export function GridBody(props: GridBodyProps) {
   ): TypeRowProps {
     const resolvedHeight = getResolvedRowHeight(rowIndex);
     return {
+      nodeProps: tree.getMetadata(row.original as TreeRecord),
       data: row.original,
       dataSourceArray: rowStyleMetadata.dataSourceArray,
       id: getCompatRowId(row, rowStyleMetadata.getItemId),
@@ -727,7 +739,7 @@ export function GridBody(props: GridBodyProps) {
     editValue?: unknown;
   }): CellProps {
     const rowId = getCompatRowId(args.row, rowStyleMetadata.getItemId);
-    return buildEditCellProps({
+    const result = buildEditCellProps({
       value: args.value,
       data: args.row.original,
       rowIndex: args.rowIndex,
@@ -760,6 +772,21 @@ export function GridBody(props: GridBodyProps) {
       totalCount: rowStyleMetadata.totalCount,
       virtualizeColumns,
     });
+    result.nodeProps = tree.getMetadata(args.row.original);
+    if (result.nodeProps) {
+      result.leafNode = result.nodeProps.leafNode;
+      result.nodeCollapsed = !result.nodeProps.expanded;
+      result.nodeLoading = result.nodeProps.loading;
+      result.toggleNodeExpand = () =>
+        tree.toggle(args.row.original, args.rowIndex);
+    }
+    result.rowExpanded = masterDetail.isExpanded(
+      args.row.original,
+      args.rowIndex
+    );
+    result.toggleRowExpand = () =>
+      masterDetail.toggle(args.row.original, args.rowIndex);
+    return result;
   }
 
   function resolveCellDOMProps(
@@ -1522,6 +1549,12 @@ export function GridBody(props: GridBodyProps) {
           const cellIsActive =
             activeCell?.[0] === rowIndex && activeCell?.[1] === cellIndex;
           const renderCellContent = () => {
+            if (
+              masterDetail.showColumn &&
+              columnId === detailColumnId &&
+              !column?.render
+            )
+              return masterDetail.renderToggle(row.original, rowIndex);
             if (!column?.render || !cellProps) {
               return flexRender(cell.column.columnDef.cell, cell.getContext());
             }
@@ -1673,7 +1706,16 @@ export function GridBody(props: GridBodyProps) {
                   editor
                 ) : (
                   <>
-                    {renderCellContent()}
+                    {tree.enabled && columnId === treeColumn ? (
+                      <span className="flex min-w-0 items-center gap-1">
+                        {tree.renderToggle(row.original, rowIndex)}
+                        <span className="min-w-0 truncate">
+                          {renderCellContent()}
+                        </span>
+                      </span>
+                    ) : (
+                      renderCellContent()
+                    )}
                     {cellSelectionEnabled && cellIsActive && cellIsSelected ? (
                       <button
                         type="button"
@@ -1709,6 +1751,15 @@ export function GridBody(props: GridBodyProps) {
     virtualSize?: number,
     measure = false
   ): React.ReactNode {
+    const detailExpanded = masterDetail.isExpanded(row.original, rowIndex);
+    const baseHeight = getResolvedRowHeight(rowIndex) ?? minRowHeight;
+    const detailHeight = masterDetail.getDetailHeight(
+      row.original,
+      rowIndex,
+      baseHeight
+    );
+    if (detailExpanded) virtualSize = baseHeight;
+    const nodeProps = tree.getMetadata(row.original);
     const rowIsSelected = Boolean(selectedMap[row.id]);
     const rowIsActive = rowIndex === activeIndex;
     const disabledRow = getDisabledRowState(rowIndex);
@@ -1758,6 +1809,9 @@ export function GridBody(props: GridBodyProps) {
       "data-row-index": rowIndex,
       "data-index": rowIndex,
       "data-slot": "grid-row",
+      "aria-level": nodeProps ? nodeProps.depth + 1 : undefined,
+      "aria-expanded":
+        nodeProps && !nodeProps.leafNode ? nodeProps.expanded : undefined,
       "aria-disabled": rowIsDisabled || undefined,
       "aria-current": rowIsActive || undefined,
       "aria-selected": selectionEnabled ? rowIsSelected : undefined,
@@ -1804,10 +1858,34 @@ export function GridBody(props: GridBodyProps) {
       rowProps: compatibilityRowProps,
     };
 
+    const detailPanel = detailExpanded ? (
+      <TableRow data-slot="row-details" data-row-id={row.id}>
+        <TableCell
+          colSpan={renderedTableColumnCount}
+          className="!p-0 bg-muted/20"
+        >
+          <div
+            id={masterDetail.getPanelId(row.original, rowIndex)}
+            role="region"
+            aria-label={`Details for ${row.id}`}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            className="box-border overflow-auto border-b border-border"
+            style={{ height: detailHeight }}
+          >
+            {masterDetail.renderDetails(row.original, rowIndex)}
+          </div>
+        </TableCell>
+      </TableRow>
+    ) : null;
+
     if (renderRow) {
       return (
         <React.Fragment key={row.id}>
           {renderRow(renderedRowProps)}
+          {detailPanel}
         </React.Fragment>
       );
     }
@@ -1816,9 +1894,10 @@ export function GridBody(props: GridBodyProps) {
       renderedRowProps;
     void _compatibilityRowProps;
     return (
-      <TableRow key={row.id} {...nativeRowProps}>
-        {children}
-      </TableRow>
+      <React.Fragment key={row.id}>
+        <TableRow {...nativeRowProps}>{children}</TableRow>
+        {detailPanel}
+      </React.Fragment>
     );
   }
 
