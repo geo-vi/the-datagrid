@@ -4,11 +4,7 @@ Mission
 the-datagrid is a React DataGrid library that provides an Inovua-like developer experience (API shape + type naming) while keeping the implementation lightweight and maintainable. The library prioritizes stability of its public API and type vocabulary over adding new knobs and options.
 
 Non-negotiable public contract (React component props)
-ReactDataGrid MUST always support these props, with these semantics. They are the
-floor, not the whole surface: the Inovua-parity work has since added many more
-(pagination, editing, selection, the responsive layout, the composable toolbar).
-Breaking one of the props below breaks the contract; the rest of
-TypeDataGridProps is semver-sensitive but negotiable.
+ReactDataGrid MUST support exactly these props as the public instantiation surface:
 
 * theme
 * idProperty
@@ -29,7 +25,7 @@ TypeDataGridProps is semver-sensitive but negotiable.
 
 Rules:
 
-1. A new public prop needs an explicit decision, never a default yes. Reach for an internal implementation or column-level configuration (TypeColumn fields) first, and widen the surface only when neither can carry the behaviour.
+1. Do not introduce new public props without an explicit decision. If functionality cannot fit into the fixed prop surface, it must be implemented internally, through column-level configuration (TypeColumn fields), or deferred.
 2. Do not rely on consumers passing additional props “for styling” or “for layout”. Styling must be handled internally via Tailwind/shadcn conventions (see below).
 3. Maintain backward compatibility for the semantics of these props once released.
 
@@ -39,6 +35,12 @@ tree-grid and master-detail support. The implemented `TypeTreeGridProps` and
 `docs/hierarchy-compatibility.md` for acceptance criteria and coverage, and
 `docs/research/inovua-hierarchy-sources.md` for recovered legacy contracts.
 Do not expose deferred legacy options as accepted but nonfunctional props.
+
+Explicit API decision (2026-09-06): the maintainer approved the responsive
+`mobileTransform` configuration and root sizing props after review of PR #121.
+Omitting `mobileTransform` must preserve the existing cards-only behavior of
+`allowMobileTransform`; the new list, page-scroll, and row-budget behavior stays
+behind the configuration object.
 
 Canonical exported types (Inovua-aligned vocabulary)
 the-datagrid exposes a naming and conceptual model aligned with Inovua, even if the implementation is simplified:
@@ -190,7 +192,7 @@ Repository map (where changes belong)
 
 Rules for agents contributing to the codebase
 
-1. The props listed above are fixed and must keep working. Widening the surface beyond them is a decision, not a reflex.
+1. Public prop surface is fixed. Do not add new props.
 2. Keep types aligned with Inovua naming and intent.
 3. Ensure both local and remote dataSources work and receive correct args.
 4. Ensure filteredRowsCount is accurate and consistent.

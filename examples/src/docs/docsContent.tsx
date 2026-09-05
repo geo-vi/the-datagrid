@@ -715,7 +715,7 @@ const typeDefinitions: Record<
 > = {
   TypeMobileTransformProps: {
     summary:
-      "Configures the responsive mobile layout. Every field is optional, and the defaults reproduce the layout allowMobileTransform gives on its own.",
+      "Configures the responsive mobile layout. Passing the object opts into its list and view-toggle defaults; omitting it preserves the original cards-only allowMobileTransform layout.",
     code: mobileTransformPropsDefinition,
   },
   TypeDataSource: {
@@ -1391,14 +1391,14 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "false",
         description:
-          "At widths up to 1024px, replaces the table with a virtualized mobile layout: rows as a compact list or as cards, current-page search, single-sort tools, and a hideable-column picker, while preserving renderers, actions, and selection. Use mobileTransform to configure it.",
+          "At widths up to 1024px, replaces the table with the original cards-only mobile layout, including current-page search, single-sort tools, and a hideable-column picker. Pass mobileTransform to opt into list, view-toggle, page-scroll, and row-budget behavior.",
       },
       {
         name: "mobileTransform",
         type: "TypeMobileTransformProps",
-        defaultValue: "{}",
+        defaultValue: "undefined",
         description:
-          "Configures the responsive layout: when it takes over, whether it scrolls inside the grid or with the document, how rows are presented, and how many render at once. See TypeMobileTransformProps for every field and its default.",
+          "Configures the responsive layout and opts into its list and view-toggle defaults. Omit it to preserve the existing cards-only allowMobileTransform behavior. See TypeMobileTransformProps for every field and configured default.",
       },
       {
         name: "flex",
@@ -3484,8 +3484,9 @@ type TypeSize = { width: number; height: number };`}
       <div className="space-y-4 text-sm text-muted-foreground">
         <p>
           Passed as <code>mobileTransform</code>. Every field is optional, and
-          the defaults reproduce the layout <code>allowMobileTransform</code>{" "}
-          gives on its own.
+          passing the object opts into the list presentation and cards/list
+          toggle by default. Omitting it preserves the original cards-only{" "}
+          <code>allowMobileTransform</code> layout.
         </p>
         <CodeBlock
           code={mobileTransformPropsDefinition}

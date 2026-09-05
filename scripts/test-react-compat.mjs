@@ -217,10 +217,10 @@ try {
           dependencies: {
             "@geovi/the-datagrid": `file:${toPosixPath(archivePath)}`,
             jsdom: "26.1.0",
-            // jsdom permits newer nwsapi releases, but 2.2.27 recurses while
-            // Radix probes :modal/:fullscreen in this fixture. Pin the version
-            // jsdom 26.1.0 shipped against so the matrix tests React behavior.
-            nwsapi: "2.2.16",
+            // jsdom permits newer nwsapi releases, but 2.2.26+ recurses while
+            // Radix probes :modal/:fullscreen in this fixture. Pin the last
+            // known-good release so the matrix tests React behavior.
+            nwsapi: "2.2.25",
             react: version.react,
             "react-dom": version.reactDom,
           },
@@ -236,7 +236,7 @@ try {
           // output. Pinned to the last good release; nothing here is testing
           // nwsapi, so the pin costs nothing.
           overrides: {
-            nwsapi: "2.2.25",
+            nwsapi: "$nwsapi",
           },
         },
         null,
