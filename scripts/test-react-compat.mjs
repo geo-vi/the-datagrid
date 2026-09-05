@@ -146,9 +146,18 @@ try {
   const archivePath = path.join(temporaryRoot, archiveFilename);
   const inspectionDirectory = path.join(temporaryRoot, "packed");
   fs.mkdirSync(inspectionDirectory);
-  run("tar", ["-xzf", path.basename(archiveFilename), "-C", toPosixPath(inspectionDirectory)], {
-    cwd: temporaryRoot,
-  });
+  run(
+    "tar",
+    [
+      "-xzf",
+      path.basename(archiveFilename),
+      "-C",
+      toPosixPath(inspectionDirectory),
+    ],
+    {
+      cwd: temporaryRoot,
+    }
+  );
 
   const packedPackageDirectory = path.join(inspectionDirectory, "package");
   const packedManifest = JSON.parse(
@@ -208,6 +217,10 @@ try {
           dependencies: {
             "@geovi/the-datagrid": `file:${toPosixPath(archivePath)}`,
             jsdom: "26.1.0",
+            // jsdom permits newer nwsapi releases, but 2.2.26+ recurses while
+            // Radix probes :modal/:fullscreen in this fixture. Pin the last
+            // known-good release so the matrix tests React behavior.
+            nwsapi: "2.2.25",
             react: version.react,
             "react-dom": version.reactDom,
           },
@@ -215,6 +228,15 @@ try {
             "@types/react": version.reactTypes,
             "@types/react-dom": version.reactDomTypes,
             "@types/scheduler": "0.16.8",
+          },
+          // jsdom takes nwsapi as ^2.2.16, and 2.2.26 made its `:fullscreen`
+          // probe call back into the matcher nwsapi itself installed, so
+          // `matches()` recurses forever. Opening any Radix menu hits it, the
+          // fixture never yields, and the run dies on the spawn timeout with no
+          // output. Pinned to the last good release; nothing here is testing
+          // nwsapi, so the pin costs nothing.
+          overrides: {
+            nwsapi: "$nwsapi",
           },
         },
         null,

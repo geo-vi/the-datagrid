@@ -2,6 +2,13 @@ import * as React from "react";
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../src/components/ui/dialog";
 import CopyableCodeBlock from "./CopyableCodeBlock";
 
 void React;
@@ -631,6 +638,297 @@ function Callout(props: {
   );
 }
 
+/** Rendered both in the Core types page and in the Type column's dialog. */
+const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
+  // Overrides allowMobileTransform when set.
+  enabled?: boolean;
+
+  // When the layout takes over: a max-width in px, a bare length
+  // ("48rem"), or a raw media query. Default 1024.
+  breakpoint?: number | string;
+
+  // "container" virtualizes inside the grid's own scrollport.
+  // "page" virtualizes against the window, so the rows scroll with
+  // the document and the grid stops being a panel inside it.
+  // Default "container".
+  scroll?: "container" | "page";
+
+  // Controlled row presentation. Pair with onVariantChange.
+  variant?: "cards" | "list";
+
+  // Initial presentation while variant is uncontrolled. Default "list".
+  defaultVariant?: "cards" | "list";
+
+  // Fires whenever the viewer flips the cards/list toggle.
+  onVariantChange?: (variant: "cards" | "list") => void;
+
+  // Shows that toggle in the toolbar. false pins the layout to one
+  // variant, which is how a grid offers cards only. Default true.
+  showVariantToggle?: boolean;
+
+  // How the list variant draws its row edges. "boxed" encloses the run
+  // in one bordered group with rounded end caps. Default "divided".
+  listRows?: "divided" | "boxed";
+
+  // Where a list row puts its action cells. "bottom" moves them onto
+  // their own line, which is the only thing that fits once a row
+  // carries more than one control. Default "inline".
+  listActions?: "inline" | "bottom";
+
+  // Renders the mobile toolbar: search, the variant toggle, sort, the
+  // column picker, the result count. false leaves only the rows.
+  // Default true.
+  showToolbar?: boolean;
+
+  // Bounds how many rows render on a grid that is not paginated.
+  // Default "show-more" under page scroll, else "none". A paginated
+  // grid ignores this and the layout renders the grid's own pager,
+  // which is the only one that can reach past the loaded page.
+  overflow?: "none" | "pagination" | "show-more" | "both";
+
+  // Rows per mobile page, and the first "show more" batch. Default 25.
+  pageSize?: number;
+
+  // Page sizes offered by the mobile pager. Default [10, 25, 50, 100].
+  pageSizes?: number[];
+
+  // Rows each "Show more" press adds. Defaults to pageSize.
+  showMoreStep?: number;
+
+  // "plain" drops the border, background and padding so the rows sit
+  // on the host's own surface. Default "plain" under page scroll,
+  // "card" otherwise.
+  chrome?: "card" | "plain";
+};`;
+
+/**
+ * Definitions the Type column can open in place. A name without an entry
+ * renders as plain text, so this grows one type at a time.
+ */
+const typeDefinitions: Record<
+  string,
+  {
+    summary: string;
+    code?: string;
+    reference?: { group: DocsNavGroupKey; slug: string; label: string };
+  }
+> = {
+  TypeMobileTransformProps: {
+    summary:
+      "Configures the responsive mobile layout. Passing the object opts into its list and view-toggle defaults; omitting it preserves the original cards-only allowMobileTransform layout.",
+    code: mobileTransformPropsDefinition,
+  },
+  TypeDataSource: {
+    summary:
+      "An array, a promise, or a function the grid calls with the current query.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeDataSource =
+  | unknown[]
+  | Promise<unknown[]>
+  | Promise<{ data: unknown[]; count: number }>
+  | ((args: TypeDataSourceArgs) =>
+      | unknown[]
+      | Promise<unknown[]>
+      | Promise<{ data: unknown[]; count: number }>);`,
+  },
+  TypeFilterValue: {
+    summary: "One entry per active filter, or null.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeSingleFilterValue = {
+  name: string;       // column key
+  type: string;       // filter type, e.g. "string"
+  operator: string;   // e.g. "contains"
+  value: unknown;
+  emptyValue?: unknown;
+  active?: boolean;
+};
+
+type TypeFilterValue = TypeSingleFilterValue[] | null;`,
+  },
+  TypeSortInfo: {
+    summary: "One sort descriptor, a list of them, or null.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeSingleSortInfo = {
+  name: string;
+  dir: 1 | -1 | 0;    // ascending, descending, unsorted
+  type?: string;
+  fn?: (a: unknown, b: unknown) => number;
+};
+
+type TypeSortInfo = TypeSingleSortInfo | TypeSingleSortInfo[] | null;`,
+  },
+  TypeRowSelection: {
+    summary: "What is selected: an id, a map of ids, a boolean, or null.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeRowSelection =
+  | string | number | boolean
+  | { [rowId: string]: unknown }
+  | null;`,
+  },
+  TypeOnSelectionChangeArg: {
+    summary: "What a selection callback receives.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeOnSelectionChangeArg = {
+  selected: TypeRowSelection;
+  data?: unknown;              // the affected row or rows
+  unselected?: TypeRowSelection;
+  originalData?: TypeDataSource;
+};`,
+  },
+  TypeCheckboxColumn: {
+    summary: "true for the default checkbox column, or a column that overrides it.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+    code: `type TypeCheckboxColumn =
+  | boolean
+  | (IColumn & {
+      renderCheckbox?: (
+        checkboxProps: TypeCheckboxProps,
+        cellProps: { headerCell: boolean; data: unknown; rowIndex?: number }
+      ) => React.ReactNode;
+    });`,
+  },
+  TypeColumns: {
+    summary: "The column list. Every field is documented on the IColumn page.",
+    reference: {
+      group: "reference",
+      slug: "icolumn",
+      label: "Open the IColumn reference",
+    },
+    code: `type TypeColumns = IColumn[];`,
+  },
+  IColumn: {
+    summary:
+      "One column. Identity, sizing, rendering, sorting, filtering and mobile placement.",
+    reference: {
+      group: "reference",
+      slug: "icolumn",
+      label: "Open the IColumn reference",
+    },
+  },
+  TypeComputedProps: {
+    summary:
+      "The imperative handle on the grid ref: state, and methods for scrolling, editing and selection.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+  },
+  TypeI18n: {
+    summary: "Every user-facing string, as a flat map of keys.",
+    reference: {
+      group: "reference",
+      slug: "i18n",
+      label: "Open the localization reference",
+    },
+  },
+  TypePaginationProps: {
+    summary: "Controls the pager: page, page size, and the sizes it offers.",
+    reference: {
+      group: "reference",
+      slug: "types",
+      label: "Full definition in Core types",
+    },
+  },
+};
+
+function TypeDefinitionDialog(props: {
+  name: string | null;
+  onClose: () => void;
+}) {
+  const { name, onClose } = props;
+  const definition = name ? typeDefinitions[name] : undefined;
+
+  return (
+    <Dialog open={Boolean(definition)} onOpenChange={(next) => {
+      if (!next) onClose();
+    }}>
+      <DialogContent className="tdg-docs-type-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-mono text-sm">{name}</DialogTitle>
+          {definition?.summary ? (
+            <DialogDescription>{definition.summary}</DialogDescription>
+          ) : null}
+        </DialogHeader>
+        {definition?.code ? (
+          <CodeBlock code={definition.code} language="ts" />
+        ) : null}
+        {definition?.reference ? (
+          <DocsRouteLink
+            group={definition.reference.group}
+            slug={definition.reference.slug}
+            className="text-sm font-medium text-foreground underline underline-offset-4"
+            onClick={onClose}
+          >
+            {definition.reference.label}
+          </DocsRouteLink>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const typeNamePattern = new RegExp(
+  `\\b(${Object.keys(typeDefinitions)
+    .sort((a, b) => b.length - a.length)
+    .join("|")})\\b`,
+  "g"
+);
+
+/** Renders a type string, with every documented name opening its definition. */
+function TypeCell(props: { value: string }) {
+  const { value } = props;
+  const [openName, setOpenName] = React.useState<string | null>(null);
+  const parts = value.split(typeNamePattern);
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        typeDefinitions[part] ? (
+          <button
+            key={`${part}-${index}`}
+            type="button"
+            className="underline decoration-dotted underline-offset-4 transition-colors hover:text-foreground"
+            onClick={() => setOpenName(part)}
+          >
+            {part}
+          </button>
+        ) : (
+          <React.Fragment key={`text-${index}`}>{part}</React.Fragment>
+        )
+      )}
+      <TypeDefinitionDialog
+        name={openName}
+        onClose={() => setOpenName(null)}
+      />
+    </>
+  );
+}
+
 function ReferenceTable(props: { rows: ReferenceRow[]; sectionId: string }) {
   const { rows, sectionId } = props;
 
@@ -657,7 +955,7 @@ function ReferenceTable(props: { rows: ReferenceRow[]; sectionId: string }) {
                   {row.name}
                 </td>
                 <td className="border-b px-4 py-3 font-mono text-xs text-muted-foreground">
-                  {row.type}
+                  <TypeCell value={row.type} />
                 </td>
                 <td className="border-b px-4 py-3 font-mono text-xs text-muted-foreground">
                   {row.defaultValue}
@@ -794,12 +1092,17 @@ export function DocsRouteLink(props: {
   group: DocsNavGroupKey;
   slug: string;
   className?: string;
+  onClick?: () => void;
   children: ReactNode;
 }) {
-  const { children, className, group, slug } = props;
+  const { children, className, group, onClick, slug } = props;
 
   return (
-    <Link {...getDocsLinkTarget(group, slug)} className={className}>
+    <Link
+      {...getDocsLinkTarget(group, slug)}
+      className={className}
+      onClick={onClick}
+    >
       {children}
     </Link>
   );
@@ -1004,7 +1307,7 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: '"always" | "sorted"',
         defaultValue: '"always"',
         description:
-          "Whether a sortable column shows the neutral sort indicator while it is not sorted. \"sorted\" leaves the indicator to the columns actually driving the order; its width stays reserved, so sorting a column shifts no header text. A column with its own renderSortTool is unaffected.",
+          'Whether a sortable column shows the neutral sort indicator while it is not sorted. "sorted" leaves the indicator to the columns actually driving the order; its width stays reserved, so sorting a column shifts no header text. A column with its own renderSortTool is unaffected.',
       },
       {
         name: "columnDefaultHeaderAlign",
@@ -1088,7 +1391,42 @@ const reactDataGridPropSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "false",
         description:
-          "At widths up to 1024px, replaces the table with measured virtual cards, current-page search, single-sort tools, and a card-only hideable-column picker while preserving renderers, actions, and selection.",
+          "At widths up to 1024px, replaces the table with the original cards-only mobile layout, including current-page search, single-sort tools, and a hideable-column picker. Pass mobileTransform to opt into list, view-toggle, page-scroll, and row-budget behavior.",
+      },
+      {
+        name: "mobileTransform",
+        type: "TypeMobileTransformProps",
+        defaultValue: "undefined",
+        description:
+          "Configures the responsive layout and opts into its list and view-toggle defaults. Omit it to preserve the existing cards-only allowMobileTransform behavior. See TypeMobileTransformProps for every field and configured default.",
+      },
+      {
+        name: "flex",
+        type: "number | string",
+        defaultValue: "1 1 auto",
+        description:
+          "How the grid behaves as a flex item of its own parent — the other half of what a sizing wrapper provided. A number becomes `<n> 1 0%`. The root already carries width: 100% and min-width: 0, so flex plus height/minHeight usually replaces the wrapper outright. Dropped while the page-scrolling mobile layout is active, since a zero flex-basis would collapse it.",
+      },
+      {
+        name: "height",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Sizes the grid itself instead of requiring a fixed-height wrapper. Numbers are pixels, strings are used verbatim.",
+      },
+      {
+        name: "minHeight / maxHeight",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Bounds the grid's height. With maxHeight the grid grows with its rows and scrolls past the bound. Every height bound is dropped while the page-scrolling mobile layout is active.",
+      },
+      {
+        name: "width / minWidth / maxWidth",
+        type: "number | string",
+        defaultValue: "undefined",
+        description:
+          "Sizes the grid horizontally. Unlike the height bounds these apply in every layout.",
       },
       {
         name: "columnUserSelect",
@@ -2419,6 +2757,20 @@ const columnSections: ReferenceSection[] = [
           "Prevents hiding from the transformed-mobile column picker. The current desktop UI has no equivalent visibility picker.",
       },
       {
+        name: "mobileRender",
+        type: "(cellProps: CellProps) => ReactNode",
+        defaultValue: "falls back to render",
+        description:
+          "Replaces render in the mobile layout only, for a renderer built around a table cell's fixed geometry. Receives the same single CellProps argument as the object form of render. Prefer the tdg-cell-fill class when the renderer only needs its absolute fill flattened; reach for this when mobile wants different content.",
+      },
+      {
+        name: "mobileRole",
+        type: '"primary" | "detail" | "action" | "hidden"',
+        defaultValue: "inferred",
+        description:
+          'Where the column lands in the mobile layout. "primary" claims the row headline, "action" moves the cell into the action area of its row, "detail" forces a labelled field, and "hidden" drops it. Left unset, the layout infers: an id or header reading like an action (action, menu, tools, options, …) becomes an action, the first non-identifier column with a string value becomes the headline, and the rest become details.',
+      },
+      {
         name: "draggable",
         type: "boolean",
         defaultValue: "true",
@@ -3126,6 +3478,55 @@ type TypeSize = { width: number; height: number };`}
     ),
   },
   {
+    id: "typemobiletransformprops",
+    title: "TypeMobileTransformProps",
+    body: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p>
+          Passed as <code>mobileTransform</code>. Every field is optional, and
+          passing the object opts into the list presentation and cards/list
+          toggle by default. Omitting it preserves the original cards-only{" "}
+          <code>allowMobileTransform</code> layout.
+        </p>
+        <CodeBlock
+          code={mobileTransformPropsDefinition}
+          language="ts"
+        />
+        <p>
+          Which column becomes the headline, a labelled field, or a row action
+          is a column concern: see <code>mobileRole</code> and{" "}
+          <code>mobileRender</code>. Every mobile cell is a containing block
+          marked <code>[data-slot="mobile-cell"]</code>, so a renderer that
+          fills its table cell with <code>position: absolute; inset: 0</code>{" "}
+          stays inside its own field. Give such a renderer the{" "}
+          <code>tdg-cell-fill</code> class and the grid flattens it into normal
+          flow here, and hands it the cell as its containing block in the table.
+        </p>
+        <p>
+          Page scroll drops the grid's own height bounds and virtualizes against
+          the window, so it asks two things of whatever contains the grid, and
+          the grid does not reach out to enforce them: the container must be
+          free to grow, and it must not be a scroll container. An ancestor with{" "}
+          <code>overflow: auto</code> scrolls in the document's place, and rows
+          virtualized against the window stay where they were. Size the grid
+          through <code>height</code>, <code>minHeight</code>,{" "}
+          <code>maxHeight</code> or <code>flex</code> rather than through a
+          wrapper: one container that is free to grow then serves both scroll
+          modes, because the grid decides its own height in each.
+        </p>
+        <p>
+          The list rows read <code>--tdg-mobile-list-border-color</code>,{" "}
+          <code>--tdg-mobile-list-radius</code> and{" "}
+          <code>--tdg-mobile-list-bg</code>, and carry{" "}
+          <code>data-first</code> / <code>data-last</code> for restyling the end
+          caps. The pager and the Show more button read the{" "}
+          <code>--tdg-mobile-pagination-*</code> and{" "}
+          <code>--tdg-mobile-show-more-*</code> tokens.
+        </p>
+      </div>
+    ),
+  },
+  {
     id: "column-lookup-types",
     title: "Computed column and lookup types",
     body: (
@@ -3348,6 +3749,76 @@ const i18nSections: ReferenceSection[] = [
         "mobileApplySort",
         "Apply sort",
         "Action label for applying mobile sorting."
+      ),
+      stringI18nRow(
+        "mobileSortDirection",
+        "Sort direction",
+        "Accessible name for the ascending/descending button group."
+      ),
+      stringI18nRow(
+        "mobileSortColumnPlaceholder",
+        "Choose a column",
+        "Placeholder shown before a sort column is picked."
+      ),
+      stringI18nRow(
+        "mobileSortedBy",
+        "Sorted by",
+        "Prefix for the active-sort summary beside the result count."
+      ),
+      stringI18nRow(
+        "mobileResult",
+        "result",
+        "Singular noun in the result readout."
+      ),
+      stringI18nRow(
+        "mobileResults",
+        "results",
+        "Plural noun in the result readout."
+      ),
+      stringI18nRow(
+        "mobileResultsListLabel",
+        "Grid results",
+        "Accessible name for the mobile row list."
+      ),
+      stringI18nRow(
+        "mobileMoreField",
+        "more field",
+        "Singular label on a card's collapsed-fields summary."
+      ),
+      stringI18nRow(
+        "mobileMoreFields",
+        "more fields",
+        "Plural label on a card's collapsed-fields summary."
+      ),
+      stringI18nRow(
+        "mobileCardsView",
+        "Card view",
+        "Accessible label and title for the cards side of the presentation toggle."
+      ),
+      stringI18nRow(
+        "mobileListView",
+        "List view",
+        "Accessible label and title for the list side of the presentation toggle."
+      ),
+      i18nRow(
+        "mobileShowMore",
+        "Show more",
+        "Label on the button that reveals the next batch of mobile rows."
+      ),
+      stringI18nRow(
+        "mobilePagination",
+        "Pagination",
+        "Accessible name for the mobile pager."
+      ),
+      stringI18nRow(
+        "mobilePreviousPage",
+        "Previous page",
+        "Accessible label and title for the mobile pager's previous control."
+      ),
+      stringI18nRow(
+        "mobileNextPage",
+        "Next page",
+        "Accessible label and title for the mobile pager's next control."
       ),
     ],
   },

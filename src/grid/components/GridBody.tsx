@@ -1,6 +1,11 @@
 "use client";
 
 import * as React from "react";
+import type { TreeGridController } from "../hierarchy/useTreeGrid";
+import type { UseMasterDetailResult } from "../hierarchy/useMasterDetail";
+import type { TreeRecord } from "../hierarchy/treeData";
+// Detail-row span translation is owned by the hierarchy compatibility fixes task.
+import { createDetailRowSpanPlan } from "../hierarchy/detailRowSpans";
 import { flexRender } from "@tanstack/react-table";
 
 import type {
@@ -217,6 +222,10 @@ function CellEditorSurfaceSync(props: {
 }
 
 export type GridBodyProps = {
+  tree: TreeGridController;
+  treeColumn?: string;
+  masterDetail: UseMasterDetailResult;
+  detailColumnId?: string;
   rowModel: any[];
   orderedColumns: TypeColumn[];
   columnWidths: Record<string, number>;
@@ -342,6 +351,10 @@ export type GridBodyProps = {
 
 export function GridBody(props: GridBodyProps) {
   const {
+    tree,
+    treeColumn,
+    masterDetail,
+    detailColumnId,
     rowModel,
     orderedColumns,
     columnWidths,
@@ -476,7 +489,11 @@ export function GridBody(props: GridBodyProps) {
     disabledRow: boolean | null | undefined
   ): TypeRowProps {
     const resolvedHeight = getResolvedRowHeight(rowIndex);
+    const nodeProps = tree.enabled
+      ? tree.getMetadata(row.original as TreeRecord)
+      : undefined;
     return {
+      ...(nodeProps ? { nodeProps } : {}),
       data: row.original,
       dataSourceArray: rowStyleMetadata.dataSourceArray,
       id: getCompatRowId(row, rowStyleMetadata.getItemId),
@@ -727,7 +744,7 @@ export function GridBody(props: GridBodyProps) {
     editValue?: unknown;
   }): CellProps {
     const rowId = getCompatRowId(args.row, rowStyleMetadata.getItemId);
-    return buildEditCellProps({
+    const result = buildEditCellProps({
       value: args.value,
       data: args.row.original,
       rowIndex: args.rowIndex,
@@ -760,6 +777,26 @@ export function GridBody(props: GridBodyProps) {
       totalCount: rowStyleMetadata.totalCount,
       virtualizeColumns,
     });
+    const nodeProps = tree.enabled
+      ? tree.getMetadata(args.row.original)
+      : undefined;
+    if (nodeProps) {
+      result.nodeProps = nodeProps;
+      result.leafNode = nodeProps.leafNode;
+      result.nodeCollapsed = !nodeProps.expanded;
+      result.nodeLoading = nodeProps.loading;
+      result.toggleNodeExpand = () =>
+        tree.toggle(args.row.original, args.rowIndex);
+    }
+    if (masterDetail.enabled) {
+      result.rowExpanded = masterDetail.isExpanded(
+        args.row.original,
+        args.rowIndex
+      );
+      result.toggleRowExpand = () =>
+        masterDetail.toggle(args.row.original, args.rowIndex);
+    }
+    return result;
   }
 
   function resolveCellDOMProps(
@@ -1215,6 +1252,27 @@ export function GridBody(props: GridBodyProps) {
     return String(column.id ?? column.name);
   }
 
+  const detailSpansEnabled = masterDetail.enabled;
+  const isDetailRowExpanded = masterDetail.isExpanded;
+  const detailSpanPlan = React.useMemo(() => {
+    if (!detailSpansEnabled || !spanPlan) return null;
+    return createDetailRowSpanPlan({
+      logicalPlan: spanPlan,
+      expandedRows: rowModel.map((row, index) =>
+        isDetailRowExpanded(row.original, index)
+      ),
+      renderedColumns: columnRenderItems.map((item) =>
+        item.type === "column" ? item.index : null
+      ),
+    });
+  }, [
+    detailSpansEnabled,
+    isDetailRowExpanded,
+    spanPlan,
+    rowModel,
+    columnRenderItems,
+  ]);
+
   function clampSpan(value: unknown, available: number): number {
     const numeric =
       typeof value === "number" && Number.isFinite(value)
@@ -1472,7 +1530,9 @@ export function GridBody(props: GridBodyProps) {
             column && !rendersInlineEditor
               ? renderEditor(row, rowIndex, cellIndex, column, columnId)
               : null;
-          const spanEntry = spanPlan?.get(`${rowIndex},${cellIndex}`);
+          const spanEntry = (detailSpanPlan?.cells ?? spanPlan)?.get(
+            `${rowIndex},${cellIndex}`
+          );
           if (spanEntry?.covered) return null;
           const rootCellDOMProps = cellProps
             ? resolveCellDOMProps(cellDOMProps, cellProps)
@@ -1522,6 +1582,18 @@ export function GridBody(props: GridBodyProps) {
           const cellIsActive =
             activeCell?.[0] === rowIndex && activeCell?.[1] === cellIndex;
           const renderCellContent = () => {
+            if (
+              spanEntry &&
+              "continuation" in spanEntry &&
+              spanEntry.continuation
+            )
+              return null;
+            if (
+              masterDetail.showColumn &&
+              columnId === detailColumnId &&
+              !column?.render
+            )
+              return masterDetail.renderToggle(row.original, rowIndex);
             if (!column?.render || !cellProps) {
               return flexRender(cell.column.columnDef.cell, cell.getContext());
             }
@@ -1673,7 +1745,16 @@ export function GridBody(props: GridBodyProps) {
                   editor
                 ) : (
                   <>
-                    {renderCellContent()}
+                    {tree.enabled && columnId === treeColumn ? (
+                      <span className="flex min-w-0 items-center gap-1">
+                        {tree.renderToggle(row.original, rowIndex)}
+                        <span className="min-w-0 truncate">
+                          {renderCellContent()}
+                        </span>
+                      </span>
+                    ) : (
+                      renderCellContent()
+                    )}
                     {cellSelectionEnabled && cellIsActive && cellIsSelected ? (
                       <button
                         type="button"
@@ -1709,6 +1790,16 @@ export function GridBody(props: GridBodyProps) {
     virtualSize?: number,
     measure = false
   ): React.ReactNode {
+    const detailExpanded =
+      masterDetail.enabled && masterDetail.isExpanded(row.original, rowIndex);
+    const baseHeight = detailExpanded
+      ? (getResolvedRowHeight(rowIndex) ?? minRowHeight)
+      : minRowHeight;
+    const detailHeight = detailExpanded
+      ? masterDetail.getDetailHeight(row.original, rowIndex, baseHeight)
+      : 0;
+    if (detailExpanded) virtualSize = baseHeight;
+    const nodeProps = tree.enabled ? tree.getMetadata(row.original) : undefined;
     const rowIsSelected = Boolean(selectedMap[row.id]);
     const rowIsActive = rowIndex === activeIndex;
     const disabledRow = getDisabledRowState(rowIndex);
@@ -1758,6 +1849,14 @@ export function GridBody(props: GridBodyProps) {
       "data-row-index": rowIndex,
       "data-index": rowIndex,
       "data-slot": "grid-row",
+      ...(nodeProps
+        ? {
+            "aria-level": nodeProps.depth + 1,
+            "aria-expanded": !nodeProps.leafNode
+              ? nodeProps.expanded
+              : undefined,
+          }
+        : {}),
       "aria-disabled": rowIsDisabled || undefined,
       "aria-current": rowIsActive || undefined,
       "aria-selected": selectionEnabled ? rowIsSelected : undefined,
@@ -1804,10 +1903,61 @@ export function GridBody(props: GridBodyProps) {
       rowProps: compatibilityRowProps,
     };
 
+    const detailRuns = detailExpanded
+      ? (detailSpanPlan?.detailRuns.get(rowIndex) ?? [
+          { start: 0, colSpan: renderedTableColumnCount },
+        ])
+      : [];
+    const runWidth = (run: { start: number; colSpan: number }) =>
+      columnRenderItems
+        .slice(run.start, run.start + run.colSpan)
+        .reduce(
+          (total, item) =>
+            total +
+            (item.type === "column"
+              ? (columnWidths[item.id] ?? 0)
+              : item.width),
+          0
+        );
+    const contentRun = detailRuns.reduce(
+      (widest, run) =>
+        !widest || runWidth(run) > runWidth(widest) ? run : widest,
+      undefined as (typeof detailRuns)[number] | undefined
+    );
+    const detailPanel = detailExpanded ? (
+      <TableRow data-slot="row-details" data-row-id={row.id}>
+        {detailRuns.map((run) => (
+          <TableCell
+            key={run.start}
+            colSpan={run.colSpan}
+            aria-hidden={run !== contentRun || undefined}
+            className="!p-0 bg-muted/20"
+          >
+            {run === contentRun ? (
+              <div
+                id={masterDetail.getPanelId(row.original, rowIndex)}
+                role="region"
+                aria-label={`Details for ${row.id}`}
+                onClick={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                className="box-border overflow-auto border-b border-border"
+                style={{ height: detailHeight }}
+              >
+                {masterDetail.renderDetails(row.original, rowIndex)}
+              </div>
+            ) : null}
+          </TableCell>
+        ))}
+      </TableRow>
+    ) : null;
+
     if (renderRow) {
       return (
         <React.Fragment key={row.id}>
           {renderRow(renderedRowProps)}
+          {detailPanel}
         </React.Fragment>
       );
     }
@@ -1816,9 +1966,10 @@ export function GridBody(props: GridBodyProps) {
       renderedRowProps;
     void _compatibilityRowProps;
     return (
-      <TableRow key={row.id} {...nativeRowProps}>
-        {children}
-      </TableRow>
+      <React.Fragment key={row.id}>
+        <TableRow {...nativeRowProps}>{children}</TableRow>
+        {detailPanel}
+      </React.Fragment>
     );
   }
 

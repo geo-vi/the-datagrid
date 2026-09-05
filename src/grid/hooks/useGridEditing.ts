@@ -35,6 +35,7 @@ export type UseGridEditingParams = {
   editStartEvent: string;
   editable: boolean;
   getDisabledRowState: (rowIndex: number) => boolean | null | undefined;
+  hierarchyRowId?: (row: unknown, rowIndex: number) => string | number;
   idProperty: string;
   loadSkip: number;
   multiSelect: boolean | undefined;
@@ -72,6 +73,7 @@ export function useGridEditing(params: UseGridEditingParams) {
     editStartEvent,
     editable,
     getDisabledRowState,
+    hierarchyRowId,
     idProperty,
     loadSkip,
     multiSelect,
@@ -275,7 +277,9 @@ export function useGridEditing(params: UseGridEditingParams) {
       const columnId = getColumnId(column);
       const value = cell.getValue();
       const initialEditValue = editValue === undefined ? value : editValue;
-      const itemId = (row.original as any)?.[idProperty];
+      const itemId = hierarchyRowId
+        ? hierarchyRowId(row.original, rowIndex)
+        : (row.original as any)?.[idProperty];
       const rowId =
         typeof itemId === "string" || typeof itemId === "number"
           ? itemId
@@ -328,6 +332,7 @@ export function useGridEditing(params: UseGridEditingParams) {
       editStartEvent,
       editable,
       idProperty,
+      hierarchyRowId,
       getDisabledRowState,
       loadSkip,
       multiSelect,
@@ -415,13 +420,15 @@ export function useGridEditing(params: UseGridEditingParams) {
       }
 
       if (rowId === undefined) return -1;
-      return rowModel.findIndex((row) => {
-        const itemId = (row.original as any)?.[idProperty];
+      return rowModel.findIndex((row, index) => {
+        const itemId = hierarchyRowId
+          ? hierarchyRowId(row.original, index)
+          : (row.original as any)?.[idProperty];
         const parsedRowId = typeof itemId === "number" ? Number(rowId) : rowId;
         return itemId === parsedRowId;
       });
     },
-    [idProperty, rowModel]
+    [hierarchyRowId, idProperty, rowModel]
   );
 
   const resolveEditColumnIndex = React.useCallback(

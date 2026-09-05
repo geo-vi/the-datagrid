@@ -72,6 +72,10 @@ import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
 import {
+  normalizePageSizes,
+  resolveMobileTransform,
+} from "./utils/mobileTransform";
+import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -137,6 +141,13 @@ import { useGridScrollApi } from "./hooks/useGridScrollApi";
 import { useGridSelection } from "./hooks/useGridSelection";
 import { useGridToolbarBridge } from "./hooks/useGridToolbarBridge";
 import { useGridVirtualListApi } from "./hooks/useGridVirtualListApi";
+import { useTreeGrid } from "./hierarchy/useTreeGrid";
+import { useTreeRowAdapter } from "./hierarchy/treeRowAdapter";
+import { countTreeRecords, type TreeRecord } from "./hierarchy/treeData";
+import {
+  isMasterDetailEnabled,
+  useMasterDetail,
+} from "./hierarchy/useMasterDetail";
 
 export { plugins };
 
@@ -414,12 +425,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, []);
 
   const themeName = normalizeThemeName(theme);
-  const isMobileViewport = useMediaQuery("(max-width: 1024px)");
+  const mobileTransformConfig = React.useMemo(
+    () =>
+      resolveMobileTransform({
+        allowMobileTransform,
+        mobileTransform: props.mobileTransform,
+        gridPaginationEnabled: (props.pagination ?? false) !== false,
+      }),
+    [allowMobileTransform, props.mobileTransform, props.pagination]
+  );
+  const isMobileViewport = useMediaQuery(mobileTransformConfig.mediaQuery);
   const hasColumnEditing = inputColumns.some(
     (column) => Boolean(column.editable) && isColumnVisible(column)
   );
   const mobileTransformActive =
-    allowMobileTransform && isMobileViewport && !editable && !hasColumnEditing;
+    mobileTransformConfig.enabled &&
+    isMobileViewport &&
+    !editable &&
+    !hasColumnEditing;
+  /**
+   * The layout that virtualizes against the window rather than a scrollport of
+   * its own, so the rows scroll with the document.
+   */
+  const mobilePageScroll =
+    mobileTransformActive && mobileTransformConfig.scroll === "page";
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
   const gridIdRef = React.useRef<number>(allocateGridId());
@@ -672,9 +701,47 @@ function ReactDataGrid(props: TypeDataGridProps) {
     } as TypeColumn;
   }, [checkboxColId, checkboxColumnProp, checkboxEnabled, inputColumns]);
 
+  const detailsEnabled = isMasterDetailEnabled(props);
+  const detailColumnConfig =
+    typeof props.rowExpandColumn === "object"
+      ? props.rowExpandColumn
+      : undefined;
+  const detailColumnId =
+    detailColumnConfig?.id ?? detailColumnConfig?.name ?? "__row_expander__";
+  const showDetailColumn = detailsEnabled && props.rowExpandColumn !== false;
+  const detailColumn = React.useMemo<TypeColumn | null>(
+    () =>
+      showDetailColumn
+        ? {
+            header: "",
+            width: 44,
+            minWidth: 36,
+            ...detailColumnConfig,
+            id: detailColumnId,
+            name: detailColumnId,
+            sortable: false,
+            filterable: false,
+            editable: false,
+            draggable: false,
+            hideable: false,
+            resizable: false,
+            exportable: false,
+            searchable: false,
+          }
+        : null,
+    [detailColumnConfig, detailColumnId, showDetailColumn]
+  );
   const allInputColumns = React.useMemo(() => {
-    return checkboxColumn ? [checkboxColumn, ...inputColumns] : inputColumns;
-  }, [checkboxColumn, inputColumns]);
+    const base = checkboxColumn
+      ? [checkboxColumn, ...inputColumns]
+      : inputColumns;
+    return detailColumn
+      ? [
+          detailColumn,
+          ...base.filter((column) => getColumnId(column) !== detailColumnId),
+        ]
+      : base;
+  }, [checkboxColumn, inputColumns, detailColumn, detailColumnId]);
   const initialColumnVisibilityRef = React.useRef<Record<string, boolean>>({});
   for (const column of allInputColumns) {
     const columnId = getColumnId(column);
@@ -767,12 +834,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const userNext = checkboxEnabled
         ? stripFromOrder(next, checkboxColId)
         : next;
-      props.onColumnOrderChange?.(userNext);
+      props.onColumnOrderChange?.(
+        showDetailColumn ? stripFromOrder(userNext, detailColumnId) : userNext
+      );
     },
   });
   const effectiveColumnOrder = React.useMemo(
-    () => projectTanStackColumnOrder(allInputColumns, columnOrder),
-    [allInputColumns, columnOrder]
+    () =>
+      projectTanStackColumnOrder(
+        allInputColumns,
+        showDetailColumn
+          ? [
+              detailColumnId,
+              ...columnOrder.filter((id) => id !== detailColumnId),
+            ]
+          : columnOrder
+      ),
+    [allInputColumns, columnOrder, showDetailColumn, detailColumnId]
   );
 
   const [sortInfo, setSortInfo, sortControlled] =
@@ -849,6 +927,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const paginationMode = props.pagination ?? false;
   const paginationEnabled = paginationMode !== false;
+  /*
+   * Either the mobile layout budgets the rows itself, on an unpaginated grid,
+   * or it renders the grid's paging. Both replace the pagination shell, which
+   * hides half of its controls below `md`.
+   */
+  const mobileOwnsPaging =
+    mobileTransformActive &&
+    (paginationEnabled || mobileTransformConfig.overflow !== "none");
   const remoteDataSource = !Array.isArray(dataSource);
   const remotePagination =
     paginationMode === "remote" ||
@@ -998,18 +1084,42 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- data loading ---------------- */
 
-  const [rows, setRows] = React.useState<any[]>([]);
+  const [sourceRows, setRows] = React.useState<any[]>([]);
+  const [treeRevealNodes, setTreeRevealNodes] = React.useState<
+    ReadonlySet<TreeRecord>
+  >(() => new Set());
   const [count, setCount] = React.useState<number>(0);
-  const getRowKey = React.useCallback(
-    (row: any, index: number) => {
-      const value = row?.[idProperty];
-      return value == null ? String(index) : String(value);
-    },
-    [idProperty]
+  const tree = useTreeGrid({
+    props,
+    sourceRows,
+    idProperty,
+    revealMatches:
+      (activeLocalFilter || searchActive) && typeof dataSource !== "function",
+    revealNodes: treeRevealNodes,
+  });
+  const rows: typeof sourceRows = tree.rows;
+  const getRowKey = tree.getId;
+  const hierarchyRowId = React.useCallback(
+    (row: unknown, index: number) => getRowKey(row as TreeRecord, index),
+    [getRowKey]
   );
+  const treeRows = useTreeRowAdapter({
+    enabled: tree.enabled,
+    sourceRows,
+    visibleRows: rows,
+    getRowId: getRowKey,
+    setSourceRows: setRows,
+    idProperty,
+    nodesProperty: props.nodesProperty ?? "nodes",
+    nodePathSeparator: props.nodePathSeparator ?? "/",
+    generateIdFromPath: props.generateIdFromPath ?? true,
+  });
   const getItemId = React.useCallback(
-    (data: any) => data?.[idProperty],
-    [idProperty]
+    (data: any) =>
+      tree.enabled && props.generateIdFromPath !== false
+        ? getRowKey(data, 0)
+        : data?.[idProperty],
+    [idProperty, tree.enabled, getRowKey, props.generateIdFromPath]
   );
   const selectedMap = React.useMemo(() => {
     if (!selectionEnabled) return {};
@@ -1037,6 +1147,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     loadingStore,
     reload,
   } = useGridDataLoader({
+    treeEnabled: tree.enabled,
+    nodesProperty: props.nodesProperty ?? "nodes",
+    detailColumnId: showDetailColumn ? detailColumnId : undefined,
+    setTreeRevealNodes,
     activeLocalFilter,
     apiRef,
     checkboxColId,
@@ -1074,6 +1188,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
   });
 
   const autosizeSample = React.useMemo(() => {
+    if (tree.enabled) return rows.slice(0, 25);
     if (Array.isArray(dataSource)) {
       // Search commits load rows in an effect. Reuse that processed result for
       // autosizing so a large index is never built synchronously during render
@@ -1096,6 +1211,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     return rows.slice(0, 25);
   }, [
+    tree.enabled,
     activeLocalFilter,
     allInputColumns,
     dataSource,
@@ -1378,6 +1494,23 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- filter operator menu state ---------------- */
 
+  const getMasterDetailId = React.useCallback(
+    (data: TreeRecord, index: number) => {
+      const id = getItemId(data);
+      return typeof id === "number" || typeof id === "string"
+        ? id
+        : getRowKey(data, index);
+    },
+    [getItemId, getRowKey]
+  );
+  const masterDetail = useMasterDetail({
+    props,
+    rows,
+    getRowId: getMasterDetailId,
+    selectedMap,
+    activeIndex: normalizedActiveIndex,
+  });
+
   const {
     columnContextMenu,
     columnVisibilityMenuOpen,
@@ -1429,7 +1562,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     sortable,
   });
 
-  const table = useReactTable({
+  const table = useReactTable<(typeof rows)[number]>({
     data: rows,
     columns: columnDefs,
     state: {
@@ -1934,6 +2067,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     },
     [commitRowHeights]
   );
+  const [naturalMasterHeights, setNaturalMasterHeights] = React.useState<
+    Record<string, number>
+  >({});
   const resolveRowHeight = React.useCallback(
     (rowIndex: number) => {
       const row = rowModel[rowIndex];
@@ -1941,6 +2077,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
       const override =
         rowId === undefined ? undefined : computedRowHeights[rowId];
       return (
+        (rowHeight === null && masterDetail.enabled && rowId !== undefined
+          ? naturalMasterHeights[rowId]
+          : undefined) ??
         override ??
         resolveConfiguredRowHeight({
           rowHeight,
@@ -1957,6 +2096,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
       getRowKey,
       rowHeight,
       rowModel,
+      masterDetail.enabled,
+      naturalMasterHeights,
     ]
   );
   const getRowHeightByIdCompat = React.useCallback(
@@ -1977,11 +2118,46 @@ function ReactDataGrid(props: TypeDataGridProps) {
     [computedMaxRowHeight, computedMinRowHeight, getRowKey, rowHeight, rowModel]
   );
   const initialRowHeight = resolveRowHeight(0);
+  const getDetailHeight = masterDetail.getDetailHeight;
+  const resolveVirtualRowHeight = React.useCallback(
+    (index: number) => {
+      const baseHeight = resolveRowHeight(index);
+      const row = rowModel[index];
+      return (
+        baseHeight +
+        (row ? getDetailHeight(row.original, index, baseHeight) : 0)
+      );
+    },
+    [resolveRowHeight, rowModel, getDetailHeight]
+  );
 
   const rowVirtualizer = useVirtualizer({
     count: rowModel.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (rowIndex) => resolveRowHeight(rowIndex),
+    estimateSize: resolveVirtualRowHeight,
+    measureElement: masterDetail.enabled
+      ? (element) => {
+          const details = element.nextElementSibling;
+          const height = element.getBoundingClientRect().height;
+          const id = element.getAttribute("data-row-id");
+          if (
+            rowHeight === null &&
+            masterDetail.enabled &&
+            id !== null &&
+            height > 0
+          ) {
+            setNaturalMasterHeights((previous) =>
+              previous[id] === height ? previous : { ...previous, [id]: height }
+            );
+          }
+          return (
+            height +
+            (details?.getAttribute("data-slot") === "row-details"
+              ? details.getBoundingClientRect().height
+              : 0)
+          );
+        }
+      : undefined,
     // Natural-height rows need the wider measurement buffer for accurate
     // smooth-scroll completion. Deterministically sized rows can use the
     // smaller buffer without reconciling another large set of horizontally
@@ -2014,13 +2190,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
     rowModel.forEach((row, rowIndex) => {
       const rowId = String(getRowKey(row.original, rowIndex));
-      const nextHeight = resolveRowHeight(rowIndex);
+      const nextHeight = resolveVirtualRowHeight(rowIndex);
       nextHeights[rowId] = nextHeight;
       nextRowIds[rowIndex] = rowId;
       const previousRowId = previousRowIds[rowIndex];
       const rowIdentityRequiresReset =
         previousRowId !== rowId &&
-        (computedRowHeights[rowId] !== undefined ||
+        (tree.enabled ||
+          masterDetail.enabled ||
+          computedRowHeights[rowId] !== undefined ||
           (previousRowId !== undefined &&
             previousOverrides[previousRowId] !== undefined));
 
@@ -2041,6 +2219,54 @@ function ReactDataGrid(props: TypeDataGridProps) {
     rowHeight,
     rowModel,
     rowVirtualizer,
+    resolveVirtualRowHeight,
+    tree.enabled,
+    masterDetail.enabled,
+  ]);
+
+  // Observe master content separately so total expanded heights also hold for
+  // natural rows, including the nonvirtualized rendering path.
+  React.useLayoutEffect(() => {
+    if (rowHeight !== null || !masterDetail.enabled) return;
+    const body =
+      scrollRef.current?.querySelector<HTMLTableElement>(".tdg-body-table")
+        ?.tBodies[0];
+    if (!body) return;
+    const masterRows = Array.from(body.rows).filter(
+      (row) => row.dataset.slot === "grid-row"
+    );
+    const update = () => {
+      const liveIds = new Set(rowModel.map((row) => row.id));
+      setNaturalMasterHeights((previous) => {
+        const next = Object.fromEntries(
+          Object.entries(previous).filter(([id]) => liveIds.has(id))
+        );
+        let changed = Object.keys(next).length !== Object.keys(previous).length;
+        for (const row of masterRows) {
+          const id = row.dataset.rowId;
+          const height = row.getBoundingClientRect().height;
+          if (id !== undefined && height > 0 && previous[id] !== height) {
+            next[id] = height;
+            changed = true;
+          }
+        }
+        return changed ? next : previous;
+      });
+      for (const row of masterRows) rowVirtualizer.measureElement(row);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    for (const row of masterRows) observer.observe(row);
+    return () => observer.disconnect();
+  }, [
+    rowHeight,
+    rowModel,
+    masterDetail.enabled,
+    masterDetail.expandedRows,
+    masterDetail.collapsedRows,
+    rowVirtualizer,
+    resolveRowHeight,
   ]);
 
   // TanStack Table owns the ordered/visible column model and resolved pixel
@@ -2149,6 +2375,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     editStartEvent,
     editable,
     getDisabledRowState,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     idProperty,
     loadSkip,
     multiSelect,
@@ -2189,9 +2416,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- pagination derived ---------------- */
 
   const safeLimit = Math.max(1, limit);
+  /*
+   * A `limit` outside `pageSizes` is ordinary, and both pagers render the
+   * option matching their value: Radix falls back to the placeholder only for
+   * an empty value, so an unmatched one leaves the control blank.
+   */
+  const offeredPageSizes = React.useMemo(
+    () => normalizePageSizes(pageSizes, safeLimit),
+    [pageSizes, safeLimit]
+  );
   const pageIndex = Math.floor(loadSkip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
-
   const canPrev = loadSkip > 0;
   const canNext = loadSkip + safeLimit < count;
 
@@ -2573,6 +2808,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     gotoFirstPage,
     gotoLastPage,
     gotoNextPage,
+    gotoPage,
     gotoPrevPage,
     hasNextPage,
     hasPrevPage,
@@ -2590,7 +2826,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     localPagination,
     pageCount,
     pageIndex,
-    pageSizes,
+    pageSizes: offeredPageSizes,
     paginationEnabled,
     reload,
     remotePagination,
@@ -2605,6 +2841,41 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSortInfo,
     themeName,
   });
+
+  /*
+   * `rowModel` is one page, so the mobile layout is handed the paging that can
+   * reach the rest: the grid's own skip/limit and its authoritative count,
+   * which for a remote source is the only count that knows the total.
+   */
+  const mobilePaging = React.useMemo(
+    () =>
+      mobileTransformActive && paginationEnabled
+        ? {
+            pageIndex,
+            pageCount,
+            pageSize: safeLimit,
+            pageSizes: offeredPageSizes,
+            rangeStart: loadSkip,
+            rangeEnd: Math.min(loadSkip + rowModel.length, count),
+            total: count,
+            onPageIndexChange: (next: number) => gotoPage(next + 1),
+            onPageSizeChange: setLimitAndResetPage,
+          }
+        : undefined,
+    [
+      count,
+      gotoPage,
+      loadSkip,
+      mobileTransformActive,
+      offeredPageSizes,
+      pageCount,
+      pageIndex,
+      paginationEnabled,
+      rowModel.length,
+      safeLimit,
+      setLimitAndResetPage,
+    ]
+  );
 
   const {
     clearColumnFilterCompat,
@@ -2672,10 +2943,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     deselectAllRows,
     emitSelectionChange,
     getRowKey,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     idProperty,
     rows,
     selectAllRows,
-    setRows,
+    setRows: tree.enabled ? treeRows.setVisibleRows : setRows,
     unselected,
   });
 
@@ -2696,7 +2968,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnWidthPrefixSums,
     lastImperativeScrollAtRef,
     lockedColumnMetrics,
-    resolveRowHeight,
+    resolveRowHeight: masterDetail.enabled
+      ? resolveVirtualRowHeight
+      : resolveRowHeight,
     rowHeight,
     rowModel,
     rowVirtualizer,
@@ -2770,7 +3044,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     isRowRenderedCompat,
     lastImperativeScrollAtRef,
     publicProps,
-    resolveRowHeight,
+    resolveRowHeight: masterDetail.enabled
+      ? resolveVirtualRowHeight
+      : resolveRowHeight,
     rowHeight,
     rowModel,
     rowVirtualizer,
@@ -2842,6 +3118,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getColumnIdCompat,
     getCurrentEditInfoCompat,
     getItemId,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     getItemIndexByIdCompat,
     getRenderRangeCompat,
     getRowHeightByIdCompat,
@@ -3046,6 +3323,53 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- render ---------------- */
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
+  /*
+   * Sizing the grid from its own props spares consumers the fixed-height
+   * wrapper the layout used to require. The page-scrolling mobile layout drops
+   * every height bound, since scrolling with the document is the whole point.
+   */
+  const gridSizingStyle = React.useMemo(() => {
+    const toLength = (value: number | string | undefined) =>
+      typeof value === "number" ? `${value}px` : value;
+    const next: React.CSSProperties & Record<string, string | undefined> = {};
+    // `min-height` and `flex` are forced by the root's own stylesheet, so they
+    // travel as custom properties those declarations read instead.
+    if (!mobilePageScroll) {
+      // Dropped along with the height bounds: a `flex-basis` of 0 would collapse
+      // the grid to nothing, and the page-scrolling layout has to stay in flow
+      // at its full content height.
+      if (props.flex != null) {
+        next["--tdg-flex"] =
+          typeof props.flex === "number" ? `${props.flex} 1 0%` : props.flex;
+      }
+      if (props.height != null) next.height = toLength(props.height);
+      if (props.minHeight != null) {
+        next["--tdg-min-height"] = toLength(props.minHeight);
+      }
+      if (props.maxHeight != null) next.maxHeight = toLength(props.maxHeight);
+      // `h-full` would otherwise pin the grid to the parent instead of letting
+      // it grow with its rows up to the bound.
+      if (
+        next.height == null &&
+        (next.maxHeight != null || props.minHeight != null)
+      ) {
+        next.height = "auto";
+      }
+    }
+    if (props.width != null) next.width = toLength(props.width);
+    if (props.minWidth != null) next.minWidth = toLength(props.minWidth);
+    if (props.maxWidth != null) next.maxWidth = toLength(props.maxWidth);
+    return next;
+  }, [
+    mobilePageScroll,
+    props.flex,
+    props.height,
+    props.maxHeight,
+    props.maxWidth,
+    props.minHeight,
+    props.minWidth,
+    props.width,
+  ]);
   const loadingText = props.loadingText ?? "Loading";
   const customPaginationToolbar =
     paginationEnabled && props.renderPaginationToolbar
@@ -3061,7 +3385,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         pageCount={pageCount}
         canPrev={canPrev}
         canNext={canNext}
-        pageSizes={pageSizes}
+        pageSizes={offeredPageSizes}
         setSkip={setSkip}
         setLimit={setLimitAndResetPage}
         i18n={i18n}
@@ -3120,7 +3444,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     <div
       ref={attachRootRef}
       className={cn(
-        "tdg-root InovuaReactDataGrid flex h-full min-h-0 w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden rounded-lg lg:gap-6",
+        "tdg-root InovuaReactDataGrid flex w-full min-w-0 max-w-full flex-col gap-2 rounded-lg lg:gap-6",
+        mobilePageScroll
+          ? "h-auto min-h-0 overflow-visible"
+          : "h-full min-h-0 overflow-hidden",
         `tdg-theme-${themeClassSuffix}`,
         `InovuaReactDataGrid--theme-${themeClassSuffix}`,
         rtl
@@ -3151,6 +3478,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-grid-slack={(gridSlackWidth ?? 0) > 0 ? "some" : "none"}
       data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
+      data-mobile-scroll={mobilePageScroll ? "page" : undefined}
+      /*
+       * A `max-height`-clamped auto height is not a definite size, so the
+       * `height: 100%` scrollport inside would resolve against the content and
+       * never scroll. CSS swaps it for an absolutely positioned one.
+       */
+      data-height-bound={gridSizingStyle.height === "auto" ? "true" : undefined}
       data-focused={gridFocused ? "true" : "false"}
       data-native-scroll={nativeScroll ? "true" : "false"}
       data-direction={rtl ? "rtl" : "ltr"}
@@ -3160,6 +3494,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
       style={
         {
+          ...gridSizingStyle,
           ...style,
           "--tdg-column-resize-handle-width": `${computedColumnResizeHandleWidth}px`,
           "--tdg-column-resize-proxy-width": `${computedColumnResizeProxyWidth}px`,
@@ -3207,6 +3542,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
             ) : null}
             {mobileTransformActive ? (
               <MobileGridList
+                tree={tree}
+                masterDetail={masterDetail}
+                detailColumnId={
+                  masterDetail.showColumn ? detailColumnId : undefined
+                }
                 rows={rowModel}
                 columns={orderedColumns}
                 searchColumns={inputColumns}
@@ -3227,14 +3567,39 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 defaultSortDirection={defaultSortDir}
                 sortable={sortable}
                 sortFunctions={sortFunctions}
-                searchEnabled={!searchConnected}
+                searchEnabled={!searchConnected && !tree.enabled}
                 columnPickerEnabled={toolbarController == null}
-                authoritativeResultCount={searchConnected ? count : undefined}
+                authoritativeResultCount={
+                  tree.enabled
+                    ? countTreeRecords(
+                        sourceRows,
+                        props.nodesProperty ?? "nodes"
+                      )
+                    : searchConnected
+                      ? count
+                      : undefined
+                }
                 scrollRef={scrollRef}
                 nativeScroll={nativeScroll}
                 scrollProps={scrollProps}
                 rtl={rtl}
                 onScroll={handleScroll}
+                scrollMode={mobileTransformConfig.scroll}
+                chrome={mobileTransformConfig.chrome}
+                variant={mobileTransformConfig.variant}
+                defaultVariant={mobileTransformConfig.defaultVariant}
+                listRows={mobileTransformConfig.listRows}
+                listActions={mobileTransformConfig.listActions}
+                showVariantToggle={mobileTransformConfig.showVariantToggle}
+                showToolbar={mobileTransformConfig.showToolbar}
+                onVariantChange={mobileTransformConfig.onVariantChange}
+                overflow={mobileTransformConfig.overflow}
+                gridPaging={mobilePaging}
+                pageSize={mobileTransformConfig.pageSize}
+                pageSizes={mobileTransformConfig.pageSizes}
+                showMoreStep={mobileTransformConfig.showMoreStep}
+                estimatedCardHeight={mobileTransformConfig.estimatedCardHeight}
+                estimatedListHeight={mobileTransformConfig.estimatedListHeight}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, rowIndex, event) =>
@@ -3412,6 +3777,8 @@ function ReactDataGrid(props: TypeDataGridProps) {
                   </div>
                 ) : null}
                 <table
+                  role={tree.enabled ? "treegrid" : undefined}
+                  aria-label={tree.enabled ? "Tree data grid" : undefined}
                   className="tdg-table tdg-body-table !table w-full table-fixed border-separate border-spacing-0 caption-bottom text-sm"
                   style={sharedTableStyle}
                 >
@@ -3429,6 +3796,27 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     ))}
                   </colgroup>
                   <GridBody
+                    tree={tree}
+                    treeColumn={(() => {
+                      const column =
+                        (props.treeColumn
+                          ? orderedColumns.find(
+                              (column) =>
+                                getColumnId(column) === props.treeColumn ||
+                                column.name === props.treeColumn
+                            )
+                          : undefined) ??
+                        orderedColumns.find(
+                          (column) =>
+                            getColumnId(column) !== detailColumnId &&
+                            getColumnId(column) !== checkboxColId
+                        );
+                      return column ? getColumnId(column) : undefined;
+                    })()}
+                    masterDetail={masterDetail}
+                    detailColumnId={
+                      masterDetail.showColumn ? detailColumnId : undefined
+                    }
                     rowModel={rowModel}
                     orderedColumns={orderedColumns}
                     columnWidths={columnWidths}
@@ -3535,7 +3923,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
             )}
           </div>
 
-          {paginationEnabled && paginationToolbar != null ? (
+          {paginationEnabled &&
+          !mobileOwnsPaging &&
+          paginationToolbar != null ? (
             <div className="tdg-pagination-shell border-t py-2 [border-color:var(--tdg-grid-border-color)]">
               {paginationToolbar}
             </div>

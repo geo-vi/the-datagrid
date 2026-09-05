@@ -29,6 +29,19 @@ Rules:
 2. Do not rely on consumers passing additional props “for styling” or “for layout”. Styling must be handled internally via Tailwind/shadcn conventions (see below).
 3. Maintain backward compatibility for the semantics of these props once released.
 
+Explicit API decision (2026-09-05): the maintainer requested Inovua-compatible
+tree-grid and master-detail support. The implemented `TypeTreeGridProps` and
+`TypeMasterDetailProps` extend the baseline above. See
+`docs/hierarchy-compatibility.md` for acceptance criteria and coverage, and
+`docs/research/inovua-hierarchy-sources.md` for recovered legacy contracts.
+Do not expose deferred legacy options as accepted but nonfunctional props.
+
+Explicit API decision (2026-09-06): the maintainer approved the responsive
+`mobileTransform` configuration and root sizing props after review of PR #121.
+Omitting `mobileTransform` must preserve the existing cards-only behavior of
+`allowMobileTransform`; the new list, page-scroll, and row-budget behavior stays
+behind the configuration object.
+
 Canonical exported types (Inovua-aligned vocabulary)
 the-datagrid exposes a naming and conceptual model aligned with Inovua, even if the implementation is simplified:
 
@@ -162,12 +175,20 @@ If the grid deviates here, it will feel “non-shadcn” even if the colors matc
 
 Repository map (where changes belong)
 
-* ReactDataGrid.tsx: the component implementation and UI glue (table, header, filter row, menus, pagination).
-* types.ts: public API types; treat as semver-sensitive.
-* filters/utils.ts: normalizeFilterValue, filter entry upsert, local filter operators.
-* sorting/utils.ts: sort toggling + local sort helpers.
-* hooks/useControllableState.ts: controlled/uncontrolled state helper.
-* utils/*: stable helper utilities (column id resolution, etc.).
+* src/grid/ReactDataGrid.tsx: the component shell and render tree. src/ReactDataGrid.tsx is only a re-export.
+* src/grid/hooks/*: the behaviour, one module per concern (data loading, selection, editing, keyboard navigation, column resize, the imperative API, ...). Most changes to how the grid behaves belong in one of these, not in the shell.
+* src/grid/components/*: the render pieces (GridBody, header, mobile list, pagination, menus).
+* src/grid/engine/tanstackAdapter.ts: the TanStack Table/Virtual boundary.
+* src/runtime.css: the shipped stylesheet. Structural rules are armoured with !important so host CSS cannot break layout; typography is not. Read the comment above a rule before overriding it.
+* src/types.ts and src/types/*: public API types; treat as semver-sensitive.
+* src/filters/utils.ts: normalizeFilterValue, filter entry upsert, local filter operators. src/filters/editors: the filter-row inputs.
+* src/sorting/utils.ts: sort toggling + local sort helpers.
+* src/hooks/useControllableState.ts: controlled/uncontrolled state helper.
+* src/utils/*: stable helper utilities (column id resolution, etc.).
+* src/toolbar, src/search, src/providers: the composable surfaces a consumer mounts outside the grid, and the contexts that connect them to it.
+* src/editors, src/packages, src/components/ui: cell editors, the standalone inputs, and the shadcn primitives.
+* src/theme/context.tsx: theme name, theme base, and the portal container the menus render into.
+* examples/: the docs site and every example route; the Playwright suite drives these, so a change here can break tests.
 
 Rules for agents contributing to the codebase
 

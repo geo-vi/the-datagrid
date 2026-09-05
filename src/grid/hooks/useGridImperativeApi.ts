@@ -140,6 +140,7 @@ export type UseGridImperativeApiParams = {
   getColumnIdCompat: ColumnApi["getColumnIdCompat"];
   getCurrentEditInfoCompat: EditingApi["getCurrentEditInfoCompat"];
   getItemId: (data: any) => any;
+  hierarchyRowId?: (data: unknown, index: number) => string | number;
   getItemIndexByIdCompat: RowApi["getItemIndexByIdCompat"];
   getRenderRangeCompat: ScrollApi["getRenderRangeCompat"];
   getRowHeightByIdCompat: (rowId: string | number) => number;
@@ -370,6 +371,7 @@ export function useGridImperativeApi(params: UseGridImperativeApiParams) {
     getColumnIdCompat,
     getCurrentEditInfoCompat,
     getItemId,
+    hierarchyRowId,
     getItemIndexByIdCompat,
     getRenderRangeCompat,
     getRowHeightByIdCompat,
@@ -675,7 +677,9 @@ export function useGridImperativeApi(params: UseGridImperativeApiParams) {
       getItemAt: (index) => rows[index],
       getItemIdAt: (index) => {
         const row = rows[index];
-        return row ? (row as any)?.[idProperty] : undefined;
+        return row
+          ? (hierarchyRowId?.(row, index) ?? (row as any)?.[idProperty])
+          : undefined;
       },
       getItemIndex: (id) => getItemIndexByIdCompat(id),
       getRowIndexById: (rowId, data) => getItemIndexByIdCompat(rowId, data),
@@ -704,7 +708,9 @@ export function useGridImperativeApi(params: UseGridImperativeApiParams) {
           return Boolean(selectedMap[String(value)]);
         }
 
-        const rowId = (value as any)?.[idProperty];
+        const rowId = hierarchyRowId
+          ? hierarchyRowId(value, rows.indexOf(value))
+          : (value as any)?.[idProperty];
         return rowId == null ? false : Boolean(selectedMap[String(rowId)]);
       },
       getSelectedCount: (selectionArg, unselectedArg) => {
@@ -1124,6 +1130,7 @@ export function useGridImperativeApi(params: UseGridImperativeApiParams) {
     getCellSelectionKey,
     getItemIndexByIdCompat,
     getItemId,
+    hierarchyRowId,
     getScrollLeftCompat,
     getRenderRangeCompat,
     getRowKey,

@@ -2,7 +2,8 @@
 // variables (no @inovua import, no runtime bridge). Values reproduce the theme
 // as it rendered on Inovua's default-dark preset (compiled from the original
 // SCSS), so the example looks the same as before.
-.tdg-root[data-theme="ikarus-dark"] {
+.tdg-root[data-theme="ikarus-dark"],
+.tdg-tokens[data-theme="ikarus-dark"] {
   --tdg-color-background: #212121;
   --tdg-color-foreground: #ffffff;
   --tdg-color-border: #383838;

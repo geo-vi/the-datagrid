@@ -20,6 +20,7 @@ export type UseGridRowApiParams = {
     meta?: { data?: unknown; unselected?: TypeRowSelection }
   ) => void;
   getRowKey: (row: any, index: number) => string;
+  hierarchyRowId?: (row: unknown, index: number) => string | number;
   idProperty: string;
   rows: any[];
   selectAllRows: () => void;
@@ -37,6 +38,7 @@ export function useGridRowApi(params: UseGridRowApiParams) {
     deselectAllRows,
     emitSelectionChange,
     getRowKey,
+    hierarchyRowId,
     idProperty,
     rows,
     selectAllRows,
@@ -88,11 +90,13 @@ export function useGridRowApi(params: UseGridRowApiParams) {
       const idAsString = String(rowId);
 
       return source.findIndex((candidate, index) => {
-        const value = (candidate as any)?.[idProperty];
+        const value = hierarchyRowId
+          ? hierarchyRowId(candidate, index)
+          : (candidate as any)?.[idProperty];
         return String(value == null ? index : value) === idAsString;
       });
     },
-    [idProperty, rows]
+    [hierarchyRowId, idProperty, rows]
   );
   const setItemAtCompat = React.useCallback(
     (

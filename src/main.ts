@@ -11,6 +11,15 @@ export {
   TextEditor,
 } from "./editors";
 export type {
+  TypeNodeProps,
+  TypeExpandedNodes,
+  TypeTreeGridProps,
+  TypeMasterDetailProps,
+  TypeRowDetailsInfo,
+  TypeExpandedRows,
+  TypeCollapsedRows,
+} from "./types";
+export type {
   BoolEditorProps,
   DateEditorProps,
   DateEditorValue,
@@ -131,6 +140,13 @@ export type {
   TypePlugin,
   TypeLoadMaskProps,
   TypeShowCellBorders,
+  TypeMobileTransformProps,
+  TypeMobileListRows,
+  TypeMobileListActions,
+  TypeMobileColumnRole,
+  TypeMobileTransformOverflow,
+  TypeMobileTransformScroll,
+  TypeMobileTransformVariant,
   TypeBoolMap,
   TypeRowSelection,
   TypeRowUnselected,
