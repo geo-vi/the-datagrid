@@ -95,6 +95,41 @@ function isDatagridOwnedSelector(selector) {
   return datagridOwnedMarkers.some((marker) => selector.includes(marker));
 }
 
+/* `:has()` inverts what a selector is about: the subject is the element that
+   contains the match, so a datagrid marker inside the argument scopes nothing.
+   A rule whose only marker sits there styles the host's own box. */
+function stripRelationalArguments(selector) {
+  let out = "";
+  let index = 0;
+
+  while (index < selector.length) {
+    const relational = /^:(has|host-context)\(/i.exec(selector.slice(index));
+    if (!relational) {
+      out += selector[index];
+      index += 1;
+      continue;
+    }
+
+    out += `:${relational[1]}()`;
+    index += relational[0].length;
+    let depth = 1;
+    while (index < selector.length && depth > 0) {
+      if (selector[index] === "(") depth += 1;
+      else if (selector[index] === ")") depth -= 1;
+      index += 1;
+    }
+  }
+
+  return out;
+}
+
+function selectsHostByRelationOnly(selector) {
+  return (
+    isDatagridOwnedSelector(selector) &&
+    !isDatagridOwnedSelector(stripRelationalArguments(selector))
+  );
+}
+
 function isRootOrHostSelector(selector) {
   return selector === ":root" || selector === ":host";
 }
@@ -144,6 +179,15 @@ root.walkRules((rule) => {
   if (containsDatagridTokens && unscopedSelectors.length > 0) {
     failures.push(
       `Datagrid tokens are used by unscoped selector(s): ${unscopedSelectors.join(
+        ", "
+      )}`
+    );
+  }
+
+  const hostRelationSelectors = selectors.filter(selectsHostByRelationOnly);
+  if (hostRelationSelectors.length > 0) {
+    failures.push(
+      `Selector(s) style an element chosen only by what it contains, so the subject is a consumer-owned ancestor: ${hostRelationSelectors.join(
         ", "
       )}`
     );

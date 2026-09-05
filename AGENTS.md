@@ -4,7 +4,11 @@ Mission
 the-datagrid is a React DataGrid library that provides an Inovua-like developer experience (API shape + type naming) while keeping the implementation lightweight and maintainable. The library prioritizes stability of its public API and type vocabulary over adding new knobs and options.
 
 Non-negotiable public contract (React component props)
-ReactDataGrid MUST support exactly these props as the public instantiation surface:
+ReactDataGrid MUST always support these props, with these semantics. They are the
+floor, not the whole surface: the Inovua-parity work has since added many more
+(pagination, editing, selection, the responsive layout, the composable toolbar).
+Breaking one of the props below breaks the contract; the rest of
+TypeDataGridProps is semver-sensitive but negotiable.
 
 * theme
 * idProperty
@@ -25,7 +29,7 @@ ReactDataGrid MUST support exactly these props as the public instantiation surfa
 
 Rules:
 
-1. Do not introduce new public props without an explicit decision. If functionality cannot fit into the fixed prop surface, it must be implemented internally, through column-level configuration (TypeColumn fields), or deferred.
+1. A new public prop needs an explicit decision, never a default yes. Reach for an internal implementation or column-level configuration (TypeColumn fields) first, and widen the surface only when neither can carry the behaviour.
 2. Do not rely on consumers passing additional props “for styling” or “for layout”. Styling must be handled internally via Tailwind/shadcn conventions (see below).
 3. Maintain backward compatibility for the semantics of these props once released.
 
@@ -169,16 +173,24 @@ If the grid deviates here, it will feel “non-shadcn” even if the colors matc
 
 Repository map (where changes belong)
 
-* ReactDataGrid.tsx: the component implementation and UI glue (table, header, filter row, menus, pagination).
-* types.ts: public API types; treat as semver-sensitive.
-* filters/utils.ts: normalizeFilterValue, filter entry upsert, local filter operators.
-* sorting/utils.ts: sort toggling + local sort helpers.
-* hooks/useControllableState.ts: controlled/uncontrolled state helper.
-* utils/*: stable helper utilities (column id resolution, etc.).
+* src/grid/ReactDataGrid.tsx: the component shell and render tree. src/ReactDataGrid.tsx is only a re-export.
+* src/grid/hooks/*: the behaviour, one module per concern (data loading, selection, editing, keyboard navigation, column resize, the imperative API, ...). Most changes to how the grid behaves belong in one of these, not in the shell.
+* src/grid/components/*: the render pieces (GridBody, header, mobile list, pagination, menus).
+* src/grid/engine/tanstackAdapter.ts: the TanStack Table/Virtual boundary.
+* src/runtime.css: the shipped stylesheet. Structural rules are armoured with !important so host CSS cannot break layout; typography is not. Read the comment above a rule before overriding it.
+* src/types.ts and src/types/*: public API types; treat as semver-sensitive.
+* src/filters/utils.ts: normalizeFilterValue, filter entry upsert, local filter operators. src/filters/editors: the filter-row inputs.
+* src/sorting/utils.ts: sort toggling + local sort helpers.
+* src/hooks/useControllableState.ts: controlled/uncontrolled state helper.
+* src/utils/*: stable helper utilities (column id resolution, etc.).
+* src/toolbar, src/search, src/providers: the composable surfaces a consumer mounts outside the grid, and the contexts that connect them to it.
+* src/editors, src/packages, src/components/ui: cell editors, the standalone inputs, and the shadcn primitives.
+* src/theme/context.tsx: theme name, theme base, and the portal container the menus render into.
+* examples/: the docs site and every example route; the Playwright suite drives these, so a change here can break tests.
 
 Rules for agents contributing to the codebase
 
-1. Public prop surface is fixed. Do not add new props.
+1. The props listed above are fixed and must keep working. Widening the surface beyond them is a decision, not a reflex.
 2. Keep types aligned with Inovua naming and intent.
 3. Ensure both local and remote dataSources work and receive correct args.
 4. Ensure filteredRowsCount is accurate and consistent.

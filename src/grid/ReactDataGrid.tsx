@@ -72,6 +72,10 @@ import { resolveConfiguredRowHeight } from "./utils/rowHeight";
 import { GridPagination } from "./components/GridPagination";
 import { MobileGridList } from "./components/MobileGridList";
 import {
+  normalizePageSizes,
+  resolveMobileTransform,
+} from "./utils/mobileTransform";
+import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -421,12 +425,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, []);
 
   const themeName = normalizeThemeName(theme);
-  const isMobileViewport = useMediaQuery("(max-width: 1024px)");
+  const mobileTransformConfig = React.useMemo(
+    () =>
+      resolveMobileTransform({
+        allowMobileTransform,
+        mobileTransform: props.mobileTransform,
+        gridPaginationEnabled: (props.pagination ?? false) !== false,
+      }),
+    [allowMobileTransform, props.mobileTransform, props.pagination]
+  );
+  const isMobileViewport = useMediaQuery(mobileTransformConfig.mediaQuery);
   const hasColumnEditing = inputColumns.some(
     (column) => Boolean(column.editable) && isColumnVisible(column)
   );
   const mobileTransformActive =
-    allowMobileTransform && isMobileViewport && !editable && !hasColumnEditing;
+    mobileTransformConfig.enabled &&
+    isMobileViewport &&
+    !editable &&
+    !hasColumnEditing;
+  /**
+   * The layout that virtualizes against the window rather than a scrollport of
+   * its own, so the rows scroll with the document.
+   */
+  const mobilePageScroll =
+    mobileTransformActive && mobileTransformConfig.scroll === "page";
   const themeClassSuffix = toThemeClassSuffix(themeName);
   const themeBase = resolveThemeBase(themeName);
   const gridIdRef = React.useRef<number>(allocateGridId());
@@ -905,6 +927,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   const paginationMode = props.pagination ?? false;
   const paginationEnabled = paginationMode !== false;
+  /*
+   * Either the mobile layout budgets the rows itself, on an unpaginated grid,
+   * or it renders the grid's paging. Both replace the pagination shell, which
+   * hides half of its controls below `md`.
+   */
+  const mobileOwnsPaging =
+    mobileTransformActive &&
+    (paginationEnabled || mobileTransformConfig.overflow !== "none");
   const remoteDataSource = !Array.isArray(dataSource);
   const remotePagination =
     paginationMode === "remote" ||
@@ -2386,9 +2416,17 @@ function ReactDataGrid(props: TypeDataGridProps) {
   /** ---------------- pagination derived ---------------- */
 
   const safeLimit = Math.max(1, limit);
+  /*
+   * A `limit` outside `pageSizes` is ordinary, and both pagers render the
+   * option matching their value: Radix falls back to the placeholder only for
+   * an empty value, so an unmatched one leaves the control blank.
+   */
+  const offeredPageSizes = React.useMemo(
+    () => normalizePageSizes(pageSizes, safeLimit),
+    [pageSizes, safeLimit]
+  );
   const pageIndex = Math.floor(loadSkip / safeLimit);
   const pageCount = Math.max(1, Math.ceil(count / safeLimit) || 1);
-
   const canPrev = loadSkip > 0;
   const canNext = loadSkip + safeLimit < count;
 
@@ -2770,6 +2808,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     gotoFirstPage,
     gotoLastPage,
     gotoNextPage,
+    gotoPage,
     gotoPrevPage,
     hasNextPage,
     hasPrevPage,
@@ -2787,7 +2826,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     localPagination,
     pageCount,
     pageIndex,
-    pageSizes,
+    pageSizes: offeredPageSizes,
     paginationEnabled,
     reload,
     remotePagination,
@@ -2802,6 +2841,41 @@ function ReactDataGrid(props: TypeDataGridProps) {
     setSortInfo,
     themeName,
   });
+
+  /*
+   * `rowModel` is one page, so the mobile layout is handed the paging that can
+   * reach the rest: the grid's own skip/limit and its authoritative count,
+   * which for a remote source is the only count that knows the total.
+   */
+  const mobilePaging = React.useMemo(
+    () =>
+      mobileTransformActive && paginationEnabled
+        ? {
+            pageIndex,
+            pageCount,
+            pageSize: safeLimit,
+            pageSizes: offeredPageSizes,
+            rangeStart: loadSkip,
+            rangeEnd: Math.min(loadSkip + rowModel.length, count),
+            total: count,
+            onPageIndexChange: (next: number) => gotoPage(next + 1),
+            onPageSizeChange: setLimitAndResetPage,
+          }
+        : undefined,
+    [
+      count,
+      gotoPage,
+      loadSkip,
+      mobileTransformActive,
+      offeredPageSizes,
+      pageCount,
+      pageIndex,
+      paginationEnabled,
+      rowModel.length,
+      safeLimit,
+      setLimitAndResetPage,
+    ]
+  );
 
   const {
     clearColumnFilterCompat,
@@ -3249,6 +3323,53 @@ function ReactDataGrid(props: TypeDataGridProps) {
 
   /** ---------------- render ---------------- */
   const rowIdPrefix = `tdg-grid-${gridIdRef.current}-row`;
+  /*
+   * Sizing the grid from its own props spares consumers the fixed-height
+   * wrapper the layout used to require. The page-scrolling mobile layout drops
+   * every height bound, since scrolling with the document is the whole point.
+   */
+  const gridSizingStyle = React.useMemo(() => {
+    const toLength = (value: number | string | undefined) =>
+      typeof value === "number" ? `${value}px` : value;
+    const next: React.CSSProperties & Record<string, string | undefined> = {};
+    // `min-height` and `flex` are forced by the root's own stylesheet, so they
+    // travel as custom properties those declarations read instead.
+    if (!mobilePageScroll) {
+      // Dropped along with the height bounds: a `flex-basis` of 0 would collapse
+      // the grid to nothing, and the page-scrolling layout has to stay in flow
+      // at its full content height.
+      if (props.flex != null) {
+        next["--tdg-flex"] =
+          typeof props.flex === "number" ? `${props.flex} 1 0%` : props.flex;
+      }
+      if (props.height != null) next.height = toLength(props.height);
+      if (props.minHeight != null) {
+        next["--tdg-min-height"] = toLength(props.minHeight);
+      }
+      if (props.maxHeight != null) next.maxHeight = toLength(props.maxHeight);
+      // `h-full` would otherwise pin the grid to the parent instead of letting
+      // it grow with its rows up to the bound.
+      if (
+        next.height == null &&
+        (next.maxHeight != null || props.minHeight != null)
+      ) {
+        next.height = "auto";
+      }
+    }
+    if (props.width != null) next.width = toLength(props.width);
+    if (props.minWidth != null) next.minWidth = toLength(props.minWidth);
+    if (props.maxWidth != null) next.maxWidth = toLength(props.maxWidth);
+    return next;
+  }, [
+    mobilePageScroll,
+    props.flex,
+    props.height,
+    props.maxHeight,
+    props.maxWidth,
+    props.minHeight,
+    props.minWidth,
+    props.width,
+  ]);
   const loadingText = props.loadingText ?? "Loading";
   const customPaginationToolbar =
     paginationEnabled && props.renderPaginationToolbar
@@ -3264,7 +3385,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         pageCount={pageCount}
         canPrev={canPrev}
         canNext={canNext}
-        pageSizes={pageSizes}
+        pageSizes={offeredPageSizes}
         setSkip={setSkip}
         setLimit={setLimitAndResetPage}
         i18n={i18n}
@@ -3323,7 +3444,10 @@ function ReactDataGrid(props: TypeDataGridProps) {
     <div
       ref={attachRootRef}
       className={cn(
-        "tdg-root InovuaReactDataGrid flex h-full min-h-0 w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden rounded-lg lg:gap-6",
+        "tdg-root InovuaReactDataGrid flex w-full min-w-0 max-w-full flex-col gap-2 rounded-lg lg:gap-6",
+        mobilePageScroll
+          ? "h-auto min-h-0 overflow-visible"
+          : "h-full min-h-0 overflow-hidden",
         `tdg-theme-${themeClassSuffix}`,
         `InovuaReactDataGrid--theme-${themeClassSuffix}`,
         rtl
@@ -3354,6 +3478,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
       data-grid-slack={(gridSlackWidth ?? 0) > 0 ? "some" : "none"}
       data-show-zebra-rows={showZebraRows ? "true" : "false"}
       data-layout={mobileTransformActive ? "mobile-list" : "table"}
+      data-mobile-scroll={mobilePageScroll ? "page" : undefined}
+      /*
+       * A `max-height`-clamped auto height is not a definite size, so the
+       * `height: 100%` scrollport inside would resolve against the content and
+       * never scroll. CSS swaps it for an absolutely positioned one.
+       */
+      data-height-bound={gridSizingStyle.height === "auto" ? "true" : undefined}
       data-focused={gridFocused ? "true" : "false"}
       data-native-scroll={nativeScroll ? "true" : "false"}
       data-direction={rtl ? "rtl" : "ltr"}
@@ -3363,6 +3494,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
       style={
         {
+          ...gridSizingStyle,
           ...style,
           "--tdg-column-resize-handle-width": `${computedColumnResizeHandleWidth}px`,
           "--tdg-column-resize-proxy-width": `${computedColumnResizeProxyWidth}px`,
@@ -3452,6 +3584,22 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 scrollProps={scrollProps}
                 rtl={rtl}
                 onScroll={handleScroll}
+                scrollMode={mobileTransformConfig.scroll}
+                chrome={mobileTransformConfig.chrome}
+                variant={mobileTransformConfig.variant}
+                defaultVariant={mobileTransformConfig.defaultVariant}
+                listRows={mobileTransformConfig.listRows}
+                listActions={mobileTransformConfig.listActions}
+                showVariantToggle={mobileTransformConfig.showVariantToggle}
+                showToolbar={mobileTransformConfig.showToolbar}
+                onVariantChange={mobileTransformConfig.onVariantChange}
+                overflow={mobileTransformConfig.overflow}
+                gridPaging={mobilePaging}
+                pageSize={mobileTransformConfig.pageSize}
+                pageSizes={mobileTransformConfig.pageSizes}
+                showMoreStep={mobileTransformConfig.showMoreStep}
+                estimatedCardHeight={mobileTransformConfig.estimatedCardHeight}
+                estimatedListHeight={mobileTransformConfig.estimatedListHeight}
                 onSortInfoChange={setSortInfoAndResetPage}
                 onFilteredRowsCountChange={notifyFilteredRowsCount}
                 onRowClick={(id, data, rowIndex, event) =>
@@ -3775,7 +3923,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
             )}
           </div>
 
-          {paginationEnabled && paginationToolbar != null ? (
+          {paginationEnabled &&
+          !mobileOwnsPaging &&
+          paginationToolbar != null ? (
             <div className="tdg-pagination-shell border-t py-2 [border-color:var(--tdg-grid-border-color)]">
               {paginationToolbar}
             </div>

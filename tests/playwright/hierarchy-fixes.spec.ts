@@ -370,6 +370,40 @@ test("inactive detail props preserve a consumer expander column in remote args",
   ).toHaveCount(0);
 });
 
+test("configured mobile list keeps tree and detail controls working", async ({
+  page,
+}) => {
+  await mount(
+    page,
+    `fixture.patch({
+      treeEnabled: true,
+      nodesProperty: "children",
+      dataSource: [{ id: "root", name: "Parent", children: [{ id: "child", name: "Child" }] }],
+      ...details,
+      mobileTransform: { defaultVariant: "list", showVariantToggle: false },
+    });`,
+    true
+  );
+
+  const fixture = grid(page);
+  await expect(
+    fixture.locator('[data-slot="mobile-grid-list"]')
+  ).toHaveAttribute("data-variant", "list");
+  await expect(row(page, "root/child")).toHaveCount(0);
+
+  await row(page, "root")
+    .getByRole("button", { name: "Expand node root" })
+    .click();
+  await expect(row(page, "root/child")).toBeVisible();
+
+  await row(page, "root")
+    .getByRole("button", { name: "Expand row details" })
+    .click();
+  await expect(
+    row(page, "root").locator('[data-slot="row-details"]')
+  ).toContainText("Details for root");
+});
+
 test("imperative scrollToIndex and scrollToCell include expanded detail heights", async ({
   page,
 }) => {

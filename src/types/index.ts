@@ -58,5 +58,12 @@ export type {
   TypeSize,
   TypeSortInfo,
   TypeShowCellBorders,
+  TypeMobileTransformProps,
+  TypeMobileListRows,
+  TypeMobileListActions,
+  TypeMobileColumnRole,
+  TypeMobileTransformOverflow,
+  TypeMobileTransformScroll,
+  TypeMobileTransformVariant,
   TypeWithId,
 } from "../types";

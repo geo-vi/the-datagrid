@@ -229,6 +229,15 @@ try {
             "@types/react-dom": version.reactDomTypes,
             "@types/scheduler": "0.16.8",
           },
+          // jsdom takes nwsapi as ^2.2.16, and 2.2.26 made its `:fullscreen`
+          // probe call back into the matcher nwsapi itself installed, so
+          // `matches()` recurses forever. Opening any Radix menu hits it, the
+          // fixture never yields, and the run dies on the spawn timeout with no
+          // output. Pinned to the last good release; nothing here is testing
+          // nwsapi, so the pin costs nothing.
+          overrides: {
+            nwsapi: "2.2.25",
+          },
         },
         null,
         2
