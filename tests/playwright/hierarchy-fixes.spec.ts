@@ -9,6 +9,7 @@ type FixesWindow = typeof window & {
     patch: (props: Record<string, unknown>) => void;
     render: () => void;
     events: { rowId: string; value: unknown }[];
+    requests: { columns: string[]; columnOrder: string[] }[];
     rowFields: string[];
     cellFields: string[];
     source: {
@@ -40,7 +41,7 @@ async function mount(page: Page, scenario: string, mobile = false) {
     import ReactDOMClient from ${JSON.stringify(viteFsUrl("node_modules/.vite/deps/react-dom_client.js"))};
     import ReactDataGrid from ${JSON.stringify(viteFsUrl("src/ReactDataGrid.tsx"))};
     const root = ReactDOMClient.createRoot(document.getElementById("hierarchy-fixes-root"));
-      const fixture = window.__hierarchyFixes = { events: [] };
+      const fixture = window.__hierarchyFixes = { events: [], requests: [] };
     let props = {
       theme: "default", idProperty: "id", rowHeight: 40, minRowHeight: 40,
       style: { height: 430, width: "100%", maxWidth: 760 }, virtualized: true,
@@ -199,6 +200,175 @@ for (const flag of ["absent", "false"] as const) {
     ).toHaveCount(0);
   });
 }
+
+test("disabled tree props preserve flat IDs, editing, row setters, and reload", async ({
+  page,
+}) => {
+  await mount(
+    page,
+    `fixture.source = [{ id: "root", name: "Flat parent", children: [{ id: "child", name: "Nested value" }] }, { id: "last", name: "Flat sibling" }];
+    fixture.patch({
+      treeEnabled: false, enableRowExpand: false, treeColumn: "name", nodesProperty: "children",
+      defaultExpandedNodes: { root: true }, defaultExpandedRows: true,
+      renderRowDetails: () => React.createElement("div", null, "Inactive details"),
+      editable: true, columns: [{ name: "name", header: "Name", width: 350, editable: true }],
+      dataSource: fixture.source,
+    });`
+  );
+  await expect(grid(page).locator('[data-slot="grid-row"]')).toHaveCount(2);
+  await expect(row(page, "root/child")).toHaveCount(0);
+  expect(
+    await page.evaluate(() => {
+      const api = (window as FixesWindow).__hierarchyFixes.api.current;
+      return [
+        api.getItemIdAt?.(0),
+        api.getItemIdAt?.(1),
+        api.getItemIndex?.("root/child"),
+      ];
+    })
+  ).toEqual(["root", "last", -1]);
+
+  await cell(page, "last", "name").dblclick();
+  const editor = grid(page).getByRole("textbox", { name: "Name", exact: true });
+  await editor.fill("Edited flat sibling");
+  await editor.press("Enter");
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as FixesWindow).__hierarchyFixes.events)
+    )
+    .toEqual([{ rowId: "last", value: "Edited flat sibling" }]);
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.api.current.setItemPropertyAt?.(
+      1,
+      "name",
+      "Setter flat sibling"
+    )
+  );
+  await expect(cell(page, "last", "name")).toContainText("Setter flat sibling");
+  await expect(row(page, "root/child")).toHaveCount(0);
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.api.current.reload()
+  );
+  await expect(cell(page, "last", "name")).toContainText("Flat sibling");
+});
+
+test("tree processing follows the explicit flag across runtime transitions", async ({
+  page,
+}) => {
+  await mount(
+    page,
+    `fixture.source = [{ id: "root", name: "Parent", children: [{ id: "child", name: "Child" }] }, { id: "last", name: "Last" }];
+    fixture.patch({
+      treeEnabled: false, treeColumn: "name", nodesProperty: "children",
+      defaultExpandedNodes: { root: true }, dataSource: fixture.source,
+    });`
+  );
+  const ids = () =>
+    page.evaluate(() => {
+      const api = (window as FixesWindow).__hierarchyFixes.api.current;
+      return [api.getItemIdAt?.(0), api.getItemIdAt?.(1), api.getItemIdAt?.(2)];
+    });
+
+  await expect(grid(page).locator('[data-slot="grid-row"]')).toHaveCount(2);
+  await expect(row(page, "root/child")).toHaveCount(0);
+  expect(await ids()).toEqual(["root", "last", undefined]);
+
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.patch({ treeEnabled: true })
+  );
+  await expect(row(page, "root/child")).toBeVisible();
+  await expect(grid(page).locator('[data-slot="grid-row"]')).toHaveCount(3);
+  expect(await ids()).toEqual(["root", "root/child", "last"]);
+
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.patch({ treeEnabled: false })
+  );
+  await expect(row(page, "root/child")).toHaveCount(0);
+  await expect(grid(page).locator('[data-slot="grid-row"]')).toHaveCount(2);
+  expect(await ids()).toEqual(["root", "last", undefined]);
+  await expect(grid(page).locator('[data-slot="tree-toggle"]')).toHaveCount(0);
+});
+
+test("disabling details restores flat virtual offsets", async ({ page }) => {
+  await mount(
+    page,
+    `fixture.patch({ ...details, defaultExpandedRows: true, rowExpandHeight: 180,
+      dataSource: Array.from({ length: 80 }, (_, id) => ({ id, name: "Row " + id })),
+    });`
+  );
+  const scrollTo = async (index: number, expectedTop: number) => {
+    await page.evaluate(
+      (rowIndex) =>
+        (window as FixesWindow).__hierarchyFixes.api.current.scrollToIndex?.(
+          rowIndex
+        ),
+      index
+    );
+    await expect(row(page, String(index))).toBeVisible();
+    await expect
+      .poll(() =>
+        grid(page)
+          .locator(".tdg-body-viewport")
+          .evaluate((element) => element.scrollTop)
+      )
+      .toBeCloseTo(expectedTop, 0);
+  };
+
+  await scrollTo(40, 7200);
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.patch({ enableRowExpand: false })
+  );
+  await expect(
+    grid(page).locator(
+      '[data-slot="row-detail-toggle"], [data-slot="row-details"]'
+    )
+  ).toHaveCount(0);
+  await scrollTo(40, 1600);
+  await page.evaluate(() =>
+    (window as FixesWindow).__hierarchyFixes.patch({ enableRowExpand: true })
+  );
+  await scrollTo(40, 7200);
+  await expect(
+    row(page, "40").getByRole("button", {
+      name: "Collapse row details",
+      exact: true,
+    })
+  ).toBeVisible();
+});
+
+test("inactive detail props preserve a consumer expander column in remote args", async ({
+  page,
+}) => {
+  await mount(
+    page,
+    `fixture.patch({
+      enableRowExpand: false, renderRowDetails: () => "Inactive", expandedRows: true,
+      columns: [{ name: "name", header: "Name", width: 260 }, { name: "__row_expander__", header: "Consumer expander", width: 180 }],
+      dataSource: args => {
+        fixture.requests.push({ columns: args.columns.map(column => column.name), columnOrder: args.columnOrder });
+        return Promise.resolve([{ id: "a", name: "Alpha", __row_expander__: "Remote consumer value" }]);
+      },
+    });`
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as FixesWindow).__hierarchyFixes.requests)
+    )
+    .toEqual([
+      {
+        columns: ["name", "__row_expander__"],
+        columnOrder: ["name", "__row_expander__"],
+      },
+    ]);
+  await expect(
+    grid(page).getByText("Remote consumer value", { exact: true })
+  ).toBeVisible();
+  await expect(
+    grid(page).locator(
+      '[data-slot="row-detail-toggle"], [data-slot="row-details"]'
+    )
+  ).toHaveCount(0);
+});
 
 test("imperative scrollToIndex and scrollToCell include expanded detail heights", async ({
   page,
