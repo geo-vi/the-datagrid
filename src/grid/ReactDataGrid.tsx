@@ -138,6 +138,7 @@ import { useGridSelection } from "./hooks/useGridSelection";
 import { useGridToolbarBridge } from "./hooks/useGridToolbarBridge";
 import { useGridVirtualListApi } from "./hooks/useGridVirtualListApi";
 import { useTreeGrid } from "./hierarchy/useTreeGrid";
+import { useTreeRowAdapter } from "./hierarchy/treeRowAdapter";
 import { countTreeRecords, type TreeRecord } from "./hierarchy/treeData";
 import {
   isMasterDetailEnabled,
@@ -1068,6 +1069,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
   });
   const rows: typeof sourceRows = tree.rows;
   const getRowKey = tree.getId;
+  const hierarchyRowId = React.useCallback(
+    (row: unknown, index: number) => getRowKey(row as TreeRecord, index),
+    [getRowKey]
+  );
+  const treeRows = useTreeRowAdapter({
+    enabled: tree.enabled,
+    sourceRows,
+    visibleRows: rows,
+    getRowId: getRowKey,
+    setSourceRows: setRows,
+    idProperty,
+    nodesProperty: props.nodesProperty ?? "nodes",
+    nodePathSeparator: props.nodePathSeparator ?? "/",
+    generateIdFromPath: props.generateIdFromPath ?? true,
+  });
   const getItemId = React.useCallback(
     (data: any) =>
       tree.enabled && props.generateIdFromPath !== false
@@ -2329,6 +2345,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     editStartEvent,
     editable,
     getDisabledRowState,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     idProperty,
     loadSkip,
     multiSelect,
@@ -2852,10 +2869,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     deselectAllRows,
     emitSelectionChange,
     getRowKey,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     idProperty,
     rows,
     selectAllRows,
-    setRows,
+    setRows: tree.enabled ? treeRows.setVisibleRows : setRows,
     unselected,
   });
 
@@ -2876,7 +2894,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     columnWidthPrefixSums,
     lastImperativeScrollAtRef,
     lockedColumnMetrics,
-    resolveRowHeight,
+    resolveRowHeight: masterDetail.enabled
+      ? resolveVirtualRowHeight
+      : resolveRowHeight,
     rowHeight,
     rowModel,
     rowVirtualizer,
@@ -2950,7 +2970,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
     isRowRenderedCompat,
     lastImperativeScrollAtRef,
     publicProps,
-    resolveRowHeight,
+    resolveRowHeight: masterDetail.enabled
+      ? resolveVirtualRowHeight
+      : resolveRowHeight,
     rowHeight,
     rowModel,
     rowVirtualizer,
@@ -3022,6 +3044,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     getColumnIdCompat,
     getCurrentEditInfoCompat,
     getItemId,
+    hierarchyRowId: tree.enabled ? hierarchyRowId : undefined,
     getItemIndexByIdCompat,
     getRenderRangeCompat,
     getRowHeightByIdCompat,
@@ -3389,7 +3412,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
               <MobileGridList
                 tree={tree}
                 masterDetail={masterDetail}
-                detailColumnId={detailColumnId}
+                detailColumnId={
+                  masterDetail.showColumn ? detailColumnId : undefined
+                }
                 rows={rowModel}
                 columns={orderedColumns}
                 searchColumns={inputColumns}
@@ -3641,7 +3666,9 @@ function ReactDataGrid(props: TypeDataGridProps) {
                       return column ? getColumnId(column) : undefined;
                     })()}
                     masterDetail={masterDetail}
-                    detailColumnId={detailColumnId}
+                    detailColumnId={
+                      masterDetail.showColumn ? detailColumnId : undefined
+                    }
                     rowModel={rowModel}
                     orderedColumns={orderedColumns}
                     columnWidths={columnWidths}

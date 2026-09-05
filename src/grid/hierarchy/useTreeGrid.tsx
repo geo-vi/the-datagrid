@@ -21,7 +21,7 @@ export function useTreeGrid({
   revealMatches: boolean;
   revealNodes: ReadonlySet<TreeRecord>;
 }) {
-  const enabled = props.treeEnabled ?? Boolean(props.treeColumn);
+  const enabled = props.treeEnabled === true;
   const nodesProperty = props.nodesProperty ?? "nodes";
   const nodePathSeparator = props.nodePathSeparator ?? "/";
   const generateIdFromPath = props.generateIdFromPath ?? true;

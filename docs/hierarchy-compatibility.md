@@ -15,7 +15,8 @@ prove runtime behavior. Do not describe unsupported legacy props as working.
 
 ## Tree-grid behavior
 
-Use the original `treeEnabled`, `nodesProperty`, `treeColumn`,
+Tree behavior activates only when `treeEnabled={true}`. Use the original
+`nodesProperty`, `treeColumn`,
 `treeNestingSize`, `expandedNodes`, `defaultExpandedNodes`,
 `onExpandedNodesChange` and node lifecycle callback vocabulary. Data stays a
 nested array; child arrays live under `nodesProperty` (default `nodes`). Node
@@ -45,7 +46,8 @@ and sorting and receive all existing request arguments unchanged.
 
 ## Master-detail behavior
 
-Use `renderRowDetails`, `enableRowExpand`, `expandedRows`,
+Detail behavior activates only when `enableRowExpand={true}`. Use
+`renderRowDetails`, `expandedRows`,
 `defaultExpandedRows`, `collapsedRows`, `defaultCollapsedRows`,
 `multiRowExpand`, `isRowExpandable`, `unexpandableRows`, `rowExpandColumn`,
 `rowExpandHeight`, and the original row expansion callbacks. A detail panel is
@@ -101,7 +103,7 @@ tokens, focus rings and button conventions.
 
 | Area            | Implemented in this prototype                                                                                                                                                                                | Deferred legacy behavior                                                                                                                                                                                |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tree input      | `treeEnabled`, inferred enablement from `treeColumn`, `nodesProperty`, `nodePathSeparator`, `generateIdFromPath`, `treeNestingSize`                                                                          | `loadNode`, `loadNodeOnce`, async caches and invalidation; `nodes: null` is identified as async but has no toggle in this prototype                                                                     |
+| Tree input      | Explicit `treeEnabled`, `treeColumn`, `nodesProperty`, `nodePathSeparator`, `generateIdFromPath`, `treeNestingSize`                                                                                          | `loadNode`, `loadNodeOnce`, async caches and invalidation; `nodes: null` is identified as async but has no toggle in this prototype                                                                     |
 | Tree state      | `expandedNodes`, `defaultExpandedNodes`, `collapseChildrenRecursive`, `unexpandableNodes`, `isNodeExpandable`, `isNodeLeaf`, `onNodeExpand`, `onNodeCollapse`, `onNodeExpandChange`, `onExpandedNodesChange` | Bulk/imperative tree methods; recursive selection/deselection; sticky nodes; tree drag/reparenting                                                                                                      |
 | Tree rendering  | Node metadata on desktop cell/row callbacks, `renderTreeExpandTool`, `renderTreeCollapseTool`, accessible controls, mobile cards                                                                             | `renderNodeTool`, loading tools and `expandOnMouseDown`; arrow-key navigation between tree rows (toggle itself handles arrows)                                                                          |
 | Data processing | Sibling sorting, legacy ancestor/subtree filtering, temporary reveal, root pagination, arrays/static promises/function sources                                                                               | Server ancestor discovery; consumer-controlled filtering must supply matching nested data                                                                                                               |
@@ -123,9 +125,11 @@ expansion, but full cross-row tree keyboard navigation remains follow-up work.
 
 ## Review evidence
 
-See `tests/engine/tree-data.test.ts`, `tests/engine/master-detail.test.ts`,
-`tests/types/type-hierarchy.ts`, `tests/playwright/hierarchy.spec.ts`, and
-`tests/playwright/hierarchy-regression.spec.ts`. Screenshots in
+See `tests/engine/tree-data.test.ts`, `tests/engine/tree-row-adapter.test.ts`,
+`tests/engine/master-detail.test.ts`, `tests/engine/detail-row-spans.test.ts`,
+`tests/types/type-hierarchy.ts`, `tests/playwright/hierarchy.spec.ts`,
+`tests/playwright/hierarchy-regression.spec.ts`, and
+`tests/playwright/hierarchy-fixes.spec.ts`. Screenshots in
 `docs/screenshots/` show the actual local implementation, not mockups.
 The [validation report](hierarchy-validation.md) records passing checks and
 independently reproduced baseline failures.

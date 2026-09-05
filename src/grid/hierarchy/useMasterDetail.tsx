@@ -22,15 +22,7 @@ const hasFlag = (map: TypeCollapsedRows | undefined, id: string | number) =>
   Boolean(map && Object.prototype.hasOwnProperty.call(map, id) && map[id]);
 
 export function isMasterDetailEnabled(props: TypeMasterDetailProps): boolean {
-  return (
-    props.enableRowExpand ??
-    Boolean(
-      props.renderRowDetails ||
-      props.renderDetailsGrid ||
-      props.expandedRows !== undefined ||
-      props.defaultExpandedRows !== undefined
-    )
-  );
+  return props.enableRowExpand === true;
 }
 
 export function isMasterDetailExpandable(

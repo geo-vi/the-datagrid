@@ -146,9 +146,18 @@ try {
   const archivePath = path.join(temporaryRoot, archiveFilename);
   const inspectionDirectory = path.join(temporaryRoot, "packed");
   fs.mkdirSync(inspectionDirectory);
-  run("tar", ["-xzf", path.basename(archiveFilename), "-C", toPosixPath(inspectionDirectory)], {
-    cwd: temporaryRoot,
-  });
+  run(
+    "tar",
+    [
+      "-xzf",
+      path.basename(archiveFilename),
+      "-C",
+      toPosixPath(inspectionDirectory),
+    ],
+    {
+      cwd: temporaryRoot,
+    }
+  );
 
   const packedPackageDirectory = path.join(inspectionDirectory, "package");
   const packedManifest = JSON.parse(
@@ -208,6 +217,10 @@ try {
           dependencies: {
             "@geovi/the-datagrid": `file:${toPosixPath(archivePath)}`,
             jsdom: "26.1.0",
+            // jsdom permits newer nwsapi releases, but 2.2.27 recurses while
+            // Radix probes :modal/:fullscreen in this fixture. Pin the version
+            // jsdom 26.1.0 shipped against so the matrix tests React behavior.
+            nwsapi: "2.2.16",
             react: version.react,
             "react-dom": version.reactDom,
           },

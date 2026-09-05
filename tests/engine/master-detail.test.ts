@@ -25,14 +25,15 @@ test("master-detail is opt-in and explicit disable overrides inferred enablement
   assert.equal(isMasterDetailEnabled({}), false);
   assert.equal(
     isMasterDetailEnabled({ renderRowDetails: () => "Details" }),
-    true
+    false
   );
-  assert.equal(isMasterDetailEnabled({ defaultExpandedRows: {} }), true);
+  assert.equal(isMasterDetailEnabled({ defaultExpandedRows: {} }), false);
   assert.equal(
     isMasterDetailEnabled({ renderDetailsGrid: () => "Nested grid" }),
-    true
+    false
   );
-  assert.equal(isMasterDetailEnabled({ expandedRows: true }), true);
+  assert.equal(isMasterDetailEnabled({ expandedRows: true }), false);
+  assert.equal(isMasterDetailEnabled({ enableRowExpand: true }), true);
   assert.equal(isMasterDetailEnabled({ rowExpandHeight: 200 }), false);
   assert.equal(
     isMasterDetailEnabled({ enableRowExpand: false, expandedRows: true }),
@@ -207,6 +208,7 @@ test("detail rendering receives legacy row metadata and controlled maps are auth
     );
   }
   const props: TypeMasterDetailProps = {
+    enableRowExpand: true,
     defaultExpandedRows: true,
     expandedRows: {},
     renderRowDetails: (info) => {
@@ -252,6 +254,7 @@ test("renderDetailsGrid enables legacy detail rendering and renderRowDetails tak
     );
   }
   const props: TypeMasterDetailProps = {
+    enableRowExpand: true,
     defaultExpandedRows: { 42: true },
     renderDetailsGrid: (info, detailsProps) => {
       received.push({ info, detailsProps });

@@ -33,6 +33,7 @@ recovered documentation and full legacy prop surface. Run `yarn dev` and open
   dataSource={[{ id: "engineering", name: "Engineering", nodes: [
     { id: "platform", name: "Platform" },
   ] }]}
+  treeEnabled
   treeColumn="name"
   defaultExpandedNodes={{}}
   enableFiltering
@@ -43,6 +44,7 @@ recovered documentation and full legacy prop surface. Run `yarn dev` and open
   idProperty="id"
   columns={columns}
   dataSource={rows}
+  enableRowExpand
   rowExpandHeight={260}
   renderRowDetails={({ data }) => <AccountDetails account={data} />}
 />

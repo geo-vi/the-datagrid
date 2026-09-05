@@ -36,6 +36,7 @@ async function mountGrid(page: Page, scenario = "mount({});") {
         style: { height: 430, width: 760 }, rowHeight: 40, minRowHeight: 40,
         pagination: false, virtualized: true, allowMobileTransform: false,
         enableFiltering: true, defaultFilterValue: [], nativeScroll: true,
+        enableRowExpand: true,
         renderRowDetails: info => React.createElement("div", { "data-testid": "detail-" + info.id, style: { height: "100%" } }, "Details for " + info.id),
         rowExpandHeight: 180,
         filteredRowsCount: count => fixture.counts.push(count),
@@ -65,7 +66,7 @@ test("tree controls resolve ID-only columns and legacy column names", async ({
   await mountGrid(
     page,
     `mount({
-    renderRowDetails: undefined, treeEnabled: true,
+    enableRowExpand: false, renderRowDetails: undefined, treeEnabled: true,
     columns: [{ id: "label", header: "Label", width: 300 }],
     dataSource: [{ id: "root", label: "Root", nodes: [{ id: "child", label: "Child" }] }],
   });`
@@ -356,7 +357,7 @@ test("static Promise tree sources retain matching ancestors and report all retai
   await mountGrid(
     page,
     `const nested = [{ id: "root", name: "Root", nodes: [{ id: "hit", name: "Needle" }, { id: "miss", name: "Other" }] }, { id: "last", name: "Last" }];
-    mount({ dataSource: Promise.resolve(nested), treeEnabled: true, treeColumn: "name", renderRowDetails: undefined,
+    mount({ dataSource: Promise.resolve(nested), treeEnabled: true, treeColumn: "name", enableRowExpand: false, renderRowDetails: undefined,
       defaultFilterValue: [{ name: "name", operator: "contains", type: "string", value: "Needle" }] });`
   );
   await expect(row(page, "root")).toBeVisible();

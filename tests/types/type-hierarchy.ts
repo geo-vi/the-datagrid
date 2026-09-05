@@ -11,6 +11,7 @@ export const hierarchyProps: TypeDataGridProps = {
   idProperty: "id",
   columns: [{ name: "name" }],
   dataSource: [],
+  treeEnabled: true,
   treeColumn: "name",
   nodesProperty: "children",
   treeNestingSize: 22,
@@ -21,6 +22,7 @@ export const hierarchyProps: TypeDataGridProps = {
     void [depth, expanded, next];
   },
   expandedRows,
+  enableRowExpand: true,
   collapsedRows: { excluded: true },
   rowExpandHeight: ({ data }) => data.height,
   renderRowDetails: (info: TypeRowDetailsInfo) => String(info.id),

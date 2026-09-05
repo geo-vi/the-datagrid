@@ -240,7 +240,11 @@ export function useGridDataLoader(params: UseGridDataLoaderParams) {
               ? result.data.slice(loadSkip, loadSkip + limit)
               : result.data;
             setTreeRevealNodes(result.revealNodes);
-            setRows((previous) => reuseRowsIfUnchanged(previous, nextRows));
+            if (options?.bypassLocalRowReuse) {
+              setRows(nextRows);
+            } else {
+              setRows((previous) => reuseRowsIfUnchanged(previous, nextRows));
+            }
             setCount(result.data.length);
             notifyFilteredRowsCount(result.count);
             return;

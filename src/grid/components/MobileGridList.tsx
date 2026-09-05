@@ -49,7 +49,7 @@ import {
 type MobileGridListProps = {
   tree: TreeGridController;
   masterDetail: UseMasterDetailResult;
-  detailColumnId: string;
+  detailColumnId?: string;
   rows: Row<Record<string, unknown>>[];
   columns: TypeColumn[];
   searchColumns: TypeColumn[];
@@ -640,7 +640,8 @@ export function MobileGridList({
               const dataCells = cells.filter(
                 (cell) =>
                   cell.column.id !== checkboxColumnId &&
-                  cell.column.id !== detailColumnId &&
+                  (detailColumnId === undefined ||
+                    cell.column.id !== detailColumnId) &&
                   !hiddenMobileColumnIds.has(cell.column.id)
               );
               const actionCells = dataCells.filter((cell) =>
