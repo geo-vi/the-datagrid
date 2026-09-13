@@ -35,6 +35,7 @@ export type ResolvedMobileTransform = {
   cardFieldLimit: number;
   showVariantToggle: boolean;
   showToolbar: boolean;
+  toolbarActions?: TypeMobileTransformProps["toolbarActions"];
   showSearch?: boolean;
   showSort: boolean;
   showColumnPicker?: boolean;
@@ -181,6 +182,7 @@ export function resolveMobileTransform(params: {
       ? false
       : (config.showVariantToggle ?? hasMobileTransformConfig),
     showToolbar: config.showToolbar ?? true,
+    toolbarActions: config.toolbarActions,
     // Left undefined where the default belongs to the grid, which is the only
     // place that knows about a search box or a toolbar mounted outside it.
     showSearch: config.showSearch,

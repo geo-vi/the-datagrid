@@ -1806,6 +1806,13 @@ export type TypeMobileTransformProps = {
   showToolbar?: boolean;
 
   /**
+   * Consumer controls rendered between the mobile search field and settings.
+   * The toolbar wraps its controls when space is limited. Omitted when
+   * `showToolbar` is false.
+   */
+  toolbarActions?: React.ReactNode;
+
+  /**
    * Search box in the mobile toolbar. Defaults to `true`, and to `false` for a
    * grid whose search box is mounted outside it or which renders a tree.
    */
@@ -2149,17 +2156,6 @@ export type TypeDataGridProps = TypeTreeGridProps &
      * is omitted, the existing cards-only mobile behavior is preserved.
      */
     mobileTransform?: TypeMobileTransformProps;
-
-  /**
-   * Consumer controls for the mobile toolbar's own row, rendered between the
-   * search field and the settings button. A grid whose export or other actions
-   * live in a toolbar above it would otherwise leave them stranded on a row of
-   * their own at these widths.
-   *
-   * The row wraps when the search field reaches its minimum, so the controls
-   * stay reachable rather than squeezing it away.
-   */
-  mobileToolbarActions?: React.ReactNode;
 
     i18n?: TypeI18n;
 

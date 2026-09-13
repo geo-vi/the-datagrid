@@ -775,6 +775,16 @@
   --tdg-theme-color-ring: oklch(0.656 0.241 354.308);
 }
 
+/* Preserve the foreground paired with the built-in colored palettes. Neutral
+   and custom dark themes keep their own foreground instead of inheriting an
+   override based only on a "-dark" suffix. */
+.tdg-root[data-theme="amber-dark"],
+.tdg-root[data-theme="blue-dark"],
+.tdg-root[data-theme="green-dark"],
+.tdg-root[data-theme="pink-dark"] {
+  --tdg-theme-color-primary-foreground: oklch(0.985 0 0);
+}
+
 .tdg-root
   [data-slot="scroll-area-scrollbar"]:hover
   [data-slot="scroll-area-thumb"] {
@@ -981,18 +991,22 @@
    pad on a list, margins around a heading. The mobile card's field list is
    `dl`/`dt`/`dd`, so the 40px `dd` indent lands on every expanded row.
 
-   In the utilities layer on purpose. The rest of this file is unlayered, and an
-   unlayered declaration beats a layered one whatever the specificity, so a
-   reset out here would win against every `bg-*`, `border-*` and `m-*` an
-   element opts into — `hover:bg-accent` on the tree toggle among them. Sharing
-   the layer puts these back under ordinary specificity, where they clear the UA
-   default and lose to anything deliberate. */
-/* A layer of our own, never one a host might also use. Naming it `utilities`
-   put it in the same layer a Tailwind host already owns, which reordered that
-   host's cascade: a page's own `font-medium` button lost, on markup nowhere
-   near the grid. The layer is still needed, since unlayered this block beats
-   every layered utility and takes the tree toggle's hover with it. */
-@layer tdg-preflight {
+   The public CSS entries establish Tailwind's standard layer order. A private
+   top-level layer would come after an already-loaded host's utilities and
+   erase their backgrounds, borders and spacing. The base layer keeps the
+   reset below utilities in either load order, scoped to grid-owned content. */
+@layer base {
+  /* Utility widths include their padding and borders even without a host
+     preflight. Otherwise the search input can cover neighboring controls. */
+  .tdg-root,
+  .tdg-root *,
+  .tdg-root::before,
+  .tdg-root::after,
+  .tdg-root ::before,
+  .tdg-root ::after {
+    box-sizing: border-box;
+  }
+
   .tdg-root button {
     appearance: none;
     background: none;

@@ -1,3 +1,6 @@
+/* This entry can load before the grid or the host's Tailwind stylesheet. */
+@layer theme, base, components, utilities;
+
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 

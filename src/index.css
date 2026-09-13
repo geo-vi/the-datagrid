@@ -1,8 +1,6 @@
-/* First mention fixes a layer's position, and the reset in runtime.css has to
-   sit below every utility or it strips the checkbox's border and the tree
-   toggle's hover. runtime.css is imported at the bottom of this file, long
-   after `utilities`, so the order has to be claimed here instead. */
-@layer tdg-preflight;
+/* Use Tailwind's standard order whether the host or the grid loads first.
+   The scoped reset in runtime.css belongs below component and utility styles. */
+@layer theme, base, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tw-animate-css";

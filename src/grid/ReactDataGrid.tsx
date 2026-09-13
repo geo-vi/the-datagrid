@@ -3713,7 +3713,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 onSearchColumnIdsChange={setSearchColumnIds}
                 resultCountEnabled={mobileTransformConfig.showResultCount}
                 stickyOffset={mobileTransformConfig.stickyOffset}
-                mobileToolbarActions={props.mobileToolbarActions}
+                mobileToolbarActions={mobileTransformConfig.toolbarActions}
                 authoritativeResultCount={
                   tree.enabled
                     ? countTreeRecords(

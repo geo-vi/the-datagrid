@@ -993,7 +993,7 @@ export function MobileGridList({
       if (cell === primaryCell) return activeVariant === "list";
       return true;
     });
-    return { actionCells, checkboxCell, detailCells, primaryCell };
+    return { actionCells, checkboxCell, contentCells, detailCells, primaryCell };
   };
 
   const toggleExpandedRow = React.useCallback((rowId: string) => {
@@ -1092,7 +1092,7 @@ export function MobileGridList({
     const rowIsDisabled = isRowDisabled(rowIndex);
     const rowIsSelected = Boolean(selectedMap[row.id]);
     const rowIsActive = rowIndex === activeIndex;
-    const { actionCells, checkboxCell, detailCells, primaryCell } =
+    const { actionCells, checkboxCell, contentCells, detailCells, primaryCell } =
       splitRowCells(row);
     const visibleDetailCells = detailCells.slice(0, cardFieldLimit);
     const overflowDetailCells = detailCells.slice(cardFieldLimit);
@@ -1100,14 +1100,14 @@ export function MobileGridList({
       listFieldIds
         ? listFieldIds
             .map((columnId) =>
-              detailCells.find((cell) => cell.column.id === columnId)
+              contentCells.find((cell) => cell.column.id === columnId)
             )
             .filter((cell): cell is GridCell => cell != null)
         : // The summary sits directly under the headline, so the headline in it
           // is the same value twice on one row. The open panel still carries it,
           // where it is the only place the value gets a name. Naming it in
           // `listFieldIds` is still honoured, since that is a deliberate ask.
-          detailCells.filter((cell) => cell !== primaryCell)
+          contentCells.filter((cell) => cell !== primaryCell)
     ).slice(0, listFieldLimit);
 
     const stateClassName = cn(
