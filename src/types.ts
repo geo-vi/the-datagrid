@@ -700,6 +700,23 @@ export interface IColumn {
    * and everything else becomes a detail.
    */
   mobileRole?: TypeMobileColumnRole;
+
+  /**
+   * Whether this column appears among an open row's labelled detail fields.
+   *
+   * `"auto"` (default) shows every content column, and includes the one
+   * carrying the row's headline only in the list variant. A list row's
+   * headline has no label, so without it the row's own subject is the single
+   * value an open row cannot name; a card labels its headline in the header
+   * already, so repeating it there says nothing.
+   *
+   * `"always"` keeps the column in both variants, `"never"` drops it from the
+   * panel entirely while leaving it free to be the headline or to ride the
+   * summary line.
+   *
+   * Independent of `listFieldIds`, which chooses the summary line only.
+   */
+  mobileDetail?: TypeMobileColumnDetail;
   /**
    * Keeps the column visible at a horizontal edge.
    *
@@ -1565,6 +1582,9 @@ export type TypeShowCellBorders = true | false | "vertical" | "horizontal";
 /** Where a column lands in the mobile layout. */
 export type TypeMobileColumnRole = "primary" | "detail" | "action" | "hidden";
 
+/** Whether a column appears among an open row's detail fields. */
+export type TypeMobileColumnDetail = "auto" | "always" | "never";
+
 /** Presentation the mobile layout uses for each row. */
 export type TypeMobileTransformVariant = "cards" | "list";
 
@@ -1572,7 +1592,10 @@ export type TypeMobileTransformVariant = "cards" | "list";
 export type TypeMobileListRows = "divided" | "boxed";
 
 /** Where the mobile list variant puts a row's action cells. */
-export type TypeMobileListActions = "inline" | "bottom";
+export type TypeMobileListActions = "inline" | "bottom" | "title";
+
+/** What a list row's summary line does once the row is open. */
+export type TypeMobileListSummaryWhenOpen = "keep" | "hide";
 
 /** What the mobile toolbar's settings button opens. */
 export type TypeMobileSettingsSurface = "drawer" | "panel";
@@ -1654,6 +1677,12 @@ export type TypeMobileTransformProps = {
    * onto their own line underneath, which gives the fields the row's full width
    * and is the only thing that fits once a row carries more than one control.
    *
+   * `"title"` puts them on the headline's line and drops the summary onto its
+   * own line beneath, so the fields get the row's full width without the extra
+   * line `"bottom"` costs. It suits a short headline, an id or a number, beside
+   * which the controls have room; a headline that fills its line is what
+   * `"bottom"` is for.
+   *
    * The card variant always footers its actions, so this does not apply there.
    */
   listActions?: TypeMobileListActions;
@@ -1680,6 +1709,18 @@ export type TypeMobileTransformProps = {
    * which on a phone is what `listExpand` is for instead.
    */
   listFieldLimit?: number | "all";
+
+  /**
+   * What the summary line does once the row is open. `"keep"` (default) leaves
+   * it in place; `"hide"` drops it, since the open panel already carries those
+   * fields and labels them.
+   *
+   * `"hide"` reads best where the summary and the panel repeat each other
+   * outright. Keep it where the summary is formatted differently from the
+   * panel, an inline row of status icons against a labelled list, and so still
+   * says something the panel does not.
+   */
+  listSummaryWhenOpen?: TypeMobileListSummaryWhenOpen;
 
   /**
    * Lets a list row open a panel of every field it has, laid out with the
@@ -1763,6 +1804,13 @@ export type TypeMobileTransformProps = {
    * `true`.
    */
   showToolbar?: boolean;
+
+  /**
+   * Consumer controls rendered between the mobile search field and settings.
+   * The toolbar wraps its controls when space is limited. Omitted when
+   * `showToolbar` is false.
+   */
+  toolbarActions?: React.ReactNode;
 
   /**
    * Search box in the mobile toolbar. Defaults to `true`, and to `false` for a

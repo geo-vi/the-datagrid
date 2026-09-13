@@ -26,6 +26,7 @@ import type {
   TypeMobileListExpand,
   TypeMobileSettingsSurface,
   TypeMobileListRows,
+  TypeMobileListSummaryWhenOpen,
   TypeMobileTransformOverflow,
   TypeMobileTransformScroll,
   TypeMobileTransformVariant,
@@ -130,6 +131,8 @@ type MobileGridListProps = {
   onSearchColumnIdsChange?: (columnIds: string[]) => void;
   /** Rest position of the sticky toolbar, as a CSS length. */
   stickyOffset?: string;
+  /** Consumer controls for the toolbar row, between search and settings. */
+  mobileToolbarActions?: React.ReactNode;
   authoritativeResultCount?: number;
   onSortInfoChange: (sortInfo: TypeSortInfo) => void;
   onFilteredRowsCountChange?: (count: number) => void;
@@ -150,6 +153,7 @@ type MobileGridListProps = {
   /** Column ids under a list row's main label, in this order. */
   listFieldIds?: string[];
   listFieldLimit: number;
+  listSummaryWhenOpen: TypeMobileListSummaryWhenOpen;
   listExpand: TypeMobileListExpand;
   showRowExpandToggle: boolean;
   cardFields: TypeMobileCardFields;
@@ -199,6 +203,7 @@ const ID_COLUMN = /(^|[-_\s])(id|uuid|key|code|number|no)($|[-_\s])/i;
  */
 /* Smaller steps than the desktop's 22px a level, or a label has no room. */
 const MOBILE_TREE_TOGGLE_SIZE = "2.25rem";
+const MOBILE_CHECKBOX_SIZE = "var(--tdg-mobile-row-checkbox-size, 1rem)";
 const MOBILE_TREE_TOGGLE = {
   nestingSize: "var(--tdg-mobile-tree-indent, 1rem)",
   buttonClassName: "size-9",
@@ -305,6 +310,7 @@ export function MobileGridList({
   searchHandledUpstream = false,
   onSearchColumnIdsChange,
   stickyOffset,
+  mobileToolbarActions,
   authoritativeResultCount,
   onSortInfoChange,
   onFilteredRowsCountChange,
@@ -322,6 +328,7 @@ export function MobileGridList({
   listActionsSide,
   listFieldIds,
   listFieldLimit,
+  listSummaryWhenOpen,
   listExpand,
   showRowExpandToggle,
   cardFields,
@@ -388,6 +395,7 @@ export function MobileGridList({
         } as React.CSSProperties)
       : undefined;
   const bottomListActions = listActions === "bottom";
+  const titleListActions = listActions === "title";
   const leadingListActions = listActionsSide === "start";
   const rowsExpandable = listExpand !== "none";
   const cardFieldColumnsClass =
@@ -453,28 +461,19 @@ export function MobileGridList({
     [checkboxColumnId, searchColumns]
   );
   const activeSearchColumns = React.useMemo(() => {
-    if (!searchColumnIds) return searchColumns;
+    if (!searchColumnIds) return searchableColumns;
     const wanted = new Set(searchColumnIds);
     const kept = searchableColumns.filter((column) =>
       wanted.has(getColumnId(column))
     );
     // An empty scope would search nothing at all, which no consumer means by
     // handing over an empty array.
-    return kept.length ? kept : searchColumns;
-  }, [searchColumnIds, searchColumns, searchableColumns]);
-  // Only the searchable columns count: with no scope set the active list is
-  // every column handed to the search, which would report more searched than
-  // the picker can offer.
-  const searchedColumnIds = React.useMemo(() => {
-    const active = new Set(
-      activeSearchColumns.map((column) => getColumnId(column))
-    );
-    return new Set(
-      searchableColumns
-        .map((column) => getColumnId(column))
-        .filter((columnId) => active.has(columnId))
-    );
-  }, [activeSearchColumns, searchableColumns]);
+    return kept.length ? kept : searchableColumns;
+  }, [searchColumnIds, searchableColumns]);
+  const searchedColumnIds = React.useMemo(
+    () => new Set(activeSearchColumns.map((column) => getColumnId(column))),
+    [activeSearchColumns]
+  );
   const setSearchColumnSearched = React.useCallback(
     (columnId: string, searched: boolean) => {
       const next = new Set(searchedColumnIds);
@@ -717,6 +716,14 @@ export function MobileGridList({
     "Searched columns"
   );
   const mobileRowViewValue = t(i18n, "mobileRowView", "Row view");
+  /* The search bar takes its own labels as props and defaults them to English,
+     so without these it stays English whatever `i18n` says. */
+  const mobileSearchLabel = label("mobileSearch", "Search all fields");
+  const mobileSearchPlaceholder = label(
+    "mobileSearchPlaceholder",
+    mobileSearchLabel
+  );
+  const mobileSearchClearLabel = label("mobileSearchClear", "Clear search");
   const collapseRowLabel = label("mobileCollapseRow", "Hide details");
   const mobileSortLabel =
     typeof mobileSortValue === "string" ? mobileSortValue : "Sort";
@@ -849,17 +856,29 @@ export function MobileGridList({
     visibleRows,
   ]);
 
+  /*
+   * Measured heights are cached against this key. Without it the cache is keyed
+   * by index, so collapsing a branch shifts every row after it onto a
+   * neighbour's measurement and an open row's height is left behind as a gap.
+   */
+  const getItemKey = React.useCallback(
+    (index: number) => visibleRows[index]?.id ?? index,
+    [visibleRows]
+  );
+
   const containerVirtualizer = useVirtualizer({
     count: visibleRows.length,
     enabled: !pageScroll,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => estimatedRowHeight,
+    getItemKey,
     overscan: 5,
   });
   const windowVirtualizer = useWindowVirtualizer({
     count: visibleRows.length,
     enabled: pageScroll,
     estimateSize: () => estimatedRowHeight,
+    getItemKey,
     overscan: 5,
     scrollMargin,
   });
@@ -871,8 +890,16 @@ export function MobileGridList({
     containerVirtualizer.scrollToOffset(0);
   }, [containerVirtualizer, deferredQuery, pageScroll]);
 
-  // Deferred to after the rows swap in: measured against the outgoing page, the
-  // smooth scroll aims at the wrong offset and is then cut short.
+  /*
+   * Deferred to after the rows swap in: measured against the outgoing page, the
+   * scroll aims at the wrong offset.
+   *
+   * Instant, not smooth. The new page's rows measure while an animation would
+   * still be running, and the resulting layout change aborts it: from 1642px
+   * the scroll reliably died at 1533px, one row short of a journey to 193px,
+   * while the same smooth scroll with no page change underneath it completed
+   * every time. A page change is a jump anyway.
+   */
   const pendingPageScrollRef = React.useRef(false);
   React.useEffect(() => {
     if (!pendingPageScrollRef.current) return;
@@ -891,7 +918,7 @@ export function MobileGridList({
         0,
         anchor.getBoundingClientRect().top + window.scrollY - clearance
       ),
-      behavior: "smooth",
+      behavior: "instant" as ScrollBehavior,
     });
   }, [containerVirtualizer, pageScroll, pagerPageIndex]);
 
@@ -955,8 +982,18 @@ export function MobileGridList({
       ) ??
       contentCells.find((cell) => roleOf(cell) !== "detail") ??
       contentCells[0];
-    const detailCells = contentCells.filter((cell) => cell !== primaryCell);
-    return { actionCells, checkboxCell, detailCells, primaryCell };
+    const detailCells = contentCells.filter((cell) => {
+      const mode = columnMap.get(cell.column.id)?.mobileDetail;
+      if (mode === "never") return false;
+      if (mode === "always") return true;
+      // A list row's headline carries no label, so leaving it out of the panel
+      // makes the row's own subject the one value an open row cannot name. A
+      // card labels its headline in the header, where repeating it says
+      // nothing.
+      if (cell === primaryCell) return activeVariant === "list";
+      return true;
+    });
+    return { actionCells, checkboxCell, contentCells, detailCells, primaryCell };
   };
 
   const toggleExpandedRow = React.useCallback((rowId: string) => {
@@ -966,6 +1003,23 @@ export function MobileGridList({
       return next;
     });
   }, []);
+
+  /*
+   * Collapsing a branch takes its descendants off the list, and an open one
+   * would come back open when the branch reopens. The tree already forgets a
+   * descendant's own expansion (`collapseChildrenRecursive`), so the panel
+   * follows it. Scoped to a tree: a flat list has nothing that can take a row
+   * away and give it back.
+   */
+  React.useEffect(() => {
+    if (!tree.enabled) return;
+    setExpandedRowIds((current) => {
+      if (current.size === 0) return current;
+      const onList = new Set(visibleRows.map((row) => row.id));
+      const next = new Set([...current].filter((id) => onList.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [tree.enabled, visibleRows]);
 
   const cellLabel = (cell: GridCell) =>
     labelForColumn(
@@ -1038,7 +1092,7 @@ export function MobileGridList({
     const rowIsDisabled = isRowDisabled(rowIndex);
     const rowIsSelected = Boolean(selectedMap[row.id]);
     const rowIsActive = rowIndex === activeIndex;
-    const { actionCells, checkboxCell, detailCells, primaryCell } =
+    const { actionCells, checkboxCell, contentCells, detailCells, primaryCell } =
       splitRowCells(row);
     const visibleDetailCells = detailCells.slice(0, cardFieldLimit);
     const overflowDetailCells = detailCells.slice(cardFieldLimit);
@@ -1046,14 +1100,17 @@ export function MobileGridList({
       listFieldIds
         ? listFieldIds
             .map((columnId) =>
-              detailCells.find((cell) => cell.column.id === columnId)
+              contentCells.find((cell) => cell.column.id === columnId)
             )
             .filter((cell): cell is GridCell => cell != null)
-        : detailCells
+        : // The summary sits directly under the headline, so the headline in it
+          // is the same value twice on one row. The open panel still carries it,
+          // where it is the only place the value gets a name. Naming it in
+          // `listFieldIds` is still honoured, since that is a deliberate ask.
+          contentCells.filter((cell) => cell !== primaryCell)
     ).slice(0, listFieldLimit);
 
     const stateClassName = cn(
-      rowIsSelected && "ring-2 ring-ring",
       rowIsActive && "tdg-row--active InovuaReactDataGrid__row--active",
       rowIsActive &&
         gridFocused &&
@@ -1136,21 +1193,25 @@ export function MobileGridList({
       : undefined;
     // A card's body sits outside its header, so it clears the header's controls
     // by hand. The card's toggle is its only way in, so it always shows.
+    const cardGap = "var(--tdg-mobile-card-gap, 0.75rem)";
     const cardIndentParts: string[] = [];
     if (treeDepth != null) {
       cardIndentParts.push(
         `var(--tdg-mobile-tree-indent, 1rem) * ${treeDepth}`,
-        MOBILE_TREE_TOGGLE_SIZE
+        `${MOBILE_TREE_TOGGLE_SIZE} + ${cardGap}`
       );
     }
     if (
       masterDetail.showColumn &&
       masterDetail.isExpandable(row.original, rowIndex)
     ) {
-      cardIndentParts.push("1.75rem");
+      cardIndentParts.push(`1.75rem + ${cardGap}`);
+    }
+    if (checkboxCell) {
+      cardIndentParts.push(`${MOBILE_CHECKBOX_SIZE} + ${cardGap}`);
     }
     const cardBodyIndent = cardIndentParts.length
-      ? `calc(${cardIndentParts.join(" + ")} + var(--tdg-mobile-card-gap, 0.75rem))`
+      ? `calc(${cardIndentParts.join(" + ")})`
       : undefined;
     const hierarchyControls = (
       <>
@@ -1201,16 +1262,20 @@ export function MobileGridList({
         : () => toggleExpandedRow(row.id);
 
       // Clears the row's leading controls so the panel lines up with the title.
+      const rowGap = "var(--tdg-mobile-row-gap, 0.75rem)";
       const openIndentParts: string[] = [];
       if (treeDepth != null) {
         openIndentParts.push(
           `var(--tdg-mobile-tree-indent, 1rem) * ${treeDepth}`,
-          MOBILE_TREE_TOGGLE_SIZE
+          `${MOBILE_TREE_TOGGLE_SIZE} + ${rowGap}`
         );
       }
-      if (briefToggleShown) openIndentParts.push("1.75rem");
+      if (briefToggleShown) openIndentParts.push(`1.75rem + ${rowGap}`);
+      if (checkboxCell) {
+        openIndentParts.push(`${MOBILE_CHECKBOX_SIZE} + ${rowGap}`);
+      }
       const openRegionIndent = openIndentParts.length
-        ? `calc(${openIndentParts.join(" + ")} + var(--tdg-mobile-row-gap, 0.75rem))`
+        ? `calc(${openIndentParts.join(" + ")})`
         : undefined;
 
       const opensOnTap = expandable && listExpand === "click" && !rowIsDisabled;
@@ -1291,12 +1356,18 @@ export function MobileGridList({
                 )}
               </div>
             ) : null}
-            <div className="min-w-0 flex-1">
+            {/* Stood down under `title`, so the headline and the summary become
+                flex items of the row itself and the actions can sit between
+                them. */}
+            <div className={titleListActions ? "contents" : "min-w-0 flex-1"}>
               {primaryCell ? (
                 rowTitleOpens ? (
                   <button
                     type="button"
-                    className="tdg-mobile-cell block w-full min-w-0 truncate rounded-sm text-left text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className={cn(
+                      "tdg-mobile-cell block w-full min-w-0 truncate rounded-sm text-left text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      titleListActions && "flex-1"
+                    )}
                     data-slot="mobile-cell"
                     data-cell-role="primary"
                     aria-expanded={rowExpanded}
@@ -1307,7 +1378,10 @@ export function MobileGridList({
                   </button>
                 ) : (
                   <div
-                    className="tdg-mobile-cell min-w-0 truncate text-sm font-semibold text-foreground"
+                    className={cn(
+                      "tdg-mobile-cell min-w-0 truncate text-sm font-semibold text-foreground",
+                      titleListActions && "flex-1"
+                    )}
                     data-slot="mobile-cell"
                     data-cell-role="primary"
                   >
@@ -1315,8 +1389,25 @@ export function MobileGridList({
                   </div>
                 )
               ) : null}
-              {listDetailCells.length ? (
-                <div className="tdg-mobile-row-summary flex min-w-0 flex-wrap items-center text-xs text-muted-foreground">
+              {listDetailCells.length &&
+              !(rowExpanded && listSummaryWhenOpen === "hide") ? (
+                <div
+                  className={cn(
+                    "tdg-mobile-row-summary flex min-w-0 flex-wrap items-center text-xs text-muted-foreground",
+                    // Past the controls and the full width of the row, so they
+                    // stay up on the headline's line and this wraps under them.
+                    // Ordered rather than last: the open fields panel is a row
+                    // item too, and has to stay below this.
+                    titleListActions && "order-1 w-full"
+                  )}
+                  // Spanning the row, it would otherwise start under the
+                  // checkbox rather than under the title it belongs to.
+                  style={
+                    titleListActions && openRegionIndent
+                      ? { paddingInlineStart: openRegionIndent }
+                      : undefined
+                  }
+                >
                   {listDetailCells.map((cell) => (
                     <span
                       key={cell.id}
@@ -1350,6 +1441,9 @@ export function MobileGridList({
                 className="tdg-mobile-row-expand h-8 w-8 shrink-0 text-muted-foreground"
                 aria-expanded={rowExpanded}
                 aria-controls={fieldsPanelId}
+                /* A disabled row's `aria-disabled` is handed down the
+                   accessibility tree. Reading a row is not acting on it. */
+                aria-disabled={false}
                 aria-label={rowExpanded ? collapseRowLabel : expandRowLabel}
                 title={rowExpanded ? collapseRowLabel : expandRowLabel}
                 onClick={(event) => {
@@ -1377,6 +1471,13 @@ export function MobileGridList({
                     )
                   : cn("shrink-0", leadingListActions && "order-first")
               )}
+              // On its own row it starts at the row's edge, under the checkbox
+              // and the toggles rather than under the title it belongs to.
+              style={
+                bottomListActions && openRegionIndent
+                  ? { paddingInlineStart: openRegionIndent }
+                  : undefined
+              }
             >
               {actionCells.map((cell) => (
                 <div
@@ -1397,7 +1498,10 @@ export function MobileGridList({
               /* Fade and a nudge rather than a height transition: the rows are
                  virtualized, and animating the height makes the virtualizer
                  re-measure every frame and shove the rows below around. */
-              className="tdg-mobile-row-fields mt-1 w-full basis-full animate-in duration-150 fade-in-0 slide-in-from-top-1"
+              className={cn(
+                "tdg-mobile-row-fields mt-1 w-full basis-full animate-in duration-150 fade-in-0 slide-in-from-top-1",
+                titleListActions && "order-2"
+              )}
               onClick={(event) => event.stopPropagation()}
             >
               {detailCells.length ? (
@@ -2141,16 +2245,23 @@ export function MobileGridList({
       )}
       data-slot="mobile-toolbar"
     >
-      <div className="flex items-center gap-2">
+      {/* Wraps rather than squeezing the search field to nothing. The search
+          keeps a minimum, and the controls beside it drop to their own line
+          once that minimum plus their own widths no longer fit. */}
+      <div className="flex flex-wrap items-center gap-2">
         {searchEnabled ? (
           <DataGridSearchBar
             value={query}
             columns={activeSearchColumns}
             onValueChange={setMobileSearchValue}
+            ariaLabel={mobileSearchLabel}
+            placeholder={mobileSearchPlaceholder}
+            clearLabel={mobileSearchClearLabel}
           />
         ) : (
           <div className="min-w-0 flex-1" aria-hidden="true" />
         )}
+        {mobileToolbarActions}
         {settingsControl}
         {showVariantToggle && !settingsShown ? (
           <Button

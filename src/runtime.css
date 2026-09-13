@@ -17,7 +17,7 @@
   font-family: var(--tdg-font-family, inherit);
   font-size: 0.875rem !important;
   line-height: 1.5 !important;
-  color: var(--foreground, oklch(0.145 0 0)) !important;
+  color: var(--tdg-color-foreground, var(--foreground, oklch(0.145 0 0))) !important;
 }
 
 .tdg-dialog-overlay {
@@ -42,10 +42,10 @@
   max-height: calc(100vh - 2rem) !important;
   margin: 0 !important;
   padding: 1.5rem !important;
-  border: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  border: 1px solid var(--tdg-color-border, var(--border, oklch(0.922 0 0))) !important;
   border-radius: var(--radius, 0.625rem) !important;
-  background: var(--background, oklch(1 0 0)) !important;
-  color: var(--foreground, oklch(0.145 0 0)) !important;
+  background: var(--tdg-color-background, var(--background, oklch(1 0 0))) !important;
+  color: var(--tdg-color-foreground, var(--foreground, oklch(0.145 0 0))) !important;
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
@@ -53,9 +53,9 @@
 }
 
 .dark .tdg-dialog-content {
-  border-color: var(--border, oklch(1 0 0 / 10%)) !important;
-  background: var(--background, oklch(0.145 0 0)) !important;
-  color: var(--foreground, oklch(0.985 0 0)) !important;
+  border-color: var(--tdg-color-border, var(--border, oklch(1 0 0 / 10%))) !important;
+  background: var(--tdg-color-background, var(--background, oklch(0.145 0 0))) !important;
+  color: var(--tdg-color-foreground, var(--foreground, oklch(0.985 0 0))) !important;
 }
 
 /* The dialog shell is armoured to centre itself, so the settings panel has to
@@ -262,19 +262,19 @@
   display: block !important;
   min-width: 0 !important;
   margin: 0 !important;
-  border: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  border: 1px solid var(--tdg-color-border, var(--border, oklch(0.922 0 0))) !important;
   border-radius: var(--radius, 0.625rem) !important;
-  background: var(--popover, oklch(1 0 0)) !important;
-  color: var(--popover-foreground, oklch(0.145 0 0)) !important;
+  background: var(--tdg-color-popover, var(--popover, oklch(1 0 0))) !important;
+  color: var(--tdg-color-popover-foreground, var(--popover-foreground, oklch(0.145 0 0))) !important;
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
 }
 
 .dark .tdg-popover-content {
-  border-color: var(--border, oklch(1 0 0 / 10%)) !important;
-  background: var(--popover, oklch(0.205 0 0)) !important;
-  color: var(--popover-foreground, oklch(0.985 0 0)) !important;
+  border-color: var(--tdg-color-border, var(--border, oklch(1 0 0 / 10%))) !important;
+  background: var(--tdg-color-popover, var(--popover, oklch(0.205 0 0))) !important;
+  color: var(--tdg-color-popover-foreground, var(--popover-foreground, oklch(0.985 0 0))) !important;
 }
 
 .tdg-command,
@@ -298,12 +298,12 @@
   align-items: center !important;
   gap: 0 !important;
   margin: 0 !important;
-  border-bottom: 1px solid var(--border, oklch(0.922 0 0)) !important;
+  border-bottom: 1px solid var(--tdg-color-border, var(--border, oklch(0.922 0 0))) !important;
   padding: 0 0.75rem !important;
 }
 
 .dark .tdg-command-input-wrapper {
-  border-bottom-color: var(--border, oklch(1 0 0 / 10%)) !important;
+  border-bottom-color: var(--tdg-color-border, var(--border, oklch(1 0 0 / 10%))) !important;
 }
 
 .tdg-command-input {
@@ -336,11 +336,11 @@
 
 .tdg-command-separator {
   margin: 0 -0.25rem !important;
-  background: var(--border, oklch(0.922 0 0)) !important;
+  background: var(--tdg-color-border, var(--border, oklch(0.922 0 0))) !important;
 }
 
 .dark .tdg-command-separator {
-  background: var(--border, oklch(1 0 0 / 10%)) !important;
+  background: var(--tdg-color-border, var(--border, oklch(1 0 0 / 10%))) !important;
 }
 
 .tdg-command-item {
@@ -378,18 +378,18 @@
   flex: 0 0 auto !important;
   margin: 0 !important;
   padding: 0 !important;
-  border: 1px solid var(--input, oklch(0.922 0 0)) !important;
+  border: 1px solid var(--tdg-color-input, var(--input, oklch(0.922 0 0))) !important;
   border-radius: 9999px !important;
-  background: var(--background, oklch(1 0 0)) !important;
-  color: var(--primary, oklch(0.205 0 0)) !important;
+  background: var(--tdg-color-background, var(--background, oklch(1 0 0))) !important;
+  color: var(--tdg-color-primary, var(--primary, oklch(0.205 0 0))) !important;
   line-height: 1 !important;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
 }
 
 .dark .tdg-radio-item {
-  border-color: var(--input, oklch(1 0 0 / 15%)) !important;
-  background: var(--background, oklch(0.145 0 0)) !important;
-  color: var(--primary, oklch(0.922 0 0)) !important;
+  border-color: var(--tdg-color-input, var(--input, oklch(1 0 0 / 15%))) !important;
+  background: var(--tdg-color-background, var(--background, oklch(0.145 0 0))) !important;
+  color: var(--tdg-color-primary, var(--primary, oklch(0.922 0 0))) !important;
 }
 
 .tdg-radio-indicator {
@@ -775,7 +775,13 @@
   --tdg-theme-color-ring: oklch(0.656 0.241 354.308);
 }
 
-.tdg-root[data-theme$="-dark"] {
+/* Preserve the foreground paired with the built-in colored palettes. Neutral
+   and custom dark themes keep their own foreground instead of inheriting an
+   override based only on a "-dark" suffix. */
+.tdg-root[data-theme="amber-dark"],
+.tdg-root[data-theme="blue-dark"],
+.tdg-root[data-theme="green-dark"],
+.tdg-root[data-theme="pink-dark"] {
   --tdg-theme-color-primary-foreground: oklch(0.985 0 0);
 }
 
@@ -966,6 +972,83 @@
   font: inherit;
   letter-spacing: inherit;
   text-transform: none;
+}
+
+/* The search field is `flex-1 min-w-0` so it can share a table header's width,
+   but in the mobile toolbar that lets it shrink to nothing rather than pushing
+   the controls beside it onto their own line. A floor here gives the row
+   something to wrap against. Deliberately unlayered, so it beats the utility.
+   The variable is the way out for a consumer that wants a different floor. */
+.tdg-mobile-toolbar .tdg-search-bar {
+  min-width: var(--tdg-mobile-search-min-width, 11rem);
+}
+
+/* A minimal preflight, for the host that has none.
+
+   The utilities here are scoped to `.tdg-root` and no preflight ships with
+   them, so anything the grid styles through classes alone keeps the UA default
+   underneath: button chrome on a control, an indent on a `dd`, bullets and a
+   pad on a list, margins around a heading. The mobile card's field list is
+   `dl`/`dt`/`dd`, so the 40px `dd` indent lands on every expanded row.
+
+   The public CSS entries establish Tailwind's standard layer order. A private
+   top-level layer would come after an already-loaded host's utilities and
+   erase their backgrounds, borders and spacing. The base layer keeps the
+   reset below utilities in either load order, scoped to grid-owned content. */
+@layer base {
+  /* Utility widths include their padding and borders even without a host
+     preflight. Otherwise the search input can cover neighboring controls. */
+  .tdg-root,
+  .tdg-root *,
+  .tdg-root::before,
+  .tdg-root::after,
+  .tdg-root ::before,
+  .tdg-root ::after {
+    box-sizing: border-box;
+  }
+
+  .tdg-root button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: inherit;
+    /* Chrome's default is `1px 6px`, which pushes a row title 6px out of line
+       with the fields under it. */
+    margin: 0;
+    padding: 0;
+  }
+
+  .tdg-root blockquote,
+  .tdg-root dl,
+  .tdg-root dd,
+  .tdg-root dt,
+  .tdg-root figure,
+  .tdg-root h1,
+  .tdg-root h2,
+  .tdg-root h3,
+  .tdg-root h4,
+  .tdg-root h5,
+  .tdg-root h6,
+  .tdg-root hr,
+  .tdg-root pre {
+    margin: 0;
+  }
+
+  .tdg-root menu,
+  .tdg-root ol,
+  .tdg-root ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The optional toolbar's own stylesheet sets this on its controls, so an
+     export button reads as clickable while the settings button, the row
+     controls and the pager beside it do not. `:where()` keeps the specificity
+     at one class, so a `cursor-*` utility still wins. */
+  .tdg-root button:where(:not(:disabled)):where(:not([aria-disabled="true"])) {
+    cursor: pointer;
+  }
 }
 
 .tdg-root [data-slot="scroll-area-scrollbar"],
@@ -1345,6 +1428,13 @@
  * `justify-content` is deliberately absent: `textAlign` ships a `justify-*`
  * utility on this element, and an !important here would beat it.
  */
+/* The horizontal padding a body cell carries, published so a renderer that fills
+   its cell can start where every other cell's text starts instead of guessing.
+   Mirrors the `p-2` on a body cell; change both together. */
+.tdg-root {
+  --tdg-cell-padding-x: 0.5rem;
+}
+
 .tdg-root .tdg-cell-content {
   display: flex !important;
   width: 100% !important;
@@ -2651,7 +2741,13 @@
 .tdg-root .tdg-mobile-row {
   padding: var(--tdg-mobile-row-padding-y, 0.75rem)
     var(--tdg-mobile-row-padding-x, 0.75rem);
-  gap: var(--tdg-mobile-row-gap, 0.75rem);
+  column-gap: var(--tdg-mobile-row-gap, 0.75rem);
+  /* Its own knob, because the two axes stop being the same question once a row
+     wraps. Under `listActions: "title"` the controls make the headline's line
+     as tall as they are, so the summary already sits clear of the text and the
+     gap on top of that reads as too much. Falls back to the shared value, so a
+     row that sets neither is unchanged. */
+  row-gap: var(--tdg-mobile-row-gap-y, var(--tdg-mobile-row-gap, 0.75rem));
 }
 
 .tdg-root .tdg-mobile-row-line {
@@ -2664,6 +2760,20 @@
  * the fields apart on a wide row and force a break inside a value on a narrow
  * one, and neither is worth the alignment.
  */
+/* A disabled row takes `pointer-events: none` so its checkbox and its actions
+   are inert. That also takes the controls that only reveal things, and a row
+   nobody can open is a row nobody can read: the fields behind the chevron are
+   the only place most of a row's values appear on a phone. Disabled here means
+   "you cannot act on this", not "you cannot look at it". The row's own tap stays
+   off, so the chevron is the single way in and cannot be confused with acting on
+   the row. */
+.tdg-root .tdg-mobile-row[data-disabled="true"] .tdg-mobile-row-expand,
+.tdg-root .tdg-mobile-row[data-disabled="true"] [data-slot="tree-toggle"],
+.tdg-root .tdg-mobile-card[data-disabled="true"] .tdg-mobile-row-expand,
+.tdg-root .tdg-mobile-card[data-disabled="true"] [data-slot="tree-toggle"] {
+  pointer-events: auto;
+}
+
 .tdg-root .tdg-mobile-row-summary {
   margin-top: var(--tdg-mobile-summary-margin-top, 0.125rem);
   column-gap: var(--tdg-mobile-summary-gap-x, 0.75rem);
@@ -2833,7 +2943,11 @@
       var(--tdg-mobile-row-indent-inset, 0px),
     var(
         --tdg-mobile-row-expanded-bg,
-        color-mix(in oklab, var(--muted, oklch(0.97 0 0)) 50%, transparent)
+        color-mix(
+          in oklab,
+          var(--tdg-color-muted, var(--muted, oklch(0.97 0 0))) 50%,
+          transparent
+        )
       )
       var(--tdg-mobile-row-indent-inset, 0px) 100%
   ) !important;
@@ -2846,10 +2960,60 @@
       var(--tdg-mobile-row-indent-inset, 0px),
     var(
         --tdg-mobile-row-expanded-bg,
-        color-mix(in oklab, var(--muted, oklch(0.97 0 0)) 50%, transparent)
+        color-mix(
+          in oklab,
+          var(--tdg-color-muted, var(--muted, oklch(0.97 0 0))) 50%,
+          transparent
+        )
       )
       var(--tdg-mobile-row-indent-inset, 0px) 100%
   ) !important;
+}
+
+/* An edge marker rather than a ring: the rows already carry borders, and a box
+   around one of them competes with the active row's outline.
+ *
+ * Painted as pseudo-elements, not as the row's own `box-shadow`. The row border
+ * is 0.8rem-derived, one whole device pixel at a 1.25 ratio, and the rows sit
+ * at fractional offsets. Giving one row a shadow moves it to a different raster
+ * path, so its border snaps to a full pixel while its neighbours stay blended,
+ * and the list's separators read as randomly bright. A child box cannot do that
+ * to its parent's border.
+ *
+ * Absolute, so neither becomes a flex item in the row. Logical insets carry
+ * RTL, and the leading corners follow the list's own radius. */
+.tdg-root .tdg-mobile-row,
+.tdg-root .tdg-mobile-card {
+  position: relative;
+}
+
+.tdg-root .tdg-mobile-row[data-selected="true"]::before,
+.tdg-root .tdg-mobile-card[data-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--tdg-mobile-row-selected-bar-width, 3px);
+  background: var(
+    --tdg-mobile-row-selected-bar-color,
+    var(--tdg-color-primary, var(--primary, currentColor))
+  );
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
+  pointer-events: none;
+}
+
+/* Transparent by default, so a consumer opts into the fill rather than out.
+   It overlays the row, so the colour has to carry alpha: an opaque value here
+   hides the row's own text. */
+.tdg-root .tdg-mobile-row[data-selected="true"]::after,
+.tdg-root .tdg-mobile-card[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--tdg-mobile-row-selected-bg, transparent);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 /*

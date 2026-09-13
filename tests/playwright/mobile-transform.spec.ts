@@ -629,7 +629,10 @@ test.describe("allowMobileTransform", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/examples/mobile-transform");
 
-    const grid = page.locator(".tdg-root");
+    // The settings drawer portals out of the grid and carries `tdg-root` too,
+    // so it needs the utilities scoped to that class. Naming the grid's own
+    // root keeps this looking at the grid rather than at whichever matched.
+    const grid = page.locator(".tdg-root:not(.tdg-dialog-portal)");
     await expect(grid).toHaveAttribute("data-layout", "mobile-list");
     await expect(grid).toHaveAttribute("data-active-index", "none");
 
@@ -851,4 +854,52 @@ test.describe("allowMobileTransform", () => {
     await closeMobileSettings(page);
     await expect(page.locator('article[data-row-id="AC-00001"]')).toBeVisible();
   });
+
+  /*
+   * A list row's headline has no label, so leaving it out of the open panel
+   * makes the row's own subject the one value the panel cannot name. A card
+   * labels its headline in its header, so repeating it there says nothing.
+   * The two variants must therefore differ, and the summary line, which sits
+   * directly under the headline, must never carry it in either.
+   */
+  test("an open list row names its headline, a card does not repeat its own", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/examples/mobile-transform");
+
+    const list = page.locator('[data-slot="mobile-grid-list"]');
+    await expect(list).toHaveAttribute("data-variant", "list");
+
+    const row = list.locator(".tdg-mobile-row").first();
+    const headline = (
+      await row.locator('[data-cell-role="primary"]').innerText()
+    ).trim();
+    expect(headline).not.toBe("");
+
+    const summary = await row.locator(".tdg-mobile-row-summary").innerText();
+    expect(summary).not.toContain(headline);
+
+    await row.locator(".tdg-mobile-row-expand").click();
+    const panel = row.locator(".tdg-mobile-row-fields");
+    await expect(panel).toBeVisible();
+    const listFields = await panel
+      .locator(".tdg-mobile-card-field")
+      .evaluateAll((fields) =>
+        fields.map((field) => ({
+          label: field.querySelector("dt")?.textContent?.trim(),
+          value: field.querySelector("dd")?.textContent?.trim(),
+        }))
+      );
+    expect(listFields).toContainEqual({ label: "Account", value: headline });
+
+    await chooseMobileVariant(page, "Card view");
+    const card = page.locator(".tdg-mobile-card").first();
+    await expect(card).toBeVisible();
+    const cardFields = await card
+      .locator(".tdg-mobile-card-field dd")
+      .allInnerTexts();
+    expect(cardFields.map((text) => text.trim())).not.toContain(headline);
+  });
+
 });

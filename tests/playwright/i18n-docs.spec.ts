@@ -65,6 +65,9 @@ const overridableI18nDefaults = {
   mobileSelectAllColumns: '"Select all"',
   mobileSettings: '"Settings"',
   mobileSortNone: '"None"',
+  mobileSearch: '"Search all fields"',
+  mobileSearchPlaceholder: '"Search all fields"',
+  mobileSearchClear: '"Clear search"',
 } as const;
 
 const stringOnlyI18nKeys = new Set([
@@ -111,6 +114,9 @@ const stringOnlyI18nKeys = new Set([
   "mobileCollapseRow",
   "mobileExpandRow",
   "mobileSettings",
+  "mobileSearch",
+  "mobileSearchPlaceholder",
+  "mobileSearchClear",
 ]);
 
 test("documents every currently overridable i18n key", async ({ page }) => {

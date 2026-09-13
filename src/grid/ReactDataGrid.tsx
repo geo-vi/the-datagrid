@@ -1180,6 +1180,30 @@ function ReactDataGrid(props: TypeDataGridProps) {
   });
   const rows: typeof sourceRows = tree.rows;
   const getRowKey = tree.getId;
+  /*
+   * Rows sharing an id open together and share one measured height, so they
+   * paint on top of each other. The tree path refuses duplicates outright; the
+   * flat path has always tolerated them, so this warns rather than throws.
+   */
+  const warnedDuplicateIds = React.useRef(new Set<string>());
+  React.useEffect(() => {
+    const seen = new Set<string>();
+    for (let index = 0; index < sourceRows.length; index += 1) {
+      const id = getRowKey(sourceRows[index] as TreeRecord, index);
+      if (!seen.has(id)) {
+        seen.add(id);
+        continue;
+      }
+      if (warnedDuplicateIds.current.has(id)) continue;
+      warnedDuplicateIds.current.add(id);
+      console.warn(
+        `the-datagrid: duplicate row id ${JSON.stringify(id)} from idProperty ` +
+          `${JSON.stringify(idProperty)}. Rows sharing an id open together and ` +
+          `share one measured height. Give each row a unique value, or derive ` +
+          `one from the fields that identify it.`
+      );
+    }
+  }, [sourceRows, getRowKey, idProperty]);
   const hierarchyRowId = React.useCallback(
     (row: unknown, index: number) => getRowKey(row as TreeRecord, index),
     [getRowKey]
@@ -3615,7 +3639,14 @@ function ReactDataGrid(props: TypeDataGridProps) {
         portalContainer={portalContainer}
       >
         <div
-          className="tdg-frame relative flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg"
+          /* `flex-auto`, not `h-full`: the root is a column flex container, and
+             under `maxHeight` its own height is `auto`, against which a
+             percentage height is indefinite and collapses to content. Content
+             here is the surface at `flex: 1 1 0%`, so it contributes nothing and
+             the whole grid deadlocks at zero once a measurement resets it, which
+             is what a hidden tab does. A basis of `auto` grows into a bounded
+             root and still reports its content height to an unbounded one. */
+          className="tdg-frame relative flex min-h-0 w-full min-w-0 max-w-full flex-auto flex-col overflow-hidden rounded-lg"
           data-slot="grid-frame"
         >
           <div
@@ -3682,6 +3713,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 onSearchColumnIdsChange={setSearchColumnIds}
                 resultCountEnabled={mobileTransformConfig.showResultCount}
                 stickyOffset={mobileTransformConfig.stickyOffset}
+                mobileToolbarActions={mobileTransformConfig.toolbarActions}
                 authoritativeResultCount={
                   tree.enabled
                     ? countTreeRecords(
@@ -3706,6 +3738,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 listActionsSide={mobileTransformConfig.listActionsSide}
                 listFieldIds={mobileTransformConfig.listFieldIds}
                 listFieldLimit={mobileTransformConfig.listFieldLimit}
+                listSummaryWhenOpen={mobileTransformConfig.listSummaryWhenOpen}
                 listExpand={mobileTransformConfig.listExpand}
                 showRowExpandToggle={mobileTransformConfig.showRowExpandToggle}
                 cardFields={mobileTransformConfig.cardFields}

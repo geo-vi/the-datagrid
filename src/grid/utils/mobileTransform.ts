@@ -6,6 +6,7 @@ import type {
   TypeMobileSettingsSurface,
   TypeMobileListExpand,
   TypeMobileListRows,
+  TypeMobileListSummaryWhenOpen,
   TypeMobileTransformOverflow,
   TypeMobileTransformProps,
   TypeMobileTransformVariant,
@@ -25,6 +26,7 @@ export type ResolvedMobileTransform = {
   listActionsSide: TypeMobileListActionsSide;
   listFieldIds?: string[];
   listFieldLimit: number;
+  listSummaryWhenOpen: TypeMobileListSummaryWhenOpen;
   listExpand: TypeMobileListExpand;
   showRowExpandToggle: boolean;
   cardFields: TypeMobileCardFields;
@@ -33,6 +35,7 @@ export type ResolvedMobileTransform = {
   cardFieldLimit: number;
   showVariantToggle: boolean;
   showToolbar: boolean;
+  toolbarActions?: TypeMobileTransformProps["toolbarActions"];
   showSearch?: boolean;
   showSort: boolean;
   showColumnPicker?: boolean;
@@ -158,6 +161,7 @@ export function resolveMobileTransform(params: {
       config.listFieldLimit,
       listFieldIds ? listFieldIds.length : MOBILE_LIST_DEFAULT_FIELD_LIMIT
     ),
+    listSummaryWhenOpen: config.listSummaryWhenOpen ?? "keep",
     // Both follow the configuration object rather than the old
     // `allowMobileTransform` path, which keeps its original behaviour.
     listExpand:
@@ -178,6 +182,7 @@ export function resolveMobileTransform(params: {
       ? false
       : (config.showVariantToggle ?? hasMobileTransformConfig),
     showToolbar: config.showToolbar ?? true,
+    toolbarActions: config.toolbarActions,
     // Left undefined where the default belongs to the grid, which is the only
     // place that knows about a search box or a toolbar mounted outside it.
     showSearch: config.showSearch,

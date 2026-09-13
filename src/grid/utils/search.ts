@@ -246,12 +246,12 @@ export function resolveSearchedColumns(
       column.mobileRole !== "action" &&
       column.mobileRole !== "hidden"
   );
-  if (!options.searchColumnIds) return [...searchColumns];
+  if (!options.searchColumnIds) return searchable;
   const wanted = new Set(options.searchColumnIds);
   const kept = searchable.filter((column) => wanted.has(getColumnId(column)));
   // An empty scope would search nothing at all, which no consumer means by
   // handing over an empty array.
-  return kept.length ? kept : [...searchColumns];
+  return kept.length ? kept : searchable;
 }
 
 /** Keeps the rows a query matches, over plain records rather than row models. */

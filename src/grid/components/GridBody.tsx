@@ -2002,27 +2002,39 @@ export function GridBody(props: GridBodyProps) {
             height: TREE_BRANCH_MORE_ROW_HEIGHT,
           }}
         >
-          <button
-            type="button"
-            data-slot="tree-branch-more-button"
-            className="inline-flex h-8 items-center rounded-sm px-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          {/* The cell spans every column, so left to itself the control rides
+              the horizontal scroll and ends up off screen, or behind a locked
+              column. Stuck to the viewport's leading edge instead, where the
+              rows it reveals are. */}
+          <div
+            className="sticky inline-flex w-fit start-0"
             /* Past the chevron slot every child reserves, so the control lines
                up with their text rather than with their toggles. */
             style={{
-              marginInlineStart: `calc(${
+              insetInlineStart: 0,
+              paddingInlineStart: `calc(${
                 branchTruncation.depth * Math.max(0, treeNestingSize ?? 22)
               }px + 1.5rem)`,
             }}
-            onClick={(event) => {
-              event.stopPropagation();
-              tree.revealBranch(branchTruncation.branchKey, treeBranchPageSize);
-            }}
           >
-            {t(i18n, "mobileShowMore", "Show more")}
-            <span className="ml-1 tabular-nums opacity-70">
-              ({branchTruncation.hidden})
-            </span>
-          </button>
+            <button
+              type="button"
+              data-slot="tree-branch-more-button"
+              className="inline-flex h-8 items-center rounded-sm px-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={(event) => {
+                event.stopPropagation();
+                tree.revealBranch(
+                  branchTruncation.branchKey,
+                  treeBranchPageSize
+                );
+              }}
+            >
+              {t(i18n, "mobileShowMore", "Show more")}
+              <span className="ml-1 tabular-nums opacity-70">
+                ({branchTruncation.hidden})
+              </span>
+            </button>
+          </div>
         </TableCell>
       </TableRow>
     ) : null;

@@ -663,6 +663,11 @@ const mobileRowTokens = [
     description: "Gap between a row's parts. 0.75rem.",
   },
   {
+    name: "--tdg-mobile-row-gap-y",
+    description:
+      "Gap between a row's wrapped lines, on its own. Worth setting under listActions: \"title\", where the controls already make the headline's line taller than its text. Defaults to --tdg-mobile-row-gap.",
+  },
+  {
     name: "--tdg-mobile-summary-gap-x",
     description: "Gap between the fields under a title. 0.75rem.",
   },
@@ -782,6 +787,19 @@ const mobileTransformFieldRows: ReferenceRow[] = [
     type: "number | all",
     defaultValue: "3",
     description: "Fields shown under a list row's title.",
+  },
+  {
+    name: "listSummaryWhenOpen",
+    type: "keep | hide",
+    defaultValue: "keep",
+    description: "Whether the summary stays visible while the row is open.",
+  },
+  {
+    name: "toolbarActions",
+    type: "ReactNode",
+    defaultValue: "undefined",
+    description:
+      "Consumer controls between mobile search and settings. Requires the mobile toolbar to be shown.",
   },
   {
     name: "listExpand",
@@ -1055,8 +1073,10 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
 
   // Where a list row puts its action cells. "bottom" moves them onto
   // their own line, which is the only thing that fits once a row
-  // carries more than one control. Default "inline".
-  listActions?: "inline" | "bottom";
+  // carries more than one control. "title" keeps actions beside the
+  // headline and gives the summary a separate full-width line.
+  // Default "inline".
+  listActions?: "inline" | "bottom" | "title";
 
   // Which end of the action line listActions: "bottom" puts the
   // controls at, mirrored in a right-to-left grid. It also moves
@@ -1071,6 +1091,9 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
   // How many of those show. Default 3, or every id in listFieldIds
   // when that is set. "all" shows the lot.
   listFieldLimit?: number | "all";
+
+  // Whether the summary stays visible while the row is open. Default "keep".
+  listSummaryWhenOpen?: "keep" | "hide";
 
   // Lets a list row open a panel of every field it has, laid out with
   // the card* options below. "click" makes the whole row a target as
@@ -1107,6 +1130,9 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
   // column picker, the result count. false leaves only the rows.
   // Default true.
   showToolbar?: boolean;
+
+  // Consumer controls between search and settings in the mobile toolbar.
+  toolbarActions?: React.ReactNode;
 
   // Gathers the cards/list choice, sort, the column picker and the
   // search scope behind one settings button beside the search box.
@@ -3956,6 +3982,13 @@ type TypeSize = { width: number; height: number };`}
         </p>
         <CodeBlock code={mobileTransformPropsDefinition} language="ts" />
         <p>
+          Use <code>mobileTransform.toolbarActions</code> for controls in the
+          mobile toolbar. On a column, <code>mobileDetail: "never"</code> hides
+          its expanded detail field while <code>listFieldIds</code> can still
+          include it in the summary. <code>mobileDetail: "always"</code> keeps
+          the headline column in the detail fields of both lists and cards.
+        </p>
+        <p>
           Which column becomes the headline, a labelled field, or a row action
           is a column concern: see <code>mobileRole</code> and{" "}
           <code>mobileRender</code>. Every mobile cell is a containing block
@@ -4350,6 +4383,21 @@ const i18nSections: ReferenceSection[] = [
         "mobileSearchColumns",
         "Searched columns",
         "Heading on the settings entry that picks which columns the search reads."
+      ),
+      stringI18nRow(
+        "mobileSearch",
+        "Search all fields",
+        "Accessible name for the mobile search field, and its placeholder unless mobileSearchPlaceholder is set."
+      ),
+      stringI18nRow(
+        "mobileSearchPlaceholder",
+        "Search all fields",
+        "Placeholder text in the mobile search field, where it should read differently from the accessible name."
+      ),
+      stringI18nRow(
+        "mobileSearchClear",
+        "Clear search",
+        "Accessible name for the button that empties the mobile search field."
       ),
       i18nRow(
         "mobileRowView",

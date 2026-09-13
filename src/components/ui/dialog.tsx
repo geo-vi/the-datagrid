@@ -82,7 +82,12 @@ const DialogContent = React.forwardRef<
       <DialogPortal container={container}>
         <div
           ref={escapes ? setEscapedRoot : undefined}
-          className={cn("tdg-dialog-portal", escapes && "tdg-tokens")}
+          /* The utilities are scoped to a grid root, so an escaped portal
+             has to be one or it keeps only the handful of unscoped overrides.
+             `.tdg-root` also isolates, which changes nothing here: this
+             element is already positioned at a z-index, so it establishes a
+             stacking context either way. */
+          className={cn("tdg-dialog-portal", escapes && "tdg-root tdg-tokens")}
           data-slot="dialog-portal"
           data-theme={
             escapes && themeBase !== "default" ? themeName : undefined

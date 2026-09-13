@@ -2,6 +2,11 @@ import "./index.css";
 
 export { default, ReactDataGrid, plugins } from "./ReactDataGrid";
 
+/* The width the mobile layout takes over at. Exported because a consumer that
+   switches its own chrome on the same width would otherwise hardcode the number
+   and drift from it silently. */
+export { MOBILE_TRANSFORM_DEFAULT_BREAKPOINT } from "./grid/utils/mobileTransform";
+
 export {
   BoolEditor,
   DateEditor,
@@ -149,7 +154,9 @@ export type {
   TypeMobileListExpand,
   TypeMobileListRows,
   TypeMobileListActions,
+  TypeMobileListSummaryWhenOpen,
   TypeMobileColumnRole,
+  TypeMobileColumnDetail,
   TypeMobileTransformOverflow,
   TypeMobileTransformScroll,
   TypeMobileTransformVariant,

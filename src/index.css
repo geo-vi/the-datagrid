@@ -1,3 +1,7 @@
+/* Use Tailwind's standard order whether the host or the grid loads first.
+   The scoped reset in runtime.css belongs below component and utility styles. */
+@layer theme, base, components, utilities;
+
 @import "tailwindcss/theme.css" layer(theme);
 @import "tw-animate-css";
 
