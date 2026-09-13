@@ -1,12 +1,19 @@
-name: Publish Preview (GitHub Packages)
+name: Publish Packages
 
 on:
   push:
     branches: ["main", "master"]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Stable version matching package.json and its v-prefixed Git tag; leave empty for a preview"
+        type: string
+        required: false
+        default: ""
 
 env:
   YARN_VERSION: 4.12.0
+  RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || '' }}
 
 concurrency:
   group: publish-preview-github-packages
@@ -30,6 +37,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Validate stable release target
+        if: env.RELEASE_VERSION != ''
+        run: |
+          node <<'NODE'
+          const version = process.env.RELEASE_VERSION;
+          if (!/^\d+\.\d+\.\d+$/.test(version) || require('./package.json').version !== version) {
+            throw new Error('The requested stable version must match package.json.');
+          }
+          NODE
+          test "$(git rev-parse "refs/tags/v${RELEASE_VERSION}^{commit}")" = "${GITHUB_SHA}"
 
       - name: Enable corepack + pin Yarn
         run: |
@@ -62,35 +80,38 @@ jobs:
       - name: Install dependencies (immutable)
         run: corepack yarn install --immutable
 
-      - name: Test (if present)
-        run: |
-          node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)" \
-            && corepack yarn test \
-            || echo "No test script; skipping."
+      - name: Unit tests
+        run: corepack yarn test:unit
 
       - name: Build (required)
         run: corepack yarn build
 
-      - name: Set preview version (unique per run)
+      - name: Select package version and publish tag
         id: version
         run: |
-          BASE_VERSION="$(node -p "require('./package.json').version")"
-          TS="$(date -u +%Y%m%dT%H%M%SZ)"
-          SHA="${GITHUB_SHA::7}"
-          VERSION="${BASE_VERSION}-preview.${TS}.${SHA}"
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          npm version --no-git-tag-version "${VERSION}"
-          echo "Preview version: ${VERSION}"
+          if [ -n "${RELEASE_VERSION}" ]; then
+            echo "version=${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
+            echo "tag=latest" >> "${GITHUB_OUTPUT}"
+          else
+            BASE_VERSION="$(node -p "require('./package.json').version")"
+            TS="$(date -u +%Y%m%dT%H%M%SZ)"
+            SHA="${GITHUB_SHA::7}"
+            VERSION="${BASE_VERSION}-preview.${TS}.${SHA}"
+            npm version --no-git-tag-version "${VERSION}"
+            echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+            echo "tag=preview" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Publish (NPM Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_TAG: ${{ steps.version.outputs.tag }}
         run: |
           npm pkg set "name=@geovi/the-datagrid"
           npm pkg set "publishConfig.registry=https://registry.npmjs.org"
           yarn config set -H npmPublishRegistry "https://registry.npmjs.org"
           yarn config set -H npmRegistryServer "https://registry.npmjs.org"
-          yarn npm publish --tag preview --access public
+          yarn npm publish --tag "${PUBLISH_TAG}" --access public
 
       - name: Patch package name for GitHub Packages (scoped)
         env:
@@ -107,6 +128,7 @@ jobs:
       - name: Publish (GitHub Packages)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_TAG: ${{ steps.version.outputs.tag }}
         run: |
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
           npm pkg set "name=@${OWNER}/the-datagrid"
@@ -115,4 +137,4 @@ jobs:
           yarn config set -H 'npmRegistries["//npm.pkg.github.com"].npmAuthToken' "${NODE_AUTH_TOKEN}"
           yarn config set -H npmPublishRegistry "https://registry.npmjs.org"
           yarn config set -H npmRegistryServer "https://registry.npmjs.org"
-          corepack yarn npm publish --tag preview
+          corepack yarn npm publish --tag "${PUBLISH_TAG}"
