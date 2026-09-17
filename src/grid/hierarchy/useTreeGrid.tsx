@@ -8,6 +8,8 @@ import type {
 } from "./treeTypes";
 import { indexTree, type TreeEntry, type TreeRecord } from "./treeData";
 import { cn } from "../../lib/utils";
+import { t } from "../../utils/helpers";
+import type { TypeI18n } from "../../types";
 
 /** Lets the mobile layout size the toggle without forking it. */
 export type TreeToggleOptions = {
@@ -42,6 +44,7 @@ export function useTreeGrid({
   revealNodes,
   revealKey,
   branchPageSize,
+  i18n,
 }: {
   props: TypeTreeGridProps;
   sourceRows: TreeRecord[];
@@ -50,6 +53,7 @@ export function useTreeGrid({
   revealNodes: ReadonlySet<TreeRecord>;
   /** Discards the folds below when it changes. Must not change on a sort. */
   revealKey?: string;
+  i18n?: TypeI18n;
   /** `Infinity` shows every child, which is the table's own default. */
   branchPageSize: number;
 }) {
@@ -280,7 +284,11 @@ export function useTreeGrid({
           <button
             type="button"
             data-slot="tree-toggle"
-            aria-label={`${nodeProps.expanded ? "Collapse" : "Expand"} node ${entry.id}`}
+            aria-label={`${String(
+              nodeProps.expanded
+                ? t(i18n, "collapseNode", "Collapse node")
+                : t(i18n, "expandNode", "Expand node")
+            )} ${entry.id}`}
             aria-expanded={nodeProps.expanded}
             className={cn(
               "inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

@@ -1177,6 +1177,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     branchPageSize: treeBranchPageSize,
     sourceRows,
     idProperty,
+    i18n,
     // A function source owns filtering, so only the search the grid ran itself
     // reveals a path to a match there.
     revealMatches:

@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useTreeGrid } from "../../src/grid/hierarchy/useTreeGrid";
 import type { TreeRecord } from "../../src/grid/hierarchy/treeData";
 import type { TypeTreeGridProps } from "../../src/grid/hierarchy/treeTypes";
+import type { TypeI18n } from "../../src/types";
 
 type Tree = ReturnType<typeof useTreeGrid>;
 type Step = (tree: Tree, rows: TreeRecord[]) => void;
@@ -28,7 +29,7 @@ const fixture = (): TreeRecord[] => [
  * the render, which is how a refused fold is told apart from an accepted one.
  */
 function underReveal(
-  args: { props: TypeTreeGridProps },
+  args: { props: TypeTreeGridProps; i18n?: TypeI18n },
   steps: Step[] = []
 ) {
   const rows = fixture();
@@ -43,6 +44,7 @@ function underReveal(
       revealNodes,
       revealKey: "query",
       branchPageSize: Number.POSITIVE_INFINITY,
+      i18n: args.i18n,
     });
     const toggles = rows.map((row, index) =>
       React.createElement(
@@ -147,6 +149,20 @@ test("folding a branch the consumer had opened leaves the controlled map alone",
     ]
   );
   assert.equal(passes, 2);
+});
+
+test("the toggle's accessible name is localizable", () => {
+  const props: TypeTreeGridProps = { treeEnabled: true };
+  const plain = underReveal({ props }).markup;
+  assert.match(plain, /aria-label="Collapse node a"/);
+  assert.match(plain, /aria-label="Expand node b"/);
+
+  const german = underReveal({
+    props,
+    i18n: { collapseNode: "Knoten schließen", expandNode: "Knoten öffnen" },
+  }).markup;
+  assert.match(german, /aria-label="Knoten schließen a"/);
+  assert.match(german, /aria-label="Knoten öffnen b"/);
 });
 
 test("a revealed toggle is offered as a working control", () => {

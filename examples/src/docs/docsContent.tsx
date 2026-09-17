@@ -4268,6 +4268,22 @@ const i18nSections: ReferenceSection[] = [
     ],
   },
   {
+    id: "tree-keys",
+    title: "Tree keys",
+    rows: [
+      stringI18nRow(
+        "expandNode",
+        "Expand node",
+        "Accessible name for a tree row's chevron while the branch is closed. The node id follows it."
+      ),
+      stringI18nRow(
+        "collapseNode",
+        "Collapse node",
+        "Accessible name for a tree row's chevron while the branch is open. The node id follows it."
+      ),
+    ],
+  },
+  {
     id: "pagination-keys",
     title: "Pagination keys",
     rows: [
