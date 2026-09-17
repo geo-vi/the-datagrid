@@ -277,6 +277,62 @@ test("controlled maps wait for accepted proposals and automatic reveal leaves th
   await expect(page.getByTestId("project-details-atlas")).toBeVisible();
 });
 
+test("a branch a search revealed can be folded back, and the fold survives a sort", async ({
+  page,
+}) => {
+  await openShowcase(page);
+  await search(page).fill("API Gateway");
+  await expect(treeRows(page)).toHaveCount(3);
+
+  await treeGrid(page)
+    .getByRole("button", { name: "Collapse node engineering", exact: true })
+    .click();
+  await expect(treeRows(page)).toHaveCount(1);
+  await expect(row(treeGrid(page), "engineering")).toBeVisible();
+  await expect(row(treeGrid(page), "engineering/platform")).toHaveCount(0);
+  await expect(page.getByTestId("tree-filtered-count")).toHaveText("3 nodes");
+
+  await treeGrid(page)
+    .locator('.tdg-header-cell[data-column-id="name"]')
+    .getByText("Team / project", { exact: true })
+    .click();
+  await expect(treeRows(page)).toHaveCount(1);
+
+  await search(page).fill("Design System");
+  await expect(treeRows(page)).toHaveCount(3);
+  await expect(row(treeGrid(page), "engineering/platform/design")).toBeVisible();
+
+  await search(page).fill("");
+  await expect(treeRows(page)).toHaveCount(3);
+  await expect(row(treeGrid(page), "operations")).toBeVisible();
+  await expect(row(treeGrid(page), "engineering/platform")).toHaveCount(0);
+});
+
+test("folding a revealed branch proposes no change to a controlled expansion map", async ({
+  page,
+}) => {
+  await openShowcase(page);
+  await page.getByLabel("Controlled expansion", { exact: true }).check();
+  await search(page).fill("API Gateway");
+  await expect(treeRows(page)).toHaveCount(3);
+
+  await treeGrid(page)
+    .getByRole("button", { name: "Collapse node engineering", exact: true })
+    .click();
+  await expect(treeRows(page)).toHaveCount(1);
+  await expect(page.getByTestId("tree-expansion-proposals")).toHaveText(
+    "0 node expansion proposals"
+  );
+
+  await treeGrid(page)
+    .getByRole("button", { name: "Expand node engineering", exact: true })
+    .click();
+  await expect(treeRows(page)).toHaveCount(3);
+  await expect(page.getByTestId("tree-expansion-proposals")).toHaveText(
+    "0 node expansion proposals"
+  );
+});
+
 test("mobile hierarchy controls remain usable without document overflow", async ({
   page,
 }) => {

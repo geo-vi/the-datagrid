@@ -40,6 +40,7 @@ export function useTreeGrid({
   idProperty,
   revealMatches,
   revealNodes,
+  revealKey,
   branchPageSize,
 }: {
   props: TypeTreeGridProps;
@@ -47,6 +48,8 @@ export function useTreeGrid({
   idProperty: string;
   revealMatches: boolean;
   revealNodes: ReadonlySet<TreeRecord>;
+  /** Discards the folds below when it changes. Must not change on a sort. */
+  revealKey?: string;
   /** `Infinity` shows every child, which is the table's own default. */
   branchPageSize: number;
 }) {
@@ -62,6 +65,14 @@ export function useTreeGrid({
   const [revealedByBranch, setRevealedByBranch] = React.useState<
     Record<string, number>
   >({});
+  // Kept out of the expansion map so a fold never reaches a consumer's
+  // controlled state, and discarded when `revealKey` changes.
+  const [suppressedReveals, setSuppressedReveals] = React.useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  React.useEffect(() => {
+    setSuppressedReveals((current) => (current.size ? new Set() : current));
+  }, [revealKey]);
   const revealBranch = React.useCallback(
     (branchKey: string, step: number) =>
       setRevealedByBranch((current) => ({
@@ -105,11 +116,12 @@ export function useTreeGrid({
   const getNodeProps = (entry: TreeEntry): TypeNodeProps => {
     const metadata: TypeNodeProps = {
       expanded:
-        Boolean(
+        !suppressedReveals.has(entry.id) &&
+        (Boolean(
           Object.prototype.hasOwnProperty.call(expanded, entry.id) &&
           expanded[entry.id]
         ) ||
-        (revealMatches && revealNodes.has(entry.data)),
+          (revealMatches && revealNodes.has(entry.data))),
       loading: false,
       depth: entry.depth,
       path: entry.path,
@@ -208,13 +220,20 @@ export function useTreeGrid({
     const event = getEvent(entry, index);
     const nodeExpanded = requested ?? !event.nodeProps.expanded;
     if (nodeExpanded === event.nodeProps.expanded) return;
-    // Matched paths are temporarily revealed without changing persisted state.
-    if (revealMatches && revealNodes.has(entry.data) && !nodeExpanded) return;
     if (
       (nodeExpanded ? props.onNodeExpand : props.onNodeCollapse)?.(event) ===
       false
     )
       return;
+    if (revealMatches && revealNodes.has(entry.data)) {
+      setSuppressedReveals((current) => {
+        const next = new Set(current);
+        if (nodeExpanded) next.delete(entry.id);
+        else next.add(entry.id);
+        return next;
+      });
+      return;
+    }
     const next = { ...expanded, [entry.id]: nodeExpanded };
     // Reopening starts from the first batch again rather than restoring
     // however far the branch had been revealed before it closed.
@@ -243,7 +262,6 @@ export function useTreeGrid({
     if (!entry) return null;
     const nodeProps = getNodeProps(entry);
     const expandable = canExpand(entry, index);
-    const forced = revealMatches && revealNodes.has(entry.data);
     const customTool = nodeProps.expanded
       ? props.renderTreeCollapseTool
       : props.renderTreeExpandTool;
@@ -264,12 +282,6 @@ export function useTreeGrid({
             data-slot="tree-toggle"
             aria-label={`${nodeProps.expanded ? "Collapse" : "Expand"} node ${entry.id}`}
             aria-expanded={nodeProps.expanded}
-            aria-disabled={forced || undefined}
-            title={
-              forced
-                ? "Matching descendants are shown while filtering"
-                : undefined
-            }
             className={cn(
               "inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               options?.buttonClassName

@@ -1165,6 +1165,13 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const treeCapsBranches =
     props.treeEnabled === true && Number.isFinite(treeBranchPageSize);
 
+  // Not the reveal set: the loader hands back a fresh one on every load, so
+  // keying on it would spring every folded branch open again on a sort.
+  const treeRevealKey = React.useMemo(
+    () => JSON.stringify([searchValue, mobileSearchQuery, localFilterValue]),
+    [searchValue, mobileSearchQuery, localFilterValue]
+  );
+
   const tree = useTreeGrid({
     props,
     branchPageSize: treeBranchPageSize,
@@ -1177,6 +1184,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         typeof dataSource !== "function") ||
       treeSearchApplied,
     revealNodes: treeRevealNodes,
+    revealKey: treeRevealKey,
   });
   const rows: typeof sourceRows = tree.rows;
   const getRowKey = tree.getId;
