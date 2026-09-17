@@ -3748,6 +3748,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 listFieldIds={mobileTransformConfig.listFieldIds}
                 listFieldLimit={mobileTransformConfig.listFieldLimit}
                 listSummaryWhenOpen={mobileTransformConfig.listSummaryWhenOpen}
+                listSummaryFlow={mobileTransformConfig.listSummaryFlow}
+                listSummaryLabels={mobileTransformConfig.listSummaryLabels}
+                listSummarySeparator={
+                  mobileTransformConfig.listSummarySeparator
+                }
+                renderListSummary={mobileTransformConfig.renderListSummary}
                 listExpand={mobileTransformConfig.listExpand}
                 showRowExpandToggle={mobileTransformConfig.showRowExpandToggle}
                 cardFields={mobileTransformConfig.cardFields}

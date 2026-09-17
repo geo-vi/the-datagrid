@@ -795,6 +795,34 @@ const mobileTransformFieldRows: ReferenceRow[] = [
     description: "Whether the summary stays visible while the row is open.",
   },
   {
+    name: "listSummaryFlow",
+    type: "wrap | column",
+    defaultValue: "wrap",
+    description:
+      "Summary fields along one wrapping line, or one field per line.",
+  },
+  {
+    name: "listSummaryLabels",
+    type: "show | hide",
+    defaultValue: "show",
+    description:
+      "Whether a summary field prints its label. Hiding it keeps it for a screen reader. column.mobileSummaryLabel overrides it per column.",
+  },
+  {
+    name: "listSummarySeparator",
+    type: "none | dot | pipe | slash",
+    defaultValue: "none",
+    description:
+      "Character after every summary field but the last. Dropped under listSummaryFlow: column.",
+  },
+  {
+    name: "renderListSummary",
+    type: "(info) => ReactNode",
+    defaultValue: "undefined",
+    description:
+      "Replaces the summary's contents. Gets the resolved fields and a renderDefault().",
+  },
+  {
     name: "toolbarActions",
     type: "ReactNode",
     defaultValue: "undefined",
@@ -1094,6 +1122,39 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
 
   // Whether the summary stays visible while the row is open. Default "keep".
   listSummaryWhenOpen?: "keep" | "hide";
+
+  // Summary fields along one wrapping line, or one per line.
+  // Default "wrap".
+  listSummaryFlow?: "wrap" | "column";
+
+  // Whether a summary field prints its label. "hide" takes it off the
+  // screen and leaves it in the accessibility tree, so a screen reader
+  // still names the value. Default "show".
+  listSummaryLabels?: "show" | "hide";
+
+  // Character between summary fields, also settable as
+  // --tdg-mobile-summary-separator. Dropped under
+  // listSummaryFlow: "column". Default "none".
+  listSummarySeparator?: "none" | "dot" | "pipe" | "slash";
+
+  // Replaces the summary's contents, keeping its box. The fields arrive
+  // resolved and rendered, and renderDefault() returns the usual ones,
+  // so adding to a summary is not rebuilding it.
+  renderListSummary?: (info: {
+    data: any;
+    rowId: string;
+    rowIndex: number;
+    expanded: boolean;
+    labelsShown: boolean;
+    fields: {
+      columnId: string;
+      column: TypeColumn;
+      label: ReactNode;
+      value: any;
+      node: ReactNode;
+    }[];
+    renderDefault: () => ReactNode;
+  }) => ReactNode;
 
   // Lets a list row open a panel of every field it has, laid out with
   // the card* options below. "click" makes the whole row a target as
@@ -3254,6 +3315,13 @@ const columnSections: ReferenceSection[] = [
         defaultValue: "falls back to render",
         description:
           "Replaces render in the mobile layout only, for a renderer built around a table cell's fixed geometry. Receives the same single CellProps argument as the object form of render. Prefer the tdg-cell-fill class when the renderer only needs its absolute fill flattened; reach for this when mobile wants different content.",
+      },
+      {
+        name: "mobileSummaryLabel",
+        type: "boolean",
+        defaultValue: "follows listSummaryLabels",
+        description:
+          "Whether this column's label sits beside its value in a list row's summary. The per-column exception to mobileTransform.listSummaryLabels, for a value that names itself. A hidden label stays in the accessibility tree, and the open field panel labels its fields regardless.",
       },
       {
         name: "mobileRole",

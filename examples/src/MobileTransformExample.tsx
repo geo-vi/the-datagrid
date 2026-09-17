@@ -15,6 +15,9 @@ import ReactDataGrid, {
   type TypeMobileCardFields,
   type TypeMobileListActions,
   type TypeMobileListActionsSide,
+  type TypeMobileListSummaryFlow,
+  type TypeMobileListSummaryLabels,
+  type TypeMobileListSummarySeparator,
   type TypeMobileSettingsSurface,
   type TypeMobileListExpand,
   type TypeMobileListRows,
@@ -100,6 +103,26 @@ const LIST_ACTION_SIDES: {
 }[] = [
   { value: "end", label: "End" },
   { value: "start", label: "Start" },
+];
+
+const SUMMARY_FLOWS: { value: TypeMobileListSummaryFlow; label: string }[] = [
+  { value: "wrap", label: "Wrap" },
+  { value: "column", label: "Column" },
+];
+
+const SUMMARY_LABELS: { value: TypeMobileListSummaryLabels; label: string }[] = [
+  { value: "show", label: "Show" },
+  { value: "hide", label: "Hide" },
+];
+
+const SUMMARY_SEPARATORS: {
+  value: TypeMobileListSummarySeparator;
+  label: string;
+}[] = [
+  { value: "none", label: "None" },
+  { value: "dot", label: "Dot" },
+  { value: "pipe", label: "Pipe" },
+  { value: "slash", label: "Slash" },
 ];
 
 const LIST_FIELD_LIMITS: (number | "all")[] = [1, 2, 3, "all"];
@@ -212,6 +235,13 @@ export default function MobileTransformExample() {
   const [listActionsSide, setListActionsSide] =
     useState<TypeMobileListActionsSide>("end");
   const [listFieldLimit, setListFieldLimit] = useState<number | "all">(3);
+  const [summaryFlow, setSummaryFlow] =
+    useState<TypeMobileListSummaryFlow>("wrap");
+  const [summaryLabels, setSummaryLabels] =
+    useState<TypeMobileListSummaryLabels>("show");
+  const [summarySeparator, setSummarySeparator] =
+    useState<TypeMobileListSummarySeparator>("none");
+  const [customSummary, setCustomSummary] = useState(false);
   const [pinnedListFields, setPinnedListFields] = useState(false);
   const [listExpand, setListExpand] = useState<TypeMobileListExpand>("click");
   const [rowExpandToggle, setRowExpandToggle] = useState(true);
@@ -257,6 +287,9 @@ export default function MobileTransformExample() {
       {
         name: "status",
         header: "Status",
+        // A coloured dot and the word beside it already say "status", so the
+        // label is repetition on the one line that has no room for it.
+        mobileSummaryLabel: false,
         render: ({ value }: CellProps) => (
           <span className="inline-flex items-center gap-1.5 text-sm">
             <span
@@ -272,6 +305,22 @@ export default function MobileTransformExample() {
         header: "Seats",
         type: "number",
         textAlign: "end",
+        // A bare number says nothing once its label is hidden, so the value
+        // carries its own unit on the surface that took the label away.
+        mobileRender: ({
+          value,
+          mobileSurface,
+          mobileLabelShown,
+        }: CellProps) => (
+          <span
+            data-mobile-surface={mobileSurface}
+            data-mobile-label-shown={mobileLabelShown ? "true" : "false"}
+          >
+            {mobileSurface === "summary" && !mobileLabelShown
+              ? `${value} ${Number(value) === 1 ? "seat" : "seats"}`
+              : value}
+          </span>
+        ),
       },
       {
         name: "revenue",
@@ -602,6 +651,93 @@ export default function MobileTransformExample() {
               </label>
             ) : null}
             {variant === "list" ? (
+              <ControlField label="Summary flow">
+                <Select
+                  value={summaryFlow}
+                  onValueChange={(value) =>
+                    setSummaryFlow(value as TypeMobileListSummaryFlow)
+                  }
+                >
+                  <SelectTrigger
+                    className="h-9 w-[6.5rem]"
+                    data-testid="mobile-summary-flow"
+                    aria-label="Summary flow"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={CONTROL_LIST_CLASS}>
+                    {SUMMARY_FLOWS.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ControlField>
+            ) : null}
+            {variant === "list" ? (
+              <ControlField label="Summary labels">
+                <Select
+                  value={summaryLabels}
+                  onValueChange={(value) =>
+                    setSummaryLabels(value as TypeMobileListSummaryLabels)
+                  }
+                >
+                  <SelectTrigger
+                    className="h-9 w-[6.5rem]"
+                    data-testid="mobile-summary-labels"
+                    aria-label="Summary labels"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={CONTROL_LIST_CLASS}>
+                    {SUMMARY_LABELS.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ControlField>
+            ) : null}
+            {variant === "list" && summaryFlow === "wrap" ? (
+              <ControlField label="Separator">
+                <Select
+                  value={summarySeparator}
+                  onValueChange={(value) =>
+                    setSummarySeparator(value as TypeMobileListSummarySeparator)
+                  }
+                >
+                  <SelectTrigger
+                    className="h-9 w-[6.5rem]"
+                    data-testid="mobile-summary-separator"
+                    aria-label="Separator"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={CONTROL_LIST_CLASS}>
+                    {SUMMARY_SEPARATORS.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ControlField>
+            ) : null}
+            {variant === "list" ? (
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <Checkbox
+                  checked={customSummary}
+                  data-testid="mobile-custom-summary-toggle"
+                  onCheckedChange={(checked) =>
+                    setCustomSummary(checked === true)
+                  }
+                />
+                Custom summary
+              </label>
+            ) : null}
+            {variant === "list" ? (
               <ControlField label="Row expand">
                 <Select
                   value={listExpand}
@@ -795,6 +931,22 @@ export default function MobileTransformExample() {
             listActionsSide,
             listFieldLimit,
             listFieldIds: pinnedListFields ? PINNED_LIST_FIELD_IDS : undefined,
+            listSummaryFlow: summaryFlow,
+            listSummaryLabels: summaryLabels,
+            listSummarySeparator: summarySeparator,
+            renderListSummary: customSummary
+              ? ({ fields, renderDefault }) => (
+                  <>
+                    <span
+                      className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary"
+                      data-testid="custom-summary-badge"
+                    >
+                      {fields.length} fields
+                    </span>
+                    {renderDefault()}
+                  </>
+                )
+              : undefined,
             listExpand,
             showRowExpandToggle: rowExpandToggle,
             cardFields,

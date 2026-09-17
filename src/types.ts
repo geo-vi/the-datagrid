@@ -286,6 +286,17 @@ export type TypeInlineEditorProps = {
 export type CellProps = TypeColumnRenderArgs & {
   value: any;
   cellProps: Record<string, unknown>;
+  /**
+   * Where in a mobile row this cell is rendering. Undefined on the table, so a
+   * renderer that ignores it behaves as it always has.
+   */
+  mobileSurface?: TypeMobileCellSurface;
+  /**
+   * Whether this cell's column label is on screen beside it. False in a summary
+   * under `listSummaryLabels: "hide"`, and on a headline or an action, which
+   * never carry one.
+   */
+  mobileLabelShown?: boolean;
   /** Raw runtime row-disable state exposed to Inovua-style hooks. */
   disabledRow?: boolean | null;
   /** Inovua-compatible column identifier aliases used by custom editors. */
@@ -717,6 +728,18 @@ export interface IColumn {
    * Independent of `listFieldIds`, which chooses the summary line only.
    */
   mobileDetail?: TypeMobileColumnDetail;
+
+  /**
+   * Whether this column's label sits beside its value in a list row's summary.
+   * Unset follows `mobileTransform.listSummaryLabels`; `false` is the per-column
+   * exception for a value that names itself, a status word or an icon, while
+   * the rest of the row keeps its labels.
+   *
+   * A label taken off the screen stays in the accessibility tree either way,
+   * and an open row's field panel labels its fields whatever this says.
+   */
+  mobileSummaryLabel?: boolean;
+
   /**
    * Keeps the column visible at a horizontal edge.
    *
@@ -1597,6 +1620,42 @@ export type TypeMobileListActions = "inline" | "bottom" | "title";
 /** What a list row's summary line does once the row is open. */
 export type TypeMobileListSummaryWhenOpen = "keep" | "hide";
 
+/** How a list row's summary lays its fields out. */
+export type TypeMobileListSummaryFlow = "wrap" | "column";
+
+/** Whether a summary field prints its column label beside the value. */
+export type TypeMobileListSummaryLabels = "show" | "hide";
+
+/** Character a summary puts between its fields under `listSummaryFlow: "wrap"`. */
+export type TypeMobileListSummarySeparator = "none" | "dot" | "pipe" | "slash";
+
+/** Where in a mobile row a cell is being rendered. */
+export type TypeMobileCellSurface = "title" | "summary" | "panel" | "action";
+
+/** One resolved field handed to `renderListSummary`. */
+export type TypeMobileListSummaryField = {
+  columnId: string;
+  column: TypeColumn;
+  /** The column's label, whatever `listSummaryLabels` does with it. */
+  label: React.ReactNode;
+  value: TypeColumnRenderArgs["value"];
+  /** Whether this field's own label is on screen, `mobileSummaryLabel` included. */
+  labelShown: boolean;
+  /** Already rendered through `render` / `mobileRender`. */
+  node: React.ReactNode;
+};
+
+export type TypeMobileListSummaryInfo = {
+  data: TypeColumnRenderArgs["data"];
+  rowId: string;
+  rowIndex: number;
+  /** Whether the row's field panel is open. */
+  expanded: boolean;
+  fields: TypeMobileListSummaryField[];
+  /** The summary the grid would have drawn, for wrapping rather than replacing. */
+  renderDefault: () => React.ReactNode;
+};
+
 /** What the mobile toolbar's settings button opens. */
 export type TypeMobileSettingsSurface = "drawer" | "panel";
 
@@ -1721,6 +1780,49 @@ export type TypeMobileTransformProps = {
    * says something the panel does not.
    */
   listSummaryWhenOpen?: TypeMobileListSummaryWhenOpen;
+
+  /**
+   * How the summary lays its fields out. `"wrap"` (default) flows them along
+   * one line and wraps whole fields onto the next; `"column"` gives each field
+   * its own line, which suits long values and a row that has to stay scannable.
+   */
+  listSummaryFlow?: TypeMobileListSummaryFlow;
+
+  /**
+   * Whether a summary field prints its column label. `"show"` (default) puts
+   * the label before the value; `"hide"` keeps the label in the accessibility
+   * tree and takes it off the screen, so a screen reader still names the value.
+   *
+   * A value that carries its own meaning survives this; one that does not needs
+   * shaping for it. `column.mobileRender` is told through `mobileLabelShown`.
+   *
+   * `column.mobileSummaryLabel` overrides this for one column either way.
+   */
+  listSummaryLabels?: TypeMobileListSummaryLabels;
+
+  /**
+   * Character between summary fields under `listSummaryFlow: "wrap"`. Defaults
+   * to `"none"`, which leaves the gap to separate them. Any other character is
+   * settable as `--tdg-mobile-summary-separator`.
+   *
+   * It trails each field but the last, so a wrapped line ends with it rather
+   * than opening with it. `listSummaryFlow: "column"` drops it altogether,
+   * having a line break to separate the fields instead.
+   */
+  listSummarySeparator?: TypeMobileListSummarySeparator;
+
+  /**
+   * Replaces the contents of a list row's summary. The grid keeps the summary's
+   * own box, so the open-row indent, the right-to-left mirroring and the
+   * placement under `listActions: "title"` are not a consumer's to redo.
+   *
+   * `fields` arrives resolved and already rendered, and `renderDefault()`
+   * returns the usual fields, so adding to the summary does not mean rebuilding
+   * it. Returning `null` draws no summary.
+   */
+  renderListSummary?: (
+    info: TypeMobileListSummaryInfo
+  ) => React.ReactNode;
 
   /**
    * Lets a list row open a panel of every field it has, laid out with the
