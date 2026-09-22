@@ -1044,7 +1044,7 @@ export function MobileGridList({
   const renderCellContent = (
     cell: GridCell,
     mobileSurface: TypeMobileCellSurface,
-    mobileLabelShown = false
+    mobileLabelShown: boolean
   ) => {
     const column = columnMap.get(cell.column.id);
     const mobileRender = column?.mobileRender;
@@ -1449,7 +1449,7 @@ export function MobileGridList({
                     aria-controls={fieldsPanelId}
                     onClick={() => toggleFields()}
                   >
-                    {renderCellContent(primaryCell, "title")}
+                    {renderCellContent(primaryCell, "title", false)}
                   </button>
                 ) : (
                   <div
@@ -1460,7 +1460,7 @@ export function MobileGridList({
                     data-slot="mobile-cell"
                     data-cell-role="primary"
                   >
-                    {renderCellContent(primaryCell, "title")}
+                    {renderCellContent(primaryCell, "title", false)}
                   </div>
                 )
               ) : null}
@@ -1544,7 +1544,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="action"
                 >
-                  {renderCellContent(cell, "action")}
+                  {renderCellContent(cell, "action", false)}
                 </div>
               ))}
             </div>
@@ -1629,7 +1629,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="primary"
                 >
-                  {renderCellContent(primaryCell, "title")}
+                  {renderCellContent(primaryCell, "title", true)}
                 </div>
               </>
             ) : null}
@@ -1671,7 +1671,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="action"
                 >
-                  {renderCellContent(cell, "action")}
+                  {renderCellContent(cell, "action", false)}
                 </div>
               ))}
             </footer>
