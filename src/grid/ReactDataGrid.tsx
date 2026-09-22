@@ -1166,9 +1166,11 @@ function ReactDataGrid(props: TypeDataGridProps) {
     props.treeEnabled === true && Number.isFinite(treeBranchPageSize);
 
   // Not the reveal set: the loader hands back a fresh one on every load, so
-  // keying on it would spring every folded branch open again on a sort.
+  // keying on it would spring every folded branch open again on a sort. The
+  // tuple itself rather than a serialization of it: a filter value is the
+  // consumer's, and may hold a BigInt or a cycle that JSON.stringify refuses.
   const treeRevealKey = React.useMemo(
-    () => JSON.stringify([searchValue, mobileSearchQuery, localFilterValue]),
+    () => [searchValue, mobileSearchQuery, localFilterValue],
     [searchValue, mobileSearchQuery, localFilterValue]
   );
 

@@ -52,7 +52,7 @@ export function useTreeGrid({
   revealMatches: boolean;
   revealNodes: ReadonlySet<TreeRecord>;
   /** Discards the folds below when it changes. Must not change on a sort. */
-  revealKey?: string;
+  revealKey?: unknown;
   i18n?: TypeI18n;
   /** `Infinity` shows every child, which is the table's own default. */
   branchPageSize: number;
