@@ -1145,12 +1145,12 @@ const mobileTransformPropsDefinition = `type TypeMobileTransformProps = {
     rowId: string;
     rowIndex: number;
     expanded: boolean;
-    labelsShown: boolean;
     fields: {
       columnId: string;
       column: TypeColumn;
       label: ReactNode;
       value: any;
+      labelShown: boolean;
       node: ReactNode;
     }[];
     renderDefault: () => ReactNode;
