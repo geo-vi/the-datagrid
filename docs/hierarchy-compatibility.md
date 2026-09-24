@@ -44,6 +44,10 @@ Local filtering evaluates all loaded descendants, retains ancestor context,
 and temporarily reveals paths to matches. Clearing filters restores the user's
 previous expansion map. This automatic reveal is an explicitly requested
 extension; it must not fire expansion callbacks or overwrite controlled state.
+A viewer may fold a revealed branch back so a wide result set stays readable.
+That fold is scratch state: it writes nothing to the expansion map, emits no
+map callback, and is discarded as soon as the search text or the filter value
+changes, so clearing still restores exactly the map the viewer had.
 When only a parent matches, preserve its original subtree as in the legacy
 filter helper, without treating those descendants as matches for automatic
 reveal. Controlled `filterValue` and `sortInfo` keep this library's existing
@@ -95,7 +99,9 @@ tokens, focus rings and button conventions.
 1. A three-level tree is initially collapsed and can expand/collapse without
    losing stable IDs, column order or selection.
 2. A deep child filter keeps its ancestors, auto-reveals the match and restores
-   prior expansion when cleared; counts are independent of collapse.
+   prior expansion when cleared; counts are independent of collapse. A revealed
+   branch can be folded back, the fold survives a sort or a page change, and a
+   new query reveals the tree again.
 3. Sibling sorting and root pagination retain parent-child relationships.
 4. Controlled maps emit the legacy payload and do not change until accepted;
    veto callbacks and non-expandable records are respected.

@@ -7,6 +7,9 @@ import type {
   TypeMobileListExpand,
   TypeMobileListRows,
   TypeMobileListSummaryWhenOpen,
+  TypeMobileListSummaryFlow,
+  TypeMobileListSummaryLabels,
+  TypeMobileListSummarySeparator,
   TypeMobileTransformOverflow,
   TypeMobileTransformProps,
   TypeMobileTransformVariant,
@@ -27,6 +30,10 @@ export type ResolvedMobileTransform = {
   listFieldIds?: string[];
   listFieldLimit: number;
   listSummaryWhenOpen: TypeMobileListSummaryWhenOpen;
+  listSummaryFlow: TypeMobileListSummaryFlow;
+  listSummaryLabels: TypeMobileListSummaryLabels;
+  listSummarySeparator: TypeMobileListSummarySeparator;
+  renderListSummary?: TypeMobileTransformProps["renderListSummary"];
   listExpand: TypeMobileListExpand;
   showRowExpandToggle: boolean;
   cardFields: TypeMobileCardFields;
@@ -162,6 +169,13 @@ export function resolveMobileTransform(params: {
       listFieldIds ? listFieldIds.length : MOBILE_LIST_DEFAULT_FIELD_LIMIT
     ),
     listSummaryWhenOpen: config.listSummaryWhenOpen ?? "keep",
+    listSummaryFlow: config.listSummaryFlow ?? "wrap",
+    listSummaryLabels: config.listSummaryLabels ?? "show",
+    listSummarySeparator:
+      config.listSummaryFlow === "column"
+        ? "none"
+        : (config.listSummarySeparator ?? "none"),
+    renderListSummary: config.renderListSummary,
     // Both follow the configuration object rather than the old
     // `allowMobileTransform` path, which keeps its original behaviour.
     listExpand:

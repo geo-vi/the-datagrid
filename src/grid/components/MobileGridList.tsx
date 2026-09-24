@@ -27,6 +27,11 @@ import type {
   TypeMobileSettingsSurface,
   TypeMobileListRows,
   TypeMobileListSummaryWhenOpen,
+  TypeMobileListSummaryFlow,
+  TypeMobileListSummaryLabels,
+  TypeMobileListSummarySeparator,
+  TypeMobileListSummaryInfo,
+  TypeMobileCellSurface,
   TypeMobileTransformOverflow,
   TypeMobileTransformScroll,
   TypeMobileTransformVariant,
@@ -154,6 +159,10 @@ type MobileGridListProps = {
   listFieldIds?: string[];
   listFieldLimit: number;
   listSummaryWhenOpen: TypeMobileListSummaryWhenOpen;
+  listSummaryFlow: TypeMobileListSummaryFlow;
+  listSummaryLabels: TypeMobileListSummaryLabels;
+  listSummarySeparator: TypeMobileListSummarySeparator;
+  renderListSummary?: (info: TypeMobileListSummaryInfo) => React.ReactNode;
   listExpand: TypeMobileListExpand;
   showRowExpandToggle: boolean;
   cardFields: TypeMobileCardFields;
@@ -329,6 +338,10 @@ export function MobileGridList({
   listFieldIds,
   listFieldLimit,
   listSummaryWhenOpen,
+  listSummaryFlow,
+  listSummaryLabels,
+  listSummarySeparator,
+  renderListSummary,
   listExpand,
   showRowExpandToggle,
   cardFields,
@@ -1021,14 +1034,18 @@ export function MobileGridList({
     });
   }, [tree.enabled, visibleRows]);
 
-  const cellLabel = (cell: GridCell) =>
-    labelForColumn(
-      columnMap.get(cell.column.id) ?? ({ name: cell.column.id } as TypeColumn)
-    );
+  const columnFor = (cell: GridCell) =>
+    columnMap.get(cell.column.id) ?? ({ name: cell.column.id } as TypeColumn);
+
+  const cellLabel = (cell: GridCell) => labelForColumn(columnFor(cell));
 
   // `mobileRender` is the escape for renderers built around a table cell's
   // geometry; everything else reuses the renderer TanStack has cached.
-  const renderCellContent = (cell: GridCell) => {
+  const renderCellContent = (
+    cell: GridCell,
+    mobileSurface: TypeMobileCellSurface,
+    mobileLabelShown: boolean
+  ) => {
     const column = columnMap.get(cell.column.id);
     const mobileRender = column?.mobileRender;
     if (!mobileRender) {
@@ -1041,6 +1058,8 @@ export function MobileGridList({
       rowIndex: cell.row.index,
       column,
       columnId: cell.column.id,
+      mobileSurface,
+      mobileLabelShown,
       cellProps:
         typeof column.cellProps === "object" && column.cellProps !== null
           ? (column.cellProps as Record<string, unknown>)
@@ -1074,7 +1093,7 @@ export function MobileGridList({
             data-slot="mobile-cell"
             data-cell-role="detail"
           >
-            {renderCellContent(cell)}
+            {renderCellContent(cell, "panel", true)}
           </dd>
         </div>
       ))}
@@ -1261,6 +1280,62 @@ export function MobileGridList({
         ? () => masterDetail.toggle(row.original, rowIndex)
         : () => toggleExpandedRow(row.id);
 
+      const summaryLabelsShown = listSummaryLabels === "show";
+      const labelShownFor = (cell: GridCell) =>
+        columnFor(cell).mobileSummaryLabel ?? summaryLabelsShown;
+      const renderSummaryFields = () =>
+        listDetailCells.map((cell) => (
+          <span
+            key={cell.id}
+            className="tdg-mobile-row-field flex min-w-0 items-center"
+          >
+            <span
+              className={cn(
+                "shrink-0 opacity-70",
+                // Off the screen rather than out of the document: the label is
+                // the only thing naming the value to a screen reader.
+                !labelShownFor(cell) && "sr-only"
+              )}
+            >
+              {cellLabel(cell)}
+            </span>
+            {/* Wrapping rather than clipping: a field can hold a
+                button or a row of icons, and neither ellipses. */}
+            <span
+              /* The cell's own renderer ellipsises to fit a table
+                 column; here the column is a share of the row, so
+                 the value wraps and stays readable in full. */
+              className="tdg-mobile-cell min-w-0 break-words text-foreground/80 [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal"
+              data-slot="mobile-cell"
+              data-cell-role="summary"
+            >
+              {renderCellContent(cell, "summary", labelShownFor(cell))}
+            </span>
+          </span>
+        ));
+      const summaryContent =
+        rowExpanded && listSummaryWhenOpen === "hide"
+          ? null
+          : renderListSummary
+            ? renderListSummary({
+                data: row.original,
+                rowId: row.id,
+                rowIndex,
+                expanded: rowExpanded,
+                fields: listDetailCells.map((cell) => ({
+                  columnId: cell.column.id,
+                  column: columnFor(cell),
+                  label: cellLabel(cell),
+                  value: cell.getValue(),
+                  labelShown: labelShownFor(cell),
+                  node: renderCellContent(cell, "summary", labelShownFor(cell)),
+                })),
+                renderDefault: () => <>{renderSummaryFields()}</>,
+              })
+            : listDetailCells.length
+              ? renderSummaryFields()
+              : null;
+
       // Clears the row's leading controls so the panel lines up with the title.
       const rowGap = "var(--tdg-mobile-row-gap, 0.75rem)";
       const openIndentParts: string[] = [];
@@ -1374,7 +1449,7 @@ export function MobileGridList({
                     aria-controls={fieldsPanelId}
                     onClick={() => toggleFields()}
                   >
-                    {renderCellContent(primaryCell)}
+                    {renderCellContent(primaryCell, "title", false)}
                   </button>
                 ) : (
                   <div
@@ -1385,21 +1460,25 @@ export function MobileGridList({
                     data-slot="mobile-cell"
                     data-cell-role="primary"
                   >
-                    {renderCellContent(primaryCell)}
+                    {renderCellContent(primaryCell, "title", false)}
                   </div>
                 )
               ) : null}
-              {listDetailCells.length &&
-              !(rowExpanded && listSummaryWhenOpen === "hide") ? (
+              {summaryContent ? (
                 <div
                   className={cn(
-                    "tdg-mobile-row-summary flex min-w-0 flex-wrap items-center text-xs text-muted-foreground",
+                    "tdg-mobile-row-summary flex min-w-0 text-xs text-muted-foreground",
+                    listSummaryFlow === "column"
+                      ? "flex-col items-start"
+                      : "flex-wrap items-center",
                     // Past the controls and the full width of the row, so they
                     // stay up on the headline's line and this wraps under them.
                     // Ordered rather than last: the open fields panel is a row
                     // item too, and has to stay below this.
                     titleListActions && "order-1 w-full"
                   )}
+                  data-summary-flow={listSummaryFlow}
+                  data-summary-separator={listSummarySeparator}
                   // Spanning the row, it would otherwise start under the
                   // checkbox rather than under the title it belongs to.
                   style={
@@ -1408,28 +1487,7 @@ export function MobileGridList({
                       : undefined
                   }
                 >
-                  {listDetailCells.map((cell) => (
-                    <span
-                      key={cell.id}
-                      className="tdg-mobile-row-field flex min-w-0 items-center"
-                    >
-                      <span className="shrink-0 opacity-70">
-                        {cellLabel(cell)}
-                      </span>
-                      {/* Wrapping rather than clipping: a field can hold a
-                          button or a row of icons, and neither ellipses. */}
-                      <span
-                        /* The cell's own renderer ellipsises to fit a table
-                           column; here the column is a share of the row, so
-                           the value wraps and stays readable in full. */
-                        className="tdg-mobile-cell min-w-0 break-words text-foreground/80 [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal"
-                        data-slot="mobile-cell"
-                        data-cell-role="detail"
-                      >
-                        {renderCellContent(cell)}
-                      </span>
-                    </span>
-                  ))}
+                  {summaryContent}
                 </div>
               ) : null}
             </div>
@@ -1486,7 +1544,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="action"
                 >
-                  {renderCellContent(cell)}
+                  {renderCellContent(cell, "action", false)}
                 </div>
               ))}
             </div>
@@ -1571,7 +1629,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="primary"
                 >
-                  {renderCellContent(primaryCell)}
+                  {renderCellContent(primaryCell, "title", true)}
                 </div>
               </>
             ) : null}
@@ -1613,7 +1671,7 @@ export function MobileGridList({
                   data-slot="mobile-cell"
                   data-cell-role="action"
                 >
-                  {renderCellContent(cell)}
+                  {renderCellContent(cell, "action", false)}
                 </div>
               ))}
             </footer>

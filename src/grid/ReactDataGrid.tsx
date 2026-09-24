@@ -1165,11 +1165,21 @@ function ReactDataGrid(props: TypeDataGridProps) {
   const treeCapsBranches =
     props.treeEnabled === true && Number.isFinite(treeBranchPageSize);
 
+  // Not the reveal set: the loader hands back a fresh one on every load, so
+  // keying on it would spring every folded branch open again on a sort. The
+  // tuple itself rather than a serialization of it: a filter value is the
+  // consumer's, and may hold a BigInt or a cycle that JSON.stringify refuses.
+  const treeRevealKey = React.useMemo(
+    () => [searchValue, mobileSearchQuery, localFilterValue],
+    [searchValue, mobileSearchQuery, localFilterValue]
+  );
+
   const tree = useTreeGrid({
     props,
     branchPageSize: treeBranchPageSize,
     sourceRows,
     idProperty,
+    i18n,
     // A function source owns filtering, so only the search the grid ran itself
     // reveals a path to a match there.
     revealMatches:
@@ -1177,6 +1187,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
         typeof dataSource !== "function") ||
       treeSearchApplied,
     revealNodes: treeRevealNodes,
+    revealKey: treeRevealKey,
   });
   const rows: typeof sourceRows = tree.rows;
   const getRowKey = tree.getId;
@@ -3739,6 +3750,12 @@ function ReactDataGrid(props: TypeDataGridProps) {
                 listFieldIds={mobileTransformConfig.listFieldIds}
                 listFieldLimit={mobileTransformConfig.listFieldLimit}
                 listSummaryWhenOpen={mobileTransformConfig.listSummaryWhenOpen}
+                listSummaryFlow={mobileTransformConfig.listSummaryFlow}
+                listSummaryLabels={mobileTransformConfig.listSummaryLabels}
+                listSummarySeparator={
+                  mobileTransformConfig.listSummarySeparator
+                }
+                renderListSummary={mobileTransformConfig.renderListSummary}
                 listExpand={mobileTransformConfig.listExpand}
                 showRowExpandToggle={mobileTransformConfig.showRowExpandToggle}
                 cardFields={mobileTransformConfig.cardFields}
