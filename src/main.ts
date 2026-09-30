@@ -15,6 +15,7 @@ export {
   SelectEditor,
   TextEditor,
 } from "./editors";
+export type { TypeCellTooltip } from "./types";
 export type {
   TypeNodeProps,
   TypeExpandedNodes,

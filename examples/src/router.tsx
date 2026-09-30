@@ -12,6 +12,7 @@ import ColumnsGridExample from "./ColumnsGridExample";
 import EditingGridExample from "./EditingGridExample";
 import ColumnDefaultHeaderAlignPage from "./ColumnDefaultHeaderAlignPage";
 import SortIconVisibilityPage from "./SortIconVisibilityPage";
+import CellTooltipCompatPage from "./CellTooltipCompatPage";
 import ToolbarCompatPage from "./ToolbarCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
@@ -522,6 +523,12 @@ const compatSortIconVisibilityRoute = createRoute({
   component: SortIconVisibilityPage,
 });
 
+const compatCellTooltipRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/cell-tooltip",
+  component: CellTooltipCompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -556,6 +563,7 @@ const routeTree = rootRoute.addChildren([
   compatMemorySafetyRoute,
   compatColumnDefaultHeaderAlignRoute,
   compatSortIconVisibilityRoute,
+  compatCellTooltipRoute,
   compatSearchDataSourceRoute,
   compatTallHeaderRoute,
   examplesOverviewRoute,

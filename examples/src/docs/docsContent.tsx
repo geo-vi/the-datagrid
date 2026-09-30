@@ -3468,6 +3468,73 @@ const columnSections: ReferenceSection[] = [
     ],
   },
   {
+    id: "cell-tooltip-fields",
+    title: "Cell tooltip",
+    rows: [
+      {
+        name: "cellTooltip",
+        type: "boolean | TypeCellTooltip",
+        defaultValue: "false",
+        description:
+          "Shows the full content of a cut-off cell in a tooltip while the pointer is over it. Desktop table only. true takes every default below.",
+      },
+      {
+        name: "cellTooltip.showWhen",
+        type: '"truncated" | "always"',
+        defaultValue: '"truncated"',
+        description:
+          '"truncated" opens only on a cell whose content is cut off, including text that ends in an ellipsis. "always" opens on every cell that has text or a render.',
+      },
+      {
+        name: "cellTooltip.clickToCopy",
+        type: "boolean",
+        defaultValue: "true",
+        description:
+          "Clicking the tooltip copies the text; its footer confirms the copy. false shows the text with no footer. The footer reads i18n.cellTooltipClickToCopy and i18n.cellTooltipCopied.",
+      },
+      {
+        name: "cellTooltip.theme",
+        type: '"auto" | "dark"',
+        defaultValue: '"auto"',
+        description:
+          '"auto" follows the grid theme. "dark" stays dark on a light grid too.',
+      },
+      {
+        name: "cellTooltip.render",
+        type: "(cellProps) => React.ReactNode",
+        defaultValue: "the text the cell shows",
+        description:
+          "Replaces the tooltip body, for example to list an array one value per line.",
+      },
+      {
+        name: "cellTooltip.copyText",
+        type: "(cellProps) => string",
+        defaultValue: "the text the cell shows",
+        description: "Replaces the text a click copies.",
+      },
+      {
+        name: "--tdg-cell-tooltip-background, -foreground, -muted-foreground, -border",
+        type: "CSS color",
+        defaultValue: "the grid's popover tokens",
+        description:
+          'Restyle the "auto" tooltip. The tooltip renders at the document body, so set them at document scope, not on a wrapper around the grid.',
+      },
+      {
+        name: "--tdg-cell-tooltip-dark-background, -dark-foreground, -dark-muted-foreground, -dark-border",
+        type: "CSS color",
+        defaultValue: "neutral dark",
+        description: 'Restyle the "dark" tooltip, also at document scope.',
+      },
+      {
+        name: "--tdg-cell-tooltip-max-width, -max-height, -z-index",
+        type: "CSS length / number",
+        defaultValue: "min(28rem, 100vw - 1rem), 16rem, 50",
+        description:
+          "Size limits and stacking. Longer content scrolls inside the tooltip.",
+      },
+    ],
+  },
+  {
     id: "alignment-style-fields",
     title: "Alignment and styling",
     rows: [
@@ -4537,6 +4604,22 @@ const i18nSections: ReferenceSection[] = [
         "mobileNextPage",
         "Next page",
         "Accessible label and title for the mobile pager's next control."
+      ),
+    ],
+  },
+  {
+    id: "cell-tooltip-keys",
+    title: "Cell tooltip keys",
+    rows: [
+      i18nRow(
+        "cellTooltipClickToCopy",
+        "Click to copy",
+        "Footer of a column's cellTooltip before the click."
+      ),
+      i18nRow(
+        "cellTooltipCopied",
+        "Copied",
+        "Same footer for a moment after the text was copied."
       ),
     ],
   },

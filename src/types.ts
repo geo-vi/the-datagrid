@@ -798,6 +798,12 @@ export interface IColumn {
   /** Supplies the raw row value indexed by optional global search. */
   searchValue?: (data: TypeColumnRenderArgs["data"]) => unknown;
 
+  /**
+   * Shows the full content of a cut-off cell in a tooltip while the pointer is
+   * over it. Desktop table only. `true` takes every default.
+   */
+  cellTooltip?: boolean | TypeCellTooltip;
+
   textAlign?: "start" | "end" | "left" | "right" | "center";
   headerAlign?: "start" | "end" | "left" | "right" | "center";
 
@@ -814,6 +820,25 @@ export interface IColumn {
     | ((cellProps: CellProps) => React.CSSProperties | undefined);
   headerProps?: { className?: string; style?: React.CSSProperties };
 }
+
+export type TypeCellTooltip = {
+  /**
+   * `"truncated"` (default) opens only on a cell whose content is cut off.
+   * `"always"` opens on every cell that has text or a `render`.
+   */
+  showWhen?: "truncated" | "always";
+  /** Clicking the tooltip copies the cell text. Defaults to `true`. */
+  clickToCopy?: boolean;
+  /**
+   * `"auto"` (default) follows the grid theme. `"dark"` stays dark on a light
+   * grid too.
+   */
+  theme?: "auto" | "dark";
+  /** Replaces the tooltip body. Defaults to the text the cell shows. */
+  render?: (cellProps: CellProps) => React.ReactNode;
+  /** Replaces the copied text. Defaults to the text the cell shows. */
+  copyText?: (cellProps: CellProps) => string;
+};
 
 export type TypeColumn = IColumn;
 export type TypeColumns = TypeColumn[];

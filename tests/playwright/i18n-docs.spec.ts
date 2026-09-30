@@ -37,6 +37,8 @@ const overridableI18nDefaults = {
   mobilePagination: '"Pagination"',
   mobilePreviousPage: '"Previous page"',
   mobileNextPage: '"Next page"',
+  cellTooltipClickToCopy: '"Click to copy"',
+  cellTooltipCopied: '"Copied"',
   contains: '"Contains" (filter cell); "contains" (operator menu)',
   notContains: '"Not Contains" (filter cell); "notContains" (operator menu)',
   containsOr: '"Contains Or" (filter cell); "containsOr" (operator menu)',

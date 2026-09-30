@@ -277,6 +277,146 @@
   color: var(--tdg-color-popover-foreground, var(--popover-foreground, oklch(0.985 0 0))) !important;
 }
 
+/* Cell tooltip. `--tdg-cell-tooltip-*` restyles the "auto" variant and
+   `--tdg-cell-tooltip-dark-*` the "dark" one. The tooltip is portalled to the
+   body, so both have to be set at document scope to reach it. */
+.tdg-cell-tooltip-portal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: var(--tdg-cell-tooltip-z-index, 50) !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.tdg-cell-tooltip {
+  --tdg-cell-tooltip-resolved-background: var(
+    --tdg-cell-tooltip-background,
+    var(--tdg-color-popover, oklch(1 0 0))
+  );
+  --tdg-cell-tooltip-resolved-foreground: var(
+    --tdg-cell-tooltip-foreground,
+    var(--tdg-color-popover-foreground, oklch(0.145 0 0))
+  );
+  --tdg-cell-tooltip-resolved-muted: var(
+    --tdg-cell-tooltip-muted-foreground,
+    var(--tdg-color-muted-foreground, oklch(0.556 0 0))
+  );
+  --tdg-cell-tooltip-resolved-border: var(
+    --tdg-cell-tooltip-border,
+    var(--tdg-color-border, oklch(0.922 0 0))
+  );
+
+  z-index: 50 !important;
+  box-sizing: border-box !important;
+  max-width: var(--tdg-cell-tooltip-max-width, min(28rem, calc(100vw - 1rem))) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--tdg-cell-tooltip-resolved-border) !important;
+  border-radius: var(--tdg-radius-md, 0.375rem) !important;
+  background: var(--tdg-cell-tooltip-resolved-background) !important;
+  color: var(--tdg-cell-tooltip-resolved-foreground) !important;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.tdg-cell-tooltip[data-tooltip-theme="dark"] {
+  --tdg-cell-tooltip-resolved-background: var(
+    --tdg-cell-tooltip-dark-background,
+    oklch(0.205 0 0)
+  );
+  --tdg-cell-tooltip-resolved-foreground: var(
+    --tdg-cell-tooltip-dark-foreground,
+    oklch(0.985 0 0)
+  );
+  --tdg-cell-tooltip-resolved-muted: var(
+    --tdg-cell-tooltip-dark-muted-foreground,
+    oklch(0.708 0 0)
+  );
+  --tdg-cell-tooltip-resolved-border: var(
+    --tdg-cell-tooltip-dark-border,
+    oklch(1 0 0 / 15%)
+  );
+}
+
+.tdg-cell-tooltip__body {
+  display: block !important;
+  box-sizing: border-box !important;
+  max-height: var(--tdg-cell-tooltip-max-height, 16rem) !important;
+  padding: 0.5rem 0.625rem !important;
+  overflow-y: auto !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  --tdg-cell-tooltip-scrollbar-thumb: color-mix(
+    in oklab,
+    var(--tdg-cell-tooltip-resolved-foreground) 25%,
+    transparent
+  );
+}
+
+/* Chrome drops these pseudo-elements once `scrollbar-width` is set, and only
+   they can remove the arrow buttons, so the standard properties are kept for
+   browsers without them. */
+.tdg-cell-tooltip__body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tdg-cell-tooltip__body::-webkit-scrollbar-track,
+.tdg-cell-tooltip__body::-webkit-scrollbar-button {
+  display: none;
+  background: transparent;
+}
+
+.tdg-cell-tooltip__body::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--tdg-cell-tooltip-scrollbar-thumb);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .tdg-cell-tooltip__body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tdg-cell-tooltip-scrollbar-thumb) transparent;
+  }
+}
+
+.tdg-cell-tooltip__copy {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: start !important;
+  cursor: pointer;
+}
+
+.tdg-cell-tooltip__copy:focus-visible {
+  outline: 2px solid var(--tdg-color-ring, oklch(0.708 0 0)) !important;
+  outline-offset: -2px !important;
+}
+
+.tdg-cell-tooltip__footer {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.375rem !important;
+  padding: 0.375rem 0.625rem !important;
+  border-top: 1px solid var(--tdg-cell-tooltip-resolved-border) !important;
+  color: var(--tdg-cell-tooltip-resolved-muted) !important;
+  font-size: 0.6875rem;
+}
+
+.tdg-cell-tooltip__footer svg {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  flex-shrink: 0 !important;
+}
+
 .tdg-command,
 .tdg-command *,
 .tdg-command ::before,

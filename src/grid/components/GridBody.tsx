@@ -14,6 +14,7 @@ import { flexRender } from "@tanstack/react-table";
 import type {
   CellProps,
   TypeActiveCell,
+  TypeCellTooltip,
   TypeColumn,
   TypeCellProps,
   TypeColumnEditorCell,
@@ -42,6 +43,12 @@ import {
 } from "../utils/lockedColumns";
 
 import { TableBody, TableCell, TableRow } from "../../components/ui/table";
+import { CellTooltipLayer, type CellTooltipController } from "./CellTooltip";
+import {
+  isCellContentCut,
+  resolveCellTooltip,
+  resolveShownText,
+} from "../utils/cellTooltip";
 
 export type GridEditingCell = {
   sessionId: number;
@@ -424,6 +431,26 @@ export function GridBody(props: GridBodyProps) {
     onEditCancel,
   } = props;
   const draggingCellSelectionRef = React.useRef(false);
+  const cellTooltipRef = React.useRef<CellTooltipController | null>(null);
+  const showCellTooltip = (
+    cellNode: HTMLElement,
+    tooltip: TypeCellTooltip,
+    cellProps: CellProps
+  ) => {
+    const content = cellNode.querySelector<HTMLElement>(".tdg-cell-content");
+    if (!content) return;
+    const showWhen = tooltip.showWhen ?? "truncated";
+    if (showWhen === "truncated" && !isCellContentCut(content)) return;
+    const shownText = resolveShownText(content, cellProps.value);
+    if (!shownText && !tooltip.render) return;
+    cellTooltipRef.current?.show({
+      anchor: cellNode,
+      body: tooltip.render ? tooltip.render(cellProps) : shownText,
+      copyText: tooltip.copyText ? tooltip.copyText(cellProps) : shownText,
+      clickToCopy: tooltip.clickToCopy ?? true,
+      theme: tooltip.theme ?? "auto",
+    });
+  };
   const rowLongPressTimerRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -1369,6 +1396,7 @@ export function GridBody(props: GridBodyProps) {
           const lockedLayout = lockedColumnLayout[columnId];
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
+          const cellTooltip = resolveCellTooltip(column?.cellTooltip);
           // The content wrapper is a flex row, so its child hugs itself and
           // `text-align` cannot place it. This also aligns a custom `render`.
           const contentAlignClass =
@@ -1731,6 +1759,9 @@ export function GridBody(props: GridBodyProps) {
               onMouseEnter={(event) => {
                 rootCellDOMProps.onMouseEnter?.(event);
                 columnCellDOMProps.onMouseEnter?.(event);
+                if (cellTooltip && cellProps && !isEditingThisCell) {
+                  showCellTooltip(event.currentTarget, cellTooltip, cellProps);
+                }
                 if (draggingCellSelectionRef.current) {
                   onCellSelectionPointer(rowIndex, cellIndex, {
                     button: 0,
@@ -1743,6 +1774,7 @@ export function GridBody(props: GridBodyProps) {
               onMouseLeave={(event) => {
                 rootCellDOMProps.onMouseLeave?.(event);
                 columnCellDOMProps.onMouseLeave?.(event);
+                if (cellTooltip) cellTooltipRef.current?.hide();
               }}
             >
               <div
@@ -2286,6 +2318,7 @@ export function GridBody(props: GridBodyProps) {
 
   return (
     <TableBody>
+      <CellTooltipLayer ref={cellTooltipRef} i18n={i18n} />
       {virtualized ? (
         <>
           {paddingTop > 0 && (
