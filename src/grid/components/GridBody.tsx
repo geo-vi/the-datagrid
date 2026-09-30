@@ -1631,7 +1631,14 @@ export function GridBody(props: GridBodyProps) {
             )
               return masterDetail.renderToggle(row.original, rowIndex);
             if (!column?.render || !cellProps) {
-              return flexRender(cell.column.columnDef.cell, cell.getContext());
+              // Called, not mounted: `flexRender` mounts a function as a
+              // component, and the defs are rebuilt whenever `columns` changes,
+              // so each rebuild replaced the cell's DOM and dropped any text the
+              // viewer had selected. The grid's own cell functions use no hooks.
+              const defaultCell = cell.column.columnDef.cell;
+              return typeof defaultCell === "function"
+                ? defaultCell(cell.getContext())
+                : flexRender(defaultCell, cell.getContext());
             }
             const render = column.render as (
               valueOrCellProps: unknown,

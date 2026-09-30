@@ -131,3 +131,29 @@ test("follows the hovered cell and keeps it while the pointer crosses to the too
   expect(Math.abs(moved.y - bottomOf(noteCell))).toBeLessThan(8);
   expect(Math.abs(moved.x - noteCell.x)).toBeLessThan(16);
 });
+
+test("keeps selected text in a plain cell when the grid gets new columns", async ({
+  page,
+}) => {
+  const city = cell(page, "city", 1);
+  await city.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node.querySelector(".tdg-cell-content")!);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  expect(await page.evaluate(() => String(window.getSelection()))).toBe(
+    "Hampton"
+  );
+
+  // Clicked from script: a real click could move the selection on its own.
+  await page
+    .getByTestId("cell-tooltip-rerender")
+    .evaluate((button) => (button as HTMLButtonElement).click());
+  await expect(page.getByTestId("cell-tooltip-rerender")).toContainText("(1)");
+
+  expect(await page.evaluate(() => String(window.getSelection()))).toBe(
+    "Hampton"
+  );
+});

@@ -1,6 +1,10 @@
+import * as React from "react";
+
 import ReactDataGrid, { type TypeColumns } from "../../src/main";
 
-const columns: TypeColumns = [
+// Built per render, as many apps do, so a re-render hands the grid new
+// column objects.
+const createColumns = (): TypeColumns => [
   { name: "id", header: "ID", width: 80, cellTooltip: true },
   {
     name: "name",
@@ -66,6 +70,9 @@ const rows = [
 ];
 
 export default function CellTooltipCompatPage() {
+  const [renderCount, setRenderCount] = React.useState(0);
+  const columns = createColumns();
+
   return (
     <main
       data-testid="cell-tooltip-scenario"
@@ -79,11 +86,24 @@ export default function CellTooltipCompatPage() {
           cellTooltip shows the full content of a cut-off cell
         </h1>
       </header>
+      <button
+        type="button"
+        data-testid="cell-tooltip-rerender"
+        className="w-fit rounded-md border px-3 py-1 text-sm"
+        onClick={() => setRenderCount((count) => count + 1)}
+      >
+        Re-render with new columns ({renderCount})
+      </button>
       <div
         data-testid="cell-tooltip-grid"
         className="h-[200px] min-h-0 rounded-lg border"
       >
-        <ReactDataGrid idProperty="id" columns={columns} dataSource={rows} />
+        <ReactDataGrid
+          idProperty="id"
+          columns={columns}
+          dataSource={rows}
+          columnUserSelect
+        />
       </div>
       <div
         data-testid="cell-tooltip-dark-grid"
