@@ -117,6 +117,8 @@ const stringOnlyI18nKeys = new Set([
   "mobilePagination",
   "mobilePreviousPage",
   "mobileNextPage",
+  "cellTooltipClickToCopy",
+  "cellTooltipCopied",
   "mobileCollapseRow",
   "mobileExpandRow",
   "mobileSettings",

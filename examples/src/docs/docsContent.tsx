@@ -3490,7 +3490,7 @@ const columnSections: ReferenceSection[] = [
         type: "boolean",
         defaultValue: "true",
         description:
-          "Clicking the tooltip copies the text; its footer confirms the copy. false shows the text with no footer. The footer reads i18n.cellTooltipClickToCopy and i18n.cellTooltipCopied.",
+          "A copy icon at the tooltip's right edge copies the text and turns into a check mark for a moment. The text itself stays selectable by hand. false shows the text only. The icon's label reads i18n.cellTooltipClickToCopy and i18n.cellTooltipCopied.",
       },
       {
         name: "cellTooltip.theme",
@@ -3524,6 +3524,13 @@ const columnSections: ReferenceSection[] = [
         type: "CSS color",
         defaultValue: "neutral dark",
         description: 'Restyle the "dark" tooltip, also at document scope.',
+      },
+      {
+        name: "--tdg-cell-tooltip-copied-color",
+        type: "CSS color",
+        defaultValue: "green",
+        description:
+          "Colour of the check mark after a copy, in both themes, at document scope.",
       },
       {
         name: "--tdg-cell-tooltip-max-width, -max-height, -z-index",
@@ -4611,15 +4618,15 @@ const i18nSections: ReferenceSection[] = [
     id: "cell-tooltip-keys",
     title: "Cell tooltip keys",
     rows: [
-      i18nRow(
+      stringI18nRow(
         "cellTooltipClickToCopy",
         "Click to copy",
-        "Footer of a column's cellTooltip before the click."
+        "Accessible label and title of a cellTooltip's copy icon."
       ),
-      i18nRow(
+      stringI18nRow(
         "cellTooltipCopied",
         "Copied",
-        "Same footer for a moment after the text was copied."
+        "Same label for a moment after the text was copied, also announced to screen readers."
       ),
     ],
   },

@@ -351,6 +351,7 @@
   overflow-y: auto !important;
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
+  user-select: text !important;
   --tdg-cell-tooltip-scrollbar-thumb: color-mix(
     in oklab,
     var(--tdg-cell-tooltip-resolved-foreground) 25%,
@@ -383,17 +384,40 @@
   }
 }
 
+.tdg-cell-tooltip__row {
+  display: flex !important;
+  align-items: flex-start !important;
+}
+
+.tdg-cell-tooltip__row > .tdg-cell-tooltip__body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  padding-right: 0.25rem !important;
+}
+
 .tdg-cell-tooltip__copy {
-  display: block !important;
-  width: 100% !important;
-  margin: 0 !important;
+  display: inline-flex !important;
+  flex: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  margin: 0.25rem 0.25rem 0 0 !important;
   padding: 0 !important;
   border: 0 !important;
+  border-radius: var(--tdg-radius-sm, 0.25rem) !important;
   background: transparent !important;
-  color: inherit !important;
-  font: inherit !important;
-  text-align: start !important;
+  color: var(--tdg-cell-tooltip-resolved-muted) !important;
   cursor: pointer;
+}
+
+.tdg-cell-tooltip__copy:hover {
+  background: color-mix(
+    in oklab,
+    var(--tdg-cell-tooltip-resolved-foreground) 10%,
+    transparent
+  ) !important;
+  color: var(--tdg-cell-tooltip-resolved-foreground) !important;
 }
 
 .tdg-cell-tooltip__copy:focus-visible {
@@ -401,20 +425,22 @@
   outline-offset: -2px !important;
 }
 
-.tdg-cell-tooltip__footer {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.375rem !important;
-  padding: 0.375rem 0.625rem !important;
-  border-top: 1px solid var(--tdg-cell-tooltip-resolved-border) !important;
-  color: var(--tdg-cell-tooltip-resolved-muted) !important;
-  font-size: 0.6875rem;
+.tdg-cell-tooltip__copy[data-copied="true"] {
+  color: var(--tdg-cell-tooltip-copied-color, oklch(0.723 0.191 149.6)) !important;
 }
 
-.tdg-cell-tooltip__footer svg {
-  width: 0.75rem !important;
-  height: 0.75rem !important;
-  flex-shrink: 0 !important;
+.tdg-cell-tooltip__copy svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+}
+
+.tdg-cell-tooltip__status {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
 }
 
 .tdg-command,

@@ -75,17 +75,26 @@ test("opens only on a cut-off cell unless the column says always", async ({
   await expect(tooltipBody(page)).toHaveText("Sam Sample");
 });
 
-test("copies the cell text, or the column's copy text, on click", async ({
+test("copies the cell text, or the column's copy text, from the icon", async ({
   page,
 }) => {
+  const lastCopied = () =>
+    page.evaluate(
+      () => (window as { __lastCopiedText?: string }).__lastCopiedText
+    );
+
   await cell(page, "comment", 0).hover();
   await expect(tooltipBody(page)).toContainText("Checklist item 12: done");
-  await tooltip(page).getByRole("button").click();
-  await expect(tooltip(page)).toContainText("Copied");
-  const copiedComment = await page.evaluate(
-    () => (window as { __lastCopiedText?: string }).__lastCopiedText
-  );
-  expect(copiedComment).toContain("Monday.\n\nForwarding");
+  // Only the icon copies: the text itself stays free to select by hand.
+  await tooltipBody(page).click();
+  expect(await lastCopied()).toBe("");
+
+  // Found by slot, not by name: the name changes on click.
+  const copyButton = tooltip(page).locator('[data-slot="cell-tooltip-copy"]');
+  await expect(copyButton).toHaveAccessibleName("Click to copy");
+  await copyButton.click();
+  await expect(copyButton).toHaveAccessibleName("Copied");
+  expect(await lastCopied()).toContain("Monday.\n\nForwarding");
 
   await moveAway(page);
   await cell(page, "recipients", 0).hover();

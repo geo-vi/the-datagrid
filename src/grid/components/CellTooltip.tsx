@@ -5,7 +5,6 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Check, Copy } from "lucide-react";
 
 import type { TypeCellTooltip, TypeI18n } from "../../types";
-import { t } from "../../utils/helpers";
 import {
   useDatagridThemeBase,
   useDatagridThemeName,
@@ -166,6 +165,14 @@ export const CellTooltipLayer = React.forwardRef<
     });
   };
 
+  // An accessible name and a title take text only.
+  const labelFor = (key: string, fallback: string) => {
+    const label = i18n?.[key];
+    return typeof label === "string" ? label : fallback;
+  };
+  const copyLabel = labelFor("cellTooltipClickToCopy", "Click to copy");
+  const copiedLabel = labelFor("cellTooltipCopied", "Copied");
+
   const body = request ? (
     <span data-slot="cell-tooltip-body" className="tdg-cell-tooltip__body">
       {request.body}
@@ -213,28 +220,35 @@ export const CellTooltipLayer = React.forwardRef<
               onMouseLeave={scheduleClose}
             >
               {request.clickToCopy ? (
-                <button
-                  type="button"
-                  data-slot="cell-tooltip-copy"
-                  className="tdg-cell-tooltip__copy"
-                  onClick={copy}
+                // Only the icon copies, so the text stays selectable by hand.
+                <div
+                  data-slot="cell-tooltip-row"
+                  className="tdg-cell-tooltip__row"
                 >
                   {body}
-                  <span
-                    data-slot="cell-tooltip-footer"
-                    className="tdg-cell-tooltip__footer"
-                    aria-live="polite"
+                  <button
+                    type="button"
+                    data-slot="cell-tooltip-copy"
+                    data-copied={copied ? "true" : undefined}
+                    className="tdg-cell-tooltip__copy"
+                    aria-label={copied ? copiedLabel : copyLabel}
+                    title={copyLabel}
+                    onClick={copy}
                   >
                     {copied ? (
                       <Check aria-hidden="true" />
                     ) : (
                       <Copy aria-hidden="true" />
                     )}
-                    {copied
-                      ? t(i18n, "cellTooltipCopied", "Copied")
-                      : t(i18n, "cellTooltipClickToCopy", "Click to copy")}
+                  </button>
+                  <span
+                    data-slot="cell-tooltip-status"
+                    className="tdg-cell-tooltip__status"
+                    aria-live="polite"
+                  >
+                    {copied ? copiedLabel : ""}
                   </span>
-                </button>
+                </div>
               ) : (
                 body
               )}
