@@ -267,6 +267,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
     onCellClick,
     onCellDoubleClick,
     cellDOMProps,
+    cellTooltip,
     headerDOMProps,
     showHoverRows:
       showHoverRowsProp = REACT_DATA_GRID_DEFAULT_PROPS.showHoverRows,
@@ -4043,6 +4044,7 @@ function ReactDataGrid(props: TypeDataGridProps) {
                     renderRow={renderRow}
                     onRenderRow={onRenderRow}
                     cellDOMProps={cellDOMProps}
+                    gridCellTooltip={cellTooltip}
                     showHoverRows={showHoverRows}
                     showEmptyRows={showEmptyRows}
                     onRowContextMenu={

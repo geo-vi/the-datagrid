@@ -3474,9 +3474,16 @@ const columnSections: ReferenceSection[] = [
       {
         name: "cellTooltip",
         type: "boolean | TypeCellTooltip",
+        defaultValue: "the grid's cellTooltip",
+        description:
+          "Shows the full content of a cut-off cell in a tooltip while the pointer is over it. Desktop table only. true takes every default below. An object overrides the grid's settings field by field, and false turns the tooltip off for this column.",
+      },
+      {
+        name: "<DataGrid cellTooltip>",
+        type: "boolean | TypeCellTooltip",
         defaultValue: "false",
         description:
-          "Shows the full content of a cut-off cell in a tooltip while the pointer is over it. Desktop table only. true takes every default below.",
+          'The same setting for every column, so one grid prop replaces it on each column. For example cellTooltip={{ theme: "dark" }} gives every column a dark tooltip.',
       },
       {
         name: "cellTooltip.showWhen",

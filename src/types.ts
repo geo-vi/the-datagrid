@@ -800,7 +800,8 @@ export interface IColumn {
 
   /**
    * Shows the full content of a cut-off cell in a tooltip while the pointer is
-   * over it. Desktop table only. `true` takes every default.
+   * over it. Desktop table only. `true` takes every default. Unset uses the
+   * grid's `cellTooltip`, and an object overrides it field by field.
    */
   cellTooltip?: boolean | TypeCellTooltip;
 
@@ -2319,6 +2320,11 @@ export type TypeDataGridProps = TypeTreeGridProps &
     onCellClick?: TypeOnCellClick;
     onCellDoubleClick?: TypeOnCellDoubleClick;
     cellDOMProps?: TypeCellDOMPropsConfig;
+    /**
+     * Cell tooltip for every column. A column's own `cellTooltip` overrides it
+     * field by field, and `false` turns it off for that column.
+     */
+    cellTooltip?: boolean | TypeCellTooltip;
     headerDOMProps?: TypeHeaderDOMPropsConfig;
     showHoverRows?: boolean;
     showEmptyRows?: boolean;

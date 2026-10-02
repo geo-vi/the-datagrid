@@ -1,10 +1,20 @@
 import type { TypeCellTooltip } from "../../types";
 
-export function resolveCellTooltip(
-  setting: boolean | TypeCellTooltip | undefined
-): TypeCellTooltip | null {
+type CellTooltipSetting = boolean | TypeCellTooltip | undefined;
+
+function toCellTooltip(setting: CellTooltipSetting): TypeCellTooltip | null {
   if (!setting) return null;
   return setting === true ? {} : setting;
+}
+
+export function resolveCellTooltip(
+  gridSetting: CellTooltipSetting,
+  columnSetting: CellTooltipSetting
+): TypeCellTooltip | null {
+  if (columnSetting === false) return null;
+  const gridTooltip = toCellTooltip(gridSetting);
+  if (columnSetting === undefined) return gridTooltip;
+  return { ...gridTooltip, ...toCellTooltip(columnSetting) };
 }
 
 function overflowWidth(box: HTMLElement, style: CSSStyleDeclaration): number {
