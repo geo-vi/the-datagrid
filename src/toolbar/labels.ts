@@ -19,6 +19,8 @@ export type RDGToolbarLabels = {
   clearFilters: React.ReactNode;
   /** Trigger text for the compact column visibility dropdown. */
   columns?: React.ReactNode;
+  /** Text above the inline column toggles. Not shown on the compact dropdown. */
+  columnToggles?: React.ReactNode;
   showToolbar?: React.ReactNode;
   hideToolbar?: React.ReactNode;
   /**
@@ -48,6 +50,7 @@ export const DEFAULT_TOOLBAR_LABELS: Required<RDGToolbarLabels> = {
   hideFilters: "Hide filters",
   clearFilters: "Clear filters",
   columns: "Columns",
+  columnToggles: null,
   showToolbar: "Columns and filters",
   hideToolbar: "Hide columns and filters",
   exportFormats: {},

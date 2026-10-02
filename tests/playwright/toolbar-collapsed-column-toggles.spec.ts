@@ -289,14 +289,18 @@ test("automatically switches between inline and dropdown toggles at 1024px", asy
 
   const scope = autoFixture(page);
   const bar = toolbar(scope);
-  const inlineList = bar.locator('[data-slot="rdg-column-toggle-list"]');
+  const inlineList = bar.getByRole("group", { name: "Displayed columns" });
+  const label = bar.getByText("Displayed columns", { exact: true });
   const trigger = bar.getByRole("button", { name: "Columns", exact: true });
 
   await expect(inlineList).toBeVisible();
+  await expect(label).toBeVisible();
   await expect(trigger).toHaveCount(0);
 
+  // The label names the inline toggles; above the dropdown it would repeat it.
   await page.setViewportSize({ width: 1024, height: 844 });
   await expect(inlineList).toHaveCount(0);
+  await expect(label).toHaveCount(0);
   await expect(trigger).toBeVisible();
 
   await trigger.click();
