@@ -9548,10 +9548,10 @@ const columns: TypeColumns = [
                 },
                 {
                   name: "RDGColumnToggleList",
-                  type: "ariaLabel, describedById, className",
+                  type: "label, ariaLabel, describedById, className",
                   defaultValue: "-",
                   description:
-                    "Inline on/off button per hideable column, in the grid's own column order.",
+                    "Inline on/off button per hideable column, in the grid's own column order. A label renders above the buttons and names the group in place of ariaLabel.",
                 },
                 {
                   name: "RDGColumnsButton",
@@ -9754,6 +9754,39 @@ const columns: TypeColumns = [
                   type: "<length>",
                   defaultValue: "0.5rem",
                   description: "Spacing between column toggles.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-label-font-size",
+                  type: "<length>",
+                  defaultValue: "var(--tdg-toolbar-description-font-size)",
+                  description:
+                    "Font size of the columnToggles label above the column toggles.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-label-font-weight",
+                  type: "<number>",
+                  defaultValue: "inherit",
+                  description: "Font weight of the columnToggles label.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-label-color",
+                  type: "<color>",
+                  defaultValue: "var(--tdg-toolbar-description-color)",
+                  description: "Text color of the columnToggles label.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-label-line-height",
+                  type: "<length>",
+                  defaultValue: "1rem",
+                  description:
+                    "Line height of the columnToggles label above the column toggles.",
+                },
+                {
+                  name: "--tdg-toolbar-toggle-label-gap",
+                  type: "<length>",
+                  defaultValue: "0.25rem",
+                  description:
+                    "Spacing between the columnToggles label and the column toggles.",
                 },
                 {
                   name: "--tdg-toolbar-actions-gap",
@@ -10274,7 +10307,7 @@ const columns: TypeColumns = [
                   type: "Partial<RDGToolbarLabels>",
                   defaultValue: "English defaults",
                   description:
-                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, columns, showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
+                    "Overrides every string the toolbar renders, as strings or elements: export, showFilters, hideFilters, clearFilters, columns, columnToggles (text above the inline column toggles, none by default, never on the compact dropdown), showToolbar, hideToolbar, exportFormats (menu entry per format), exportSingle (whole button text when one format is offered, for languages that trail the verb) and filteringControlledHint.",
                 },
                 {
                   name: "RDGToolbar.children",

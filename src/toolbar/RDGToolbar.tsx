@@ -155,9 +155,13 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
       data-leading={
         showColumnToggles && !columnTogglesCollapsed ? "toggles" : "none"
       }
+      data-toggles-labelled={
+        resolvedLabels.columnToggles != null ? "true" : undefined
+      }
     >
       {showColumnToggles && !columnTogglesCollapsed ? (
         <RDGColumnToggleList
+          label={resolvedLabels.columnToggles}
           ariaLabel={ariaLabel}
           describedById={describedById}
         />

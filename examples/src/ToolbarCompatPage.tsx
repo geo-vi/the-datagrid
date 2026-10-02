@@ -104,7 +104,10 @@ export default function ToolbarCompatPage() {
 
       <section data-testid="toolbar-nested-target">
         <RDGToolbarProvider>
-          <RDGToolbar title="Fixture columns" />
+          <RDGToolbar
+            title="Fixture columns"
+            labels={{ columnToggles: "Displayed columns" }}
+          />
 
           <div className="h-80 min-h-0">
             <RDGToolbarTarget>

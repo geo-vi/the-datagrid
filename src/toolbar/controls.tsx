@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useStableId } from "../hooks/useStableId";
 import {
   ChevronDownIcon,
   ColumnsIcon,
@@ -74,6 +75,8 @@ export function RDGToolbarSurface(
 }
 
 export type RDGColumnToggleListProps = {
+  /** Visible text above the buttons; it names the group in place of `ariaLabel`. */
+  label?: React.ReactNode;
   ariaLabel?: string;
   describedById?: string;
   className?: string;
@@ -84,16 +87,20 @@ export function RDGColumnToggleList(
   props: RDGColumnToggleListProps
 ): React.ReactElement {
   const {
+    label,
     ariaLabel = "Visible column toggles",
     describedById,
     className,
   } = props;
   const items = useRDGColumnToggleItems();
+  const labelId = useStableId("tdg-column-toggle-list-label");
+  const labelled = label != null;
 
-  return (
+  const list = (
     <div
       role="group"
-      aria-label={ariaLabel}
+      aria-label={labelled ? undefined : ariaLabel}
+      aria-labelledby={labelled ? labelId : undefined}
       aria-describedby={describedById}
       className={className}
       data-slot="rdg-column-toggle-list"
@@ -112,6 +119,17 @@ export function RDGColumnToggleList(
           {item.label}
         </button>
       ))}
+    </div>
+  );
+
+  if (!labelled) return list;
+
+  return (
+    <div data-slot="rdg-column-toggle-group">
+      <div id={labelId} data-slot="rdg-column-toggle-list-label">
+        {label}
+      </div>
+      {list}
     </div>
   );
 }

@@ -151,6 +151,13 @@
   /* Groups */
   --tdg-toolbar-body-gap: 1.5rem;
   --tdg-toolbar-toggle-gap: 0.5rem;
+  --tdg-toolbar-toggle-label-font-size: var(
+    --tdg-toolbar-description-font-size
+  );
+  --tdg-toolbar-toggle-label-font-weight: inherit;
+  --tdg-toolbar-toggle-label-color: var(--tdg-toolbar-description-color);
+  --tdg-toolbar-toggle-label-line-height: 1rem;
+  --tdg-toolbar-toggle-label-gap: 0.25rem;
   --tdg-toolbar-actions-gap: 0.5rem;
 
   /* Controls: every button in the toolbar */
@@ -538,6 +545,32 @@
     [data-slot="rdg-toolbar-body"][data-leading="none"] {
     justify-content: flex-end;
   }
+
+  /* Level with the first row of toggles rather than with the label above them. */
+  :where(
+      .tdg-toolbar-root
+        [data-slot="rdg-toolbar-body"][data-leading="toggles"][data-toggles-labelled="true"]
+    )
+    > [data-slot="rdg-toolbar-actions"] {
+    margin-top: calc(
+      var(--tdg-toolbar-toggle-label-line-height) +
+        var(--tdg-toolbar-toggle-label-gap)
+    );
+  }
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-group"] {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--tdg-toolbar-toggle-label-gap);
+}
+
+:where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-list-label"] {
+  font-size: var(--tdg-toolbar-toggle-label-font-size);
+  font-weight: var(--tdg-toolbar-toggle-label-font-weight);
+  line-height: var(--tdg-toolbar-toggle-label-line-height);
+  color: var(--tdg-toolbar-toggle-label-color);
 }
 
 :where(.tdg-toolbar-root) [data-slot="rdg-column-toggle-list"] {
