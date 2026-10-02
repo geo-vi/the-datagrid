@@ -85,7 +85,7 @@ function clampWidth(value: number, bounds: WidthBounds): number {
   );
 }
 
-function getFlexWeight(
+export function getFlexWeight(
   column: TypeColumn,
   preferredFlexes: Readonly<Record<string, number | null>>
 ): number | undefined {
