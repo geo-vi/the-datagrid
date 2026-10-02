@@ -37,6 +37,7 @@ import SearchDataSourceCompatPage from "./SearchDataSourceCompatPage";
 import SelectionGridExample from "./SelectionGridExample";
 import StackedColumnsExample from "./StackedColumnsExample";
 import TallHeaderCompatPage from "./TallHeaderCompatPage";
+import LastColumnHeaderCompatPage from "./LastColumnHeaderCompatPage";
 import StackedColumnsExamplePage from "./StackedColumnsExamplePage";
 import ToolbarGridExample from "./ToolbarGridExample";
 import UsersGridExample from "./UsersGridExample";
@@ -541,6 +542,12 @@ const compatTallHeaderRoute = createRoute({
   component: TallHeaderCompatPage,
 });
 
+const compatLastColumnHeaderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/last-column-header",
+  component: LastColumnHeaderCompatPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   docsRoute.addChildren([docsIndexRoute, docsPageRoute]),
@@ -566,6 +573,7 @@ const routeTree = rootRoute.addChildren([
   compatCellTooltipRoute,
   compatSearchDataSourceRoute,
   compatTallHeaderRoute,
+  compatLastColumnHeaderRoute,
   examplesOverviewRoute,
   exampleActionsRoute,
   exampleBasicRoute,

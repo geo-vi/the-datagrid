@@ -81,7 +81,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "../components/ui/dropdown-menu";
-import { allocateColumnWidths } from "./utils/columnSizing";
+import { allocateColumnWidths, getFlexWeight } from "./utils/columnSizing";
 import {
   buildGridColumnRenderItems,
   buildLockedColumnLayout,
@@ -1468,40 +1468,34 @@ function ReactDataGrid(props: TypeDataGridProps) {
   }, [orderedColumns]);
 
   const columnWidthAllocation = React.useMemo(() => {
-    const allocation = allocateColumnWidths({
-      columns: sizingColumns,
-      availableWidth: Math.max(0, columnViewportWidth - reservedViewportWidth),
-      preferredWidths: Object.fromEntries(
-        orderedColumns.map((column) => {
-          const columnId = getColumnId(column);
-          return [
-            columnId,
-            manualColumnWidths[columnId] ?? autosizedWidths[columnId],
-          ];
-        })
-      ),
-      preferredFlexes: manualColumnFlexes,
-      defaultWidth: computedColumnDefaultWidth,
-      defaultMinWidth: computedColumnMinWidth,
-      defaultMaxWidth: computedColumnMaxWidth ?? Number.MAX_SAFE_INTEGER,
-    });
-    const next = { ...allocation.widths };
-    const lastColumn = orderedColumns[orderedColumns.length - 1];
+    const preferredWidths: Record<string, number> = Object.fromEntries(
+      orderedColumns.map((column) => {
+        const columnId = getColumnId(column);
+        return [
+          columnId,
+          manualColumnWidths[columnId] ?? autosizedWidths[columnId],
+        ];
+      })
+    );
+    const lastColumn = sizingColumns[sizingColumns.length - 1];
 
+    // Widened before the flex columns share out the rest, so they give up the
+    // pixels instead of the table outgrowing the width it was measured from.
     if (lastColumn) {
       const lastColumnId = getColumnId(lastColumn);
       const hasControlledWidth =
         typeof lastColumn.width === "number" &&
         Number.isFinite(lastColumn.width) &&
         lastColumn.width > 0;
-      const hasFlex = Boolean(allocation.flexWeights[lastColumnId]);
+      const hasFlex =
+        getFlexWeight(lastColumn, manualColumnFlexes) !== undefined;
 
       if (!hasControlledWidth && !hasFlex) {
-        next[lastColumnId] = ensureLastColumnHeaderFits({
+        preferredWidths[lastColumnId] = ensureLastColumnHeaderFits({
           column: lastColumn,
           baseWidth:
-            next[lastColumnId] ??
-            autosizedWidths[lastColumnId] ??
+            preferredWidths[lastColumnId] ??
+            lastColumn.defaultWidth ??
             computedColumnDefaultWidth,
           showColumnMenuTool,
           columnMinWidth: computedColumnMinWidth,
@@ -1510,7 +1504,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
       }
     }
 
-    return { ...allocation, widths: next };
+    return allocateColumnWidths({
+      columns: sizingColumns,
+      availableWidth: Math.max(0, columnViewportWidth - reservedViewportWidth),
+      preferredWidths,
+      preferredFlexes: manualColumnFlexes,
+      defaultWidth: computedColumnDefaultWidth,
+      defaultMinWidth: computedColumnMinWidth,
+      defaultMaxWidth: computedColumnMaxWidth ?? Number.MAX_SAFE_INTEGER,
+    });
   }, [
     autosizedWidths,
     columnViewportWidth,
