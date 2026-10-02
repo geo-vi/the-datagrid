@@ -37,6 +37,18 @@ const createColumns = (): TypeColumns => [
   // No `cellTooltip`: cut off like the others, but never opens a tooltip.
   { name: "city", header: "City (no tooltip)", width: 140 },
 ];
+// For a grid that sets `cellTooltip` itself. Its box is narrower than these
+// columns, so the grid does not widen them to fill it and the cells stay cut off.
+const gridTooltipColumns: TypeColumns = [
+  { name: "name", header: "Name", width: 160 },
+  {
+    name: "note",
+    header: "Note (no copy)",
+    width: 200,
+    cellTooltip: { clickToCopy: false },
+  },
+  { name: "city", header: "City (off)", width: 140, cellTooltip: false },
+];
 const rows = [
   {
     id: 1,
@@ -114,6 +126,17 @@ export default function CellTooltipCompatPage() {
           theme="default-dark"
           columns={columns}
           dataSource={rows}
+        />
+      </div>
+      <div
+        data-testid="cell-tooltip-grid-setting"
+        className="h-[200px] w-[480px] min-h-0 rounded-lg border"
+      >
+        <ReactDataGrid
+          idProperty="id"
+          columns={gridTooltipColumns}
+          dataSource={rows}
+          cellTooltip={{ theme: "dark" }}
         />
       </div>
     </main>
