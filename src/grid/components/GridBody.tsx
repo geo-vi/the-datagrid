@@ -294,6 +294,7 @@ export type GridBodyProps = {
   renderRow?: TypeDataGridProps["renderRow"];
   onRenderRow?: TypeDataGridProps["onRenderRow"];
   cellDOMProps?: TypeDataGridProps["cellDOMProps"];
+  gridCellTooltip?: TypeDataGridProps["cellTooltip"];
   showHoverRows: boolean;
   showEmptyRows: boolean;
   onRowContextMenu?: (
@@ -410,6 +411,7 @@ export function GridBody(props: GridBodyProps) {
     renderRow,
     onRenderRow,
     cellDOMProps,
+    gridCellTooltip,
     showHoverRows,
     showEmptyRows,
     onRowContextMenu,
@@ -1396,7 +1398,10 @@ export function GridBody(props: GridBodyProps) {
           const lockedLayout = lockedColumnLayout[columnId];
           const cellKey = `${String(row.id)}\u0000${columnId}`;
           const align = column?.textAlign;
-          const cellTooltip = resolveCellTooltip(column?.cellTooltip);
+          const cellTooltip = resolveCellTooltip(
+            gridCellTooltip,
+            column?.cellTooltip
+          );
           // The content wrapper is a flex row, so its child hugs itself and
           // `text-align` cannot place it. This also aligns a custom `render`.
           const contentAlignClass =

@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 // The fixture's columns: `name` opens always, `recipients` has a custom body
 // and copy text, `note` has no copy footer, `comment` holds a long multi-line
 // value, and `city` has no `cellTooltip` at all. Row 2's `name` and `note` are
-// cut off; row 1's `note` fits.
+// cut off; row 1's `note` fits. A third grid sets `cellTooltip` itself.
 const CLOSED_SETTLE_MS = 700;
 
 const cell = (page: Page, columnId: string, rowIndex: number) =>
@@ -165,4 +165,35 @@ test("keeps selected text in a plain cell when the grid gets new columns", async
   expect(await page.evaluate(() => String(window.getSelection()))).toBe(
     "Hampton"
   );
+});
+
+test("takes the grid's cellTooltip unless a column sets its own", async ({
+  page,
+}) => {
+  const gridCell = (columnId: string, rowIndex: number) =>
+    page
+      .getByTestId("cell-tooltip-grid-setting")
+      .locator(`[data-slot="grid-cell"][data-column-id="${columnId}"]`)
+      .nth(rowIndex);
+  const copyButton = tooltip(page).locator('[data-slot="cell-tooltip-copy"]');
+
+  await gridCell("name", 1).hover();
+  await expect(tooltipBody(page)).toHaveText(
+    "Alexandra Maximiliane Testperson"
+  );
+  await expect(tooltip(page)).toHaveAttribute("data-tooltip-theme", "dark");
+  await expect(copyButton).toHaveCount(1);
+
+  await moveAway(page);
+  await gridCell("note", 1).hover();
+  await expect(tooltipBody(page)).toHaveText(
+    "A note long enough to be cut off by its column"
+  );
+  await expect(tooltip(page)).toHaveAttribute("data-tooltip-theme", "dark");
+  await expect(copyButton).toHaveCount(0);
+
+  await moveAway(page);
+  await gridCell("city", 0).hover();
+  await page.waitForTimeout(CLOSED_SETTLE_MS);
+  await expect(tooltip(page)).toHaveCount(0);
 });
