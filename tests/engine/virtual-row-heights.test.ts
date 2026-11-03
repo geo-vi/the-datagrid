@@ -46,6 +46,24 @@ test("relayouts a global row height change once instead of once per row", () => 
   assert.equal(state.notifications, 1);
   assert.equal(virtualizer.getTotalSize(), 30 * rowCount);
   assert.equal(state.scrolledTo, 30 * 1_000);
+  assert.equal(virtualizer.scrollOffset, 30 * 1_000);
+});
+
+test("anchors later row measurements against the new scroll offset", () => {
+  const heights = Array.from({ length: 10_000 }, () => 55);
+  const { virtualizer, state } = createVirtualizer(heights, 55 * 1_000);
+
+  heights.fill(30);
+  applyVirtualRowHeights(
+    virtualizer,
+    heights.map((_, index) => index),
+    heights
+  );
+  // A mounted row above the viewport is measured before the scroll event of
+  // the anchor write arrives.
+  virtualizer.resizeItem(999, 38);
+
+  assert.equal(state.scrolledTo, 30 * 1_000 + 8);
 });
 
 test("resizes a few changed rows in place and keeps the size cache", () => {
