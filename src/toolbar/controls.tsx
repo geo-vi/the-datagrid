@@ -177,7 +177,12 @@ export function RDGColumnsButton(
        * locks its scrolling, which is the wrong trade for choosing columns
        * against the grid the choice is changing.
        */}
-      <menu.Root modal={false} onOpenChange={() => setQuery("")}>
+      <menu.Root
+        modal={false}
+        onOpenChange={(open) => {
+          if (!open) setQuery("");
+        }}
+      >
         <menu.Trigger
           data-slot="rdg-toolbar-column-toggle-trigger"
           aria-describedby={describedById}
