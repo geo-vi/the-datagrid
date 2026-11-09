@@ -13,6 +13,7 @@ import EditingGridExample from "./EditingGridExample";
 import ColumnDefaultHeaderAlignPage from "./ColumnDefaultHeaderAlignPage";
 import SortIconVisibilityPage from "./SortIconVisibilityPage";
 import CellTooltipCompatPage from "./CellTooltipCompatPage";
+import RowHeightToggleCompatPage from "./RowHeightToggleCompatPage";
 import ToolbarCompatPage from "./ToolbarCompatPage";
 import ComputedPropsCompatPage from "./ComputedPropsCompatPage";
 import DefaultPropsCompatPage from "./DefaultPropsCompatPage";
@@ -530,6 +531,12 @@ const compatCellTooltipRoute = createRoute({
   component: CellTooltipCompatPage,
 });
 
+const compatRowHeightToggleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "compat/row-height-toggle",
+  component: RowHeightToggleCompatPage,
+});
+
 const compatSearchDataSourceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "compat/search-data-source",
@@ -571,6 +578,7 @@ const routeTree = rootRoute.addChildren([
   compatColumnDefaultHeaderAlignRoute,
   compatSortIconVisibilityRoute,
   compatCellTooltipRoute,
+  compatRowHeightToggleRoute,
   compatSearchDataSourceRoute,
   compatTallHeaderRoute,
   compatLastColumnHeaderRoute,

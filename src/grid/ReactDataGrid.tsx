@@ -115,6 +115,7 @@ import {
 import { GridLoadingLayer } from "./components/GridLoadingLayer";
 import { getLogicalScrollLeft, setLogicalScrollLeft } from "./utils/rtlScroll";
 import { equalRowHeights, normalizeRowHeightsMap } from "./utils/rowHeightsMap";
+import { applyVirtualRowHeights } from "./utils/virtualRowHeights";
 import {
   createSpanAwareRangeExtractor,
   type TypeSpanInterval,
@@ -2323,12 +2324,15 @@ function ReactDataGrid(props: TypeDataGridProps) {
     const previousOverrides = previousRowHeightOverridesRef.current;
     const nextHeights: Record<string, number> = {};
     const nextRowIds: string[] = [];
+    const nextHeightsByIndex: number[] = [];
+    const changedIndexes: number[] = [];
 
     rowModel.forEach((row, rowIndex) => {
       const rowId = String(getRowKey(row.original, rowIndex));
       const nextHeight = resolveVirtualRowHeight(rowIndex);
       nextHeights[rowId] = nextHeight;
       nextRowIds[rowIndex] = rowId;
+      nextHeightsByIndex[rowIndex] = nextHeight;
       const previousRowId = previousRowIds[rowIndex];
       const rowIdentityRequiresReset =
         previousRowId !== rowId &&
@@ -2339,13 +2343,29 @@ function ReactDataGrid(props: TypeDataGridProps) {
             previousOverrides[previousRowId] !== undefined));
 
       if (rowIdentityRequiresReset || previousHeights[rowId] !== nextHeight) {
-        rowVirtualizer.resizeItem(rowIndex, nextHeight);
+        changedIndexes.push(rowIndex);
       }
     });
 
     previousResolvedRowHeightsRef.current = nextHeights;
     previousResolvedRowIdsRef.current = nextRowIds;
     previousRowHeightOverridesRef.current = computedRowHeights;
+
+    const sizeCacheCleared = applyVirtualRowHeights(
+      rowVirtualizer,
+      changedIndexes,
+      nextHeightsByIndex
+    );
+    // Fixed rows already use their configured heights; measuring their DOM
+    // boxes would add borders to those heights and shift scroll offsets.
+    if (!sizeCacheCleared || rowHeight != null) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollRef.current
+        ?.querySelectorAll<HTMLElement>('[data-slot="grid-row"][data-index]')
+        .forEach((element) => rowVirtualizer.measureElement(element));
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [
     computedMaxRowHeight,
     computedMinRowHeight,
