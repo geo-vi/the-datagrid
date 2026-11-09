@@ -146,6 +146,8 @@ export function RDGToolbar(props: RDGToolbarProps): React.ReactElement {
         ariaLabel={ariaLabel}
         describedById={describedById}
         label={resolvedLabels.columns}
+        searchPlaceholder={resolvedLabels.columnSearchPlaceholder}
+        emptyText={resolvedLabels.noMatchingColumns}
       />
     ) : null;
 

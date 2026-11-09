@@ -136,6 +136,8 @@ export function RDGColumnToggleList(
 
 export type RDGColumnsButtonProps = {
   label?: React.ReactNode;
+  searchPlaceholder?: string;
+  emptyText?: React.ReactNode;
   ariaLabel?: string;
   describedById?: string;
   className?: string;
@@ -151,12 +153,22 @@ export function RDGColumnsButton(
 ): React.ReactElement {
   const {
     label = DEFAULT_TOOLBAR_LABELS.columns,
+    searchPlaceholder = DEFAULT_TOOLBAR_LABELS.columnSearchPlaceholder,
+    emptyText = DEFAULT_TOOLBAR_LABELS.noMatchingColumns,
     ariaLabel = "Visible column toggles",
     describedById,
     className,
   } = props;
   const items = useRDGColumnToggleItems();
   const menu = getCoreMenuRuntime();
+  const [query, setQuery] = React.useState("");
+  const normalizedQuery = query.normalize("NFKC").trim().toLocaleLowerCase();
+  const filteredItems = items.filter((item) =>
+    String(item.label)
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .includes(normalizedQuery)
+  );
 
   return (
     <div className={className} data-slot="rdg-toolbar-column-toggle-wrapper">
@@ -165,7 +177,12 @@ export function RDGColumnsButton(
        * locks its scrolling, which is the wrong trade for choosing columns
        * against the grid the choice is changing.
        */}
-      <menu.Root modal={false}>
+      <menu.Root
+        modal={false}
+        onOpenChange={(open) => {
+          if (!open) setQuery("");
+        }}
+      >
         <menu.Trigger
           data-slot="rdg-toolbar-column-toggle-trigger"
           aria-describedby={describedById}
@@ -197,9 +214,36 @@ export function RDGColumnsButton(
           <menu.Label data-slot="rdg-toolbar-column-toggle-menu-label">
             {label}
           </menu.Label>
+          <input
+            type="text"
+            role="searchbox"
+            aria-label={searchPlaceholder}
+            placeholder={searchPlaceholder}
+            data-slot="rdg-column-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" || event.key === "Tab") return;
+              event.stopPropagation();
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                event.currentTarget
+                  .closest('[role="menu"]')
+                  ?.querySelector<HTMLElement>(
+                    '[role="menuitemcheckbox"]:not([data-disabled])'
+                  )
+                  ?.focus();
+              }
+            }}
+          />
           <menu.Separator data-slot="rdg-toolbar-column-toggle-menu-separator" />
           <menu.Group data-slot="rdg-toolbar-column-toggle-menu-group">
-            {items.map((item) => (
+            {filteredItems.length === 0 ? (
+              <div role="status" data-slot="rdg-column-search-empty">
+                {emptyText}
+              </div>
+            ) : null}
+            {filteredItems.map((item) => (
               <menu.CheckboxItem
                 key={item.columnId}
                 checked={item.visible}

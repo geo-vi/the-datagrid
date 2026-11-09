@@ -105,6 +105,37 @@ test("supports menu keyboard navigation and click-outside dismissal", async ({
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
+test("searches columns without changing the grid or losing hidden choices", async ({
+  page,
+}) => {
+  const scope = fixture(page);
+  const trigger = toolbar(scope).getByRole("button", {
+    name: "Choose columns",
+  });
+  await trigger.click();
+  const menu = columnMenu(scope);
+  const search = menu.getByRole("searchbox", { name: "Search columns…" });
+  await search.fill("  CITY  ");
+  await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(1);
+  await expect(columnHeader(scope, "name")).toBeVisible();
+  await search.press("ArrowDown");
+  await expect(columnOption(menu, "city")).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(columnHeader(scope, "city")).toBeVisible();
+  await search.fill("no such column");
+  await expect(menu.getByRole("status")).toHaveText("No matching columns");
+  await expect(columnHeader(scope, "name")).toBeVisible();
+  await search.press("Escape");
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(search).toHaveValue("");
+  await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(3);
+  await expect(columnOption(menu, "city")).toHaveAttribute(
+    "aria-checked",
+    "true"
+  );
+});
+
 test("paints the menu with the toolbar's own tokens", async ({ page }) => {
   const scope = fixture(page);
   const bar = toolbar(scope);
