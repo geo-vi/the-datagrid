@@ -9,7 +9,7 @@ import type {
   TypeRowContextMenuProps,
   TypeSortInfo,
 } from "../../types";
-import { getColumnId } from "../../utils/column";
+import { canHideColumn, getColumnId } from "../../utils/column";
 import { t } from "../../utils/helpers";
 import type {
   OpenColumnContextMenu,
@@ -140,11 +140,9 @@ export function useGridContextMenuLayers(
     contextMenuCanSort &&
     contextMenuIsSorted &&
     (allowUnsort || Array.isArray(sortInfo));
-  const visibleColumnCount = groupedColumns.reduce(
-    (total, column) =>
-      total + (columnVisibilityMap[getColumnId(column)] !== false ? 1 : 0),
-    0
-  );
+  const visibleColumnCount = groupedColumns.filter(
+    (column) => columnVisibilityMap[getColumnId(column)] !== false
+  ).length;
   const columnContextMenuItems: NonNullable<
     TypeColumnContextMenuProps["items"]
   > = contextMenuColumnId
@@ -189,9 +187,12 @@ export function useGridContextMenuLayers(
                   ? column.header
                   : (column.name ?? column.id ?? columnId),
               checked: visible,
-              disabled:
-                column.hideable === false ||
-                (visible && visibleColumnCount <= 1),
+              disabled: !canHideColumn(
+                column,
+                groupedColumns,
+                (candidate) =>
+                  columnVisibilityMap[getColumnId(candidate)] !== false
+              ),
               onClick: () => setColumnVisibleById(columnId, !visible),
             };
           }),
@@ -302,6 +303,7 @@ export function useGridContextMenuLayers(
     if (rowContextMenuSuppressed) hideRowContextMenu();
   }, [hideRowContextMenu, rowContextMenuSuppressed]);
   return {
+    visibleColumnCount,
     columnMenuProps,
     contextMenuCanSort,
     contextMenuCanUnsort,
@@ -311,6 +313,5 @@ export function useGridContextMenuLayers(
     rowMenuProps,
     showColumnMenuLayer,
     showRowMenuLayer,
-    visibleColumnCount,
   };
 }

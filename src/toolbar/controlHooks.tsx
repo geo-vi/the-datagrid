@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import type { TypeColumn } from "../types";
+import { canHideColumn } from "../utils/column";
 import { normalizeThemeName, resolveThemeBase } from "../theme/context";
 import { getColumnId, orderColumns } from "./columns";
 import { getCoreMenuRuntime } from "./runtime";
@@ -77,12 +78,6 @@ export function useRDGColumnToggleItems(): readonly ColumnToggleItem[] {
     () => orderColumns(snapshot.columns, snapshot.columnOrder),
     [snapshot.columnOrder, snapshot.columns]
   );
-  const visibleColumnCount = orderedColumns.reduce(
-    (count, column) =>
-      count +
-      (snapshot.columnVisibilityMap[getColumnId(column)] === false ? 0 : 1),
-    0
-  );
 
   return orderedColumns
     .filter((column) => column.hideable !== false)
@@ -92,7 +87,12 @@ export function useRDGColumnToggleItems(): readonly ColumnToggleItem[] {
 
       return {
         columnId,
-        disabled: visible && visibleColumnCount <= 1,
+        disabled: !canHideColumn(
+          column,
+          orderedColumns,
+          (candidate) =>
+            snapshot.columnVisibilityMap[getColumnId(candidate)] !== false
+        ),
         label: getColumnLabel(column),
         onToggle: () => snapshot.setColumnVisible(columnId, !visible),
         visible,

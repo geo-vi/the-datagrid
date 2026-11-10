@@ -67,7 +67,11 @@ import {
 import { cn } from "../../lib/utils";
 import { useDeferredValueCompat } from "../../hooks/useDeferredValueCompat";
 import { useStableId } from "../../hooks/useStableId";
-import { getColumnId, getColumnSortName } from "../../utils/column";
+import {
+  canHideColumn,
+  getColumnId,
+  getColumnSortName,
+} from "../../utils/column";
 import { setColumnSortInfo } from "../../sorting/utils";
 import { t } from "../../utils/helpers";
 import { resolveEmptyText } from "../utils/emptyText";
@@ -609,11 +613,9 @@ export function MobileGridList({
   const getTreeMetadataRef = React.useRef(tree.getMetadata);
   getTreeMetadataRef.current = tree.getMetadata;
 
-  const visibleDisplayColumnCount = displayColumns.reduce(
-    (count, column) =>
-      count + (hiddenMobileColumnIds.has(getColumnId(column)) ? 0 : 1),
-    0
-  );
+  const visibleDisplayColumnCount = displayColumns.filter(
+    (column) => !hiddenMobileColumnIds.has(getColumnId(column))
+  ).length;
 
   React.useEffect(() => {
     const availableColumns = new Map(
@@ -653,12 +655,14 @@ export function MobileGridList({
         if (currentlyDisplayed === displayed) return current;
 
         if (!displayed) {
-          const displayedCount = displayColumns.reduce(
-            (count, candidate) =>
-              count + (current.has(getColumnId(candidate)) ? 0 : 1),
-            0
-          );
-          if (displayedCount <= 1) return current;
+          if (
+            !canHideColumn(
+              column,
+              displayColumns,
+              (candidate) => !current.has(getColumnId(candidate))
+            )
+          )
+            return current;
         }
 
         const next = new Set(current);
@@ -1006,7 +1010,13 @@ export function MobileGridList({
       if (cell === primaryCell) return activeVariant === "list";
       return true;
     });
-    return { actionCells, checkboxCell, contentCells, detailCells, primaryCell };
+    return {
+      actionCells,
+      checkboxCell,
+      contentCells,
+      detailCells,
+      primaryCell,
+    };
   };
 
   const toggleExpandedRow = React.useCallback((rowId: string) => {
@@ -1111,8 +1121,13 @@ export function MobileGridList({
     const rowIsDisabled = isRowDisabled(rowIndex);
     const rowIsSelected = Boolean(selectedMap[row.id]);
     const rowIsActive = rowIndex === activeIndex;
-    const { actionCells, checkboxCell, contentCells, detailCells, primaryCell } =
-      splitRowCells(row);
+    const {
+      actionCells,
+      checkboxCell,
+      contentCells,
+      detailCells,
+      primaryCell,
+    } = splitRowCells(row);
     const visibleDetailCells = detailCells.slice(0, cardFieldLimit);
     const overflowDetailCells = detailCells.slice(cardFieldLimit);
     const listDetailCells = (
@@ -1857,9 +1872,11 @@ export function MobileGridList({
 
     return {
       checked,
-      disabled:
-        column.hideable === false ||
-        (checked && visibleDisplayColumnCount <= 1),
+      disabled: !canHideColumn(
+        column,
+        displayColumns,
+        (candidate) => !hiddenMobileColumnIds.has(getColumnId(candidate))
+      ),
       id: columnId,
       label: labelForColumn(column),
       setChecked: (next) => setMobileColumnDisplayed(columnId, next),

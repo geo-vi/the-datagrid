@@ -4,8 +4,34 @@ import test from "node:test";
 import type { TypeColumn } from "../../src/types";
 import type { RDGToolbarPublishedSnapshot } from "../../src/toolbar/controller";
 import { createRDGToolbarStore } from "../../src/toolbar/store";
+import { canHideColumn } from "../../src/utils/column";
 
 type Row = Record<string, unknown>;
+
+test("keeps one content column visible even beside permanent action buttons", () => {
+  const actions: TypeColumn = {
+    name: "actions",
+    hideable: false,
+    exportable: false,
+    filterable: false,
+    sortable: false,
+  };
+  const name: TypeColumn = { name: "name" };
+  const city: TypeColumn = { name: "city" };
+  const columns = [actions, name, city];
+  const isVisible = (column: TypeColumn) => column.name !== "city";
+  assert.equal(canHideColumn(name, columns, isVisible), false);
+  assert.equal(canHideColumn(city, columns, isVisible), true);
+  assert.equal(canHideColumn(actions, columns, isVisible), false);
+  assert.equal(
+    canHideColumn(name, columns, () => true),
+    true
+  );
+  assert.equal(
+    canHideColumn(city, [{ ...name, hideable: false }, city], () => true),
+    true
+  );
+});
 
 const COLUMNS: TypeColumn[] = [
   { name: "id", header: "ID" },
